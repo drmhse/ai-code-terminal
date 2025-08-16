@@ -1,5 +1,5 @@
 {
-  "name": "claude-code-terminal",
+  "name": "ai-code-terminal",
   "version": "2.0.0",
   "description": "Single-tenant terminal interface with god-mode shell access (Docker deployment)",
   "license": "AGPL-3.0-or-later",

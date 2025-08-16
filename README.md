@@ -8,6 +8,8 @@ AI Code Terminal is the bridge to this new paradigm. It is a self-hosted, sovere
 ![Docker](https://img.shields.io/badge/Docker-Ready-blue)
 ![License](https://img.shields.io/badge/License-AGPL--3.0-blue)
 
+Website: [act.drmhse.com](https://act.drmhse.com)
+
 ## Philosophy
 
 -   **The Post-IDE Era:** In 2025, a powerful shell is a complete development environment. We provide that environment, wherever you are.
