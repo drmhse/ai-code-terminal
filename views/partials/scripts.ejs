@@ -1,0 +1,689 @@
+<script>
+        const { createApp } = Vue;
+        
+        createApp({
+            data() {
+                return {
+                    isAuthenticated: false,
+                    username: null,
+                    errorMessage: null,
+                    socket: null,
+                    terminal: null,
+                    fitAddon: null,
+                    workspaces: [],
+                    selectedWorkspace: null,
+                    repositories: [],
+                    repositoriesLoading: false,
+                    repositoryError: null,
+                    repositoryPage: 1,
+                    repositoryHasMore: true,
+                    repositoryLoadingMore: false,
+                    showRepositoriesModal: false,
+                    stats: {},
+                    statsInterval: null,
+                    isMobile: false,
+                    sidebarOpen: false,
+                    statsOpen: false,
+                    showThemeModal: false,
+                    currentTheme: this.getDefaultTheme(),
+                    availableThemes: [],
+                    showDeleteModal: false,
+                    workspaceToDelete: null,
+                    deleteFiles: false,
+                    deletingWorkspace: false
+                };
+            },
+            
+            async mounted() {
+                // Check if mobile
+                this.checkMobile();
+                window.addEventListener('resize', this.checkMobile);
+
+                // Check for authentication token in URL
+                const urlParams = new URLSearchParams(window.location.search);
+                const token = urlParams.get('token');
+                const error = urlParams.get('error');
+                
+                if (error) {
+                    this.errorMessage = decodeURIComponent(error);
+                    window.history.replaceState({}, document.title, '/');
+                    return;
+                }
+                
+                if (token) {
+                    localStorage.setItem('authToken', token);
+                    window.history.replaceState({}, document.title, '/');
+                }
+                
+                // Check existing token
+                const existingToken = localStorage.getItem('authToken');
+                if (existingToken) {
+                    this.isAuthenticated = true;
+                    await this.loadAvailableThemes();
+                    this.initializeApp();
+                }
+
+                // Initialize Feather Icons
+                this.$nextTick(() => {
+                    feather.replace();
+                });
+
+                // Handle escape key to close modals
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        this.showThemeModal = false;
+                        this.showRepositoriesModal = false;
+                        this.showDeleteModal = false;
+                    }
+                });
+            },
+            
+            methods: {
+                getDefaultTheme() {
+                    return {
+                        name: 'VS Code Dark',
+                        type: 'dark',
+                        colors: {
+                            primary: '#1e1e1e',
+                            secondary: '#252526', 
+                            tertiary: '#2d2d30',
+                            sidebar: '#181818',
+                            border: '#3c3c3c',
+                            textPrimary: '#cccccc',
+                            textSecondary: '#969696',
+                            textMuted: '#6a6a6a',
+                            accentBlue: '#007acc',
+                            accentGreen: '#16825d',
+                            accentRed: '#f14c4c',
+                            terminalBg: '#1e1e1e'
+                        },
+                        terminal: {
+                            background: '#1e1e1e',
+                            foreground: '#cccccc',
+                            cursor: '#cccccc',
+                            selection: '#264f78',
+                            black: '#000000',
+                            red: '#f14c4c',
+                            green: '#16825d',
+                            yellow: '#ff8c00',
+                            blue: '#007acc',
+                            magenta: '#c678dd',
+                            cyan: '#56b6c2',
+                            white: '#cccccc',
+                            brightBlack: '#666666',
+                            brightRed: '#f14c4c',
+                            brightGreen: '#16825d',
+                            brightYellow: '#ff8c00',
+                            brightBlue: '#007acc',
+                            brightMagenta: '#c678dd',
+                            brightCyan: '#56b6c2',
+                            brightWhite: '#ffffff'
+                        }
+                    };
+                },
+
+                async loadAvailableThemes() {
+                    try {
+                        const response = await fetch('/api/themes', {
+                            headers: {
+                                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                            }
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.success && data.themes) {
+                                this.availableThemes = data.themes.map(theme => ({
+                                    ...theme,
+                                    terminal: {
+                                        background: theme.terminal.background,
+                                        foreground: theme.terminal.foreground,
+                                        cursor: theme.terminal.cursor,
+                                        selection: theme.terminal.selection,
+                                        black: theme.terminal.ansiBlack,
+                                        red: theme.terminal.ansiRed,
+                                        green: theme.terminal.ansiGreen,
+                                        yellow: theme.terminal.ansiYellow,
+                                        blue: theme.terminal.ansiBlue,
+                                        magenta: theme.terminal.ansiMagenta,
+                                        cyan: theme.terminal.ansiCyan,
+                                        white: theme.terminal.ansiWhite,
+                                        brightBlack: theme.terminal.ansiBrightBlack,
+                                        brightRed: theme.terminal.ansiBrightRed,
+                                        brightGreen: theme.terminal.ansiBrightGreen,
+                                        brightYellow: theme.terminal.ansiBrightYellow,
+                                        brightBlue: theme.terminal.ansiBrightBlue,
+                                        brightMagenta: theme.terminal.ansiBrightMagenta,
+                                        brightCyan: theme.terminal.ansiBrightCyan,
+                                        brightWhite: theme.terminal.ansiBrightWhite
+                                    }
+                                }));
+                            }
+                        } else {
+                            console.warn('Failed to load themes from server, using fallback');
+                            this.availableThemes = this.getFallbackThemes();
+                        }
+                    } catch (error) {
+                        console.error('Failed to load themes:', error);
+                        this.availableThemes = this.getFallbackThemes();
+                    }
+                },
+
+                getFallbackThemes() {
+                    return [this.getDefaultTheme()];
+                },
+
+                checkMobile() {
+                    this.isMobile = window.innerWidth <= 768;
+                    if (!this.isMobile) {
+                        this.sidebarOpen = false;
+                        this.statsOpen = false;
+                    }
+                },
+
+                toggleSidebar() {
+                    this.sidebarOpen = !this.sidebarOpen;
+                },
+
+                toggleStats() {
+                    this.statsOpen = !this.statsOpen;
+                },
+
+
+                async selectTheme(theme) {
+                    this.currentTheme = theme;
+                    this.showThemeModal = false;
+                    this.applyTheme(theme);
+                    await this.saveTheme(theme);
+                    
+                    // Update terminal if active
+                    if (this.terminal && this.selectedWorkspace) {
+                        this.setupTerminal();
+                    }
+                },
+
+                applyTheme(theme) {
+                    const root = document.documentElement;
+                    const colors = theme.colors;
+                    
+                    // Background Colors
+                    root.style.setProperty('--bg-primary', colors.primary);
+                    root.style.setProperty('--bg-secondary', colors.secondary);
+                    root.style.setProperty('--bg-tertiary', colors.tertiary);
+                    root.style.setProperty('--bg-sidebar', colors.sidebar);
+                    
+                    // Text Colors  
+                    root.style.setProperty('--text-primary', colors.textPrimary);
+                    root.style.setProperty('--text-secondary', colors.textSecondary);
+                    root.style.setProperty('--text-muted', colors.textMuted);
+                    
+                    // Border & Divider Colors
+                    root.style.setProperty('--border-color', colors.border || colors.textMuted);
+                    
+                    // Accent Colors
+                    root.style.setProperty('--accent-blue', colors.accentBlue);
+                    root.style.setProperty('--accent-blue-hover', colors.accentBlueHover || colors.accentBlue);
+                    root.style.setProperty('--accent-green', colors.accentGreen);
+                    root.style.setProperty('--accent-green-hover', colors.accentGreenHover || colors.accentGreen);
+                    root.style.setProperty('--accent-red', colors.accentRed);
+                    root.style.setProperty('--accent-red-hover', colors.accentRedHover || colors.accentRed);
+                    root.style.setProperty('--accent-orange', colors.accentOrange || colors.accentBlue);
+                    root.style.setProperty('--accent-purple', colors.accentPurple || colors.accentBlue);
+                    
+                    // Component-specific Variables
+                    root.style.setProperty('--button-bg', colors.accentBlue);
+                    root.style.setProperty('--button-hover', colors.accentBlueHover || colors.accentBlue);
+                    root.style.setProperty('--button-secondary-bg', colors.tertiary);
+                    root.style.setProperty('--button-secondary-hover', colors.secondary);
+                    root.style.setProperty('--input-bg', colors.tertiary);
+                    root.style.setProperty('--terminal-bg', colors.terminalBg || colors.primary);
+                    
+                    // Interactive States
+                    root.style.setProperty('--sidebar-item-hover-bg', colors.secondary);
+                    root.style.setProperty('--sidebar-item-selected-bg', colors.accentBlue);
+                    root.style.setProperty('--sidebar-item-bg', colors.secondary);
+                    
+                    // Enhanced Variables for Comprehensive Theming
+                    root.style.setProperty('--scrollbar-slider', colors.textMuted + '66');
+                    root.style.setProperty('--scrollbar-slider-hover', colors.textSecondary + 'b3');
+                    root.style.setProperty('--modal-backdrop', 'rgba(0, 0, 0, 0.6)');
+                },
+
+                async loadTheme() {
+                    try {
+                        const response = await fetch('/api/theme', {
+                            headers: {
+                                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                            }
+                        });
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.success && data.theme) {
+                                this.currentTheme = data.theme;
+                                this.applyTheme(data.theme);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Failed to load theme:', error);
+                    }
+                },
+
+                async saveTheme(theme) {
+                    try {
+                        await fetch('/api/theme', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                            },
+                            body: JSON.stringify({ theme })
+                        });
+                    } catch (error) {
+                        console.error('Failed to save theme:', error);
+                    }
+                },
+
+                async initializeApp() {
+                    try {
+                        // Connect to socket.io
+                        this.socket = io('/', {
+                            auth: {
+                                token: localStorage.getItem('authToken')
+                            }
+                        });
+                        
+                        this.socket.on('connect', () => {
+                            console.log('Connected to server');
+                            this.loadWorkspaces();
+                            this.loadStats();
+                            this.startStatsInterval();
+                            this.loadTheme();
+                            if (this.availableThemes.length === 0) {
+                                this.loadAvailableThemes();
+                            }
+                        });
+                        
+                        this.socket.on('connect_error', (error) => {
+                            console.error('Socket connection failed:', error.message);
+                            if (error.message.includes('GitHub token not found')) {
+                                this.logout();
+                            }
+                        });
+                        
+                        this.socket.on('disconnect', () => {
+                            console.log('Disconnected from server');
+                            this.stopStatsInterval();
+                        });
+                        
+                        this.socket.on('terminal-output', (data) => {
+                            if (this.terminal) {
+                                this.terminal.write(data);
+                            }
+                        });
+                        
+                        this.socket.on('terminal-error', (data) => {
+                            console.error('Terminal error:', data.error);
+                        });
+                        
+                        this.socket.on('terminal-resumed', (data) => {
+                            console.log('Session resumed:', data);
+                            // You could add a toast notification here
+                        });
+                        
+                        this.socket.on('workspaces-list', (data) => {
+                            this.workspaces = data.workspaces || [];
+                        });
+                        
+                        this.socket.on('repositories-list', (data) => {
+                            const newRepos = data.repositories || [];
+                            const pagination = data.pagination || {};
+                            
+                            if (pagination.page === 1) {
+                                // First page or refresh
+                                this.repositories = newRepos;
+                            } else {
+                                // Append to existing repositories
+                                this.repositories = [...this.repositories, ...newRepos];
+                            }
+                            
+                            this.repositoryPage = pagination.page || 1;
+                            this.repositoryHasMore = pagination.has_more || false;
+                            this.repositoriesLoading = false;
+                            this.repositoryLoadingMore = false;
+                            this.repositoryError = null;
+                        });
+                        
+                        this.socket.on('repositories-error', (data) => {
+                            this.repositoryError = data.error;
+                            this.repositoriesLoading = false;
+                            this.repositoryLoadingMore = false;
+                        });
+                        
+                        this.socket.on('workspace-created', (data) => {
+                            this.loadWorkspaces();
+                            this.showRepositoriesModal = false;
+                        });
+                        
+                        this.socket.on('workspace-error', (data) => {
+                            alert('Error: ' + data.error);
+                        });
+                        
+                        this.socket.on('workspace-deleted', (data) => {
+                            this.deletingWorkspace = false;
+                            this.showDeleteModal = false;
+                            this.workspaceToDelete = null;
+                            this.deleteFiles = false;
+                            
+                            // If deleted workspace was selected, clear selection
+                            if (this.selectedWorkspace?.id === data.workspaceId) {
+                                this.selectedWorkspace = null;
+                                // Clear terminal
+                                const terminalElement = document.getElementById('terminal');
+                                if (terminalElement) {
+                                    terminalElement.innerHTML = '<div class="no-workspace">Select a workspace to start terminal session</div>';
+                                }
+                            }
+                        });
+                        
+                    } catch (error) {
+                        console.error('Failed to initialize app:', error);
+                        this.logout();
+                    }
+                },
+                
+                loadWorkspaces() {
+                    // Workspaces are loaded automatically on connect
+                },
+
+                async loadStats() {
+                    try {
+                        const response = await fetch('/api/stats', {
+                            headers: {
+                                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                            }
+                        });
+                        if (response.ok) {
+                            this.stats = await response.json();
+                        }
+                    } catch (error) {
+                        console.error('Failed to load stats:', error);
+                    }
+                },
+
+                startStatsInterval() {
+                    this.statsInterval = setInterval(() => {
+                        this.loadStats();
+                    }, 5000); // Update every 5 seconds
+                },
+
+                stopStatsInterval() {
+                    if (this.statsInterval) {
+                        clearInterval(this.statsInterval);
+                        this.statsInterval = null;
+                    }
+                },
+                
+                selectWorkspace(workspace) {
+                    // Check if we're actually switching to a different workspace
+                    if (this.selectedWorkspace && this.selectedWorkspace.id === workspace.id) {
+                        return; // No change needed
+                    }
+                    
+                    this.selectedWorkspace = workspace;
+                    if (this.isMobile) {
+                        this.sidebarOpen = false;
+                    }
+                    this.$nextTick(() => {
+                        this.setupTerminal();
+                    });
+                },
+                
+                setupTerminal() {
+                    // Clear the terminal display area first
+                    const terminalElement = document.getElementById('terminal');
+                    
+                    // Safely dispose of existing terminal
+                    if (this.terminal) {
+                        try {
+                            this.terminal.dispose();
+                        } catch (error) {
+                            // Silently handle addon disposal errors - they're expected during switching
+                            if (!error.message?.includes('Could not dispose an addon')) {
+                                console.warn('Unexpected terminal disposal error:', error);
+                            }
+                        }
+                        this.terminal = null;
+                    }
+                    
+                    // Clear addon references
+                    this.fitAddon = null;
+                    
+                    // Clear the terminal element content
+                    if (terminalElement) {
+                        terminalElement.innerHTML = '';
+                    }
+                    
+                    // Initialize xterm.js with current theme
+                    this.terminal = new Terminal({
+                        cursorBlink: true,
+                        theme: this.currentTheme.terminal,
+                        fontFamily: '"Cascadia Code", "Fira Code", "Monaco", "Menlo", "Ubuntu Mono", monospace',
+                        fontSize: 13,
+                        lineHeight: 1.2
+                    });
+                    
+                    this.fitAddon = new FitAddon.FitAddon();
+                    this.terminal.loadAddon(this.fitAddon);
+                    
+                    this.terminal.open(terminalElement);
+                    
+                    // Fit terminal to container (extra delay for mobile)
+                    const delay = this.isMobile ? 200 : 100;
+                    setTimeout(() => {
+                        this.fitAddon.fit();
+                    }, delay);
+                    
+                    // Handle user input
+                    this.terminal.onData(data => {
+                        if (this.socket) {
+                            this.socket.emit('terminal-input', data);
+                        }
+                    });
+                    
+                    // Handle terminal resize
+                    this.terminal.onResize(({ cols, rows }) => {
+                        if (this.socket) {
+                            this.socket.emit('terminal-resize', { cols, rows });
+                        }
+                    });
+                    
+                    // Create terminal session for the selected workspace
+                    if (this.socket && this.selectedWorkspace) {
+                        this.socket.emit('create-terminal', { 
+                            workspaceId: this.selectedWorkspace.id 
+                        });
+                    }
+                    
+                    // Handle window resize (remove previous listener first to avoid duplicates)
+                    window.removeEventListener('resize', this.handleWindowResize);
+                    this.handleWindowResize = () => {
+                        if (this.fitAddon) {
+                            const delay = this.isMobile ? 200 : 100;
+                            setTimeout(() => {
+                                this.fitAddon.fit();
+                            }, delay);
+                        }
+                    };
+                    window.addEventListener('resize', this.handleWindowResize);
+                },
+                
+                async loadRepositories(reset = true) {
+                    if (reset) {
+                        this.repositoriesLoading = true;
+                        this.repositoryError = null;
+                        this.repositories = [];
+                        this.repositoryPage = 1;
+                        this.repositoryHasMore = true;
+                    } else {
+                        // Loading more
+                        if (this.repositoryLoadingMore || !this.repositoryHasMore) {
+                            return;
+                        }
+                        this.repositoryLoadingMore = true;
+                    }
+                    
+                    if (this.socket) {
+                        this.socket.emit('get-repositories', { 
+                            page: reset ? 1 : this.repositoryPage,
+                            per_page: 30 
+                        });
+                    }
+                },
+                
+                loadMoreRepositories() {
+                    if (!this.repositoryHasMore || this.repositoryLoadingMore) {
+                        return;
+                    }
+                    this.repositoryPage++;
+                    this.loadRepositories(false);
+                },
+                
+                async cloneRepository(repo) {
+                    if (this.socket) {
+                        this.socket.emit('create-workspace', {
+                            githubRepo: repo.full_name,
+                            githubUrl: repo.clone_url
+                        });
+                    }
+                },
+
+                formatDate(dateString) {
+                    const date = new Date(dateString);
+                    const now = new Date();
+                    const diffInHours = Math.floor((now - date) / (1000 * 60 * 60));
+
+                    if (diffInHours < 24) {
+                        return `${diffInHours}h ago`;
+                    } else {
+                        const diffInDays = Math.floor(diffInHours / 24);
+                        return `${diffInDays}d ago`;
+                    }
+                },
+
+                getLanguageColor(language) {
+                    const colors = {
+                        JavaScript: '#f1e05a',
+                        TypeScript: '#3178c6',
+                        Python: '#3572A5',
+                        Java: '#b07219',
+                        'C++': '#f34b7d',
+                        C: '#555555',
+                        'C#': '#239120',
+                        PHP: '#4F5D95',
+                        Ruby: '#701516',
+                        Go: '#00ADD8',
+                        Rust: '#dea584',
+                        Swift: '#fa7343',
+                        Kotlin: '#A97BFF',
+                        Dart: '#00B4AB',
+                        HTML: '#e34c26',
+                        CSS: '#1572B6',
+                        Vue: '#4FC08D',
+                        React: '#61DAFB',
+                        Angular: '#DD0031',
+                        Shell: '#89e051',
+                        PowerShell: '#012456',
+                        Dockerfile: '#384d54',
+                        YAML: '#cb171e'
+                    };
+                    return colors[language] || '#8b949e';
+                },
+
+                formatStars(count) {
+                    if (count >= 1000) {
+                        return (count / 1000).toFixed(1) + 'k';
+                    }
+                    return count.toString();
+                },
+                
+                confirmDeleteWorkspace(workspace) {
+                    this.workspaceToDelete = workspace;
+                    this.deleteFiles = false;
+                    this.showDeleteModal = true;
+                },
+                
+                deleteWorkspace() {
+                    if (!this.workspaceToDelete) return;
+                    
+                    this.deletingWorkspace = true;
+                    
+                    if (this.socket) {
+                        this.socket.emit('delete-workspace', {
+                            workspaceId: this.workspaceToDelete.id,
+                            deleteFiles: this.deleteFiles
+                        });
+                    }
+                },
+                
+                handleRepositoryScroll(event) {
+                    const element = event.target;
+                    const threshold = 100; // px from bottom
+                    
+                    if (element.scrollTop + element.clientHeight >= element.scrollHeight - threshold) {
+                        this.loadMoreRepositories();
+                    }
+                },
+                
+                async logout() {
+                    console.log('Logging out...');
+                    try {
+                        // Step 1: Tell the server to revoke tokens (best-effort)
+                        await fetch('/api/auth/logout', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                            }
+                        });
+                    } catch (error) {
+                        console.error('Server logout call failed, proceeding with client-side logout:', error);
+                    } finally {
+                        // Step 2: Always clear client-side state and reload
+                        this.stopStatsInterval();
+                        localStorage.removeItem('authToken');
+                        if (this.socket) {
+                            this.socket.disconnect();
+                        }
+                        if (this.terminal) {
+                            this.terminal.dispose();
+                            this.terminal = null;
+                        }
+                        if (this.handleWindowResize) {
+                            window.removeEventListener('resize', this.handleWindowResize);
+                            this.handleWindowResize = null;
+                        }
+                        this.isAuthenticated = false;
+                        window.location.reload();
+                    }
+                }
+            },
+
+            updated() {
+                this.$nextTick(() => {
+                    feather.replace();
+                });
+            },
+            
+            watch: {
+                showRepositoriesModal(newVal) {
+                    if (newVal) {
+                        this.loadRepositories();
+                    }
+                }
+            },
+
+            beforeUnmount() {
+                this.stopStatsInterval();
+                window.removeEventListener('resize', this.checkMobile);
+            }
+        }).mount('#app');
+    </script>

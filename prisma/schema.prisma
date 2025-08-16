@@ -1,0 +1,57 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Single-user system: minimal global settings
+model Settings {
+  id                    String    @id @default("singleton")
+  githubToken           String?   // Encrypted GitHub OAuth access token
+  githubRefreshToken    String?   // Encrypted GitHub OAuth refresh token
+  githubTokenExpiresAt  DateTime? // The expiration date of the current access token
+  theme                 String?   // Theme preference JSON
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("settings")
+}
+
+model Workspace {
+  id            String   @id @default(cuid())
+  name          String
+  githubRepo    String   @unique // Format: "owner/repo" - unique across system
+  githubUrl     String   // Full GitHub repository URL
+  localPath     String   // Local filesystem path
+  isActive      Boolean  @default(true)
+  lastSyncAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  sessions      Session[]
+
+  @@map("workspaces")
+}
+
+model Session {
+  id               String    @id @default(cuid())
+  shellPid         Int?      // Process ID of the shell session
+  socketId         String?   // Current Socket.IO connection ID
+  status           String    @default("active") // active, paused, terminated
+  lastActivityAt   DateTime  @default(now())
+  createdAt        DateTime  @default(now())
+  endedAt          DateTime?
+
+  // Foreign keys
+  workspaceId      String?
+  workspace        Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@map("sessions")
+}

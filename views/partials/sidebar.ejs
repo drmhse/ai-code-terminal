@@ -1,0 +1,36 @@
+<!-- Sidebar -->
+<div class="sidebar" :class="{ 'mobile-open': isMobile && sidebarOpen }">
+    <div class="sidebar-header">
+        <h2>Workspaces</h2>
+        <button @click="showRepositoriesModal = true" class="btn btn-small btn-icon">
+            <i data-feather="plus"></i>
+        </button>
+    </div>
+    
+    <div class="workspaces-section">
+        <div v-if="workspaces.length === 0" class="empty-state">
+            <p>No workspaces yet</p>
+            <button @click="showRepositoriesModal = true" class="btn btn-small">
+                Clone Repository
+            </button>
+        </div>
+        
+        <div v-for="workspace in workspaces" 
+             :key="workspace.id" 
+             class="workspace-item"
+             :class="{ selected: selectedWorkspace?.id === workspace.id }">
+            <div class="workspace-content" @click="selectWorkspace(workspace)">
+                <i data-feather="folder" class="icon"></i>
+                <div class="details">
+                    <div class="workspace-name">{{ workspace.name }}</div>
+                    <div class="workspace-path">{{ workspace.githubRepo }}</div>
+                </div>
+            </div>
+            <button @click.stop="confirmDeleteWorkspace(workspace)" 
+                    class="delete-btn" 
+                    :title="`Delete ${workspace.name} workspace`">
+                <i data-feather="trash-2"></i>
+            </button>
+        </div>
+    </div>
+</div>

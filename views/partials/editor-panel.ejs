@@ -1,0 +1,25 @@
+<!-- Editor Panel -->
+<div class="editor-panel">
+    <div v-if="!selectedWorkspace" class="welcome-screen">
+        <h2>Welcome to <%= title %></h2>
+        <p>Select a workspace from the sidebar or clone a repository to get started.<br/>
+        Once connected, you'll have god-mode terminal access to your repositories.</p>
+        <button @click="showRepositoriesModal = true" class="btn btn-icon">
+            <i data-feather="git-branch"></i>
+            Clone Your First Repository
+        </button>
+    </div>
+    
+    <template v-else>
+        <div class="tab-bar">
+            <div class="tab">
+                <i data-feather="terminal" class="icon"></i>
+                {{ selectedWorkspace.name }}
+            </div>
+        </div>
+        
+        <div class="terminal-container">
+            <div id="terminal" class="terminal-wrapper"></div>
+        </div>
+    </template>
+</div>

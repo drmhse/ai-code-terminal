@@ -1,0 +1,454 @@
+const fs = require('fs').promises;
+const path = require('path');
+const { exec } = require('child_process');
+const { promisify } = require('util');
+const { prisma } = require('../config/database');
+const logger = require('../utils/logger');
+const GitHubService = require('./github.service');
+
+const execAsync = promisify(exec);
+
+// Retry utility for git operations
+async function retryOperation(operation, maxRetries = 3, delay = 1000) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      logger.warn(`Attempt ${attempt} failed:`, error.message);
+      
+      if (attempt === maxRetries) {
+        throw error;
+      }
+      
+      // Exponential backoff
+      await new Promise(resolve => setTimeout(resolve, delay * attempt));
+    }
+  }
+}
+
+class WorkspaceService {
+  constructor() {
+    this.workspaceBaseDir = path.join(process.cwd(), 'workspaces');
+  }
+
+  /**
+   * Create a new workspace from GitHub repository
+   * @param {string} githubRepo - Repository name (owner/repo)
+   * @param {string} githubUrl - Repository clone URL
+   * @returns {Promise<Object>} Created workspace
+   */
+  async createWorkspace(githubRepo, githubUrl) {
+    try {
+      // Check if workspace already exists
+      const existingWorkspace = await prisma.workspace.findUnique({
+        where: { githubRepo }
+      });
+
+      if (existingWorkspace && existingWorkspace.isActive) {
+        throw new Error(`Workspace for ${githubRepo} already exists`);
+      }
+
+      // Extract repository name for local path
+      const repoName = githubRepo.split('/')[1];
+      const localPath = path.join(this.workspaceBaseDir, repoName);
+
+      // Create workspace record (no user relation needed)
+      const workspace = await prisma.workspace.create({
+        data: {
+          name: repoName,
+          githubRepo,
+          githubUrl,
+          localPath
+        }
+      });
+
+      logger.info(`Workspace created: ${workspace.id} for ${githubRepo}`);
+      return workspace;
+
+    } catch (error) {
+      logger.error('Failed to create workspace:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Clone GitHub repository to workspace
+   * @param {string} workspaceId - Workspace ID
+   * @returns {Promise<Object>} Updated workspace
+   */
+  async cloneRepository(workspaceId) {
+    try {
+      const workspace = await prisma.workspace.findUnique({
+        where: { id: workspaceId }
+      });
+
+      if (!workspace) {
+        throw new Error('Workspace not found');
+      }
+
+      // Get GitHub token from settings (single user)
+      const settingsService = require('./settings.service');
+      const githubToken = await settingsService.getGithubToken();
+      if (!githubToken) {
+        throw new Error('GitHub token not found for user');
+      }
+
+      // Create workspace directory if it doesn't exist
+      await fs.mkdir(this.workspaceBaseDir, { recursive: true });
+
+      // Check if directory already exists
+      try {
+        await fs.access(workspace.localPath);
+        logger.warn(`Directory already exists: ${workspace.localPath}`);
+        // If directory exists, try to pull latest changes instead
+        return await this.syncWithGitHub(workspaceId);
+      } catch (error) {
+        // Directory doesn't exist, proceed with clone
+      }
+
+      // Construct authenticated clone URL
+      const authenticatedUrl = workspace.githubUrl.replace(
+        'https://github.com/',
+        `https://${githubToken}@github.com/`
+      );
+
+      // Clone repository with retry logic
+      logger.info(`Cloning repository: ${workspace.githubRepo} to ${workspace.localPath}`);
+      
+      const { stdout, stderr } = await retryOperation(async () => {
+        return await execAsync(
+          `git clone "${authenticatedUrl}" "${workspace.localPath}"`,
+          { 
+            timeout: 300000, // 5 minute timeout
+            maxBuffer: 1024 * 1024 * 10 // 10MB buffer
+          }
+        );
+      }, 3, 2000);
+
+      if (stderr && !stderr.includes('Cloning into')) {
+        logger.warn('Git clone warnings:', stderr);
+      }
+
+      logger.info('Repository cloned successfully:', stdout);
+
+      // Create CLAUDE.md file for the project
+      await this.createClaudeMd(workspace);
+
+      // Update workspace with sync time
+      const updatedWorkspace = await prisma.workspace.update({
+        where: { id: workspaceId },
+        data: { lastSyncAt: new Date() }
+      });
+
+      logger.info(`Repository cloned successfully: ${workspace.githubRepo}`);
+      return updatedWorkspace;
+
+    } catch (error) {
+      logger.error('Failed to clone repository:', error);
+      throw new Error(`Failed to clone repository: ${error.message}`);
+    }
+  }
+
+  /**
+   * List all workspaces (single user system)
+   * @param {boolean} includeInactive - Include inactive workspaces
+   * @returns {Promise<Array>} Array of workspaces
+   */
+  async listWorkspaces(includeInactive = false) {
+    try {
+      const whereClause = includeInactive ? {} : { isActive: true };
+      
+      const workspaces = await prisma.workspace.findMany({
+        where: whereClause,
+        orderBy: { updatedAt: 'desc' },
+        include: {
+          sessions: {
+            where: { status: 'active' },
+            select: { id: true, socketId: true, status: true, lastActivityAt: true }
+          }
+        }
+      });
+
+      logger.debug(`Found ${workspaces.length} workspaces`);
+      return workspaces;
+    } catch (error) {
+      logger.error('Failed to list workspaces:', error);
+      throw new Error('Failed to list workspaces');
+    }
+  }
+
+  /**
+   * Sync workspace with GitHub repository
+   * @param {string} workspaceId - Workspace ID
+   * @returns {Promise<Object>} Updated workspace
+   */
+  async syncWithGitHub(workspaceId) {
+    try {
+      const workspace = await prisma.workspace.findUnique({
+        where: { id: workspaceId }
+      });
+
+      if (!workspace) {
+        throw new Error('Workspace not found');
+      }
+
+      // Check if local directory exists
+      try {
+        await fs.access(workspace.localPath);
+      } catch (error) {
+        // Directory doesn't exist, clone instead
+        return await this.cloneRepository(workspaceId);
+      }
+
+      // Pull latest changes with retry logic
+      logger.info(`Syncing workspace: ${workspace.githubRepo}`);
+      
+      const { stdout, stderr } = await retryOperation(async () => {
+        return await execAsync('git pull origin', {
+          cwd: workspace.localPath,
+          timeout: 60000 // 1 minute timeout
+        });
+      }, 3, 1000);
+
+      if (stderr && !stderr.includes('Already up to date')) {
+        logger.warn('Git pull warnings:', stderr);
+      }
+
+      logger.info('Repository synced:', stdout);
+
+      // Update workspace sync time
+      const updatedWorkspace = await prisma.workspace.update({
+        where: { id: workspaceId },
+        data: { lastSyncAt: new Date() }
+      });
+
+      return updatedWorkspace;
+
+    } catch (error) {
+      logger.error('Failed to sync with GitHub:', error);
+      throw new Error(`Failed to sync repository: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get user's workspaces (deprecated - single user system)
+   * @deprecated Use listWorkspaces() instead
+   */
+  async listUserWorkspaces(userId, includeInactive = false) {
+    logger.warn('listUserWorkspaces is deprecated in single-user system, use listWorkspaces');
+    return this.listWorkspaces(includeInactive);
+  }
+
+  /**
+   * Delete workspace
+   * @param {string} workspaceId - Workspace ID
+   * @param {boolean} deleteFiles - Whether to delete local files
+   * @returns {Promise<boolean>} Success status
+   */
+  async deleteWorkspace(workspaceId, deleteFiles = false) {
+    try {
+      const workspace = await prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        include: {
+          sessions: {
+            where: { status: 'active' }
+          }
+        }
+      });
+
+      if (!workspace) {
+        throw new Error('Workspace not found');
+      }
+
+      // Check for active sessions
+      if (workspace.sessions.length > 0) {
+        // Terminate active sessions first
+        await prisma.session.updateMany({
+          where: {
+            workspaceId: workspaceId,
+            status: 'active'
+          },
+          data: {
+            status: 'terminated',
+            endedAt: new Date()
+          }
+        });
+      }
+
+      // Mark workspace as inactive
+      await prisma.workspace.update({
+        where: { id: workspaceId },
+        data: { 
+          isActive: false,
+          updatedAt: new Date()
+        }
+      });
+
+      // Delete local files if requested
+      if (deleteFiles) {
+        try {
+          await fs.rm(workspace.localPath, { recursive: true, force: true });
+          logger.info(`Deleted workspace files: ${workspace.localPath}`);
+        } catch (error) {
+          logger.warn('Failed to delete workspace files:', error);
+        }
+      }
+
+      logger.info(`Workspace deleted: ${workspaceId}`);
+      return true;
+
+    } catch (error) {
+      logger.error('Failed to delete workspace:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get workspace by ID
+   * @param {string} workspaceId - Workspace ID
+   * @returns {Promise<Object|null>} Workspace or null
+   */
+  async getWorkspace(workspaceId) {
+    try {
+      return await prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        include: {
+          sessions: {
+            where: { status: 'active' }
+          }
+        }
+      });
+
+    } catch (error) {
+      logger.error('Failed to get workspace:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get workspace path
+   * @param {Object} workspace - Workspace object
+   * @returns {string} Absolute path to workspace
+   */
+  getWorkspacePath(workspace) {
+    return path.resolve(workspace.localPath);
+  }
+
+  /**
+   * Create CLAUDE.md file for workspace
+   * @param {Object} workspace - Workspace object
+   */
+  async createClaudeMd(workspace) {
+    try {
+      const claudeMdPath = path.join(workspace.localPath, 'CLAUDE.md');
+      
+      // Check if CLAUDE.md already exists
+      try {
+        await fs.access(claudeMdPath);
+        logger.info(`CLAUDE.md already exists in ${workspace.githubRepo}`);
+        return;
+      } catch (error) {
+        // File doesn't exist, create it
+      }
+
+      const claudeMdContent = `# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+This is a GitHub repository cloned via the Claude Code Web Interface.
+
+**Repository**: ${workspace.githubRepo}
+**Clone URL**: ${workspace.githubUrl}
+**Local Path**: ${workspace.localPath}
+**Created**: ${new Date().toISOString()}
+
+## Development Guidelines
+
+Add project-specific instructions for Claude Code here:
+
+- Build commands
+- Test commands  
+- Development workflow
+- Architecture notes
+- Important files and directories
+- Coding standards
+- Dependencies
+
+## Getting Started
+
+1. Explore the codebase structure
+2. Read any existing README.md files
+3. Check package.json, Cargo.toml, or other dependency files
+4. Look for existing documentation
+
+## Notes
+
+This CLAUDE.md file was automatically created by the Claude Code Web Interface.
+You can customize it with project-specific information to help Claude Code work more effectively with your codebase.
+`;
+
+      await fs.writeFile(claudeMdPath, claudeMdContent, 'utf8');
+      logger.info(`Created CLAUDE.md for ${workspace.githubRepo}`);
+
+    } catch (error) {
+      logger.warn('Failed to create CLAUDE.md:', error);
+    }
+  }
+
+  /**
+   * Get username for user ID (deprecated - single user system)
+   * @deprecated Single-user system doesn't need user lookup
+   */
+  async getUserName(userId) {
+    logger.warn('getUserName is deprecated in single-user system');
+    return process.env.TENANT_GITHUB_USERNAME || 'single-user';
+  }
+
+  /**
+   * Cleanup inactive workspaces
+   * @param {number} cleanupDays - Days of inactivity before cleanup
+   * @returns {Promise<number>} Number of workspaces cleaned up
+   */
+  async cleanupInactiveWorkspaces(cleanupDays = 30) {
+    try {
+      const cutoffDate = new Date(Date.now() - (cleanupDays * 24 * 60 * 60 * 1000));
+
+      // Find inactive workspaces
+      const inactiveWorkspaces = await prisma.workspace.findMany({
+        where: {
+          isActive: true,
+          updatedAt: {
+            lt: cutoffDate
+          },
+          sessions: {
+            none: {
+              status: 'active'
+            }
+          }
+        }
+      });
+
+      let cleanedUp = 0;
+
+      for (const workspace of inactiveWorkspaces) {
+        try {
+          await this.deleteWorkspace(workspace.id, true);
+          cleanedUp++;
+        } catch (error) {
+          logger.error(`Failed to cleanup workspace ${workspace.id}:`, error);
+        }
+      }
+
+      logger.info(`Cleaned up ${cleanedUp} inactive workspaces`);
+      return cleanedUp;
+
+    } catch (error) {
+      logger.error('Failed to cleanup inactive workspaces:', error);
+      return 0;
+    }
+  }
+}
+
+module.exports = new WorkspaceService();

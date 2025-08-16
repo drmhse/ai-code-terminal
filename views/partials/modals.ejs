@@ -1,0 +1,261 @@
+<!-- Repositories Modal -->
+<div v-if="showRepositoriesModal" class="modal-overlay" @click.self="showRepositoriesModal = false">
+    <div class="modal">
+        <!-- Modal header -->
+        <div class="modal-header">
+            <div class="modal-title">
+                <div class="title-icon">
+                    <i data-feather="git-branch"></i>
+                </div>
+                <h3>Clone Repository</h3>
+            </div>
+            <button @click="showRepositoriesModal = false" class="close-btn">
+                <i data-feather="x"></i>
+            </button>
+        </div>
+
+        <!-- Modal body -->
+        <div class="modal-body">
+            <!-- Loading state -->
+            <div v-if="repositoriesLoading" class="loading">
+                <div class="loading-spinner"></div>
+                <p>Loading repositories...</p>
+            </div>
+
+            <!-- Error state -->
+            <div v-else-if="repositoryError" class="error-message">
+                <i data-feather="alert-triangle"></i>
+                <span>{{ repositoryError }}</span>
+            </div>
+
+            <!-- Empty state -->
+            <div v-else-if="repositories.length === 0" class="empty-state">
+                <p>No repositories found</p>
+            </div>
+
+            <!-- Repository list -->
+            <div v-else class="repository-list" @scroll="handleRepositoryScroll" ref="repositoryList">
+                <div
+                    v-for="repo in repositories"
+                    :key="repo.id"
+                    class="repository-card"
+                    @click="cloneRepository(repo)"
+                >
+                    <div class="repository-card-inner">
+                        <div class="repo-main-content">
+                            <div class="repo-left">
+                                <div class="repo-icon">
+                                    <i data-feather="folder"></i>
+                                </div>
+                                <div class="repo-info">
+                                    <div class="repo-name-line">
+                                        <span class="repo-name">{{ repo.name }}</span>
+                                        <span class="repo-visibility">{{ repo.private ? 'Private' : 'Public' }}</span>
+                                    </div>
+                                    <div class="repo-description">
+                                        {{ repo.description || 'No description available' }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="repo-right">
+                                <div class="repo-stats">
+                                    <div v-if="repo.language" class="stat-item language">
+                                        <div class="language-dot" :style="{ backgroundColor: getLanguageColor(repo.language) }"></div>
+                                        <span>{{ repo.language }}</span>
+                                    </div>
+                                    <div v-if="repo.stargazers_count" class="stat-item stars">
+                                        <i data-feather="star"></i>
+                                        <span>{{ formatStars(repo.stargazers_count) }}</span>
+                                    </div>
+                                    <div v-if="repo.forks_count" class="stat-item forks">
+                                        <i data-feather="git-branch"></i>
+                                        <span>{{ formatStars(repo.forks_count) }}</span>
+                                    </div>
+                                </div>
+                                <div class="repo-updated">
+                                    <i data-feather="clock"></i>
+                                    <span>{{ formatDate(repo.updated_at) }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Load more indicator -->
+                <div v-if="repositoryLoadingMore" class="loading-more">
+                    <div class="loading-spinner"></div>
+                    <p>Loading more repositories...</p>
+                </div>
+                
+                <!-- End of results -->
+                <div v-else-if="!repositoryHasMore && repositories.length > 0" class="end-of-results">
+                    <p>You've reached the end of your repositories</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal footer -->
+        <div class="modal-footer">
+            <div class="repo-count" v-if="repositories.length > 0">
+                {{ repositories.length }} repositories loaded
+                <span v-if="repositoryHasMore">(scroll for more)</span>
+            </div>
+            <div class="modal-footer-actions">
+                <button @click="loadRepositories(true)" class="btn-secondary" :disabled="repositoriesLoading">
+                    <i data-feather="refresh-cw"></i>
+                    Refresh
+                </button>
+                <button @click="showRepositoriesModal = false" class="btn-secondary">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Theme Modal -->
+<div v-if="showThemeModal" class="modal-overlay" @click.self="showThemeModal = false">
+    <div class="theme-modal">
+        <!-- Modal Header -->
+        <div class="modal-header">
+            <div class="modal-title">
+                <div class="title-icon">
+                    <i data-feather="sun"></i>
+                </div>
+                <h3>Choose Theme</h3>
+            </div>
+            <button @click="showThemeModal = false" class="close-btn">
+                <i data-feather="x"></i>
+            </button>
+        </div>
+
+        <!-- Current Theme Info -->
+        <div class="current-theme-info">
+            <div class="current-theme-preview">
+                <div class="theme-colors">
+                    <div class="color-bar" :style="{ backgroundColor: currentTheme.colors.primary }"></div>
+                    <div class="color-bar" :style="{ backgroundColor: currentTheme.colors.secondary }"></div>
+                    <div class="color-bar" :style="{ backgroundColor: currentTheme.colors.tertiary }"></div>
+                    <div class="color-bar accent" :style="{ backgroundColor: currentTheme.colors.accentBlue }"></div>
+                </div>
+                <div class="current-theme-details">
+                    <div class="current-theme-name">{{ currentTheme.name }}</div>
+                    <div class="current-theme-type">{{ currentTheme.type }}</div>
+                </div>
+            </div>
+            <div class="current-badge">Current</div>
+        </div>
+
+        <!-- Theme Grid -->
+        <div class="theme-grid">
+            <div
+                v-for="theme in availableThemes"
+                :key="theme.name"
+                class="theme-card"
+                :class="{ selected: currentTheme.name === theme.name }"
+                @click="selectTheme(theme)"
+            >
+                <div class="theme-card-inner">
+                    <!-- Theme preview window -->
+                    <div class="theme-preview-window">
+                        <!-- Title bar with window controls -->
+                        <div class="preview-titlebar" :style="{ backgroundColor: theme.colors.tertiary }">
+                            <div class="window-controls">
+                                <div class="window-control close" style="background-color: #ff5f56;"></div>
+                                <div class="window-control minimize" style="background-color: #ffbd2e;"></div>
+                                <div class="window-control maximize" style="background-color: #27ca3f;"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Content area -->
+                        <div class="preview-content">
+                            <!-- Sidebar -->
+                            <div class="preview-sidebar" :style="{ backgroundColor: theme.colors.sidebar }">
+                                <div class="sidebar-item" :style="{ backgroundColor: theme.colors.secondary }"></div>
+                                <div class="sidebar-item selected" :style="{ backgroundColor: theme.colors.accentBlue }"></div>
+                                <div class="sidebar-item" :style="{ backgroundColor: theme.colors.secondary }"></div>
+                            </div>
+                            
+                            <!-- Main area -->
+                            <div class="preview-main" :style="{ backgroundColor: theme.colors.primary }">
+                                <div class="code-line" :style="{ backgroundColor: theme.colors.accentBlue }"></div>
+                                <div class="code-line-small" :style="{ backgroundColor: theme.colors.accentBlue, opacity: 0.6 }"></div>
+                                <div class="accent-element" :style="{ backgroundColor: theme.colors.accentGreen }"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Theme info -->
+                    <div class="theme-info">
+                        <div class="theme-name">{{ theme.name }}</div>
+                    </div>
+                    
+                    <!-- Selection indicator -->
+                    <div v-if="currentTheme.name === theme.name" class="selected-indicator">
+                        <i data-feather="check"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer">
+            <div class="theme-count">{{ availableThemes.length }} themes available</div>
+            <button @click="showThemeModal = false" class="btn-secondary">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Workspace Confirmation Modal -->
+<div v-if="showDeleteModal" class="modal-overlay" @click.self="showDeleteModal = false">
+    <div class="delete-modal">
+        <!-- Modal Header -->
+        <div class="modal-header">
+            <div class="modal-title">
+                <div class="title-icon">
+                    <i data-feather="trash-2"></i>
+                </div>
+                <h3>Delete Workspace</h3>
+            </div>
+            <button @click="showDeleteModal = false" class="close-btn">
+                <i data-feather="x"></i>
+            </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="modal-body">
+            <div class="delete-warning">
+                <div class="warning-icon">
+                    <i data-feather="alert-triangle"></i>
+                </div>
+                <div class="warning-content">
+                    <p>Are you sure you want to delete the workspace <strong>"{{ workspaceToDelete?.name }}"</strong>?</p>
+                    <p class="warning-details">This will remove the local copy of the repository. The original repository on GitHub will not be affected.</p>
+                </div>
+            </div>
+            
+            <div class="delete-options">
+                <label class="checkbox-label">
+                    <input type="checkbox" v-model="deleteFiles" />
+                    <span class="checkmark"></span>
+                    Also delete all files in the workspace directory
+                </label>
+                <p class="option-help">If unchecked, only the workspace entry will be removed from the list.</p>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer">
+            <button @click="showDeleteModal = false" class="btn-secondary">
+                Cancel
+            </button>
+            <button @click="deleteWorkspace" class="btn-danger" :disabled="deletingWorkspace">
+                <i data-feather="trash-2"></i>
+                {{ deletingWorkspace ? 'Deleting...' : 'Delete Workspace' }}
+            </button>
+        </div>
+    </div>
+</div>
