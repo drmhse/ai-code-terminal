@@ -10,6 +10,20 @@ AI Code Terminal is the bridge to this new paradigm. It is a self-hosted, sovere
 
 Website: [act.drmhse.com](https://act.drmhse.com)
 
+## Features
+
+### Access your favorite AI agents from the browser; a terminal that's truly portable and lightweight
+
+![Claude Code in Action](assets/claude_code_in_action.png)
+
+### Clone a github repository and start coding
+
+![Repository Search](assets/repository_search_and_list.png)
+
+### Customize your terminal experience
+
+![Choose Your Favorite Theme](assets/choose_favorite_theme.png)
+
 ## Philosophy
 
 -   **The Post-IDE Era:** In 2025, a powerful shell is a complete development environment. We provide that environment, wherever you are.
