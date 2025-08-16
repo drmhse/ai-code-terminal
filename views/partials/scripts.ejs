@@ -22,6 +22,9 @@
                     repositorySearchTerm: '',
                     searchTimeout: null,
                     showRepositoriesModal: false,
+                    cloningRepository: null,
+                    cloneProgress: null,
+                    cloneError: null,
                     stats: {},
                     statsInterval: null,
                     isMobile: false,
@@ -363,13 +366,31 @@
                             this.repositoryLoadingMore = false;
                         });
                         
+                        this.socket.on('workspace-progress', (data) => {
+                            console.log('Received workspace-progress:', data);
+                            this.cloneProgress = data;
+                        });
+
                         this.socket.on('workspace-created', (data) => {
+                            console.log('Received workspace-created:', data);
+                            this.cloneProgress = { 
+                                status: 'created', 
+                                message: 'Workspace created, starting clone...' 
+                            };
+                        });
+
+                        this.socket.on('workspace-cloned', (data) => {
+                            console.log('Received workspace-cloned:', data);
+                            this.clearCloneState();
                             this.loadWorkspaces();
                             this.showRepositoriesModal = false;
                         });
                         
                         this.socket.on('workspace-error', (data) => {
-                            alert('Error: ' + data.error);
+                            console.log('Received workspace-error:', data);
+                            this.cloneError = data.error;
+                            this.cloneProgress = null;
+                            this.cloningRepository = null;
                         });
                         
                         this.socket.on('workspace-deleted', (data) => {
@@ -578,12 +599,33 @@
                 },
                 
                 async cloneRepository(repo) {
+                    console.log('Starting clone for repo:', repo);
                     if (this.socket) {
+                        // Set loading state
+                        this.cloningRepository = repo;
+                        this.cloneProgress = { 
+                            status: 'starting', 
+                            message: `Starting clone of ${repo.name}...` 
+                        };
+                        this.cloneError = null;
+
+                        console.log('Emitting create-workspace event');
                         this.socket.emit('create-workspace', {
                             githubRepo: repo.full_name,
                             githubUrl: repo.clone_url
                         });
                     }
+                },
+
+                clearCloneState() {
+                    console.log('Clearing clone state');
+                    this.cloningRepository = null;
+                    this.cloneProgress = null;
+                    this.cloneError = null;
+                },
+
+                dismissCloneError() {
+                    this.clearCloneState();
                 },
 
                 formatDate(dateString) {

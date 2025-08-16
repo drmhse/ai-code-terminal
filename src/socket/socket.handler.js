@@ -105,15 +105,18 @@ class SocketHandler {
     // Create workspace from repository
     socket.on('create-workspace', async (data) => {
       try {
+        logger.info('Received create-workspace request:', data);
         const { githubRepo, githubUrl } = data;
         
         if (!githubRepo || !githubUrl) {
+          logger.error('Missing required parameters for workspace creation');
           return socket.emit('workspace-error', { 
             error: 'Missing required parameters: githubRepo and githubUrl' 
           });
         }
 
         // Emit progress update
+        logger.info('Emitting workspace-progress: creating');
         socket.emit('workspace-progress', { 
           status: 'creating',
           message: `Creating workspace for ${githubRepo}...`
@@ -123,10 +126,13 @@ class SocketHandler {
           githubRepo, 
           githubUrl
         );
+        logger.info('Workspace created successfully:', workspace.id);
 
+        logger.info('Emitting workspace-created event');
         socket.emit('workspace-created', { workspace });
         
         // Auto-trigger repository cloning
+        logger.info('Emitting workspace-progress: cloning');
         socket.emit('workspace-progress', { 
           status: 'cloning',
           workspaceId: workspace.id,
@@ -134,7 +140,9 @@ class SocketHandler {
         });
 
         try {
+          logger.info('Starting repository clone for workspace:', workspace.id);
           const clonedWorkspace = await workspaceService.cloneRepository(workspace.id);
+          logger.info('Repository cloned successfully, emitting workspace-cloned');
           socket.emit('workspace-cloned', { workspace: clonedWorkspace });
         } catch (cloneError) {
           logger.error('Auto-clone failed:', cloneError);
@@ -144,6 +152,7 @@ class SocketHandler {
         }
         
         // Reload workspaces list
+        logger.info('Reloading workspaces list');
         await this.loadWorkspaces(socket);
         
       } catch (error) {
