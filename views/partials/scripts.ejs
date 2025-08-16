@@ -18,6 +18,9 @@
                     repositoryPage: 1,
                     repositoryHasMore: true,
                     repositoryLoadingMore: false,
+                    scrollTimeout: null,
+                    repositorySearchTerm: '',
+                    searchTimeout: null,
                     showRepositoriesModal: false,
                     stats: {},
                     statsInterval: null,
@@ -338,14 +341,15 @@
                             const newRepos = data.repositories || [];
                             const pagination = data.pagination || {};
                             
-                            if (pagination.page === 1) {
-                                // First page or refresh
+                            if (pagination.page === 1 || pagination.search_applied) {
+                                // First page, refresh, or new search - replace all repositories
                                 this.repositories = newRepos;
                             } else {
-                                // Append to existing repositories
+                                // Subsequent pages - append to existing repositories
                                 this.repositories = [...this.repositories, ...newRepos];
                             }
                             
+                            // Trust the backend Link header pagination
                             this.repositoryPage = pagination.page || 1;
                             this.repositoryHasMore = pagination.has_more || false;
                             this.repositoriesLoading = false;
@@ -534,8 +538,9 @@
                     
                     if (this.socket) {
                         this.socket.emit('get-repositories', { 
-                            page: reset ? 1 : this.repositoryPage,
-                            per_page: 30 
+                            page: reset ? 1 : this.repositoryPage + 1,
+                            per_page: 100,
+                            search: this.repositorySearchTerm || ''
                         });
                     }
                 },
@@ -544,8 +549,32 @@
                     if (!this.repositoryHasMore || this.repositoryLoadingMore) {
                         return;
                     }
-                    this.repositoryPage++;
                     this.loadRepositories(false);
+                },
+
+                handleRepositorySearch() {
+                    // Debounce search input to avoid too many requests
+                    if (this.searchTimeout) {
+                        clearTimeout(this.searchTimeout);
+                    }
+                    
+                    this.searchTimeout = setTimeout(() => {
+                        // Reset pagination for new search
+                        this.repositoryPage = 1;
+                        this.repositoryHasMore = true;
+                        this.loadRepositories(true);
+                    }, 300);
+                },
+
+                clearRepositorySearch() {
+                    this.repositorySearchTerm = '';
+                    if (this.searchTimeout) {
+                        clearTimeout(this.searchTimeout);
+                    }
+                    // Reset pagination and reload repositories
+                    this.repositoryPage = 1;
+                    this.repositoryHasMore = true;
+                    this.loadRepositories(true);
                 },
                 
                 async cloneRepository(repo) {
@@ -630,7 +659,13 @@
                     const threshold = 100; // px from bottom
                     
                     if (element.scrollTop + element.clientHeight >= element.scrollHeight - threshold) {
-                        this.loadMoreRepositories();
+                        // Debounce scroll events to prevent rapid-fire requests
+                        if (this.scrollTimeout) {
+                            clearTimeout(this.scrollTimeout);
+                        }
+                        this.scrollTimeout = setTimeout(() => {
+                            this.loadMoreRepositories();
+                        }, 100);
                     }
                 },
                 
@@ -676,6 +711,11 @@
             watch: {
                 showRepositoriesModal(newVal) {
                     if (newVal) {
+                        // Reset search when modal opens
+                        this.repositorySearchTerm = '';
+                        if (this.searchTimeout) {
+                            clearTimeout(this.searchTimeout);
+                        }
                         this.loadRepositories();
                     }
                 }
@@ -683,6 +723,12 @@
 
             beforeUnmount() {
                 this.stopStatsInterval();
+                if (this.scrollTimeout) {
+                    clearTimeout(this.scrollTimeout);
+                }
+                if (this.searchTimeout) {
+                    clearTimeout(this.searchTimeout);
+                }
                 window.removeEventListener('resize', this.checkMobile);
             }
         }).mount('#app');

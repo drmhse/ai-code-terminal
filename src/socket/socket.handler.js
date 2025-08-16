@@ -273,7 +273,7 @@ class SocketHandler {
     // Get GitHub repositories
     socket.on('get-repositories', async (data) => {
       try {
-        const { page = 1, per_page = 20, sort = 'updated' } = data || {};
+        const { page = 1, per_page = 100, sort = 'updated', search = '' } = data || {};
         
         const githubToken = await settingsService.getGithubToken();
         if (!githubToken) {
@@ -285,15 +285,31 @@ class SocketHandler {
         // Emit loading state
         socket.emit('repositories-loading', { loading: true });
 
-        const repositories = await githubService.getUserRepositories(githubToken, {
+        // Get repositories with proper pagination
+        const result = await githubService.getUserRepositories({
           page,
           per_page,
           sort
         });
 
+        // Apply client-side search filtering if search term provided
+        let repositories = result.repositories;
+        if (search && search.trim()) {
+          const searchTerm = search.toLowerCase().trim();
+          repositories = repositories.filter(repo => 
+            repo.name.toLowerCase().includes(searchTerm) ||
+            repo.full_name.toLowerCase().includes(searchTerm) ||
+            (repo.description && repo.description.toLowerCase().includes(searchTerm))
+          );
+        }
+
         socket.emit('repositories-list', { 
           repositories,
-          pagination: { page, per_page, has_more: repositories.length === per_page }
+          pagination: {
+            ...result.pagination,
+            has_more: result.pagination.has_next, // Use proper Link header info
+            search_applied: !!search
+          }
         });
         
       } catch (error) {

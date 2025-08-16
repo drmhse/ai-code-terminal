@@ -161,13 +161,14 @@ class GitHubService {
 
       const {
         page = 1,
-        per_page = 30,
+        per_page = 100, // Use max per_page for efficiency
         sort = 'updated',
         direction = 'desc',
         type = 'all'
       } = options;
 
-      const { data: repos } = await octokit.rest.repos.listForAuthenticatedUser({
+      // Capture full response including headers for pagination
+      const response = await octokit.rest.repos.listForAuthenticatedUser({
         page,
         per_page,
         sort,
@@ -175,34 +176,101 @@ class GitHubService {
         type
       });
 
-      // Return simplified repository information
-      return repos.map(repo => ({
-        id: repo.id,
-        name: repo.name,
-        full_name: repo.full_name,
-        owner: {
-          login: repo.owner.login,
-          avatar_url: repo.owner.avatar_url
-        },
-        description: repo.description,
-        html_url: repo.html_url,
-        clone_url: repo.clone_url,
-        ssh_url: repo.ssh_url,
-        private: repo.private,
-        fork: repo.fork,
-        language: repo.language,
-        stargazers_count: repo.stargazers_count,
-        forks_count: repo.forks_count,
-        updated_at: repo.updated_at,
-        pushed_at: repo.pushed_at,
-        size: repo.size,
-        default_branch: repo.default_branch
-      }));
+      const repos = response.data;
+      const linkHeader = response.headers.link;
+
+      // Parse Link header for pagination info
+      const pagination = this.parseLinkHeader(linkHeader);
+
+      // Return simplified repository information with pagination
+      return {
+        repositories: repos.map(repo => ({
+          id: repo.id,
+          name: repo.name,
+          full_name: repo.full_name,
+          owner: {
+            login: repo.owner.login,
+            avatar_url: repo.owner.avatar_url
+          },
+          description: repo.description,
+          html_url: repo.html_url,
+          clone_url: repo.clone_url,
+          ssh_url: repo.ssh_url,
+          private: repo.private,
+          fork: repo.fork,
+          language: repo.language,
+          stargazers_count: repo.stargazers_count,
+          forks_count: repo.forks_count,
+          updated_at: repo.updated_at,
+          pushed_at: repo.pushed_at,
+          size: repo.size,
+          default_branch: repo.default_branch
+        })),
+        pagination: {
+          page: parseInt(page),
+          per_page: parseInt(per_page),
+          has_next: pagination.hasNext,
+          has_prev: pagination.hasPrev,
+          total_count: repos.length,
+          next_url: pagination.nextUrl,
+          prev_url: pagination.prevUrl
+        }
+      };
 
     } catch (error) {
       logger.error('Failed to get GitHub repositories:', error);
       throw new Error('Failed to retrieve GitHub repositories');
     }
+  }
+
+  /**
+   * Parse GitHub Link header for pagination information
+   * @param {string} linkHeader - The Link header from GitHub API response
+   * @returns {Object} Parsed pagination information
+   */
+  parseLinkHeader(linkHeader) {
+    const pagination = {
+      hasNext: false,
+      hasPrev: false,
+      nextUrl: null,
+      prevUrl: null,
+      firstUrl: null,
+      lastUrl: null
+    };
+
+    if (!linkHeader) {
+      return pagination;
+    }
+
+    // Parse Link header format: <url>; rel="type", <url>; rel="type"
+    const links = linkHeader.split(',').map(link => link.trim());
+    
+    for (const link of links) {
+      const match = link.match(/<([^>]+)>;\s*rel="([^"]+)"/);
+      if (match) {
+        const url = match[1];
+        const rel = match[2];
+        
+        switch (rel) {
+          case 'next':
+            pagination.hasNext = true;
+            pagination.nextUrl = url;
+            break;
+          case 'prev':
+            pagination.hasPrev = true;
+            pagination.prevUrl = url;
+            break;
+          case 'first':
+            pagination.firstUrl = url;
+            break;
+          case 'last':
+            pagination.lastUrl = url;
+            break;
+        }
+      }
+    }
+
+    return pagination;
   }
 
   /**

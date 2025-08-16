@@ -14,6 +14,31 @@
             </button>
         </div>
 
+        <!-- Search section -->
+        <div class="modal-search-section">
+            <div class="search-container">
+                <div class="search-input-wrapper">
+                    <i data-feather="search" class="search-icon"></i>
+                    <input
+                        type="text"
+                        v-model="repositorySearchTerm"
+                        @input="handleRepositorySearch"
+                        placeholder="Search repositories..."
+                        class="search-input"
+                        :disabled="repositoriesLoading"
+                    />
+                    <button 
+                        v-if="repositorySearchTerm"
+                        @click="clearRepositorySearch"
+                        class="clear-search-btn"
+                        type="button"
+                    >
+                        <i data-feather="x"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Modal body -->
         <div class="modal-body">
             <!-- Loading state -->
