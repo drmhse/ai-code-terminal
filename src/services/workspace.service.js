@@ -15,11 +15,11 @@ async function retryOperation(operation, maxRetries = 3, delay = 1000) {
       return await operation();
     } catch (error) {
       logger.warn(`Attempt ${attempt} failed:`, error.message);
-      
+
       if (attempt === maxRetries) {
         throw error;
       }
-      
+
       // Exponential backoff
       await new Promise(resolve => setTimeout(resolve, delay * attempt));
     }
@@ -114,11 +114,11 @@ class WorkspaceService {
 
       // Clone repository with retry logic
       logger.info(`Cloning repository: ${workspace.githubRepo} to ${workspace.localPath}`);
-      
+
       const { stdout, stderr } = await retryOperation(async () => {
         return await execAsync(
           `git clone "${authenticatedUrl}" "${workspace.localPath}"`,
-          { 
+          {
             timeout: 300000, // 5 minute timeout
             maxBuffer: 1024 * 1024 * 10 // 10MB buffer
           }
@@ -157,7 +157,7 @@ class WorkspaceService {
   async listWorkspaces(includeInactive = false) {
     try {
       const whereClause = includeInactive ? {} : { isActive: true };
-      
+
       const workspaces = await prisma.workspace.findMany({
         where: whereClause,
         orderBy: { updatedAt: 'desc' },
@@ -202,7 +202,7 @@ class WorkspaceService {
 
       // Pull latest changes with retry logic
       logger.info(`Syncing workspace: ${workspace.githubRepo}`);
-      
+
       const { stdout, stderr } = await retryOperation(async () => {
         return await execAsync('git pull origin', {
           cwd: workspace.localPath,
@@ -240,7 +240,7 @@ class WorkspaceService {
   }
 
   /**
-   * Delete workspace
+   * Delete workspace. This is a hard delete.
    * @param {string} workspaceId - Workspace ID
    * @param {boolean} deleteFiles - Whether to delete local files
    * @returns {Promise<boolean>} Success status
@@ -249,52 +249,40 @@ class WorkspaceService {
     try {
       const workspace = await prisma.workspace.findUnique({
         where: { id: workspaceId },
-        include: {
-          sessions: {
-            where: { status: 'active' }
-          }
-        }
       });
 
       if (!workspace) {
         throw new Error('Workspace not found');
       }
 
-      // Check for active sessions
-      if (workspace.sessions.length > 0) {
-        // Terminate active sessions first
-        await prisma.session.updateMany({
-          where: {
-            workspaceId: workspaceId,
-            status: 'active'
-          },
-          data: {
-            status: 'terminated',
-            endedAt: new Date()
-          }
-        });
-      }
-
-      // Mark workspace as inactive
-      await prisma.workspace.update({
-        where: { id: workspaceId },
-        data: { 
-          isActive: false,
-          updatedAt: new Date()
-        }
+      // Terminate any sessions associated with this workspace in the database.
+      // This is for logical cleanup; the shell service handles killing the live process.
+      await prisma.session.updateMany({
+        where: { workspaceId: workspaceId },
+        data: {
+          status: 'terminated',
+          endedAt: new Date(),
+        },
       });
 
-      // Delete local files if requested
+      // Delete local files if requested. Do this before deleting the DB record.
       if (deleteFiles) {
         try {
           await fs.rm(workspace.localPath, { recursive: true, force: true });
           logger.info(`Deleted workspace files: ${workspace.localPath}`);
         } catch (error) {
-          logger.warn('Failed to delete workspace files:', error);
+          logger.warn(`Failed to delete workspace files for ${workspace.localPath}:`, error);
+          // Continue even if file deletion fails, but log it.
         }
       }
 
-      logger.info(`Workspace deleted: ${workspaceId}`);
+      // Now, delete the workspace record from the database.
+      // This will free up the unique constraint on `githubRepo`.
+      await prisma.workspace.delete({
+        where: { id: workspaceId },
+      });
+
+      logger.info(`Workspace ${workspace.githubRepo} (ID: ${workspaceId}) deleted from database.`);
       return true;
 
     } catch (error) {
@@ -341,7 +329,7 @@ class WorkspaceService {
   async createClaudeMd(workspace) {
     try {
       const claudeMdPath = path.join(workspace.localPath, 'CLAUDE.md');
-      
+
       // Check if CLAUDE.md already exists
       try {
         await fs.access(claudeMdPath);
@@ -369,7 +357,7 @@ This is a GitHub repository cloned via the Claude Code Web Interface.
 Add project-specific instructions for Claude Code here:
 
 - Build commands
-- Test commands  
+- Test commands
 - Development workflow
 - Architecture notes
 - Important files and directories
