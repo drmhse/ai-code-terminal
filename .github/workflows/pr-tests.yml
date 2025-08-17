@@ -1,0 +1,25 @@
+name: Run Tests on PR
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Use Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '22'
+    - name: Install dependencies
+      run: npm install
+    - name: Run tests and generate coverage
+      run: npm run test:coverage
+    - name: Coveralls
+      uses: coverallsapp/github-action@v2
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        coveralls-repo-token: ${{ secrets.COVERALLS_REPO_TOKEN }}
