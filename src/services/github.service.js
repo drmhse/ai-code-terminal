@@ -9,7 +9,7 @@ class GitHubService {
     this.clientId = environment.GITHUB_CLIENT_ID;
     this.clientSecret = environment.GITHUB_CLIENT_SECRET;
     this.callbackUrl = environment.GITHUB_CALLBACK_URL;
-    
+
     // Validate required configuration
     if (!this.clientId || !this.clientSecret || !this.callbackUrl) {
       logger.warn('GitHub OAuth configuration incomplete. GitHub integration will not be available.');
@@ -28,7 +28,7 @@ class GitHubService {
 
     const state = this.generateState(userId);
     const scopes = ['user:email', 'repo', 'read:org'];
-    
+
     const params = new URLSearchParams({
       client_id: this.clientId,
       redirect_uri: this.callbackUrl,
@@ -38,7 +38,7 @@ class GitHubService {
     });
 
     const authUrl = `https://github.com/login/oauth/authorize?${params.toString()}`;
-    
+
     logger.info(`Generated GitHub OAuth URL for user: ${userId}`);
     return authUrl;
   }
@@ -125,7 +125,7 @@ class GitHubService {
       });
 
       const { data: user } = await octokit.rest.users.getAuthenticated();
-      
+
       // Get user's primary email
       const { data: emails } = await octokit.rest.users.listEmailsForAuthenticatedUser();
       const primaryEmail = emails.find(email => email.primary)?.email || user.email;
@@ -244,13 +244,13 @@ class GitHubService {
 
     // Parse Link header format: <url>; rel="type", <url>; rel="type"
     const links = linkHeader.split(',').map(link => link.trim());
-    
+
     for (const link of links) {
       const match = link.match(/<([^>]+)>;\s*rel="([^"]+)"/);
       if (match) {
         const url = match[1];
         const rel = match[2];
-        
+
         switch (rel) {
           case 'next':
             pagination.hasNext = true;
@@ -345,11 +345,11 @@ class GitHubService {
    */
   async refreshToken() {
     logger.info('GitHub access token expired or invalid. Attempting to refresh...');
-    
+
     // Import SettingsService here to avoid circular dependency
     const SettingsService = require('./settings.service');
     const currentSettings = await SettingsService.getRawSettings();
-    
+
     if (!currentSettings?.githubRefreshToken) {
       throw new Error('No refresh token available. Please re-authenticate.');
     }
@@ -389,7 +389,7 @@ class GitHubService {
       tokenData.refresh_token,
       expiresAt
     );
-    
+
     logger.info('Successfully refreshed GitHub token.');
     return tokenData.access_token;
   }
@@ -414,7 +414,7 @@ class GitHubService {
     if (new Date() > new Date(settings.githubTokenExpiresAt.getTime() - 5 * 60 * 1000)) {
       accessToken = await this.refreshToken();
     }
-    
+
     return new Octokit({
       auth: accessToken,
       userAgent: 'claude-code-web-interface'
@@ -429,7 +429,7 @@ class GitHubService {
     try {
       const octokit = await this.getOctokit();
       const { data: user } = await octokit.rest.users.getAuthenticated();
-      
+
       // Get user's primary email
       const { data: emails } = await octokit.rest.users.listEmailsForAuthenticatedUser();
       const primaryEmail = emails.find(email => email.primary)?.email || user.email;
@@ -460,7 +460,7 @@ class GitHubService {
    */
   async revokeToken() {
     logger.info('Attempting to revoke GitHub token...');
-    
+
     // Import SettingsService here to avoid circular dependency
     const SettingsService = require('./settings.service');
     const settings = await SettingsService.getSettings();
@@ -495,7 +495,7 @@ class GitHubService {
       logger.error('Error while trying to revoke GitHub grant:', error);
       // Do not re-throw; we must proceed to clear local tokens regardless
     }
-    
+
     // Step 2: Clear tokens from our database (critical step)
     await SettingsService.clearGithubTokens();
   }
@@ -609,11 +609,11 @@ class GitHubService {
       const algorithm = 'aes-256-cbc';
       const key = crypto.scryptSync(environment.JWT_SECRET, 'salt', 32);
       const iv = crypto.randomBytes(16);
-      
+
       const cipher = crypto.createCipheriv(algorithm, key, iv);
       let encrypted = cipher.update(token, 'utf8', 'hex');
       encrypted += cipher.final('hex');
-      
+
       return iv.toString('hex') + ':' + encrypted;
     } catch (error) {
       logger.error('Token encryption failed:', error);
@@ -627,22 +627,22 @@ class GitHubService {
    * @returns {string} Plain text token
    */
   decryptToken(encryptedToken) {
+    const parts = encryptedToken.split(':');
+    if (parts.length !== 2) {
+      throw new Error('Invalid encrypted token format');
+    }
+
     try {
       const algorithm = 'aes-256-cbc';
       const key = crypto.scryptSync(environment.JWT_SECRET, 'salt', 32);
-      
-      const parts = encryptedToken.split(':');
-      if (parts.length !== 2) {
-        throw new Error('Invalid encrypted token format');
-      }
-      
+
       const iv = Buffer.from(parts[0], 'hex');
       const encrypted = parts[1];
-      
+
       const decipher = crypto.createDecipheriv(algorithm, key, iv);
       let decrypted = decipher.update(encrypted, 'hex', 'utf8');
       decrypted += decipher.final('utf8');
-      
+
       return decrypted;
     } catch (error) {
       logger.error('Token decryption failed:', error);

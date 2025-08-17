@@ -1,16 +1,19 @@
-// Mock for @octokit/rest
 const mockOctokit = {
   rest: {
     users: {
-      getAuthenticated: jest.fn().mockResolvedValue({ data: {} })
+      getAuthenticated: jest.fn(),
+      listEmailsForAuthenticatedUser: jest.fn(),
     },
     repos: {
-      listForAuthenticatedUser: jest.fn().mockResolvedValue({ data: [] })
-    }
+      listForAuthenticatedUser: jest.fn(),
+      get: jest.fn(),
+    },
   },
-  auth: jest.fn()
 };
 
+const Octokit = jest.fn(() => mockOctokit);
+
 module.exports = {
-  Octokit: jest.fn(() => mockOctokit)
+  Octokit,
+  mockOctokit,
 };
