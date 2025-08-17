@@ -86,6 +86,26 @@ describe('ThemeService', () => {
         count: 0
       });
     });
+
+    it('should reload themes when themes is null', () => {
+      ThemeService.themes = null;
+      jest.spyOn(ThemeService, 'loadThemes');
+
+      const result = ThemeService.getAllThemes();
+
+      expect(ThemeService.loadThemes).toHaveBeenCalled();
+      expect(result.success).toBe(true);
+    });
+
+    it('should reload themes when themes.themes is null', () => {
+      ThemeService.themes = { themes: null };
+      jest.spyOn(ThemeService, 'loadThemes');
+
+      const result = ThemeService.getAllThemes();
+
+      expect(ThemeService.loadThemes).toHaveBeenCalled();
+      expect(result.success).toBe(true);
+    });
   });
 
   describe('getThemeById', () => {
@@ -107,6 +127,23 @@ describe('ThemeService', () => {
       });
     });
 
+    it('should validate theme ID input', () => {
+      expect(ThemeService.getThemeById('')).toEqual({
+        success: false,
+        error: 'Theme ID must be a non-empty string'
+      });
+      
+      expect(ThemeService.getThemeById(null)).toEqual({
+        success: false,
+        error: 'Theme ID must be a non-empty string'
+      });
+      
+      expect(ThemeService.getThemeById(123)).toEqual({
+        success: false,
+        error: 'Theme ID must be a non-empty string'
+      });
+    });
+
     it('should handle missing themes gracefully', () => {
       ThemeService.themes = { themes: [] };
 
@@ -116,6 +153,16 @@ describe('ThemeService', () => {
         success: false,
         error: "Theme with ID 'vscode-dark' not found"
       });
+    });
+
+    it('should reload themes when themes is null in getThemeById', () => {
+      ThemeService.themes = null;
+      jest.spyOn(ThemeService, 'loadThemes');
+
+      const result = ThemeService.getThemeById('vscode-dark');
+
+      expect(ThemeService.loadThemes).toHaveBeenCalled();
+      expect(result.success).toBe(true);
     });
   });
 
@@ -195,6 +242,33 @@ describe('ThemeService', () => {
       });
     });
 
+    it('should fail validation for invalid theme type', () => {
+      const invalidTheme = {
+        id: 'test-theme',
+        name: 'Test Theme',
+        type: 'invalid-type', // Invalid type
+        colors: {
+          primary: '#000000',
+          secondary: '#111111',
+          tertiary: '#222222',
+          sidebar: '#333333',
+          border: '#444444',
+          textPrimary: '#ffffff',
+          textSecondary: '#cccccc',
+          textMuted: '#999999',
+          accentBlue: '#007acc',
+          accentGreen: '#16825d',
+          accentRed: '#f14c4c'
+        }
+      };
+
+      const result = ThemeService.validateTheme(invalidTheme);
+
+      expect(result).toEqual({
+        valid: false,
+        error: 'Theme type must be either "light" or "dark"'
+      });
+    });
   });
 
   describe('reloadThemes', () => {
@@ -232,6 +306,23 @@ describe('ThemeService', () => {
       });
     });
 
+    it('should validate theme type input', () => {
+      expect(ThemeService.getThemesByType('')).toEqual({
+        success: false,
+        error: 'Theme type must be a non-empty string'
+      });
+      
+      expect(ThemeService.getThemesByType(null)).toEqual({
+        success: false,
+        error: 'Theme type must be a non-empty string'
+      });
+      
+      expect(ThemeService.getThemesByType(123)).toEqual({
+        success: false,
+        error: 'Theme type must be a non-empty string'
+      });
+    });
+
     it('should return empty array for non-existent type', () => {
       const result = ThemeService.getThemesByType('nonexistent');
 
@@ -253,6 +344,36 @@ describe('ThemeService', () => {
         themes: [],
         count: 0,
         type: 'dark'
+      });
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should handle file read errors in loadThemes', () => {
+      // Mock fs.readFileSync to throw an error
+      fs.readFileSync.mockImplementation(() => {
+        throw new Error('File not found');
+      });
+
+      // Create a new instance to trigger loadThemes
+      const testService = new (require('../../src/services/theme.service').constructor)();
+
+      expect(testService.themes).toEqual({ themes: [] });
+      expect(logger.error).toHaveBeenCalledWith('Failed to load themes:', expect.any(Error));
+    });
+
+    it('should handle getAllThemes failure in getThemesByType', () => {
+      // Mock getAllThemes to return failure
+      jest.spyOn(ThemeService, 'getAllThemes').mockReturnValue({
+        success: false,
+        error: 'Failed to load themes'
+      });
+
+      const result = ThemeService.getThemesByType('dark');
+
+      expect(result).toEqual({
+        success: false,
+        error: 'Failed to load themes'
       });
     });
   });

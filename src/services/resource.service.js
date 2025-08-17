@@ -82,7 +82,7 @@ class ResourceService {
       };
       
     } catch (error) {
-      console.warn('Failed to read container memory stats, using system stats:', error.message);
+      console.warn('Failed to read container memory stats, using system stats:', error);
       
       // Final fallback to system memory
       const memUsage = process.memoryUsage();
@@ -159,7 +159,7 @@ class ResourceService {
       };
       
     } catch (error) {
-      console.warn('Failed to read container CPU stats, using system stats:', error.message);
+      console.warn('Failed to read container CPU stats, using system stats:', error);
       
       const cores = os.cpus().length;
       return {
@@ -193,7 +193,7 @@ class ResourceService {
       };
       
     } catch (error) {
-      console.warn('Failed to get disk stats:', error.message);
+      console.warn('Failed to get disk stats:', error);
       return {
         workspaces: {
           used: 0,

@@ -29,6 +29,9 @@ describe('ResourceService', () => {
     
     // Mock console methods to avoid test noise
     jest.spyOn(console, 'warn').mockImplementation(() => {});
+    
+    // Reset fs.readFile to clear any previous mock states
+    fs.readFile.mockReset();
   });
 
   afterEach(() => {
@@ -108,6 +111,47 @@ describe('ResourceService', () => {
       process.memoryUsage = originalMemoryUsage;
     });
 
+    it('should handle cgroups v1 with system memory limit check', async () => {
+      const systemMemory = 8 * 1024 * 1024 * 1024; // 8GB
+      
+      // Mock readCgroupFile directly to avoid complex fs.readFile sequencing
+      jest.spyOn(ResourceService, 'readCgroupFile')
+        .mockResolvedValueOnce(null) // memory.max fails
+        .mockResolvedValueOnce(null) // memory.current fails  
+        .mockResolvedValueOnce(`${systemMemory}`) // memory.limit_in_bytes = system memory
+        .mockResolvedValueOnce('2147483648'); // memory.usage_in_bytes = 2GB
+
+      const result = await ResourceService.getMemoryStats();
+
+      expect(result.limit).toBe(systemMemory);
+      expect(result.used).toBe(2147483648);
+    });
+
+    it('should handle memory stats errors and use fallback', async () => {
+      // Mock readCgroupFile to throw an error to trigger catch block
+      jest.spyOn(ResourceService, 'readCgroupFile').mockRejectedValue(new Error('Cgroup access denied'));
+      
+      // Mock process.memoryUsage for error fallback
+      const originalMemoryUsage = process.memoryUsage;
+      process.memoryUsage = jest.fn().mockReturnValue({
+        rss: 268435456, // 256MB
+        heapTotal: 134217728,
+        heapUsed: 67108864,
+        external: 16777216
+      });
+
+      const result = await ResourceService.getMemoryStats();
+
+      expect(console.warn).toHaveBeenCalledWith('Failed to read container memory stats, using system stats:', expect.any(Error));
+      expect(result.used).toBe(268435456);
+      expect(result.limit).toBe(8 * 1024 * 1024 * 1024);
+      expect(result.formatted.used).toBe('256.0 MB');
+      expect(result.percentage).toBe(Math.round((268435456 / (8 * 1024 * 1024 * 1024)) * 100));
+
+      process.memoryUsage = originalMemoryUsage;
+    });
+
+
   });
 
   describe('getCpuStats', () => {
@@ -141,6 +185,50 @@ describe('ResourceService', () => {
       expect(result.formatted.limit).toBe('4 cores (no limit)');
     });
 
+    it('should fallback to cgroups v1 when v2 fails', async () => {
+      // Mock readCgroupFile directly to control return values
+      jest.spyOn(ResourceService, 'readCgroupFile')
+        .mockResolvedValueOnce(null) // cpu.max fails
+        .mockResolvedValueOnce('300000') // cpu.cfs_quota_us = 300ms  
+        .mockResolvedValueOnce('100000'); // cpu.cfs_period_us = 100ms
+      
+      jest.spyOn(ResourceService, 'getCurrentCpuUsage').mockResolvedValue(30);
+
+      const result = await ResourceService.getCpuStats();
+
+      expect(result.limit).toBe(3); // 300000/100000 = 3 cores
+      expect(result.limitCores).toBe(3);
+      expect(result.formatted.limit).toBe('3.00 cores');
+    });
+
+    it('should handle cgroups v1 with no limit (-1)', async () => {
+      jest.spyOn(ResourceService, 'readCgroupFile')
+        .mockResolvedValueOnce(null) // cpu.max fails
+        .mockResolvedValueOnce('-1') // cpu.cfs_quota_us = -1 (no limit)
+        .mockResolvedValueOnce('100000'); // cpu.cfs_period_us = 100ms
+      
+      jest.spyOn(ResourceService, 'getCurrentCpuUsage').mockResolvedValue(20);
+
+      const result = await ResourceService.getCpuStats();
+
+      expect(result.limit).toBe(4); // Should use system cores
+      expect(result.formatted.limit).toBe('4 cores (no limit)');
+    });
+
+    it('should fallback to system CPU when all cgroups fail', async () => {
+      jest.spyOn(ResourceService, 'readCgroupFile').mockRejectedValue(new Error('Cgroup access denied'));
+      jest.spyOn(ResourceService, 'getCurrentCpuUsage').mockResolvedValue(45);
+
+      const result = await ResourceService.getCpuStats();
+
+      expect(console.warn).toHaveBeenCalledWith('Failed to read container CPU stats, using system stats:', expect.any(Error));
+      expect(result.limit).toBe(4);
+      expect(result.cores).toBe(4);
+      expect(result.percentage).toBe(45);
+      expect(result.formatted.limit).toBe('4 cores');
+    });
+
+
   });
 
   describe('getDiskStats', () => {
@@ -169,7 +257,7 @@ describe('ResourceService', () => {
 
       const result = await ResourceService.getDiskStats();
 
-      expect(console.warn).toHaveBeenCalledWith('Failed to get disk stats:', 'Disk error');
+      expect(console.warn).toHaveBeenCalledWith('Failed to get disk stats:', expect.any(Error));
       expect(result).toEqual({
         workspaces: {
           used: 0,
@@ -180,27 +268,96 @@ describe('ResourceService', () => {
   });
 
   describe('getCurrentCpuUsage', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
     it('should return a number between 0 and 100', async () => {
+      // Restore real timers for this test to allow actual timeout to work
+      jest.useRealTimers();
+      
       const result = await ResourceService.getCurrentCpuUsage();
       
       expect(typeof result).toBe('number');
       expect(result).toBeGreaterThanOrEqual(0);
       expect(result).toBeLessThanOrEqual(100);
+      
+      // Restore fake timers for other tests
+      jest.useFakeTimers();
+    });
+
+    it('should calculate CPU usage over time period', async () => {
+      const originalCpuUsage = process.cpuUsage;
+      let callCount = 0;
+      
+      process.cpuUsage = jest.fn((previousValue) => {
+        callCount++;
+        if (callCount === 1) {
+          // First call (start)
+          return { user: 1000000, system: 500000 };
+        } else {
+          // Second call (end) - with previousValue
+          return { user: 50000, system: 25000 }; // Difference values
+        }
+      });
+
+      const promise = ResourceService.getCurrentCpuUsage();
+      
+      // Fast-forward time
+      jest.advanceTimersByTime(100);
+      
+      const result = await promise;
+      
+      expect(process.cpuUsage).toHaveBeenCalledTimes(2);
+      expect(typeof result).toBe('number');
+      expect(result).toBeLessThanOrEqual(100);
+      
+      process.cpuUsage = originalCpuUsage;
+    });
+
+    it('should cap CPU usage at 100%', async () => {
+      const originalCpuUsage = process.cpuUsage;
+      let callCount = 0;
+      
+      process.cpuUsage = jest.fn((previousValue) => {
+        callCount++;
+        if (callCount === 1) {
+          return { user: 1000000, system: 500000 };
+        } else {
+          // Return very high usage to test capping
+          return { user: 200000, system: 100000 }; // This would calculate to >100%
+        }
+      });
+
+      const promise = ResourceService.getCurrentCpuUsage();
+      jest.advanceTimersByTime(100);
+      
+      const result = await promise;
+      
+      expect(result).toBeLessThanOrEqual(100);
+      
+      process.cpuUsage = originalCpuUsage;
     });
   });
 
   describe('readCgroupFile', () => {
+    // These tests need to test the actual readCgroupFile method without mocking it
     it('should read from cgroups v2 successfully', async () => {
-      fs.readFile.mockClear();
+      fs.readFile.mockReset();
       fs.readFile.mockResolvedValueOnce('test-content\n');
 
       const result = await ResourceService.readCgroupFile('test.file');
 
       expect(result).toBe('test-content');
+      expect(fs.readFile).toHaveBeenCalledWith('/sys/fs/cgroup/test.file', 'utf8');
     });
 
     it('should fallback to cgroups v1 when v2 fails', async () => {
-      fs.readFile.mockClear();
+      fs.readFile.mockReset();
       fs.readFile
         .mockRejectedValueOnce(new Error('v2 not found'))
         .mockResolvedValueOnce('v1-content\n');
@@ -208,23 +365,97 @@ describe('ResourceService', () => {
       const result = await ResourceService.readCgroupFile('test.file');
 
       expect(result).toBe('v1-content');
+      expect(fs.readFile).toHaveBeenCalledTimes(2);
+      expect(fs.readFile).toHaveBeenNthCalledWith(1, '/sys/fs/cgroup/test.file', 'utf8');
+      expect(fs.readFile).toHaveBeenNthCalledWith(2, '/sys/fs/cgroup/test.file', 'utf8');
     });
 
     it('should return null when both v2 and v1 fail', async () => {
-      fs.readFile.mockClear();
-      fs.readFile.mockRejectedValue(new Error('File not found'));
+      fs.readFile.mockReset();
+      fs.readFile
+        .mockRejectedValueOnce(new Error('v2 not found'))
+        .mockRejectedValueOnce(new Error('v1 not found'));
 
       const result = await ResourceService.readCgroupFile('nonexistent.file');
 
       expect(result).toBeNull();
+      expect(fs.readFile).toHaveBeenCalledTimes(2);
     });
   });
 
   describe('getDirectorySize', () => {
+    it('should return file size for non-directory items', async () => {
+      const mockStat = { 
+        isDirectory: () => false,
+        size: 1024
+      };
+      fs.stat.mockResolvedValue(mockStat);
+
+      const result = await ResourceService.getDirectorySize('/path/to/file.txt');
+
+      expect(result).toBe(1024);
+    });
+
+    it('should calculate directory size recursively', async () => {
+      const mockDirStat = { isDirectory: () => true };
+      const mockFileStat = { 
+        isDirectory: () => false,
+        size: 512
+      };
+      
+      fs.stat
+        .mockResolvedValueOnce(mockDirStat) // Initial directory
+        .mockResolvedValueOnce(mockFileStat) // file1.txt
+        .mockResolvedValueOnce(mockFileStat); // file2.txt
+      
+      fs.readdir.mockResolvedValue(['file1.txt', 'file2.txt']);
+
+      const result = await ResourceService.getDirectorySize('/path/to/directory');
+
+      expect(result).toBe(1024); // 512 + 512
+      expect(fs.stat).toHaveBeenCalledTimes(3);
+    });
+
+    it('should handle nested directories recursively', async () => {
+      const mockDirStat = { isDirectory: () => true };
+      const mockFileStat = { 
+        isDirectory: () => false,
+        size: 256
+      };
+      
+      // First call: root directory
+      fs.stat.mockResolvedValueOnce(mockDirStat);
+      fs.readdir.mockResolvedValueOnce(['subdir', 'file.txt']);
+      
+      // Second call: subdir (also a directory)
+      fs.stat.mockResolvedValueOnce(mockDirStat);
+      fs.readdir.mockResolvedValueOnce(['nested-file.txt']);
+      
+      // Third call: nested-file.txt
+      fs.stat.mockResolvedValueOnce(mockFileStat);
+      
+      // Fourth call: file.txt
+      fs.stat.mockResolvedValueOnce(mockFileStat);
+
+      const result = await ResourceService.getDirectorySize('/path/to/directory');
+
+      expect(result).toBe(512); // 256 + 256
+    });
+
     it('should handle directory access errors', async () => {
       fs.stat.mockRejectedValue(new Error('Permission denied'));
 
       const result = await ResourceService.getDirectorySize('/inaccessible/path');
+
+      expect(result).toBe(0);
+    });
+
+    it('should handle readdir errors gracefully', async () => {
+      const mockDirStat = { isDirectory: () => true };
+      fs.stat.mockResolvedValue(mockDirStat);
+      fs.readdir.mockRejectedValue(new Error('Permission denied'));
+
+      const result = await ResourceService.getDirectorySize('/inaccessible/directory');
 
       expect(result).toBe(0);
     });
@@ -243,6 +474,11 @@ describe('ResourceService', () => {
     it('should handle bytes without decimals', () => {
       expect(ResourceService.formatBytes(512)).toBe('512 B');
       expect(ResourceService.formatBytes(1)).toBe('1 B');
+    });
+
+    it('should handle very large numbers', () => {
+      // The formatBytes function only supports up to TB, so test within that range
+      expect(ResourceService.formatBytes(1024 * 1024 * 1024 * 1024)).toBe('1.0 TB');
     });
   });
 
