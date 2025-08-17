@@ -26,7 +26,7 @@ Website: [act.drmhse.com](https://act.drmhse.com)
 
 ## Philosophy
 
--   **The Post-IDE Era:** In 2025, a powerful shell is a complete development environment. ACT provide that environment, wherever you are.
+-   **The Post-IDE Era:** In 2025, a powerful shell is a complete development environment. ACT provides that environment, wherever you are.
 -   **Lightweight & Fast:** While cloud IDEs replicate heavy desktop experiences, ACT environment is a single, lean shell process. It's fast, responsive, and uses minimal resources.
 -   **AI-Native:** Designed from the ground up for a workflow centered around CLI-based AI tools. Your terminal becomes a conversation with your codebase.
 -   **Absolute Sovereignty:** Your code, your AI interactions, and your environment are hosted on your infrastructure. No third-party access, no compromises.
