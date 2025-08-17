@@ -1,8 +1,8 @@
-# AI Code Terminal: The AI-Native Shell
+# AI Code Terminal (ACT)
 
 The modern development workflow is shifting back to the terminal, now supercharged by AI agents like Claude Code, Qwen-Code, and the Gemini CLI. Heavy, resource-intensive IDEs are no longer a prerequisite for productive coding. All you need is a shell.
 
-AI Code Terminal is the bridge to this new paradigm. It is a self-hosted, sovereign environment that gives you a persistent, root-level shell accessible from any browser, on any device. It is built for the developer on the go, who values speed, control, and the power of a minimal-footprint, AI-driven workflow.
+ACT is the bridge to this new paradigm. It is a self-hosted, sovereign environment that gives you a persistent, root-level shell accessible from any browser, on any device. It is built for the developer on the go, who values speed, control, and the power of a minimal-footprint, AI-driven workflow.
 
 ![Node.js](https://img.shields.io/badge/Node.js-18+-blue)
 ![Docker](https://img.shields.io/badge/Docker-Ready-blue)
@@ -26,8 +26,8 @@ Website: [act.drmhse.com](https://act.drmhse.com)
 
 ## Philosophy
 
--   **The Post-IDE Era:** In 2025, a powerful shell is a complete development environment. We provide that environment, wherever you are.
--   **Lightweight & Fast:** While cloud IDEs replicate heavy desktop experiences, our environment is a single, lean shell process. It's fast, responsive, and uses minimal resources.
+-   **The Post-IDE Era:** In 2025, a powerful shell is a complete development environment. ACT provide that environment, wherever you are.
+-   **Lightweight & Fast:** While cloud IDEs replicate heavy desktop experiences, ACT environment is a single, lean shell process. It's fast, responsive, and uses minimal resources.
 -   **AI-Native:** Designed from the ground up for a workflow centered around CLI-based AI tools. Your terminal becomes a conversation with your codebase.
 -   **Absolute Sovereignty:** Your code, your AI interactions, and your environment are hosted on your infrastructure. No third-party access, no compromises.
 
@@ -48,8 +48,8 @@ Website: [act.drmhse.com](https://act.drmhse.com)
 3.  **GitHub OAuth App:**
     -   Go to [GitHub Developer Settings](https://github.com/settings/developers).
     -   Create a new OAuth App.
-    -   **Homepage URL:** `http://your-server-ip:3014`
-    -   **Authorization callback URL:** `http://your-server-ip:3014/auth/github/callback`
+    -   **Homepage URL:** `http://[your-server-ip/domain]:3014`
+    -   **Authorization callback URL:** `http://[your-server-ip/domain]:3014/auth/github/callback`
 
 ### Docker Compose (Recommended)
 
@@ -72,7 +72,7 @@ Website: [act.drmhse.com](https://act.drmhse.com)
     docker-compose up -d
     ```
 
-5.  Open `http://your-server-ip:3014` in your browser and log in with your authorized GitHub account.
+5.  Open `http://[your-server-ip/domain]:3014` in your browser and log in with your authorized GitHub account.
 
 ## Usage Workflow
 
@@ -81,14 +81,14 @@ Website: [act.drmhse.com](https://act.drmhse.com)
 3.  **Enter the Shell:** Select the workspace to launch the terminal.
 4.  **Power Up with AI:** Authenticate your favorite AI CLI and start building.
     ```bash
-    # Example for Claude Code
-    claude login
+    # Example for Claude Code (baked into the image)
+    claude
 
-    # Example for Gemini CLI
-    gemini auth login
+    # Example for Gemini CLI (if installed)
+    gemini
 
     # Example for Qwen-Code (if installed)
-    qwen-code --help
+    qwen
     ```
 
 ## Environment Variables
