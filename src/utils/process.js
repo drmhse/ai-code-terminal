@@ -85,7 +85,7 @@ class ProcessUtil {
 
   // Process monitoring utilities
   isProcessRunning(process) {
-    return process && !process.killed && process.exitCode === null;
+    return !!(process && !process.killed && process.exitCode === null);
   }
 
   getProcessInfo(process) {

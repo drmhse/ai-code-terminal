@@ -127,7 +127,7 @@ class GitHubService {
       const { data: user } = await octokit.rest.users.getAuthenticated();
       
       // Get user's primary email
-      const { data: emails } = await octokit.rest.users.listEmailsForAuthenticated();
+      const { data: emails } = await octokit.rest.users.listEmailsForAuthenticatedUser();
       const primaryEmail = emails.find(email => email.primary)?.email || user.email;
 
       return {
@@ -431,7 +431,7 @@ class GitHubService {
       const { data: user } = await octokit.rest.users.getAuthenticated();
       
       // Get user's primary email
-      const { data: emails } = await octokit.rest.users.listEmailsForAuthenticated();
+      const { data: emails } = await octokit.rest.users.listEmailsForAuthenticatedUser();
       const primaryEmail = emails.find(email => email.primary)?.email || user.email;
 
       return {

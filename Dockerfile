@@ -43,7 +43,7 @@ RUN chmod +x start.sh
 RUN npx prisma generate
 
 # Create necessary directories and set permissions
-RUN mkdir -p workspaces prisma/data && \
+RUN mkdir -p workspaces prisma/data data && \
     chown -R claude:claude /home/claude && \
     chown -R claude:claude /app
 

@@ -294,6 +294,30 @@ class ShellService {
             return error.code !== 'ESRCH';
         }
     }
+
+    /**
+     * Clean up resources (for testing or shutdown)
+     */
+    cleanup() {
+        if (this.cleanupInterval) {
+            clearInterval(this.cleanupInterval);
+            this.cleanupInterval = null;
+        }
+        
+        // Terminate all active sessions
+        for (const [workspaceId, session] of this.activeSessions) {
+            try {
+                if (session.ptyProcess && !session.ptyProcess.killed) {
+                    session.ptyProcess.kill();
+                }
+            } catch (error) {
+                logger.warn(`Failed to kill process for workspace ${workspaceId}:`, error);
+            }
+        }
+        
+        this.activeSessions.clear();
+        this.socketToWorkspace.clear();
+    }
 }
 
 module.exports = new ShellService();

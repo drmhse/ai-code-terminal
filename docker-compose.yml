@@ -7,7 +7,7 @@ services:
       - NODE_ENV=${NODE_ENV:-production}
       - JWT_SECRET=${JWT_SECRET}
       - PORT=${PORT:-3014}
-      - DATABASE_URL=${DATABASE_URL:-file:./data/database.db}
+      - DATABASE_URL=${DATABASE_URL:-file:/app/prisma/data/database.db}
       - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
       - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
       - GITHUB_CALLBACK_URL=${GITHUB_CALLBACK_URL}
