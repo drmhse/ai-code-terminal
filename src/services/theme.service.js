@@ -42,6 +42,13 @@ class ThemeService {
    * Get a specific theme by ID
    */
   getThemeById(themeId) {
+    if (!themeId || typeof themeId !== 'string') {
+      return {
+        success: false,
+        error: 'Theme ID must be a non-empty string'
+      };
+    }
+
     if (!this.themes || !this.themes.themes) {
       this.loadThemes();
     }
@@ -159,6 +166,13 @@ class ThemeService {
    * Get themes filtered by type
    */
   getThemesByType(type) {
+    if (!type || typeof type !== 'string') {
+      return {
+        success: false,
+        error: 'Theme type must be a non-empty string'
+      };
+    }
+
     const allThemes = this.getAllThemes();
     
     if (!allThemes.success) {

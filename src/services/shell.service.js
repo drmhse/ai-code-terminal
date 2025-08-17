@@ -291,7 +291,9 @@ class ShellService {
             return true;
         } catch (error) {
             // ESRCH means the process doesn't exist.
-            return error.code !== 'ESRCH';
+            // EPERM means process exists but we don't have permission to signal it.
+            // Any other error (EINVAL, etc.) we treat as "unknown/dead" for safety.
+            return error.code === 'EPERM';
         }
     }
 

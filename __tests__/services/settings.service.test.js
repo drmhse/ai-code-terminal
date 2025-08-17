@@ -126,6 +126,34 @@ describe('SettingsService', () => {
         .rejects.toThrow('Failed to update GitHub tokens');
       expect(logger.error).toHaveBeenCalledWith('Failed to update GitHub tokens:', error);
     });
+
+    it('should handle null tokens in updateGithubTokens', async () => {
+      const expiresAt = new Date(Date.now() + 3600000);
+      
+      prisma.settings.upsert.mockResolvedValue({
+        id: 'singleton',
+        githubToken: null,
+        githubRefreshToken: null,
+        githubTokenExpiresAt: expiresAt
+      });
+      
+      await SettingsService.updateGithubTokens(null, null, expiresAt);
+      
+      expect(prisma.settings.upsert).toHaveBeenCalledWith({
+        where: { id: 'singleton' },
+        create: expect.objectContaining({
+          id: 'singleton',
+          githubToken: null,
+          githubRefreshToken: null,
+          githubTokenExpiresAt: expiresAt
+        }),
+        update: expect.objectContaining({
+          githubToken: null,
+          githubRefreshToken: null,
+          githubTokenExpiresAt: expiresAt
+        })
+      });
+    });
   });
 
   describe('getTheme', () => {
@@ -398,6 +426,18 @@ describe('SettingsService', () => {
       
       expect(result).toBeNull();
       expect(logger.error).toHaveBeenCalledWith('Failed to get GitHub token:', error);
+    });
+  });
+
+  describe('_decryptTokens (internal helper)', () => {
+    it('should return null when settings is null', () => {
+      const result = SettingsService._decryptTokens(null);
+      expect(result).toBeNull();
+    });
+
+    it('should return null when settings is undefined', () => {
+      const result = SettingsService._decryptTokens(undefined);
+      expect(result).toBeNull();
     });
   });
 });

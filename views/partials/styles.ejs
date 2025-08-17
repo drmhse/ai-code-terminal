@@ -128,7 +128,7 @@
             display: flex;
             align-items: center;
             padding: 0 16px;
-            justify-content: center;
+            justify-content: space-between;
             position: relative;
         }
 
@@ -136,14 +136,19 @@
             font-size: 13px;
             font-weight: 400;
             color: var(--text-secondary);
+            flex: 1;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin: 0 8px;
         }
 
         .title-bar .controls {
-            position: absolute;
-            right: 16px;
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 16px;
+            flex-shrink: 0;
         }
 
         .title-bar .user-info {
@@ -181,16 +186,20 @@
             border: none;
             color: var(--text-secondary);
             cursor: pointer;
-            padding: 4px;
+            padding: 6px 8px;
             border-radius: 4px;
             transition: all 0.2s;
             display: flex;
             align-items: center;
             justify-content: center;
+            margin-left: 8px;
+            border-left: 1px solid var(--border-color);
+            padding-left: 12px;
         }
         .logout-button:hover {
-            background: var(--bg-secondary);
-            color: var(--accent-red);
+            background: var(--accent-red);
+            color: white;
+            transform: scale(1.05);
         }
         .logout-button i {
             width: 16px;
@@ -1596,13 +1605,12 @@
             }
 
             .mobile-toggle {
-                position: absolute;
-                left: 12px;
                 background: none;
                 border: none;
                 color: var(--text-secondary);
                 cursor: pointer;
                 padding: 4px;
+                flex-shrink: 0;
             }
 
             .mobile-toggle .icon {
@@ -1611,7 +1619,68 @@
             }
 
             .title-bar {
-                padding-left: 40px;
+                padding: 0 8px;
+                gap: 8px;
+            }
+
+            .title-bar h1 {
+                font-size: 12px;
+                margin: 0 4px;
+            }
+
+            .title-bar .controls {
+                gap: 12px;
+            }
+
+            .title-bar .user-info {
+                display: none; /* Hide on mobile to save space */
+            }
+
+            .theme-button {
+                padding: 4px 6px;
+                font-size: 10px;
+            }
+
+            .logout-button {
+                padding: 4px 6px;
+                margin-left: 6px;
+                padding-left: 10px;
+            }
+        }
+
+        /* Extra small mobile devices */
+        @media (max-width: 480px) {
+            .title-bar {
+                padding: 0 4px;
+            }
+
+            .title-bar h1 {
+                font-size: 11px;
+                margin: 0 2px;
+            }
+
+            .title-bar .controls {
+                gap: 8px;
+            }
+
+            .theme-button {
+                padding: 3px 4px;
+                font-size: 9px;
+            }
+
+            .theme-button .icon {
+                width: 12px;
+                height: 12px;
+            }
+
+            .logout-button {
+                padding: 3px 4px;
+                margin-left: 4px;
+                padding-left: 8px;
+            }
+
+            .mobile-toggle {
+                padding: 3px;
             }
 
             /* Status bar becomes vertical on mobile */

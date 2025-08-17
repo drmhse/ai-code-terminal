@@ -38,6 +38,13 @@ class WorkspaceService {
    * @returns {Promise<Object>} Created workspace
    */
   async createWorkspace(githubRepo, githubUrl) {
+    if (!githubRepo || typeof githubRepo !== 'string') {
+      throw new Error('GitHub repository must be a non-empty string');
+    }
+    if (!githubUrl || typeof githubUrl !== 'string') {
+      throw new Error('GitHub URL must be a non-empty string');
+    }
+
     try {
       // Check if workspace already exists
       const existingWorkspace = await prisma.workspace.findUnique({
