@@ -1,5 +1,7 @@
 # AI Code Terminal (ACT)
 
+[![CI](https://github.com/drmhse/ai-code-terminal/actions/workflows/pr-tests.yml/badge.svg)](https://github.com/drmhse/ai-code-terminal/actions/workflows/pr-tests.yml) [![Coverage Status](https://coveralls.io/repos/github/drmhse/ai-code-terminal/badge.svg?branch=main)](https://coveralls.io/github/drmhse/ai-code-terminal?branch=main)
+
 The modern development workflow is shifting back to the terminal, now supercharged by AI agents like Claude Code, Qwen-Code, and the Gemini CLI. Heavy, resource-intensive IDEs are no longer a prerequisite for productive coding. All you need is a shell.
 
 ACT is the bridge to this new paradigm. It is a self-hosted, sovereign environment that gives you a persistent, root-level shell accessible from any browser, on any device. It is built for the developer on the go, who values speed, control, and the power of a minimal-footprint, AI-driven workflow.
