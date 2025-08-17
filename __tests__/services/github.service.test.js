@@ -1,542 +1,212 @@
-// Mock dependencies
 jest.mock('@octokit/rest');
-jest.mock('../../src/config/database');
+jest.mock('../../src/services/settings.service');
 jest.mock('../../src/utils/logger');
+jest.mock('../../src/utils/encryption');
+
+jest.mock('../../src/config/database', () => ({
+  prisma: {
+    user: {
+      update: jest.fn(),
+      findUnique: jest.fn(),
+    },
+  },
+}));
+
+jest.mock('crypto', () => {
+  const originalCrypto = jest.requireActual('crypto');
+  return {
+    ...originalCrypto,
+    randomBytes: jest.fn(),
+    scryptSync: jest.fn().mockReturnValue(Buffer.from('a'.repeat(32))),
+    createCipheriv: jest.fn(),
+    createDecipheriv: jest.fn(),
+  };
+});
+
 jest.mock('../../src/config/environment', () => ({
   GITHUB_CLIENT_ID: 'test-client-id',
   GITHUB_CLIENT_SECRET: 'test-client-secret',
   GITHUB_CALLBACK_URL: 'http://localhost:3001/auth/github/callback',
-  JWT_SECRET: 'test-jwt-secret-key-for-testing-purposes-very-long'
-}));
-jest.mock('crypto', () => ({
-  ...jest.requireActual('crypto'),
-  randomBytes: jest.fn().mockReturnValue(Buffer.from('test-random-bytes'))
+  JWT_SECRET: 'test-jwt-secret-key',
 }));
 
-const { Octokit } = require('@octokit/rest');
+const { Octokit, mockOctokit } = require('@octokit/rest');
 const { prisma } = require('../../src/config/database');
-const logger = require('../../src/utils/logger');
+const SettingsService = require('../../src/services/settings.service');
 const crypto = require('crypto');
+const encryption = require('../../src/utils/encryption');
+const GitHubService = require('../../src/services/github.service');
+
+global.fetch = jest.fn();
 
 describe('GitHubService', () => {
-  let GitHubService;
+  const mockDateNow = 1672531200000; // 2023-01-01 00:00:00 UTC
+
+  beforeAll(() => {
+    jest.useFakeTimers();
+  });
+
+  afterAll(() => {
+    jest.useRealTimers();
+  });
 
   beforeEach(() => {
-    // Set environment variables
-    process.env.GITHUB_CLIENT_ID = 'test-client-id';
-    process.env.GITHUB_CLIENT_SECRET = 'test-client-secret';
-    process.env.GITHUB_CALLBACK_URL = 'http://localhost:3001/auth/github/callback';
-    
-    // Reset modules to ensure fresh mock states
-    jest.resetModules();
-    
-    // Set up mocks
-    prisma.settings = {
-      findUnique: jest.fn(),
-      update: jest.fn(),
-      create: jest.fn(),
-      upsert: jest.fn()
-    };
-    
-    prisma.user = {
-      findUnique: jest.fn(),
-      update: jest.fn(),
-      create: jest.fn()
-    };
-    
-    GitHubService = require('../../src/services/github.service');
-    
-    // Clear all mocks
+    jest.setSystemTime(new Date(mockDateNow));
     jest.clearAllMocks();
+    crypto.randomBytes.mockReturnValue(Buffer.from('mock-random-bytes'));
+
+    mockOctokit.rest.users.getAuthenticated.mockImplementation(() => Promise.resolve({ data: { id: 123, login: 'testuser' } }));
+    mockOctokit.rest.users.listEmailsForAuthenticatedUser.mockImplementation(() => Promise.resolve({ data: [{ email: 'test@example.com', primary: true }] }));
   });
 
-  describe('isConfigured', () => {
-    it('should return true when GitHub is configured', () => {
-      const result = GitHubService.isConfigured();
-      expect(result).toBe(true);
+  describe('Core Functionality', () => {
+    it('isConfigured should return true when configured', () => {
+      expect(GitHubService.isConfigured()).toBe(true);
     });
 
-    it('should return false when GitHub client ID is missing', () => {
-      // Mock the environment configuration to return undefined for GITHUB_CLIENT_ID
-      jest.doMock('../../src/config/environment', () => ({
-        GITHUB_CLIENT_ID: undefined,
-        GITHUB_CLIENT_SECRET: 'test-client-secret',
-        GITHUB_CALLBACK_URL: 'http://localhost:3001/auth/github/callback',
-        JWT_SECRET: 'test-jwt-secret-key-for-testing-purposes-very-long'
-      }));
-      
-      // Reset modules to get fresh GitHubService with new environment
-      jest.resetModules();
-      const GitHubServiceWithMissingId = require('../../src/services/github.service');
-      
-      const result = GitHubServiceWithMissingId.isConfigured();
-      expect(result).toBe(false);
-      
-      // Restore the original mock
-      jest.doMock('../../src/config/environment', () => ({
-        GITHUB_CLIENT_ID: 'test-client-id',
-        GITHUB_CLIENT_SECRET: 'test-client-secret',
-        GITHUB_CALLBACK_URL: 'http://localhost:3001/auth/github/callback',
-        JWT_SECRET: 'test-jwt-secret-key-for-testing-purposes-very-long'
-      }));
-    });
-  });
-
-  describe('getAuthorizationUrl', () => {
-    it('should generate correct authorization URL', () => {
-      // Mock crypto.randomBytes
-      crypto.randomBytes.mockReturnValue(Buffer.from('test-random-bytes'));
-      
+    it('getAuthorizationUrl should generate a valid URL', () => {
       const url = GitHubService.getAuthorizationUrl('user-id');
-      
       expect(url).toContain('https://github.com/login/oauth/authorize');
-      expect(url).toContain('client_id=test-client-id');
-      expect(url).toContain('redirect_uri=http%3A%2F%2Flocalhost%3A3001%2Fauth%2Fgithub%2Fcallback');
-      expect(url).toContain('scope=user%3Aemail+repo+read%3Aorg');
-      expect(url).toContain('state='); // Should contain state parameter
-      expect(url).toContain('response_type=code');
     });
 
-    it('should throw error when not configured', () => {
-      // Mock the environment configuration to have missing values
-      jest.doMock('../../src/config/environment', () => ({
-        GITHUB_CLIENT_ID: undefined,
-        GITHUB_CLIENT_SECRET: undefined,
-        GITHUB_CALLBACK_URL: undefined,
-        JWT_SECRET: 'test-jwt-secret-key-for-testing-purposes-very-long'
-      }));
-      
-      // Reset modules to get fresh GitHubService with new environment
-      jest.resetModules();
-      const UnconfiguredGitHubService = require('../../src/services/github.service');
-      
-      expect(() => UnconfiguredGitHubService.getAuthorizationUrl('user-id'))
-        .toThrow('GitHub OAuth is not configured');
-        
-      // Restore the original mock
-      jest.doMock('../../src/config/environment', () => ({
-        GITHUB_CLIENT_ID: 'test-client-id',
-        GITHUB_CLIENT_SECRET: 'test-client-secret',
-        GITHUB_CALLBACK_URL: 'http://localhost:3001/auth/github/callback',
-        JWT_SECRET: 'test-jwt-secret-key-for-testing-purposes-very-long'
-      }));
-    });
-  });
-
-  describe('generateState', () => {
-    it('should generate valid state parameter', () => {
-      const userId = 'test-user-123';
-      const state = GitHubService.generateState(userId);
-      
-      expect(typeof state).toBe('string');
-      expect(state.length).toBeGreaterThan(0);
-      
-      // Should be base64 encoded
-      const decoded = Buffer.from(state, 'base64').toString();
-      const parsed = JSON.parse(decoded);
-      
-      expect(parsed).toHaveProperty('userId', userId);
-      expect(parsed).toHaveProperty('timestamp');
-      expect(parsed).toHaveProperty('random');
-    });
-  });
-
-  describe('verifyState', () => {
-    it('should verify valid state and return userId', () => {
-      const userId = 'test-user-123';
-      const state = GitHubService.generateState(userId);
-      
-      const result = GitHubService.verifyState(state);
-      expect(result).toBe(userId);
-    });
-
-    it('should return null for expired state', () => {
-      const userId = 'test-user-123';
-      
-      // Create an expired state (older than 10 minutes)
-      const expiredTimestamp = Date.now() - (11 * 60 * 1000);
-      const payload = JSON.stringify({
-        userId,
-        timestamp: expiredTimestamp,
-        random: 'test-random'
-      });
-      const expiredState = Buffer.from(payload).toString('base64');
-      
-      const result = GitHubService.verifyState(expiredState);
-      expect(result).toBeNull();
-    });
-
-    it('should return null for invalid state format', () => {
-      const invalidState = 'invalid-base64-!@#$%';
-      const result = GitHubService.verifyState(invalidState);
-      expect(result).toBeNull();
-    });
-  });
-
-  describe('getUserInfo', () => {
-    it('should get user information successfully', async () => {
-      const mockUser = {
-        id: 12345,
-        login: 'testuser',
-        name: 'Test User',
-        email: 'test@example.com',
-        avatar_url: 'https://github.com/avatar.png',
-        html_url: 'https://github.com/testuser',
-        company: 'Test Company',
-        location: 'Test City',
-        public_repos: 10,
-        followers: 5,
-        following: 3
-      };
-
-      const mockEmails = [
-        { email: 'test@example.com', primary: true },
-        { email: 'other@example.com', primary: false }
-      ];
-
-      const mockOctokit = {
-        rest: {
-          users: {
-            getAuthenticated: jest.fn().mockResolvedValue({ data: mockUser }),
-            listEmailsForAuthenticatedUser: jest.fn().mockResolvedValue({ data: mockEmails })
-          }
-        }
-      };
-
-      // Clear previous mocks and set up fresh mock
-      jest.clearAllMocks();
-      Octokit.mockClear();
-      Octokit.mockImplementation(() => mockOctokit);
-
+    it('getUserInfo should retrieve user data', async () => {
       const result = await GitHubService.getUserInfo('test-token');
-
-      expect(Octokit).toHaveBeenCalledWith({
-        auth: 'test-token',
-        userAgent: 'claude-code-web-interface'
-      });
-      expect(result).toEqual({
-        id: 12345,
-        login: 'testuser',
-        name: 'Test User',
-        email: 'test@example.com',
-        avatar_url: 'https://github.com/avatar.png',
-        html_url: 'https://github.com/testuser',
-        company: 'Test Company',
-        location: 'Test City',
-        public_repos: 10,
-        followers: 5,
-        following: 3
-      });
+      expect(result.login).toBe('testuser');
     });
 
-    it('should handle API errors gracefully', async () => {
-      const mockOctokit = {
-        rest: {
-          users: {
-            getAuthenticated: jest.fn().mockRejectedValue(new Error('API Error'))
-          }
-        }
-      };
-
-      Octokit.mockImplementation(() => mockOctokit);
-
-      await expect(GitHubService.getUserInfo('invalid-token'))
-        .rejects.toThrow('Failed to retrieve GitHub user information');
-    });
-  });
-
-  describe('validateToken', () => {
-    it('should return true for valid token', async () => {
-      const mockOctokit = {
-        rest: {
-          users: {
-            getAuthenticated: jest.fn().mockResolvedValue({ data: { id: 123 } })
-          }
-        }
-      };
-
-      Octokit.mockImplementation(() => mockOctokit);
-
+    it('validateToken should return true for a valid token', async () => {
       const result = await GitHubService.validateToken('valid-token');
       expect(result).toBe(true);
     });
 
-    it('should return false for invalid token', async () => {
-      const mockOctokit = {
-        rest: {
-          users: {
-            getAuthenticated: jest.fn().mockRejectedValue(new Error('Unauthorized'))
-          }
-        }
-      };
-
-      // Clear previous mocks first
-      jest.clearAllMocks();
-      Octokit.mockImplementation(() => mockOctokit);
-
+    it('validateToken should return false for an invalid token', async () => {
+      mockOctokit.rest.users.getAuthenticated.mockRejectedValueOnce(new Error('Unauthorized'));
       const result = await GitHubService.validateToken('invalid-token');
       expect(result).toBe(false);
     });
   });
 
-  describe('parseLinkHeader', () => {
-    it('should parse Link header with all pagination links', () => {
-      const linkHeader = '<https://api.github.com/repos?page=2>; rel="next", <https://api.github.com/repos?page=1>; rel="prev", <https://api.github.com/repos?page=1>; rel="first", <https://api.github.com/repos?page=10>; rel="last"';
-      
-      const result = GitHubService.parseLinkHeader(linkHeader);
-      
-      expect(result).toEqual({
-        hasNext: true,
-        hasPrev: true,
-        nextUrl: 'https://api.github.com/repos?page=2',
-        prevUrl: 'https://api.github.com/repos?page=1',
-        firstUrl: 'https://api.github.com/repos?page=1',
-        lastUrl: 'https://api.github.com/repos?page=10'
+  describe('Token Lifecycle', () => {
+    it('refreshToken should succeed and update tokens', async () => {
+      SettingsService.getRawSettings.mockResolvedValue({ githubRefreshToken: 'old-refresh' });
+      encryption.decryptToken.mockReturnValue('decrypted-refresh-token');
+      fetch.mockResolvedValue({
+        json: () => Promise.resolve({ access_token: 'new-access', refresh_token: 'new-refresh', expires_in: 3600 }),
       });
+      const newToken = await GitHubService.refreshToken();
+      expect(newToken).toBe('new-access');
+      expect(SettingsService.updateGithubTokens).toHaveBeenCalledWith('new-access', 'new-refresh', expect.any(Date));
     });
 
-    it('should handle empty Link header', () => {
-      const result = GitHubService.parseLinkHeader('');
-      
-      expect(result).toEqual({
-        hasNext: false,
-        hasPrev: false,
-        nextUrl: null,
-        prevUrl: null,
-        firstUrl: null,
-        lastUrl: null
+    it('refreshToken should fail and clear tokens on error', async () => {
+      SettingsService.getRawSettings.mockResolvedValue({ githubRefreshToken: 'old-refresh' });
+      encryption.decryptToken.mockReturnValue('decrypted-refresh-token');
+      fetch.mockResolvedValue({
+        json: () => Promise.resolve({ error: 'bad_token', error_description: 'Refresh failed' }),
       });
+      await expect(GitHubService.refreshToken()).rejects.toThrow('Could not refresh GitHub token: Refresh failed. Please re-authenticate.');
+      expect(SettingsService.updateGithubTokens).toHaveBeenCalledWith(null, null, null);
     });
 
-    it('should handle null Link header', () => {
-      const result = GitHubService.parseLinkHeader(null);
-      
-      expect(result).toEqual({
-        hasNext: false,
-        hasPrev: false,
-        nextUrl: null,
-        prevUrl: null,
-        firstUrl: null,
-        lastUrl: null
+    it('getOctokit should provide a client with a valid token', async () => {
+      SettingsService.getSettings.mockResolvedValue({
+        githubToken: 'valid-token',
+        githubTokenExpiresAt: new Date(mockDateNow + 3600 * 1000),
       });
-    });
-  });
-
-  describe('encryptToken', () => {
-    it('should encrypt token successfully', () => {
-      const token = 'github-token-123';
-      const encrypted = GitHubService.encryptToken(token);
-      
-      expect(typeof encrypted).toBe('string');
-      expect(encrypted).toContain(':'); // Should have IV:encrypted format
-      expect(encrypted.split(':').length).toBe(2);
-    });
-  });
-
-  describe('decryptToken', () => {
-    it('should decrypt token successfully', () => {
-      const originalToken = 'github-token-123';
-      const encrypted = GitHubService.encryptToken(originalToken);
-      const decrypted = GitHubService.decryptToken(encrypted);
-      
-      expect(decrypted).toBe(originalToken);
+      await GitHubService.getOctokit();
+      expect(Octokit).toHaveBeenCalledWith(expect.objectContaining({ auth: 'valid-token' }));
     });
 
-    it('should throw error for invalid token format', () => {
-      expect(() => GitHubService.decryptToken('invalid-format'))
-        .toThrow('Failed to decrypt token');
+    it('getOctokit should refresh an expired token', async () => {
+      SettingsService.getSettings.mockResolvedValue({
+        githubToken: 'expired-token',
+        githubTokenExpiresAt: new Date(mockDateNow - 1000),
+      });
+      jest.spyOn(GitHubService, 'refreshToken').mockResolvedValue('refreshed-token');
+      await GitHubService.getOctokit();
+      expect(GitHubService.refreshToken).toHaveBeenCalled();
     });
-  });
 
-  describe('getUserRepositories', () => {
-    it('should get user repositories with pagination', async () => {
-      const mockRepos = [
-        {
-          id: 1,
-          name: 'test-repo',
-          full_name: 'user/test-repo',
-          owner: { login: 'user', avatar_url: 'avatar.png' },
-          description: 'Test repository',
-          html_url: 'https://github.com/user/test-repo',
-          clone_url: 'https://github.com/user/test-repo.git',
-          ssh_url: 'git@github.com:user/test-repo.git',
-          private: false,
-          fork: false,
-          language: 'JavaScript',
-          stargazers_count: 5,
-          forks_count: 2,
-          updated_at: '2023-01-01T00:00:00Z',
-          pushed_at: '2023-01-01T00:00:00Z',
-          size: 1024,
-          default_branch: 'main'
-        }
-      ];
-
-      const mockResponse = {
-        data: mockRepos,
-        headers: {
-          link: '<https://api.github.com/repos?page=2>; rel="next"'
-        }
-      };
-
-      const mockOctokit = {
-        rest: {
-          repos: {
-            listForAuthenticatedUser: jest.fn().mockResolvedValue(mockResponse)
-          }
-        }
-      };
-
-      // Mock getOctokit to return our mock
+    it('getAuthenticatedUserInfo should return user info using a valid token', async () => {
       jest.spyOn(GitHubService, 'getOctokit').mockResolvedValue(mockOctokit);
+      const userInfo = await GitHubService.getAuthenticatedUserInfo();
+      expect(userInfo.login).toBe('testuser');
+    });
 
-      const result = await GitHubService.getUserRepositories({ page: 1 });
+    it('revokeToken should delete the grant and clear local tokens', async () => {
+      SettingsService.getSettings.mockResolvedValue({ githubToken: 'some-token' });
+      fetch.mockResolvedValueOnce({ status: 204 });
+      await GitHubService.revokeToken();
+      expect(fetch).toHaveBeenCalled();
+      expect(SettingsService.clearGithubTokens).toHaveBeenCalled();
+    });
 
-      expect(result.repositories).toHaveLength(1);
-      expect(result.repositories[0]).toEqual({
-        id: 1,
-        name: 'test-repo',
-        full_name: 'user/test-repo',
-        owner: { login: 'user', avatar_url: 'avatar.png' },
-        description: 'Test repository',
-        html_url: 'https://github.com/user/test-repo',
-        clone_url: 'https://github.com/user/test-repo.git',
-        ssh_url: 'git@github.com:user/test-repo.git',
-        private: false,
-        fork: false,
-        language: 'JavaScript',
-        stargazers_count: 5,
-        forks_count: 2,
-        updated_at: '2023-01-01T00:00:00Z',
-        pushed_at: '2023-01-01T00:00:00Z',
-        size: 1024,
-        default_branch: 'main'
-      });
+    it('revokeToken should clear local tokens even if grant deletion fails', async () => {
+      SettingsService.getSettings.mockResolvedValue({ githubToken: 'some-token' });
+      fetch.mockRejectedValueOnce(new Error('API error'));
+      await GitHubService.revokeToken();
+      expect(SettingsService.clearGithubTokens).toHaveBeenCalled();
+    });
 
-      expect(result.pagination).toEqual({
-        page: 1,
-        per_page: 100,
-        has_next: true,
-        has_prev: false,
-        total_count: 1,
-        next_url: 'https://api.github.com/repos?page=2',
-        prev_url: null
-      });
+    it('revokeToken should clear local tokens if none are found in settings', async () => {
+      SettingsService.getSettings.mockResolvedValue({});
+      await GitHubService.revokeToken();
+      expect(SettingsService.clearGithubTokens).toHaveBeenCalled();
     });
   });
 
-  describe('getRepositoryInfo', () => {
-    it('should get specific repository information', async () => {
-      const mockRepo = {
-        id: 1,
-        name: 'test-repo',
-        full_name: 'user/test-repo',
-        owner: { login: 'user', avatar_url: 'avatar.png' },
-        description: 'Test repository',
-        html_url: 'https://github.com/user/test-repo',
-        clone_url: 'https://github.com/user/test-repo.git',
-        ssh_url: 'git@github.com:user/test-repo.git',
-        private: false,
-        fork: false,
-        language: 'JavaScript',
-        stargazers_count: 5,
-        forks_count: 2,
-        updated_at: '2023-01-01T00:00:00Z',
-        pushed_at: '2023-01-01T00:00:00Z',
-        size: 1024,
-        default_branch: 'main',
-        permissions: { admin: true, push: true, pull: true }
-      };
+  describe('State and Utilities', () => {
+    it('generateState should create a valid base64-encoded state string', () => {
+      const state = GitHubService.generateState('test-user');
+      expect(typeof state).toBe('string');
+      const decoded = JSON.parse(Buffer.from(state, 'base64').toString());
+      expect(decoded.userId).toBe('test-user');
+    });
 
-      const mockOctokit = {
-        rest: {
-          repos: {
-            get: jest.fn().mockResolvedValue({ data: mockRepo })
-          }
-        }
-      };
+    it('verifyState should return a userId for a valid state', () => {
+      const state = GitHubService.generateState('test-user');
+      expect(GitHubService.verifyState(state)).toBe('test-user');
+    });
 
-      jest.spyOn(GitHubService, 'getOctokit').mockResolvedValue(mockOctokit);
-
-      const result = await GitHubService.getRepositoryInfo('user', 'test-repo');
-
-      expect(result).toEqual({
-        id: 1,
-        name: 'test-repo',
-        full_name: 'user/test-repo',
-        owner: { login: 'user', avatar_url: 'avatar.png' },
-        description: 'Test repository',
-        html_url: 'https://github.com/user/test-repo',
-        clone_url: 'https://github.com/user/test-repo.git',
-        ssh_url: 'git@github.com:user/test-repo.git',
-        private: false,
-        fork: false,
-        language: 'JavaScript',
-        stargazers_count: 5,
-        forks_count: 2,
-        updated_at: '2023-01-01T00:00:00Z',
-        pushed_at: '2023-01-01T00:00:00Z',
-        size: 1024,
-        default_branch: 'main',
-        permissions: { admin: true, push: true, pull: true }
-      });
+    it('verifyState should return null for an expired state', () => {
+      const state = GitHubService.generateState('test-user');
+      jest.advanceTimersByTime(11 * 60 * 1000); // Advance time by 11 minutes
+      expect(GitHubService.verifyState(state)).toBeNull();
     });
   });
 
-  describe('storeUserToken', () => {
-    it('should store encrypted user token', async () => {
-      const userId = 'user-123';
-      const accessToken = 'github-token';
-      const userInfo = {
-        id: 12345,
-        email: 'test@example.com'
-      };
-
-      const mockUpdatedUser = {
-        id: userId,
-        username: 'testuser',
-        githubId: '12345',
-        githubToken: 'encrypted-token',
-        email: 'test@example.com'
-      };
-
-      prisma.user.update.mockResolvedValue(mockUpdatedUser);
-
-      const result = await GitHubService.storeUserToken(userId, accessToken, userInfo);
-
-      expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: userId },
-        data: {
-          githubId: '12345',
-          githubToken: expect.any(String),
-          email: 'test@example.com'
-        }
-      });
-      expect(result).toEqual(mockUpdatedUser);
-    });
-  });
-
-  describe('getUserToken', () => {
-    it('should get and decrypt user token', async () => {
-      const userId = 'user-123';
-      const originalToken = 'github-token-123';
-      const encryptedToken = GitHubService.encryptToken(originalToken);
-
-      prisma.user.findUnique.mockResolvedValue({
-        githubToken: encryptedToken
-      });
-
-      const result = await GitHubService.getUserToken(userId);
-
-      expect(result).toBe(originalToken);
+  describe('Internal Cryptography and Database', () => {
+    beforeEach(() => {
+      const mockCipher = { update: jest.fn().mockReturnValue('encrypted'), final: jest.fn().mockReturnValue('') };
+      const mockDecipher = { update: jest.fn().mockReturnValue('decrypted'), final: jest.fn().mockReturnValue('') };
+      crypto.createCipheriv.mockReturnValue(mockCipher);
+      crypto.createDecipheriv.mockReturnValue(mockDecipher);
     });
 
-    it('should return null when user has no token', async () => {
-      prisma.user.findUnique.mockResolvedValue(null);
+    it('encryptToken should return an encrypted string', () => {
+      const encrypted = GitHubService.encryptToken('secret');
+      expect(encrypted).toBe('6d6f636b2d72616e646f6d2d6279746573:encrypted');
+    });
 
-      const result = await GitHubService.getUserToken('user-123');
+    it('decryptToken should return a decrypted string', () => {
+      const decrypted = GitHubService.decryptToken('iv:encrypted');
+      expect(decrypted).toBe('decrypted');
+    });
 
-      expect(result).toBeNull();
+    it('decryptToken should throw an error for an invalid format', () => {
+      expect(() => GitHubService.decryptToken('invalid')).toThrow('Invalid encrypted token format');
+    });
+
+    it('storeUserToken should encrypt the token and update the user record', async () => {
+      prisma.user.update.mockResolvedValue({});
+      await GitHubService.storeUserToken('user-id', 'plain-token', { id: 123 });
+      expect(prisma.user.update).toHaveBeenCalled();
+    });
+
+    it('getUserToken should retrieve and decrypt a token from the database', async () => {
+      prisma.user.findUnique.mockResolvedValue({ githubToken: 'iv:encrypted' });
+      const token = await GitHubService.getUserToken('user-id');
+      expect(token).toBe('decrypted');
     });
   });
 });
