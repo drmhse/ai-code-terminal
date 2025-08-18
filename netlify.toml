@@ -12,7 +12,7 @@
     NODE_VERSION = "18"
 
 [context.production]
-  command = "cd docs && hugo --gc --minify --baseURL https://ai-code-terminal.dev/"
+  command = "cd docs && hugo --gc --minify"
 
 [context.deploy-preview]
   command = "cd docs && hugo --gc --minify --buildDrafts --buildFuture"
