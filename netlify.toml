@@ -1,0 +1,52 @@
+[build]
+  # Hugo build command
+  command = "cd docs && hugo --gc --minify"
+
+  # Directory to publish (relative to repo root)
+  publish = "docs/public"
+
+  # Hugo version - using latest extended version for SCSS/Sass support
+  [build.environment]
+    HUGO_VERSION = "0.133.1"
+    HUGO_EXTENDED = "true"
+    NODE_VERSION = "18"
+
+[context.production]
+  command = "cd docs && hugo --gc --minify --baseURL https://ai-code-terminal.dev/"
+
+[context.deploy-preview]
+  command = "cd docs && hugo --gc --minify --buildDrafts --buildFuture"
+
+[context.branch-deploy]
+  command = "cd docs && hugo --gc --minify --buildDrafts"
+
+# Headers for security and performance
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+[[headers]]
+  for = "*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000"
+
+[[headers]]
+  for = "*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000"
+
+[[headers]]
+  for = "*.woff2"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000"
+
+# Redirects (if needed)
+# [[redirects]]
+#   from = "/old-path"
+#   to = "/new-path"
+#   status = 301

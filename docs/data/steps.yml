@@ -1,0 +1,23 @@
+title: "Launch Your Environment in Minutes"
+subtitle: "Get your personal development cockpit up and running with three simple commands. All you need is a server with Docker."
+
+steps:
+  - number: "01"
+    title: "Clone the Repository"
+    description: "Get the source code onto your server. This contains everything needed to build and run the application."
+    code: |
+      git clone https://github.com/drmhse/ai-code-terminal.git
+      cd ai-code-terminal
+    
+  - number: "02"
+    title: "Configure Your Environment"
+    description: "Create a `.env` file and add your GitHub OAuth credentials and the authorized username. This ensures only you can access the environment."
+    code: |
+      cp env.example .env
+      nano .env # Edit with your favorite editor
+    
+  - number: "03"
+    title: "Launch with Docker"
+    description: "Start the application using Docker Compose. It will build the container, set up the database, and launch the server, making it accessible on port 3014."
+    code: |
+      docker-compose up -d
