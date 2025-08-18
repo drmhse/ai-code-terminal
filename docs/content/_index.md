@@ -5,9 +5,9 @@ hero:
   title: "The Command Line is Your IDE."
   subtitle: "Code from any device. Full power, minimal footprint. A self-hosted shell for the new era of AI-native development."
   cta_primary:
-    text: "Quick Start"
-    url: "#getting-started"
-    icon: "play-circle"
+    text: "Complete Guide"
+    url: "/getting-started/"
+    icon: "book-open"
   cta_secondary:
     text: "Explore the Code"
     url: "https://github.com/drmhse/ai-code-terminal"

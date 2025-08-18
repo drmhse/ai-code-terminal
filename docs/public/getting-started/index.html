@@ -1,11 +1,10 @@
 <!DOCTYPE html>
 <html lang="en-us">
-<head>
-	<meta name="generator" content="Hugo 0.147.8"><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
     <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Code Terminal: The AI-Native Shell</title>
-<meta name="description" content="Code from any device. Full power, minimal footprint. A self-hosted shell for the new era of AI-native development.">
+<title>Getting Started | AI Code Terminal: The AI-Native Shell</title>
+<meta name="description" content="Deploy your AI-native development environment in minutes. Complete setup guide for VPS and local deployments.">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -683,123 +682,217 @@ footer p {
 
     <main>
         
-<section class="hero">
-    <h1 data-text="The Command Line is Your IDE.">The Command Line is Your IDE.</h1>
-    <p class="subtitle">Code from any device. Full power, minimal footprint. A self-hosted shell for the new era of AI-native development.</p>
-    <div class="cta-buttons">
-        <a href="/getting-started/" class="btn btn-primary">
-            <i data-feather="book-open"></i> Complete Guide
-        </a>
-        <a href="https://github.com/drmhse/ai-code-terminal" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">
-            <i data-feather="code"></i> Explore the Code
-        </a>
-    </div>
-
-    <div class="terminal-window">
-        <div class="terminal-header">
-            <div class="terminal-controls">
-                <div class="control-dot red"></div>
-                <div class="control-dot yellow"></div>
-                <div class="control-dot green"></div>
-            </div>
-        </div>
-        <div class="terminal-body" id="animated-terminal"></div>
-    </div>
-
-    <a href="#features" class="scroll-down">
-        <i data-feather="arrow-down"></i>
-    </a>
-</section>
-
-<section id="features" class="container section fade-in-section">
-    <h2 class="section-title">Welcome to the Post-IDE Era</h2>
-    <p class="section-subtitle">The terminal is back, supercharged by AI. This is the workflow it enables.</p>
-    <div class="features-grid">
-        
-        <div class="feature-card">
-            <i data-feather="globe" class="icon"></i>
-            <h3>Develop from Any Device</h3>
-            <p>Your persistent shell is accessible from any browser. Turn an iPad, a Chromebook, or a backup laptop into a productive coding machine in seconds.</p>
-        </div>
-        
-        <div class="feature-card">
-            <i data-feather="cpu" class="icon"></i>
-            <h3>AI-Native Shell</h3>
-            <p>Designed for modern CLI agents like Claude Code, Gemini CLI, and Qwen-Code. Let AI read your files, run tests, and build your projects in a secure, sovereign environment.</p>
-        </div>
-        
-        <div class="feature-card">
-            <i data-feather="feather" class="icon"></i>
-            <h3>Lightweight &amp; Fast</h3>
-            <p>Forget bloated, resource-hungry cloud IDEs. This is a single, lean shell process. It&#39;s instant-on, uses minimal memory, and feels incredibly responsive.</p>
-        </div>
-        
-        <div class="feature-card">
-            <i data-feather="lock" class="icon"></i>
-            <h3>Absolute Sovereignty</h3>
-            <p>Your code, your AI interactions, and your environment are hosted on your infrastructure. No third-party access, no compromises on security or data privacy.</p>
-        </div>
-        
-    </div>
-</section>
-
-<section id="getting-started" class="section fade-in-section">
+<div class="section">
     <div class="container">
-        <h2 class="section-title">Your Development Environment Awaits</h2>
-        <p class="section-subtitle">Deploy on a VPS, run locally with a tunnel, or choose from multiple hosting options. Full setup guide covers everything from GitHub OAuth to production deployment.</p>
-        <div class="getting-started-content">
-            <ol class="getting-started-steps">
-                
-                <li class="step">
-                    <div class="step-number">01</div>
-                    <div class="step-content">
-                        <h3>Choose Your Deployment</h3>
-                        <p>Deploy on a VPS for always-on access, or run locally with Cloudflare Tunnel or ngrok for cost-free experimentation. Both paths are fully documented.</p>
-                        <div class="code-block">
-                            <button class="copy-btn" onclick="copyCode(this)" title="Copy to clipboard"><i data-feather="copy"></i></button>
-                            <pre><code class="language-bash"># VPS Option (Recommended)
-# Requires: 1GB&#43; RAM, Docker, Domain (optional)
+        <article class="content-article">
+            <header class="article-header">
+                <h1 class="section-title">Getting Started</h1>
+            </header>
 
-# Local &#43; Tunnel Option  
-# Requires: Docker, Tunnel service (free)
-</code></pre>
-                        </div>
-                    </div>
-                </li>
-                
-                <li class="step">
-                    <div class="step-number">02</div>
-                    <div class="step-content">
-                        <h3>GitHub OAuth Setup</h3>
-                        <p>Create a GitHub OAuth app to secure your environment. Only you will have access to your sovereign development space.</p>
-                        <div class="code-block">
-                            <button class="copy-btn" onclick="copyCode(this)" title="Copy to clipboard"><i data-feather="copy"></i></button>
-                            <pre><code class="language-bash"># Visit GitHub Developer Settings
-# Create OAuth App → Get Client ID/Secret
-# Configure callback URL for your deployment
-</code></pre>
-                        </div>
-                    </div>
-                </li>
-                
-                <li class="step">
-                    <div class="step-number">03</div>
-                    <div class="step-content">
-                        <h3>One Command Deploy</h3>
-                        <p>Whether VPS or local, deployment is streamlined. Our comprehensive guide covers SSL, security hardening, and Claude integration.</p>
-                        <div class="code-block">
-                            <button class="copy-btn" onclick="copyCode(this)" title="Copy to clipboard"><i data-feather="copy"></i></button>
-                            <pre><code class="language-bash">git clone https://github.com/drmhse/ai-code-terminal.git
-cd ai-code-terminal &amp;&amp; cp env.example .env
-# Configure .env → docker-compose up -d</code></pre>
-                        </div>
-                    </div>
-                </li>
-                
-            </ol>
-        </div>
+            <div class="article-content">
+                <h1 id="getting-started">Getting Started</h1>
+<p>This guide will walk you through setting up a self-hosted, single-tenant AI development environment. Choose between VPS deployment for production use or local deployment with tunneling for development.</p>
+<h2 id="prerequisites">Prerequisites</h2>
+<ul>
+<li>Server with Docker (VPS deployment) or local machine with Docker</li>
+<li>GitHub account for OAuth authentication</li>
+<li>Domain name (optional but recommended for VPS deployment)</li>
+</ul>
+<h2 id="deployment-options">Deployment Options</h2>
+<h3 id="vps-deployment">VPS Deployment</h3>
+<p>Recommended for production use and team access. Requires a server with 1GB+ RAM.</p>
+<p><strong>Recommended providers:</strong></p>
+<ul>
+<li>DigitalOcean ($6/month)</li>
+<li>Linode ($5/month)</li>
+<li>Vultr ($6/month)</li>
+</ul>
+<h3 id="local-with-tunneling">Local with Tunneling</h3>
+<p>Perfect for development and personal use. Works with Cloudflare Tunnel, ngrok, or similar services.</p>
+<h2 id="step-1-github-oauth-setup">Step 1: GitHub OAuth Setup</h2>
+<p>Create a GitHub OAuth application to secure access to your environment.</p>
+<ol>
+<li>Navigate to <a href="https://github.com/settings/developers">GitHub Developer Settings</a></li>
+<li>Click <strong>New OAuth App</strong></li>
+</ol>
+<p><img src="/images/create_a_ne_oauth_app.png" alt="GitHub OAuth App Registration">
+<em>Register your application with GitHub</em></p>
+<ol start="3">
+<li>
+<p>Fill in the application details:</p>
+<ul>
+<li><strong>Application name</strong>: AI Code Terminal</li>
+<li><strong>Homepage URL</strong>: Your deployment URL</li>
+<li><strong>Authorization callback URL</strong>: <code>https://yourdomain.com/auth/github/callback</code></li>
+</ul>
+</li>
+<li>
+<p>Click <strong>Register application</strong></p>
+</li>
+</ol>
+<p><img src="/images/generate_client_secret.png" alt="OAuth App Configuration">
+<em>Your OAuth application has been created</em></p>
+<ol start="5">
+<li>Generate a new client secret and copy both the Client ID and Client Secret</li>
+</ol>
+<p><img src="/images/copy_the_client_id_and_secret.png" alt="Copy OAuth Credentials">
+<em>Copy your Client ID and Client Secret for configuration</em></p>
+<p>Keep these credentials secure. You&rsquo;ll need them for the next step.</p>
+<h2 id="step-2-server-setup">Step 2: Server Setup</h2>
+<h3 id="vps-deployment-1">VPS Deployment</h3>
+<p>SSH into your server and run the following commands:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Update system packages</span>
+</span></span><span style="display:flex;"><span>sudo apt update <span style="color:#f92672">&amp;&amp;</span> sudo apt upgrade -y
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Install Docker (includes Docker Compose)</span>
+</span></span><span style="display:flex;"><span>curl -fsSL https://get.docker.com -o get-docker.sh
+</span></span><span style="display:flex;"><span>sudo sh get-docker.sh
+</span></span><span style="display:flex;"><span>sudo usermod -aG docker $USER
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Clone the repository</span>
+</span></span><span style="display:flex;"><span>git clone https://github.com/drmhse/ai-code-terminal.git
+</span></span><span style="display:flex;"><span>cd ai-code-terminal
+</span></span></code></pre></div><h3 id="local-deployment">Local Deployment</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Clone the repository</span>
+</span></span><span style="display:flex;"><span>git clone https://github.com/drmhse/ai-code-terminal.git
+</span></span><span style="display:flex;"><span>cd ai-code-terminal
+</span></span></code></pre></div><h2 id="step-3-configuration">Step 3: Configuration</h2>
+<p>Copy the environment template and configure your settings:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>cp env.example .env
+</span></span><span style="display:flex;"><span>nano .env
+</span></span></code></pre></div><p>Edit the following required variables in your <code>.env</code> file:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Security (Required)</span>
+</span></span><span style="display:flex;"><span>JWT_SECRET<span style="color:#f92672">=</span>your-super-secure-jwt-secret-at-least-32-characters-long
+</span></span><span style="display:flex;"><span>NODE_ENV<span style="color:#f92672">=</span>production
+</span></span><span style="display:flex;"><span>PORT<span style="color:#f92672">=</span><span style="color:#ae81ff">3014</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Database</span>
+</span></span><span style="display:flex;"><span>DATABASE_URL<span style="color:#f92672">=</span>file:./data/database.db
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># GitHub OAuth &amp; Single-Tenant Configuration (Required - from Step 1)</span>
+</span></span><span style="display:flex;"><span>GITHUB_CLIENT_ID<span style="color:#f92672">=</span>your-github-oauth-client-id
+</span></span><span style="display:flex;"><span>GITHUB_CLIENT_SECRET<span style="color:#f92672">=</span>your-github-oauth-client-secret
+</span></span><span style="display:flex;"><span>GITHUB_CALLBACK_URL<span style="color:#f92672">=</span>https://yourdomain.com/auth/github/callback
+</span></span><span style="display:flex;"><span>TENANT_GITHUB_USERNAME<span style="color:#f92672">=</span>your-github-username
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Workspace Management</span>
+</span></span><span style="display:flex;"><span>WORKSPACE_CLEANUP_DAYS<span style="color:#f92672">=</span><span style="color:#ae81ff">30</span>
+</span></span></code></pre></div><p>Replace the placeholder values with your actual credentials:</p>
+<ul>
+<li><code>your-github-username</code>: Your GitHub username (ensures only you can access)</li>
+<li><code>your-github-oauth-client-id</code>: Client ID from Step 1</li>
+<li><code>your-github-oauth-client-secret</code>: Client Secret from Step 1</li>
+<li>Update the callback URL to match your deployment URL</li>
+</ul>
+<h2 id="step-4-launch-the-application">Step 4: Launch the Application</h2>
+<p>Start the services using Docker Compose:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>docker-compose up -d
+</span></span></code></pre></div><p>Check that everything is running correctly:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>docker-compose logs -f
+</span></span></code></pre></div><p>Your application will be available at:</p>
+<ul>
+<li><strong>VPS</strong>: <code>https://yourdomain.com:3014</code></li>
+<li><strong>Local</strong>: <code>http://localhost:3014</code></li>
+</ul>
+<h2 id="step-5-tunneling-setup-local-only">Step 5: Tunneling Setup (Local Only)</h2>
+<p>If you&rsquo;re running locally, expose your application using a tunnel service.</p>
+<h3 id="cloudflare-tunnel-recommended">Cloudflare Tunnel (Recommended)</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Install cloudflared</span>
+</span></span><span style="display:flex;"><span>curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+</span></span><span style="display:flex;"><span>sudo dpkg -i cloudflared.deb
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Authenticate and create tunnel</span>
+</span></span><span style="display:flex;"><span>cloudflared tunnel login
+</span></span><span style="display:flex;"><span>cloudflared tunnel create ai-terminal
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Configure tunnel</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;url: http://localhost:3014
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">tunnel: ai-terminal
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">credentials-file: ~/.cloudflared/ai-terminal.json&#34;</span> &gt; ~/.cloudflared/config.yml
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Route domain to tunnel</span>
+</span></span><span style="display:flex;"><span>cloudflared tunnel route dns ai-terminal yourdomain.com
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Start tunnel</span>
+</span></span><span style="display:flex;"><span>cloudflared tunnel run ai-terminal
+</span></span></code></pre></div><h3 id="ngrok-alternative">ngrok Alternative</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Install ngrok</span>
+</span></span><span style="display:flex;"><span>curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;deb https://ngrok-agent.s3.amazonaws.com buster main&#34;</span> | sudo tee /etc/apt/sources.list.d/ngrok.list
+</span></span><span style="display:flex;"><span>sudo apt update <span style="color:#f92672">&amp;&amp;</span> sudo apt install ngrok
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Add auth token (get from ngrok dashboard)</span>
+</span></span><span style="display:flex;"><span>ngrok config add-authtoken YOUR_NGROK_TOKEN
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Expose application</span>
+</span></span><span style="display:flex;"><span>ngrok http <span style="color:#ae81ff">3014</span>
+</span></span></code></pre></div><p>Update your GitHub OAuth callback URL with the tunnel URL.</p>
+<h2 id="step-6-first-login">Step 6: First Login</h2>
+<ol>
+<li>Navigate to your application URL</li>
+<li>Click <strong>Login with GitHub</strong></li>
+<li>Authorize the application</li>
+</ol>
+<p>You&rsquo;ll be redirected to the terminal interface.</p>
+<h2 id="step-7-using-the-terminal">Step 7: Using the Terminal</h2>
+<h3 id="clone-a-repository">Clone a Repository</h3>
+<p>Click the <strong>+</strong> button in the workspace sidebar to clone a repository:</p>
+<p><img src="/images/repository_search_and_list.png" alt="Repository Browser">
+<em>Browse and clone your GitHub repositories</em></p>
+<h3 id="terminal-interface">Terminal Interface</h3>
+<p>Once a repository is cloned, you&rsquo;ll have full terminal access:</p>
+<p><img src="/images/claude_code_in_action.png" alt="AI Terminal Interface">
+<em>Full terminal access within your browser</em></p>
+<h3 id="customize-theme">Customize Theme</h3>
+<p>Access theme settings to personalize your environment:</p>
+<p><img src="/images/choose_favorite_theme.png" alt="Theme Selection">
+<em>Choose from multiple terminal themes</em></p>
+<h2 id="step-8-ai-integration">Step 8: AI Integration</h2>
+<p>Claude Code is pre-installed in the Docker environment. Simply authenticate when you first use it:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Authenticate with Claude (first time only)</span>
+</span></span><span style="display:flex;"><span>claude login
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Start coding with AI assistance</span>
+</span></span><span style="display:flex;"><span>claude <span style="color:#e6db74">&#34;Help me understand this codebase&#34;</span>
+</span></span></code></pre></div><h2 id="ssl-setup-vps-only">SSL Setup (VPS Only)</h2>
+<p>For production deployments, secure your application with SSL:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Install Certbot</span>
+</span></span><span style="display:flex;"><span>sudo apt install certbot python3-certbot-nginx
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Get SSL certificate</span>
+</span></span><span style="display:flex;"><span>sudo certbot --nginx -d yourdomain.com
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Auto-renew (add to crontab)</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;0 12 * * * /usr/bin/certbot renew --quiet&#34;</span> | sudo crontab -
+</span></span></code></pre></div><h2 id="troubleshooting">Troubleshooting</h2>
+<p><strong>Docker permission denied:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>sudo usermod -aG docker $USER
+</span></span><span style="display:flex;"><span>newgrp docker
+</span></span></code></pre></div><p><strong>OAuth callback mismatch:</strong>
+Ensure your GitHub OAuth callback URL exactly matches your deployment URL.</p>
+<p><strong>Port not accessible:</strong>
+Check firewall settings and ensure port 3014 is open.</p>
+<p><strong>Application not starting:</strong>
+Check logs with <code>docker-compose logs -f</code> for error details.</p>
+<h2 id="next-steps">Next Steps</h2>
+<ul>
+<li>Configure workspace limits and cleanup policies</li>
+<li>Set up automated backups</li>
+<li>Explore advanced terminal features</li>
+<li>Integrate with your preferred development tools</li>
+</ul>
+<p>Your AI-native development environment is now ready for use.</p>
+
+            </div>
+
+            <footer class="article-footer">
+                <div class="article-actions">
+                    <a href="/" class="btn btn-secondary">Back to Home</a>
+                </div>
+            </footer>
+        </article>
     </div>
-</section>
+</div>
 
     </main>
 

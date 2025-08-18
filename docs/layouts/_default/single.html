@@ -1,0 +1,21 @@
+{{ define "main" }}
+<div class="section">
+    <div class="container">
+        <article class="content-article">
+            <header class="article-header">
+                <h1 class="section-title">{{ .Title }}</h1>
+            </header>
+
+            <div class="article-content">
+                {{ .Content }}
+            </div>
+
+            <footer class="article-footer">
+                <div class="article-actions">
+                    <a href="/" class="btn btn-secondary">Back to Home</a>
+                </div>
+            </footer>
+        </article>
+    </div>
+</div>
+{{ end }}
