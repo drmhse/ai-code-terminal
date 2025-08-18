@@ -1,7 +1,6 @@
 baseURL = 'https://ai-code-terminal.dev/'
 languageCode = 'en-us'
 title = 'AI Code Terminal: The AI-Native Shell'
-theme = ''
 
 [params]
   description = 'A self-hosted development environment for the post-IDE era. Code from any device with a fast, lightweight, AI-native shell.'
