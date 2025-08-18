@@ -4,10 +4,16 @@
             <a href="{{ .Site.BaseURL }}" class="logo">
                 <span class="prompt-char">&gt;</span> AI Code Terminal
             </a>
-            <a href="{{ .Site.Params.github_url }}" target="_blank" rel="noopener noreferrer" class="nav-link">
-                <i data-feather="github"></i>
-                <span>View on GitHub</span>
-            </a>
+            <div class="nav-links">
+                <a href="/getting-started/" class="nav-link">
+                    <i data-feather="book-open"></i>
+                    <span>Getting Started</span>
+                </a>
+                <a href="{{ .Site.Params.github_url }}" target="_blank" rel="noopener noreferrer" class="nav-link">
+                    <i data-feather="github"></i>
+                    <span>View on GitHub</span>
+                </a>
+            </div>
         </nav>
     </div>
 </header>

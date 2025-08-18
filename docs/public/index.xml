@@ -7,5 +7,12 @@
     <generator>Hugo</generator>
     <language>en-us</language>
     <atom:link href="http://localhost:1313/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Getting Started</title>
+      <link>http://localhost:1313/getting-started/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/getting-started/</guid>
+      <description>&lt;h1 id=&#34;getting-started&#34;&gt;Getting Started&lt;/h1&gt;&#xA;&lt;p&gt;This guide will walk you through setting up a self-hosted, single-tenant AI development environment. Choose between VPS deployment for production use or local deployment with tunneling for development.&lt;/p&gt;&#xA;&lt;h2 id=&#34;prerequisites&#34;&gt;Prerequisites&lt;/h2&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;Server with Docker (VPS deployment) or local machine with Docker&lt;/li&gt;&#xA;&lt;li&gt;GitHub account for OAuth authentication&lt;/li&gt;&#xA;&lt;li&gt;Domain name (optional but recommended for VPS deployment)&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;&lt;h2 id=&#34;deployment-options&#34;&gt;Deployment Options&lt;/h2&gt;&#xA;&lt;h3 id=&#34;vps-deployment&#34;&gt;VPS Deployment&lt;/h3&gt;&#xA;&lt;p&gt;Recommended for production use and team access. Requires a server with 1GB+ RAM.&lt;/p&gt;</description>
+    </item>
   </channel>
 </rss>
