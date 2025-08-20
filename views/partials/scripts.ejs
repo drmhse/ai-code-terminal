@@ -422,6 +422,27 @@
                         this.repositoryLoadingMore = false;
                     });
                     
+                    // Handle authentication required - auto-redirect to GitHub OAuth
+                    this.socket.on('auth-required', (data) => {
+                        console.log('🔑 AUTH-REQUIRED EVENT RECEIVED:', data);
+                        console.log('📊 Event data:', JSON.stringify(data, null, 2));
+                        this.repositoriesLoading = false;
+                        this.repositoryLoadingMore = false;
+                        
+                        // Auto-redirect to GitHub OAuth for re-authentication
+                        if (data.action === 'redirect_to_auth') {
+                            console.log('🔄 Initiating auto-redirect to GitHub OAuth...');
+                            // Show brief message before redirect
+                            this.repositoryError = 'Redirecting to GitHub for re-authentication...';
+                            
+                            // Redirect to GitHub auth after short delay
+                            setTimeout(() => {
+                                console.log('🚀 Redirecting to /api/github/auth');
+                                window.location.href = '/api/github/auth';
+                            }, 1500);
+                        }
+                    });
+                    
                     // Workspace operation event handlers
                     this.socket.on('workspace-progress', (data) => {
                         console.log('Received workspace-progress:', data);

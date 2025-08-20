@@ -293,8 +293,11 @@ class SocketHandler {
 
         const githubToken = await settingsService.getGithubToken();
         if (!githubToken) {
-          return socket.emit('repositories-error', {
-            error: 'GitHub token not found. Please authorize GitHub access first.'
+          logger.info('No GitHub token found, emitting auth-required event');
+          return socket.emit('auth-required', {
+            error: 'GitHub authentication required',
+            message: 'Please authenticate with GitHub to access repositories',
+            action: 'redirect_to_auth'
           });
         }
 
@@ -330,9 +333,25 @@ class SocketHandler {
 
       } catch (error) {
         logger.error('Error getting repositories:', error);
-        socket.emit('repositories-error', {
-          error: error.message || 'Failed to load repositories'
-        });
+        logger.debug('Error message for auth check:', JSON.stringify(error.message));
+        logger.debug('Error contains re-authenticate?', error.message && error.message.includes('Please re-authenticate'));
+        
+        // Classify error types for better frontend handling
+        if (error.message && error.message.includes('Please re-authenticate')) {
+          logger.info('Emitting auth-required event for authentication error');
+          // Authentication required - emit specific event for auto-recovery
+          socket.emit('auth-required', {
+            error: 'GitHub authentication expired',
+            message: 'Please re-authenticate with GitHub to continue',
+            action: 'redirect_to_auth'
+          });
+        } else {
+          logger.info('Emitting repositories-error event for generic error');
+          // Generic error - emit standard error event
+          socket.emit('repositories-error', {
+            error: error.message || 'Failed to load repositories'
+          });
+        }
       } finally {
         socket.emit('repositories-loading', { loading: false });
       }
@@ -363,6 +382,37 @@ class SocketHandler {
         logger.error('Error getting workspace status:', error);
         socket.emit('workspace-status-error', {
           error: error.message || 'Failed to get workspace status'
+        });
+      }
+    });
+
+    // Fix workspace Git authentication (remove embedded tokens, configure credential helper)
+    socket.on('fix-workspace-auth', async (data) => {
+      try {
+        const { workspaceId } = data;
+        if (!workspaceId) {
+          return socket.emit('workspace-auth-fix-error', {
+            error: 'Missing workspaceId parameter'
+          });
+        }
+
+        const success = await workspaceService.fixWorkspaceGitAuth(workspaceId);
+        
+        if (success) {
+          socket.emit('workspace-auth-fixed', { 
+            workspaceId,
+            message: 'Git authentication configured successfully'
+          });
+        } else {
+          socket.emit('workspace-auth-fix-error', {
+            error: 'Failed to fix workspace Git authentication'
+          });
+        }
+
+      } catch (error) {
+        logger.error('Error fixing workspace Git auth:', error);
+        socket.emit('workspace-auth-fix-error', {
+          error: error.message || 'Failed to fix workspace authentication'
         });
       }
     });

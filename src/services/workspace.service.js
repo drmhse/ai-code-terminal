@@ -93,11 +93,11 @@ class WorkspaceService {
         throw new Error('Workspace not found');
       }
 
-      // Get GitHub token from settings (single user)
+      // Verify GitHub token exists (needed for credential helper)
       const settingsService = require('./settings.service');
       const githubToken = await settingsService.getGithubToken();
       if (!githubToken) {
-        throw new Error('GitHub token not found for user');
+        throw new Error('GitHub token not found. Please authenticate with GitHub first.');
       }
 
       // Create workspace directory if it doesn't exist
@@ -113,21 +113,28 @@ class WorkspaceService {
         // Directory doesn't exist, proceed with clone
       }
 
-      // Construct authenticated clone URL
-      const authenticatedUrl = workspace.githubUrl.replace(
-        'https://github.com/',
-        `https://${githubToken}@github.com/`
-      );
+      // Use clean HTTPS URL (no embedded tokens) - credentials handled by Git credential helper
+      const cleanUrl = workspace.githubUrl;
 
       // Clone repository with retry logic
       logger.info(`Cloning repository: ${workspace.githubRepo} to ${workspace.localPath}`);
 
       const { stdout, stderr } = await retryOperation(async () => {
+        const credentialHelper = path.join(process.cwd(), 'scripts', 'git-credential-oauth');
+        
         return await execAsync(
-          `git clone "${authenticatedUrl}" "${workspace.localPath}"`,
+          `git clone "${cleanUrl}" "${workspace.localPath}"`,
           {
             timeout: 300000, // 5 minute timeout
-            maxBuffer: 1024 * 1024 * 10 // 10MB buffer
+            maxBuffer: 1024 * 1024 * 10, // 10MB buffer
+            env: {
+              ...process.env,
+              GIT_CONFIG_COUNT: '2',
+              GIT_CONFIG_KEY_0: 'credential.https://github.com.helper',
+              GIT_CONFIG_VALUE_0: credentialHelper,
+              GIT_CONFIG_KEY_1: 'credential.https://github.com.UseHttpPath',
+              GIT_CONFIG_VALUE_1: 'true'
+            }
           }
         );
       }, 3, 2000);
@@ -137,6 +144,9 @@ class WorkspaceService {
       }
 
       logger.info('Repository cloned successfully:', stdout);
+
+      // Configure Git credential helper for OAuth token authentication
+      await this.configureGitCredentials(workspace.localPath);
 
       // Create CLAUDE.md file for the project
       await this.createClaudeMd(workspace);
@@ -482,6 +492,97 @@ You can customize it with project-specific information to help Claude Code work 
 
     } catch (error) {
       logger.warn('Failed to create CLAUDE.md:', error);
+    }
+  }
+
+  /**
+   * Configure Git credential helper for OAuth token authentication
+   * @param {string} workspacePath - Path to the workspace directory
+   */
+  async configureGitCredentials(workspacePath) {
+    try {
+      const credentialHelper = path.join(process.cwd(), 'scripts', 'git-credential-oauth');
+      
+      // Configure Git credential helper specifically for GitHub
+      const commands = [
+        `git config credential.https://github.com.helper "${credentialHelper}"`,
+        `git config credential.https://github.com.UseHttpPath true`
+      ];
+
+      for (const command of commands) {
+        await execAsync(command, { cwd: workspacePath });
+      }
+
+      logger.info(`Configured Git credential helper for workspace: ${workspacePath}`);
+    } catch (error) {
+      logger.warn('Failed to configure Git credentials:', error);
+      // Don't throw - this is not critical for basic functionality
+    }
+  }
+
+  /**
+   * Fix existing workspaces that have embedded tokens in their Git remote URLs
+   * @param {string} workspaceId - Workspace ID to fix
+   */
+  async fixWorkspaceGitAuth(workspaceId) {
+    try {
+      const workspace = await prisma.workspace.findUnique({
+        where: { id: workspaceId }
+      });
+
+      if (!workspace) {
+        throw new Error('Workspace not found');
+      }
+
+      // Check if workspace directory exists
+      try {
+        await fs.access(workspace.localPath);
+      } catch (error) {
+        logger.warn(`Workspace directory not found: ${workspace.localPath}`);
+        return false;
+      }
+
+      // Get current remote URL
+      let currentRemoteUrl;
+      try {
+        const { stdout } = await execAsync('git remote get-url origin', {
+          cwd: workspace.localPath
+        });
+        currentRemoteUrl = stdout.trim();
+      } catch (error) {
+        logger.warn(`No Git repository found in workspace: ${workspace.localPath}`);
+        return false;
+      }
+
+      // Check if URL has embedded token (contains @ before github.com)
+      const hasEmbeddedToken = currentRemoteUrl.includes('@github.com') && 
+                               currentRemoteUrl.startsWith('https://') &&
+                               !currentRemoteUrl.startsWith('https://github.com');
+
+      if (hasEmbeddedToken) {
+        // Clean the URL by removing the embedded token
+        const cleanUrl = currentRemoteUrl.replace(
+          /https:\/\/[^@]+@github\.com/,
+          'https://github.com'
+        );
+
+        // Update the remote URL
+        await execAsync(`git remote set-url origin "${cleanUrl}"`, {
+          cwd: workspace.localPath
+        });
+
+        logger.info(`Cleaned embedded token from remote URL in workspace: ${workspace.githubRepo}`);
+      }
+
+      // Configure Git credential helper
+      await this.configureGitCredentials(workspace.localPath);
+
+      logger.info(`Fixed Git authentication for workspace: ${workspace.githubRepo}`);
+      return true;
+
+    } catch (error) {
+      logger.error(`Failed to fix Git authentication for workspace ${workspaceId}:`, error);
+      return false;
     }
   }
 

@@ -224,7 +224,7 @@ describe('WorkspaceService', () => {
       settingsService.getGithubToken.mockResolvedValue(null);
 
       await expect(WorkspaceService.cloneRepository('1'))
-        .rejects.toThrow('GitHub token not found for user');
+        .rejects.toThrow('Failed to clone repository: GitHub token not found. Please authenticate with GitHub first.');
     });
 
     it('should handle existing directory and sync instead', async () => {

@@ -220,6 +220,12 @@ class GitHubService {
 
     } catch (error) {
       logger.error('Failed to get GitHub repositories:', error);
+      
+      // Preserve auth-related error messages for proper error handling
+      if (error.message && error.message.includes('Please re-authenticate')) {
+        throw error; // Pass through the original auth error
+      }
+      
       throw new Error('Failed to retrieve GitHub repositories');
     }
   }
