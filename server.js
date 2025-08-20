@@ -30,23 +30,54 @@ function setupGracefulShutdown(server) {
   const shutdown = async (signal) => {
     logger.info(`${signal} received, shutting down gracefully`);
     
-    // Close server
-    server.close(() => {
-      logger.info('HTTP server closed');
-    });
-    
-    // Cleanup processes
-    await processUtil.killAllProcesses();
-    
-    // Close database connection
-    await gracefulShutdown();
-    
-    logger.info('Graceful shutdown complete');
-    process.exit(0);
+    const shutdownTimeout = setTimeout(() => {
+      logger.error('Graceful shutdown timeout. Forcing exit.');
+      process.exit(1);
+    }, 30000); // 30 second timeout
+
+    try {
+      // 1. Stop accepting new connections
+      server.close(() => {
+        logger.info('HTTP server closed');
+      });
+
+      // 2. Kill all terminal sessions properly
+      const shellService = require('./src/services/shell.service');
+      await shellService.killAllSessions();
+      logger.info('All terminal sessions terminated');
+
+      // 3. Cleanup other processes
+      await processUtil.killAllProcesses();
+      logger.info('All background processes terminated');
+
+      // 4. Close database connections
+      await gracefulShutdown();
+      logger.info('Database connections closed');
+
+      // 5. Cleanup shell service resources
+      shellService.cleanup();
+      logger.info('Shell service cleanup complete');
+      
+      clearTimeout(shutdownTimeout);
+      logger.info('Graceful shutdown complete');
+      process.exit(0);
+    } catch (error) {
+      logger.error('Error during shutdown:', error);
+      clearTimeout(shutdownTimeout);
+      process.exit(1);
+    }
   };
 
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('uncaughtException', (error) => {
+    logger.error('Uncaught exception:', error);
+    shutdown('UNCAUGHT_EXCEPTION');
+  });
+  process.on('unhandledRejection', (reason, promise) => {
+    logger.error('Unhandled rejection at:', promise, 'reason:', reason);
+    shutdown('UNHANDLED_REJECTION');
+  });
   
   // Setup process utility graceful shutdown
   processUtil.setupGracefulShutdown();

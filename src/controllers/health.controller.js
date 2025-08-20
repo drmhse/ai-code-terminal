@@ -3,31 +3,87 @@ const { prisma } = require('../config/database');
 const shellService = require('../services/shell.service');
 const workspaceService = require('../services/workspace.service');
 const resourceService = require('../services/resource.service');
+const githubService = require('../services/github.service');
+const settingsService = require('../services/settings.service');
+const fs = require('fs').promises;
+const { constants } = require('fs');
 
 class HealthController {
-  getHealthStatus(req, res) {
+  async getHealthStatus(req, res) {
+    const healthData = {
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      services: {
+        database: 'unknown',
+        github: 'unknown',
+        filesystem: 'unknown'
+      },
+      errors: []
+    };
+
     try {
-      const healthData = {
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        memory: process.memoryUsage(),
-        env: environment.NODE_ENV
-      };
+      // Check database connectivity
+      try {
+        await prisma.$queryRaw`SELECT 1`;
+        healthData.services.database = 'healthy';
+      } catch (error) {
+        healthData.services.database = 'unhealthy';
+        healthData.errors.push(`Database: ${error.message}`);
+        healthData.status = 'degraded';
+      }
 
-      // Add additional health checks if needed
-      // Future: Database connectivity check
-      // if (prisma) {
-      //   healthData.database = 'connected';
-      // }
+      // Check GitHub token validity
+      try {
+        const settings = await settingsService.getSettings();
+        if (settings?.githubToken) {
+          const isValid = await githubService.validateToken(settings.githubToken);
+          healthData.services.github = isValid ? 'healthy' : 'token-expired';
+          if (!isValid) {
+            healthData.errors.push('GitHub: Token expired or invalid');
+            healthData.status = 'degraded';
+          }
+        } else {
+          healthData.services.github = 'not-configured';
+        }
+      } catch (error) {
+        healthData.services.github = 'error';
+        healthData.errors.push(`GitHub: ${error.message}`);
+        healthData.status = 'degraded';
+      }
 
-      res.status(200).json(healthData);
+      // Check filesystem access
+      try {
+        await fs.access('/app/workspaces', constants.W_OK);
+        healthData.services.filesystem = 'healthy';
+      } catch (error) {
+        healthData.services.filesystem = 'unhealthy';
+        healthData.errors.push(`Filesystem: ${error.message}`);
+        healthData.status = 'unhealthy';
+      }
+
+      // Add session statistics
+      healthData.sessions = shellService.getSessionStats();
+
+      // Add memory usage
+      healthData.memory = process.memoryUsage();
+      healthData.env = environment.NODE_ENV;
+
+      const statusCode = healthData.status === 'healthy' ? 200 : 
+                        healthData.status === 'degraded' ? 207 : 503;
+      
+      res.status(statusCode).json(healthData);
     } catch (error) {
       console.error('Health check error:', error);
       res.status(500).json({
         status: 'unhealthy',
         timestamp: new Date().toISOString(),
-        error: error.message
+        error: error.message,
+        services: {
+          database: 'unknown',
+          github: 'unknown',
+          filesystem: 'unknown'
+        }
       });
     }
   }

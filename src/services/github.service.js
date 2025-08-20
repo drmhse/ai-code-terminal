@@ -9,6 +9,7 @@ class GitHubService {
     this.clientId = environment.GITHUB_CLIENT_ID;
     this.clientSecret = environment.GITHUB_CLIENT_SECRET;
     this.callbackUrl = environment.GITHUB_CALLBACK_URL;
+    this.tokenRefreshPromise = null; // Prevent concurrent refreshes
 
     // Validate required configuration
     if (!this.clientId || !this.clientSecret || !this.callbackUrl) {
@@ -408,15 +409,28 @@ class GitHubService {
       throw new Error('GitHub not authenticated.');
     }
 
-    let accessToken = settings.githubToken;
-
     // Check if token is expired (with a 5-minute buffer)
-    if (new Date() > new Date(settings.githubTokenExpiresAt.getTime() - 5 * 60 * 1000)) {
-      accessToken = await this.refreshToken();
+    const expiryTime = new Date(settings.githubTokenExpiresAt).getTime();
+    const now = Date.now();
+    const fiveMinutes = 5 * 60 * 1000;
+    
+    if (now > expiryTime - fiveMinutes) {
+      // Prevent multiple concurrent refresh attempts
+      if (!this.tokenRefreshPromise) {
+        this.tokenRefreshPromise = this.refreshToken()
+          .finally(() => { this.tokenRefreshPromise = null; });
+      }
+      
+      const newToken = await this.tokenRefreshPromise;
+      
+      return new Octokit({
+        auth: newToken,
+        userAgent: 'claude-code-web-interface'
+      });
     }
 
     return new Octokit({
-      auth: accessToken,
+      auth: settings.githubToken,
       userAgent: 'claude-code-web-interface'
     });
   }

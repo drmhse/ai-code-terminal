@@ -17,6 +17,28 @@ jest.mock('../../src/services/shell.service', () => ({
 
 jest.mock('../../src/services/workspace.service');
 jest.mock('../../src/services/resource.service');
+jest.mock('../../src/services/github.service', () => ({
+  validateToken: jest.fn()
+}));
+jest.mock('../../src/services/settings.service', () => ({
+  getSettings: jest.fn()
+}));
+// Mock fs module properly for require('fs').promises and require('fs').constants pattern
+const mockFsAccess = jest.fn();
+
+jest.mock('fs', () => ({
+  promises: {
+    access: mockFsAccess
+  },
+  constants: {
+    W_OK: 2
+  }
+}));
+jest.mock('../../src/config/database', () => ({
+  prisma: {
+    $queryRaw: jest.fn()
+  }
+}));
 
 const HealthController = require('../../src/controllers/health.controller');
 const environment = require('../../src/config/environment');
@@ -24,6 +46,10 @@ const environment = require('../../src/config/environment');
 const shellService = require('../../src/services/shell.service');
 const workspaceService = require('../../src/services/workspace.service');
 const resourceService = require('../../src/services/resource.service');
+const githubService = require('../../src/services/github.service');
+const settingsService = require('../../src/services/settings.service');
+const { prisma } = require('../../src/config/database');
+// fs will be mocked, but we need the reference for test setup
 
 describe('HealthController', () => {
   let req, res;
@@ -37,13 +63,20 @@ describe('HealthController', () => {
 
     // Clear all mocks
     jest.clearAllMocks();
+    
+    // Setup default mocks
+    prisma.$queryRaw.mockResolvedValue([{}]);
+    settingsService.getSettings.mockResolvedValue({ githubToken: 'test-token' });
+    githubService.validateToken.mockResolvedValue(true);
+    mockFsAccess.mockResolvedValue(); // Mock successful filesystem access
+    shellService.getSessionStats.mockReturnValue({ totalSessions: 0, sessions: [] });
   });
 
   describe('getHealthStatus', () => {
-    it('should return health status with correct properties', () => {
+    it('should return health status with correct properties', async () => {
       const uptimeSpy = jest.spyOn(process, 'uptime').mockReturnValue(100);
 
-      HealthController.getHealthStatus(req, res);
+      await HealthController.getHealthStatus(req, res);
 
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalled();
@@ -52,33 +85,39 @@ describe('HealthController', () => {
       expect(response).toHaveProperty('status', 'healthy');
       expect(response).toHaveProperty('timestamp');
       expect(response).toHaveProperty('uptime', 100);
+      expect(response).toHaveProperty('services');
+      expect(response).toHaveProperty('sessions');
       expect(response).toHaveProperty('memory');
       expect(response).toHaveProperty('env', environment.NODE_ENV);
+      expect(response.services).toHaveProperty('database', 'healthy');
+      expect(response.services).toHaveProperty('github', 'healthy');
+      expect(response.services).toHaveProperty('filesystem', 'healthy');
       
       uptimeSpy.mockRestore();
     });
 
-    it('should return error status when exception occurs', () => {
-      // Mock console.error to avoid output during test
+    it('should return error status when exception occurs', async () => {
+      // Mock console.error to avoid output during test  
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
-      // Force an error by mocking process.uptime to throw
-      const uptimeSpy = jest.spyOn(process, 'uptime').mockImplementation(() => {
-        throw new Error('Test error');
-      });
+      // Force an error by mocking database to throw
+      prisma.$queryRaw.mockRejectedValue(new Error('Test error'));
 
-      HealthController.getHealthStatus(req, res);
+      await HealthController.getHealthStatus(req, res);
 
-      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.status).toHaveBeenCalledWith(207); // 207 because database error sets status to 'degraded'
       expect(res.json).toHaveBeenCalled();
       
       const response = res.json.mock.calls[0][0];
-      expect(response).toHaveProperty('status', 'unhealthy');
+      expect(response).toHaveProperty('status', 'degraded'); // Database error sets status to 'degraded'
       expect(response).toHaveProperty('timestamp');
-      expect(response).toHaveProperty('error', 'Test error');
+      expect(response).toHaveProperty('errors');
+      expect(response.errors).toContain('Database: Test error');
+      expect(response.services).toHaveProperty('database', 'unhealthy');
+      expect(response.services).toHaveProperty('github', 'healthy'); // Other services should still work
+      expect(response.services).toHaveProperty('filesystem', 'healthy');
       
       consoleSpy.mockRestore();
-      uptimeSpy.mockRestore();
     });
   });
 

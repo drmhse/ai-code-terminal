@@ -28,10 +28,12 @@ const mockPtyProcess = {
   killed: false
 };
 
-// Mock socket
+// Mock socket with room functionality
 const mockSocket = {
   id: 'socket-123',
   emit: jest.fn(),
+  join: jest.fn(),
+  leave: jest.fn(),
   server: {
     sockets: {
       sockets: new Map()
@@ -80,6 +82,8 @@ describe('ShellService', () => {
     mockPtyProcess.onData.mockClear();
     mockPtyProcess.onExit.mockClear();
     mockSocket.emit.mockClear();
+    mockSocket.join.mockClear();
+    mockSocket.leave.mockClear();
     
     // Setup default prisma mocks
     prisma.session.updateMany.mockResolvedValue({ count: 0 });
@@ -126,33 +130,54 @@ describe('ShellService', () => {
   });
 
   describe('createPtyForSocket', () => {
+    beforeEach(() => {
+      // Mock io instance for room functionality
+      const mockIo = {
+        to: jest.fn().mockReturnThis(),
+        emit: jest.fn()
+      };
+      shellService.setSocketIO(mockIo);
+    });
+
     it('should create new session when workspace exists and no existing session', async () => {
       await shellService.createPtyForSocket(mockSocket, mockWorkspace.id);
 
       expect(workspaceService.getWorkspace).toHaveBeenCalledWith(mockWorkspace.id);
-      expect(pty.spawn).toHaveBeenCalledWith('bash', [], {
-        name: 'xterm-color',
+      expect(mockSocket.join).toHaveBeenCalledWith(`workspace:${mockWorkspace.id}`);
+      expect(pty.spawn).toHaveBeenCalledWith('bash', ['--login'], {
+        name: 'xterm-256color',
         cols: 80,
         rows: 30,
         cwd: mockWorkspace.localPath,
-        env: process.env
+        env: {
+          ...process.env,
+          HOME: '/home/claude',
+          USER: 'claude',
+          SHELL: '/bin/bash',
+          PS1: '\\[\\033[1;32m\\]\\u@\\h\\[\\033[0m\\]:\\[\\033[1;34m\\]\\w\\[\\033[0m\\]$ ',
+          PATH: `${process.env.PATH}:/home/claude/.local/bin`
+        }
       });
       expect(shellService.activeSessions.has(mockWorkspace.id)).toBe(true);
       expect(shellService.socketToWorkspace.get(mockSocket.id)).toBe(mockWorkspace.id);
     });
 
     it('should resume existing session when available', async () => {
-      // Setup existing session
+      // Setup existing session with history mock
+      const mockHistory = {
+        getRecent: jest.fn().mockReturnValue(['data1', 'data2'])
+      };
       const existingSession = {
         ptyProcess: mockPtyProcess,
         workspace: mockWorkspace,
         sockets: new Set(),
-        buffer: mockRingBuffer
+        history: mockHistory
       };
       shellService.activeSessions.set(mockWorkspace.id, existingSession);
 
       await shellService.createPtyForSocket(mockSocket, mockWorkspace.id);
 
+      expect(mockSocket.join).toHaveBeenCalledWith(`workspace:${mockWorkspace.id}`);
       expect(existingSession.sockets.has(mockSocket.id)).toBe(true);
       expect(mockSocket.emit).toHaveBeenCalledWith('terminal-resumed', { workspaceId: mockWorkspace.id });
     });
@@ -168,8 +193,10 @@ describe('ShellService', () => {
 
       await shellService.createPtyForSocket(mockSocket, mockWorkspace.id);
 
+      expect(mockSocket.leave).toHaveBeenCalledWith(`workspace:${prevWorkspaceId}`);
+      expect(mockSocket.join).toHaveBeenCalledWith(`workspace:${mockWorkspace.id}`);
       expect(prevSession.sockets.has(mockSocket.id)).toBe(false);
-      expect(logger.info).toHaveBeenCalledWith(`Socket ${mockSocket.id} detached from previous workspace ${prevWorkspaceId} before switching to ${mockWorkspace.id}`);
+      expect(logger.info).toHaveBeenCalledWith(`Socket ${mockSocket.id} left workspace room ${prevWorkspaceId} and session tracking`);
     });
 
     it('should handle case where previous session does not exist', async () => {
@@ -249,17 +276,33 @@ describe('ShellService', () => {
   });
 
   describe('createNewSession', () => {
+    beforeEach(() => {
+      // Mock io instance for room functionality
+      const mockIo = {
+        to: jest.fn().mockReturnThis(),
+        emit: jest.fn()
+      };
+      shellService.setSocketIO(mockIo);
+    });
+
     it('should create PTY process with correct parameters on Windows', async () => {
       os.platform.mockReturnValue('win32');
       
       await shellService.createNewSession(mockSocket, mockWorkspace);
 
       expect(pty.spawn).toHaveBeenCalledWith('powershell.exe', [], {
-        name: 'xterm-color',
+        name: 'xterm-256color',
         cols: 80,
         rows: 30,
         cwd: mockWorkspace.localPath,
-        env: process.env
+        env: {
+          ...process.env,
+          HOME: '/home/claude',
+          USER: 'claude',
+          SHELL: '/bin/bash',
+          PS1: '\\[\\033[1;32m\\]\\u@\\h\\[\\033[0m\\]:\\[\\033[1;34m\\]\\w\\[\\033[0m\\]$ ',
+          PATH: `${process.env.PATH}:/home/claude/.local/bin`
+        }
       });
     });
 
@@ -268,7 +311,7 @@ describe('ShellService', () => {
       
       await shellService.createNewSession(mockSocket, mockWorkspace);
 
-      expect(pty.spawn).toHaveBeenCalledWith('bash', [], expect.any(Object));
+      expect(pty.spawn).toHaveBeenCalledWith('bash', ['--login'], expect.any(Object));
     });
 
     it('should setup data and exit handlers', async () => {
@@ -279,49 +322,69 @@ describe('ShellService', () => {
     });
 
     it('should handle PTY data events', async () => {
+      const mockIo = {
+        to: jest.fn().mockReturnThis(),
+        emit: jest.fn()
+      };
+      shellService.setSocketIO(mockIo);
+      
       await shellService.createNewSession(mockSocket, mockWorkspace);
 
       // Simulate data event
       const dataHandler = mockPtyProcess.onData.mock.calls[0][0];
       dataHandler('test data');
 
-      expect(mockRingBuffer.push).toHaveBeenCalledWith('test data');
-      expect(mockSocket.emit).toHaveBeenCalledWith('terminal-output', 'test data');
+      // Should emit to workspace room
+      expect(mockIo.to).toHaveBeenCalledWith(`workspace:${mockWorkspace.id}`);
+      expect(mockIo.emit).toHaveBeenCalledWith('terminal-output', 'test data');
     });
 
     it('should handle PTY exit events', async () => {
+      const mockIo = {
+        to: jest.fn().mockReturnThis(),
+        emit: jest.fn()
+      };
+      shellService.setSocketIO(mockIo);
+      
       await shellService.createNewSession(mockSocket, mockWorkspace);
 
       // Simulate exit event
       const exitHandler = mockPtyProcess.onExit.mock.calls[0][0];
       exitHandler({ exitCode: 0, signal: null });
 
-      expect(mockSocket.emit).toHaveBeenCalledWith('terminal-output', '\r\nShell exited.\r\n');
-      expect(mockSocket.emit).toHaveBeenCalledWith('terminal-killed', { workspaceId: mockWorkspace.id });
+      // Should emit to workspace room
+      expect(mockIo.to).toHaveBeenCalledWith(`workspace:${mockWorkspace.id}`);
+      expect(mockIo.emit).toHaveBeenCalledWith('terminal-output', '\r\nShell exited.\r\n');
+      expect(mockIo.emit).toHaveBeenCalledWith('terminal-killed', { workspaceId: mockWorkspace.id });
     });
   });
 
   describe('replayHistory', () => {
     it('should replay buffered data to socket', () => {
-      const session = { buffer: mockRingBuffer };
+      const mockHistory = {
+        getRecent: jest.fn().mockReturnValue(['data1', 'data2'])
+      };
+      const session = { history: mockHistory };
 
       shellService.replayHistory(mockSocket, session);
 
-      expect(mockRingBuffer.getAll).toHaveBeenCalled();
+      expect(mockHistory.getRecent).toHaveBeenCalled();
       expect(mockSocket.emit).toHaveBeenCalledWith('terminal-output', expect.stringContaining('Replaying recent session history'));
       expect(mockSocket.emit).toHaveBeenCalledWith('terminal-output', 'data1data2');
       expect(mockSocket.emit).toHaveBeenCalledWith('terminal-output', expect.stringContaining('End of history'));
     });
 
-    it('should handle session without buffer', () => {
-      const session = { buffer: null };
+    it('should handle session without history', () => {
+      const session = { history: null };
 
       expect(() => shellService.replayHistory(mockSocket, session)).not.toThrow();
     });
 
-    it('should handle empty buffer', () => {
-      mockRingBuffer.getAll.mockReturnValue([]);
-      const session = { buffer: mockRingBuffer };
+    it('should handle empty history', () => {
+      const mockHistory = {
+        getRecent: jest.fn().mockReturnValue([])
+      };
+      const session = { history: mockHistory };
 
       shellService.replayHistory(mockSocket, session);
 

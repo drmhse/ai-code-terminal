@@ -36,7 +36,8 @@
                     showDeleteModal: false,
                     workspaceToDelete: null,
                     deleteFiles: false,
-                    deletingWorkspace: false
+                    deletingWorkspace: false,
+                    connectionError: null
                 };
             },
             
@@ -291,129 +292,180 @@
 
                 async initializeApp() {
                     try {
-                        // Connect to socket.io
-                        this.socket = io('/', {
-                            auth: {
-                                token: localStorage.getItem('authToken')
-                            }
-                        });
-                        
-                        this.socket.on('connect', () => {
-                            console.log('Connected to server');
-                            this.loadWorkspaces();
-                            this.loadStats();
-                            this.startStatsInterval();
-                            this.loadTheme();
-                            if (this.availableThemes.length === 0) {
-                                this.loadAvailableThemes();
-                            }
-                        });
-                        
-                        this.socket.on('connect_error', (error) => {
-                            console.error('Socket connection failed:', error.message);
-                            if (error.message.includes('GitHub token not found')) {
-                                this.logout();
-                            }
-                        });
-                        
-                        this.socket.on('disconnect', () => {
-                            console.log('Disconnected from server');
-                            this.stopStatsInterval();
-                        });
-                        
-                        this.socket.on('terminal-output', (data) => {
-                            if (this.terminal) {
-                                this.terminal.write(data);
-                            }
-                        });
-                        
-                        this.socket.on('terminal-error', (data) => {
-                            console.error('Terminal error:', data.error);
-                        });
-                        
-                        this.socket.on('terminal-resumed', (data) => {
-                            console.log('Session resumed:', data);
-                            // You could add a toast notification here
-                        });
-                        
-                        this.socket.on('workspaces-list', (data) => {
-                            this.workspaces = data.workspaces || [];
-                        });
-                        
-                        this.socket.on('repositories-list', (data) => {
-                            const newRepos = data.repositories || [];
-                            const pagination = data.pagination || {};
-                            
-                            if (pagination.page === 1 || pagination.search_applied) {
-                                // First page, refresh, or new search - replace all repositories
-                                this.repositories = newRepos;
-                            } else {
-                                // Subsequent pages - append to existing repositories
-                                this.repositories = [...this.repositories, ...newRepos];
-                            }
-                            
-                            // Trust the backend Link header pagination
-                            this.repositoryPage = pagination.page || 1;
-                            this.repositoryHasMore = pagination.has_more || false;
-                            this.repositoriesLoading = false;
-                            this.repositoryLoadingMore = false;
-                            this.repositoryError = null;
-                        });
-                        
-                        this.socket.on('repositories-error', (data) => {
-                            this.repositoryError = data.error;
-                            this.repositoriesLoading = false;
-                            this.repositoryLoadingMore = false;
-                        });
-                        
-                        this.socket.on('workspace-progress', (data) => {
-                            console.log('Received workspace-progress:', data);
-                            this.cloneProgress = data;
-                        });
-
-                        this.socket.on('workspace-created', (data) => {
-                            console.log('Received workspace-created:', data);
-                            this.cloneProgress = { 
-                                status: 'created', 
-                                message: 'Workspace created, starting clone...' 
-                            };
-                        });
-
-                        this.socket.on('workspace-cloned', (data) => {
-                            console.log('Received workspace-cloned:', data);
-                            this.clearCloneState();
-                            this.loadWorkspaces();
-                            this.showRepositoriesModal = false;
-                        });
-                        
-                        this.socket.on('workspace-error', (data) => {
-                            console.log('Received workspace-error:', data);
-                            this.cloneError = data.error;
-                            this.cloneProgress = null;
-                            this.cloningRepository = null;
-                        });
-                        
-                        this.socket.on('workspace-deleted', (data) => {
-                            this.deletingWorkspace = false;
-                            this.showDeleteModal = false;
-                            this.workspaceToDelete = null;
-                            this.deleteFiles = false;
-                            
-                            // If deleted workspace was selected, clear selection
-                            if (this.selectedWorkspace?.id === data.workspaceId) {
-                                this.selectedWorkspace = null;
-                                // Clear terminal
-                                const terminalElement = document.getElementById('terminal');
-                                if (terminalElement) {
-                                    terminalElement.innerHTML = '<div class="no-workspace">Select a workspace to start terminal session</div>';
-                                }
-                            }
-                        });
-                        
+                        this.initializeSocket();
                     } catch (error) {
                         console.error('Failed to initialize app:', error);
                         this.logout();
                     }
+                },
+                
+                initializeSocket() {
+                    // Socket connection options with retry configuration
+                    const socketOptions = {
+                        auth: { token: localStorage.getItem('authToken') },
+                        reconnection: true,
+                        reconnectionDelay: 1000,
+                        reconnectionDelayMax: 5000,
+                        reconnectionAttempts: Infinity,
+                        timeout: 20000
+                    };
+                    
+                    this.socket = io('/', socketOptions);
+                    
+                    this.socket.on('connect', () => {
+                        console.log('Socket connected');
+                        this.connectionError = null;
+                        
+                        // Re-initialize application state
+                        this.loadWorkspaces();
+                        this.loadStats();
+                        this.startStatsInterval();
+                        this.loadTheme();
+                        if (this.availableThemes.length === 0) {
+                            this.loadAvailableThemes();
+                        }
+                        
+                        // Re-select workspace if one was selected
+                        if (this.selectedWorkspace) {
+                            this.$nextTick(() => {
+                                this.setupTerminal();
+                            });
+                        }
+                    });
+                    
+                    this.socket.on('connect_error', (error) => {
+                        console.error('Socket connection error:', error);
+                        this.connectionError = 'Connection lost. Reconnecting...';
+                        
+                        if (error.message.includes('GitHub token not found') || 
+                            error.message.includes('Authentication failed')) {
+                            this.logout();
+                        }
+                    });
+                    
+                    this.socket.on('disconnect', (reason) => {
+                        console.log('Socket disconnected:', reason);
+                        this.connectionError = 'Connection lost. Reconnecting...';
+                        this.stopStatsInterval();
+                        
+                        if (reason === 'io server disconnect') {
+                            // Server disconnected us, try to reconnect
+                            this.socket.connect();
+                        }
+                    });
+                    
+                    this.socket.on('reconnect', (attemptNumber) => {
+                        console.log('Socket reconnected after', attemptNumber, 'attempts');
+                        this.connectionError = null;
+                    });
+                    
+                    this.socket.on('reconnect_attempt', (attemptNumber) => {
+                        console.log('Socket reconnection attempt:', attemptNumber);
+                        this.connectionError = `Reconnecting... (attempt ${attemptNumber})`;
+                    });
+                    
+                    this.socket.on('reconnect_error', (error) => {
+                        console.error('Socket reconnection error:', error);
+                        this.connectionError = 'Reconnection failed. Retrying...';
+                    });
+                    
+                    this.socket.on('reconnect_failed', () => {
+                        console.error('Socket reconnection failed permanently');
+                        this.connectionError = 'Connection failed. Please refresh the page.';
+                    });
+                    
+                    // Terminal event handlers
+                    this.socket.on('terminal-output', (data) => {
+                        if (this.terminal) {
+                            this.terminal.write(data);
+                        }
+                    });
+                    
+                    this.socket.on('terminal-error', (data) => {
+                        console.error('Terminal error:', data.error);
+                    });
+                    
+                    this.socket.on('terminal-resumed', (data) => {
+                        console.log('Session resumed:', data);
+                        // You could add a toast notification here
+                    });
+                    
+                    // Workspace event handlers
+                    this.socket.on('workspaces-list', (data) => {
+                        this.workspaces = data.workspaces || [];
+                    });
+                    
+                    // Repository event handlers
+                    this.socket.on('repositories-list', (data) => {
+                        const newRepos = data.repositories || [];
+                        const pagination = data.pagination || {};
+                        
+                        if (pagination.page === 1 || pagination.search_applied) {
+                            // First page, refresh, or new search - replace all repositories
+                            this.repositories = newRepos;
+                        } else {
+                            // Subsequent pages - append to existing repositories
+                            this.repositories = [...this.repositories, ...newRepos];
+                        }
+                        
+                        // Trust the backend Link header pagination
+                        this.repositoryPage = pagination.page || 1;
+                        this.repositoryHasMore = pagination.has_more || false;
+                        this.repositoriesLoading = false;
+                        this.repositoryLoadingMore = false;
+                        this.repositoryError = null;
+                    });
+                    
+                    this.socket.on('repositories-error', (data) => {
+                        this.repositoryError = data.error;
+                        this.repositoriesLoading = false;
+                        this.repositoryLoadingMore = false;
+                    });
+                    
+                    // Workspace operation event handlers
+                    this.socket.on('workspace-progress', (data) => {
+                        console.log('Received workspace-progress:', data);
+                        this.cloneProgress = data;
+                    });
+
+                    this.socket.on('workspace-created', (data) => {
+                        console.log('Received workspace-created:', data);
+                        this.cloneProgress = { 
+                            status: 'created', 
+                            message: 'Workspace created, starting clone...' 
+                        };
+                    });
+
+                    this.socket.on('workspace-cloned', (data) => {
+                        console.log('Received workspace-cloned:', data);
+                        this.clearCloneState();
+                        this.loadWorkspaces();
+                        this.showRepositoriesModal = false;
+                    });
+                    
+                    this.socket.on('workspace-error', (data) => {
+                        console.log('Received workspace-error:', data);
+                        this.cloneError = data.error;
+                        this.cloneProgress = null;
+                        this.cloningRepository = null;
+                    });
+                    
+                    this.socket.on('workspace-deleted', (data) => {
+                        this.deletingWorkspace = false;
+                        this.showDeleteModal = false;
+                        this.workspaceToDelete = null;
+                        this.deleteFiles = false;
+                        
+                        // If deleted workspace was selected, clear selection
+                        if (this.selectedWorkspace?.id === data.workspaceId) {
+                            this.selectedWorkspace = null;
+                            // Clear terminal
+                            const terminalElement = document.getElementById('terminal');
+                            if (terminalElement) {
+                                terminalElement.innerHTML = '<div class="no-workspace">Select a workspace to start terminal session</div>';
+                            }
+                        }
+                    });
                 },
                 
                 loadWorkspaces() {
@@ -480,6 +532,12 @@
                         this.terminal = null;
                     }
                     
+                    // Cleanup previous resize handlers
+                    if (this.cleanupResize) {
+                        this.cleanupResize();
+                        this.cleanupResize = null;
+                    }
+                    
                     // Clear addon references
                     this.fitAddon = null;
                     
@@ -529,16 +587,36 @@
                         });
                     }
                     
-                    // Handle window resize (remove previous listener first to avoid duplicates)
+                    // Handle window resize with proper debouncing (remove previous listener first to avoid duplicates)
                     window.removeEventListener('resize', this.handleWindowResize);
+                    this.cleanupResize && this.cleanupResize();
+                    
+                    let resizeTimeout;
                     this.handleWindowResize = () => {
-                        if (this.fitAddon) {
-                            const delay = this.isMobile ? 200 : 100;
-                            setTimeout(() => {
-                                this.fitAddon.fit();
-                            }, delay);
-                        }
+                        clearTimeout(resizeTimeout);
+                        resizeTimeout = setTimeout(() => {
+                            try {
+                                if (this.fitAddon && this.terminal) {
+                                    this.fitAddon.fit();
+                                    if (this.socket?.connected) {
+                                        this.socket.emit('terminal-resize', {
+                                            cols: this.terminal.cols,
+                                            rows: this.terminal.rows
+                                        });
+                                    }
+                                }
+                            } catch (err) {
+                                console.warn('Terminal resize failed:', err);
+                            }
+                        }, 100); // Debounce resize events
                     };
+                    
+                    // Store cleanup function
+                    this.cleanupResize = () => {
+                        clearTimeout(resizeTimeout);
+                        window.removeEventListener('resize', this.handleWindowResize);
+                    };
+                    
                     window.addEventListener('resize', this.handleWindowResize);
                 },
                 
@@ -739,9 +817,9 @@
                             this.terminal.dispose();
                             this.terminal = null;
                         }
-                        if (this.handleWindowResize) {
-                            window.removeEventListener('resize', this.handleWindowResize);
-                            this.handleWindowResize = null;
+                        if (this.cleanupResize) {
+                            this.cleanupResize();
+                            this.cleanupResize = null;
                         }
                         this.isAuthenticated = false;
                         window.location.reload();

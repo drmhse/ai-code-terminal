@@ -330,6 +330,99 @@ class WorkspaceService {
   }
 
   /**
+   * Get comprehensive workspace status including git status and active processes
+   * @param {string} workspaceId - Workspace ID
+   * @returns {Promise<Object|null>} Workspace status information
+   */
+  async getWorkspaceStatus(workspaceId) {
+    const workspace = await this.getWorkspace(workspaceId);
+    if (!workspace) return null;
+    
+    try {
+      // Check if workspace directory exists
+      try {
+        await fs.access(workspace.localPath);
+      } catch (error) {
+        return {
+          hasUncommittedChanges: false,
+          currentBranch: 'unknown',
+          hasActiveProcess: false,
+          error: 'Workspace directory not found'
+        };
+      }
+
+      // Get git status
+      let hasUncommittedChanges = false;
+      let fileCount = 0;
+      try {
+        const { stdout: statusOut } = await execAsync('git status --porcelain', {
+          cwd: workspace.localPath,
+          timeout: 5000
+        });
+        
+        const statusLines = statusOut.trim().split('\n').filter(line => line.trim());
+        hasUncommittedChanges = statusLines.length > 0;
+        fileCount = statusLines.length;
+      } catch (error) {
+        logger.debug(`Git status failed for workspace ${workspaceId}:`, error.message);
+      }
+      
+      // Get current branch
+      let currentBranch = 'unknown';
+      try {
+        const { stdout: branchOut } = await execAsync('git branch --show-current', {
+          cwd: workspace.localPath,
+          timeout: 5000
+        });
+        currentBranch = branchOut.trim() || 'main';
+      } catch (error) {
+        logger.debug(`Git branch check failed for workspace ${workspaceId}:`, error.message);
+      }
+
+      // Get git remote status
+      let behindAhead = null;
+      try {
+        const { stdout: remoteStatus } = await execAsync('git rev-list --left-right --count HEAD...@{upstream} 2>/dev/null || echo "0	0"', {
+          cwd: workspace.localPath,
+          timeout: 5000
+        });
+        const [behind, ahead] = remoteStatus.trim().split('\t').map(Number);
+        behindAhead = { behind: behind || 0, ahead: ahead || 0 };
+      } catch (error) {
+        logger.debug(`Git remote status failed for workspace ${workspaceId}:`, error.message);
+      }
+
+      // Check if any processes are running (import shell service to avoid circular dependency)
+      let hasActiveProcess = false;
+      try {
+        const shellService = require('./shell.service');
+        hasActiveProcess = shellService.hasActiveProcessInWorkspace && 
+                          shellService.hasActiveProcessInWorkspace(workspaceId);
+      } catch (error) {
+        logger.debug(`Process check failed for workspace ${workspaceId}:`, error.message);
+      }
+      
+      return {
+        hasUncommittedChanges,
+        currentBranch,
+        hasActiveProcess,
+        fileCount,
+        behindAhead,
+        lastSyncAt: workspace.lastSyncAt,
+        repositoryUrl: workspace.githubUrl
+      };
+    } catch (error) {
+      logger.warn(`Failed to get status for workspace ${workspaceId}:`, error);
+      return {
+        hasUncommittedChanges: false,
+        currentBranch: 'unknown',
+        hasActiveProcess: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
    * Create CLAUDE.md file for workspace
    * @param {Object} workspace - Workspace object
    */

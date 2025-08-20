@@ -7,6 +7,9 @@ const logger = require('../utils/logger');
 
 class SocketHandler {
   initialize(io) {
+    // Initialize shell service with Socket.IO instance for room-based communication
+    shellService.setSocketIO(io);
+    
     // JWT authentication middleware
     io.use(socketAuthMiddleware);
 
@@ -332,6 +335,35 @@ class SocketHandler {
         });
       } finally {
         socket.emit('repositories-loading', { loading: false });
+      }
+    });
+
+    // Get workspace status
+    socket.on('get-workspace-status', async (data) => {
+      try {
+        const { workspaceId } = data;
+
+        if (!workspaceId) {
+          return socket.emit('workspace-status-error', {
+            error: 'Missing workspaceId parameter'
+          });
+        }
+
+        const status = await workspaceService.getWorkspaceStatus(workspaceId);
+        
+        if (status === null) {
+          return socket.emit('workspace-status-error', {
+            error: 'Workspace not found'
+          });
+        }
+
+        socket.emit('workspace-status', { workspaceId, status });
+
+      } catch (error) {
+        logger.error('Error getting workspace status:', error);
+        socket.emit('workspace-status-error', {
+          error: error.message || 'Failed to get workspace status'
+        });
       }
     });
   }

@@ -1,9 +1,110 @@
 const os = require('os');
 const pty = require('node-pty');
+const path = require('path');
+const fs = require('fs').promises;
 const workspaceService = require('./workspace.service');
 const { prisma } = require('../config/database');
 const logger = require('../utils/logger');
 const RingBuffer = require('../utils/RingBuffer'); // Import the Ring Buffer utility
+
+/**
+ * Persistent terminal session history with disk storage
+ */
+class SessionHistory {
+    constructor(workspaceId) {
+        this.workspaceId = workspaceId;
+        this.historyDir = '/home/claude/.terminal_history';
+        this.historyFile = path.join(this.historyDir, `${workspaceId}.log`);
+        
+        // Keep in-memory buffer for fast access
+        this.memoryBuffer = new RingBuffer(5000); // Increase to 5000
+        
+        // Initialize and restore previous session
+        this.initialize();
+    }
+    
+    async initialize() {
+        try {
+            await this.ensureHistoryDir();
+            await this.restoreFromDisk();
+        } catch (error) {
+            logger.warn(`Failed to initialize history for workspace ${this.workspaceId}:`, error);
+        }
+    }
+    
+    async ensureHistoryDir() {
+        try {
+            await fs.mkdir(this.historyDir, { recursive: true });
+        } catch (error) {
+            // Directory might already exist, that's fine
+            if (error.code !== 'EEXIST') {
+                throw error;
+            }
+        }
+    }
+    
+    async write(data) {
+        // Write to memory buffer immediately
+        this.memoryBuffer.push(data);
+        
+        // Append to disk asynchronously (non-blocking)
+        this.writeToDisk(data).catch(error => {
+            logger.warn(`Failed to write history to disk for workspace ${this.workspaceId}:`, error);
+        });
+    }
+    
+    async writeToDisk(data) {
+        const timestamp = Date.now();
+        const encodedData = Buffer.from(data).toString('base64');
+        const logLine = `${timestamp}|${encodedData}\n`;
+        
+        await fs.appendFile(this.historyFile, logLine);
+    }
+    
+    async restoreFromDisk() {
+        try {
+            const content = await fs.readFile(this.historyFile, 'utf8');
+            const lines = content.split('\n').filter(line => line.trim()).slice(-5000); // Last 5000 lines
+            
+            for (const line of lines) {
+                const pipeIndex = line.indexOf('|');
+                if (pipeIndex === -1) continue;
+                
+                const timestamp = line.substring(0, pipeIndex);
+                const data = line.substring(pipeIndex + 1);
+                
+                if (data && !isNaN(timestamp)) {
+                    try {
+                        const decodedData = Buffer.from(data, 'base64').toString();
+                        this.memoryBuffer.push(decodedData);
+                    } catch (decodeError) {
+                        // Skip corrupted entries
+                        logger.debug(`Skipping corrupted history entry for workspace ${this.workspaceId}`);
+                    }
+                }
+            }
+            
+            logger.debug(`Restored ${lines.length} history entries for workspace ${this.workspaceId}`);
+        } catch (error) {
+            if (error.code !== 'ENOENT') {
+                logger.warn(`Failed to restore history from disk for workspace ${this.workspaceId}:`, error);
+            }
+            // File doesn't exist yet, that's fine for new workspaces
+        }
+    }
+    
+    getRecent() {
+        return this.memoryBuffer.getAll();
+    }
+    
+    clear() {
+        this.memoryBuffer.clear();
+        // Optionally clear disk file as well
+        fs.unlink(this.historyFile).catch(() => {
+            // File might not exist, that's fine
+        });
+    }
+}
 
 class ShellService {
     constructor() {
@@ -11,6 +112,8 @@ class ShellService {
         this.activeSessions = new Map();
         // Map: socket.id -> workspaceId
         this.socketToWorkspace = new Map();
+        // Socket.IO instance for room-based emissions
+        this.io = null;
 
         // Configuration
         this.REPLAY_BUFFER_CAPACITY = 500; // Store last 500 data chunks. A good balance.
@@ -23,23 +126,41 @@ class ShellService {
     }
 
     /**
+     * Initialize the shell service with Socket.IO instance
+     * @param {Object} io - Socket.IO instance
+     */
+    setSocketIO(io) {
+        this.io = io;
+        logger.info('ShellService initialized with Socket.IO instance');
+    }
+
+    /**
      * Main entry point for a socket connection requesting a terminal.
      * It intelligently decides whether to create a new session or resume an existing one.
+     * Uses workspace-scoped socket rooms to prevent output bleeding between workspaces.
      */
     async createPtyForSocket(socket, workspaceId) {
         try {
-            // CRITICAL FIX: Detach socket from any previous workspace to prevent accumulation
+            // ROOM-BASED FIX: Leave previous workspace room and join new one
             const previousWorkspaceId = this.socketToWorkspace.get(socket.id);
             if (previousWorkspaceId && previousWorkspaceId !== workspaceId) {
+                // Leave previous workspace room
+                socket.leave(`workspace:${previousWorkspaceId}`);
+                
+                // Remove socket from previous session tracking
                 const previousSession = this.activeSessions.get(previousWorkspaceId);
                 if (previousSession) {
                     previousSession.sockets.delete(socket.id);
-                    logger.info(`Socket ${socket.id} detached from previous workspace ${previousWorkspaceId} before switching to ${workspaceId}`);
+                    logger.info(`Socket ${socket.id} left workspace room ${previousWorkspaceId} and session tracking`);
                 }
             }
 
             const workspace = await this.getWorkspaceForSession(socket, workspaceId);
             if (!workspace) return; // Error was already sent to the socket
+
+            // Join the workspace-specific room
+            socket.join(`workspace:${workspace.id}`);
+            logger.info(`Socket ${socket.id} joined workspace room ${workspace.id}`);
 
             const existingSession = this.activeSessions.get(workspace.id);
             if (existingSession) {
@@ -89,6 +210,8 @@ class ShellService {
         // **THE FIX: Replay the small, buffered history**
         this.replayHistory(socket, session);
 
+        // Note: terminal-resumed is sent directly to the requesting socket, not the room
+        // since it's a response to the specific socket's create-terminal request
         socket.emit('terminal-resumed', { workspaceId: session.workspace.id });
     }
 
@@ -97,34 +220,49 @@ class ShellService {
      */
     async createNewSession(socket, workspace) {
         const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
-        const ptyProcess = pty.spawn(shell, [], {
-            name: 'xterm-color',
+        const shellArgs = os.platform() === 'win32' ? [] : ['--login']; // Use login shell for proper initialization
+        
+        const ptyProcess = pty.spawn(shell, shellArgs, {
+            name: 'xterm-256color', // Better color support
             cols: 80,
             rows: 30,
             cwd: workspace.localPath,
-            env: process.env,
+            env: {
+                ...process.env,
+                HOME: '/home/claude',
+                USER: 'claude',
+                SHELL: '/bin/bash',
+                PS1: '\\[\\033[1;32m\\]\\u@\\h\\[\\033[0m\\]:\\[\\033[1;34m\\]\\w\\[\\033[0m\\]$ ', // Colorful prompt
+                PATH: `${process.env.PATH}:/home/claude/.local/bin`
+            },
         });
 
         const sessionData = {
             ptyProcess,
             workspace,
             sockets: new Set([socket.id]),
-            buffer: new RingBuffer(this.REPLAY_BUFFER_CAPACITY) // Use RingBuffer
+            history: new SessionHistory(workspace.id) // Use persistent history
         };
 
         this.activeSessions.set(workspace.id, sessionData);
         this.socketToWorkspace.set(socket.id, workspace.id);
 
-        // Pipe all data from the pty to connected sockets and the buffer
+        // Pipe all data from the pty to connected sockets and persistent history
         ptyProcess.onData(data => {
-            sessionData.buffer.push(data); // Always buffer recent output
+            sessionData.history.write(data); // Write to persistent history
 
-            // Emit to all sockets currently viewing this session
-            logger.info(`[PTY-DATA] Emitting terminal-output to ${sessionData.sockets.size} sockets: [${Array.from(sessionData.sockets).join(', ')}]`);
-            sessionData.sockets.forEach(socketId => {
-                const liveSocket = socket.server.sockets.sockets.get(socketId);
-                liveSocket?.emit('terminal-output', data);
-            });
+            // ROOM-BASED FIX: Emit to workspace room instead of iterating sockets
+            if (this.io) {
+                this.io.to(`workspace:${workspace.id}`).emit('terminal-output', data);
+                logger.debug(`[PTY-DATA] Emitted terminal-output to workspace:${workspace.id} room`);
+            } else {
+                // Fallback to old method if io not initialized (shouldn't happen)
+                logger.warn('[PTY-DATA] Socket.IO instance not available, falling back to socket iteration');
+                sessionData.sockets.forEach(socketId => {
+                    const liveSocket = socket.server.sockets.sockets.get(socketId);
+                    liveSocket?.emit('terminal-output', data);
+                });
+            }
         });
 
         // Handle pty exit
@@ -132,11 +270,18 @@ class ShellService {
             logger.info(`PTY process exited for workspace ${workspace.id}: code=${exitCode}, signal=${signal}`);
             const message = `\r\nShell exited.\r\n`;
 
-            sessionData.sockets.forEach(socketId => {
-                const liveSocket = socket.server.sockets.sockets.get(socketId);
-                liveSocket?.emit('terminal-output', message);
-                liveSocket?.emit('terminal-killed', { workspaceId: workspace.id });
-            });
+            // ROOM-BASED FIX: Emit exit messages to workspace room
+            if (this.io) {
+                this.io.to(`workspace:${workspace.id}`).emit('terminal-output', message);
+                this.io.to(`workspace:${workspace.id}`).emit('terminal-killed', { workspaceId: workspace.id });
+            } else {
+                // Fallback to old method
+                sessionData.sockets.forEach(socketId => {
+                    const liveSocket = socket.server.sockets.sockets.get(socketId);
+                    liveSocket?.emit('terminal-output', message);
+                    liveSocket?.emit('terminal-killed', { workspaceId: workspace.id });
+                });
+            }
 
             // Clean up the session from memory
             this.closeSession(workspace.id);
@@ -146,12 +291,12 @@ class ShellService {
     }
 
     /**
-     * Sends the content of the ring buffer to a newly connected socket.
+     * Sends the content of the persistent history to a newly connected socket.
      */
     replayHistory(socket, session) {
-        if (!session.buffer) return;
+        if (!session.history) return;
 
-        const bufferedChunks = session.buffer.getAll();
+        const bufferedChunks = session.history.getRecent();
         if (bufferedChunks.length > 0) {
             const replayOutput = bufferedChunks.join('');
             socket.emit('terminal-output', '\r\n\x1b[2m--- Replaying recent session history ---\x1b[0m\r\n');
@@ -183,7 +328,7 @@ class ShellService {
 
     /**
      * Handles a socket disconnecting. Detaches the socket from the session
-     * but keeps the PTY process alive.
+     * but keeps the PTY process alive. The socket automatically leaves all rooms on disconnect.
      */
     handleSocketDisconnect(socketId) {
         const workspaceId = this.socketToWorkspace.get(socketId);
@@ -194,6 +339,9 @@ class ShellService {
                 logger.info(`Socket ${socketId} detached from workspace ${workspaceId}. Sockets remaining: ${session.sockets.size}`);
             }
             this.socketToWorkspace.delete(socketId);
+            
+            // Note: Socket automatically leaves all rooms on disconnect, no manual leave needed
+            logger.debug(`Socket ${socketId} automatically left workspace:${workspaceId} room on disconnect`);
         }
     }
 
@@ -242,6 +390,16 @@ class ShellService {
                 connectedSockets: s.sockets.size,
             }))
         };
+    }
+
+    /**
+     * Check if there are any active processes for a specific workspace
+     * @param {string} workspaceId - Workspace ID to check
+     * @returns {boolean} True if workspace has active processes
+     */
+    hasActiveProcessInWorkspace(workspaceId) {
+        const session = this.activeSessions.get(workspaceId);
+        return session && session.ptyProcess && !session.ptyProcess.killed;
     }
 
     /**
