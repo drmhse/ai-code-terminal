@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+<title>Claude Integration | AI Code Terminal: The AI-Native Shell</title>
+<meta name="description" content="Built-in Claude Code support for AI-assisted development workflows">
+<meta name="keywords" content="AI development, Claude Code, self-hosted terminal, development environment, AI coding, browser terminal, Docker deployment">
+<meta name="author" content="AI Code Terminal">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="http://localhost:1313/docs/core-features/claude-integration/">
+
+
+<meta property="og:type" content="article">
+<meta property="og:title" content="Claude Integration | AI Code Terminal: The AI-Native Shell">
+<meta property="og:description" content="Built-in Claude Code support for AI-assisted development workflows">
+<meta property="og:url" content="http://localhost:1313/docs/core-features/claude-integration/">
+<meta property="og:site_name" content="AI Code Terminal: The AI-Native Shell">
+<meta property="og:image" content="http://localhost:1313/images/claude_code_in_action.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="AI Code Terminal - Browser-based development environment with Claude integration">
+
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Claude Integration | AI Code Terminal: The AI-Native Shell">
+<meta name="twitter:description" content="Built-in Claude Code support for AI-assisted development workflows">
+<meta name="twitter:image" content="http://localhost:1313/images/claude_code_in_action.png">
+<meta name="twitter:image:alt" content="AI Code Terminal - Browser-based development environment with Claude integration">
+
+
+<link rel="icon" type="image/svg+xml" href="/terminal-icon.svg">
+<link rel="icon" type="image/png" href="/favicon.png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
+
+
+<meta name="theme-color" content="#010411">
+<meta name="msapplication-TileColor" content="#010411">
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+
+
+<script src="https://unpkg.com/feather-icons"></script>
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "AI Code Terminal: The AI-Native Shell",
+  "description": "A self-hosted development environment for the post-IDE era. Code from any device with a fast, lightweight, AI-native shell.",
+  "url": "http:\/\/localhost:1313\/",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Linux, macOS, Windows",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "author": {
+    "@type": "Organization",
+    "name": "AI Code Terminal"
+  }
+}
+</script>
+
+
+<link rel="stylesheet" href="/css/shared.css">
+
+    <link rel="stylesheet" href="/css/docs.css">
+
+</head>
+<body class="docs-site">
+    
+    
+    <header>
+    <div class="container">
+        <nav>
+            <a href="http://localhost:1313/" class="logo">
+                <span class="prompt-char">&gt;</span> AI Code Terminal
+            </a>
+            <div class="nav-links">
+                <a href="/docs/getting-started/introduction/" class="nav-link">
+                    <i data-feather="book"></i>
+                    <span>Documentation</span>
+                </a>
+                <a href="/getting-started/" class="nav-link">
+                    <i data-feather="book-open"></i>
+                    <span>Getting Started</span>
+                </a>
+                <a href="https://github.com/drmhse/ai-code-terminal" target="_blank" rel="noopener noreferrer" class="nav-link">
+                    <i data-feather="github"></i>
+                    <span>View on GitHub</span>
+                </a>
+            </div>
+        </nav>
+    </div>
+</header>
+
+    <main>
+        
+
+<div class="min-h-screen bg-[#010411] text-[#d4dff3]">
+  
+  
+  <button id="mobile-sidebar-toggle" class="lg:hidden fixed top-4 left-4 z-50 p-3 bg-[#0a0c1a] border border-[rgba(67,79,138,0.2)] rounded-lg">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+    </svg>
+  </button>
+
+  
+  <div id="mobile-overlay" class="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30 hidden"></div>
+
+  <div class="flex pt-20"> 
+    
+    
+    <aside id="docs-sidebar" class="fixed lg:relative w-80 bg-[rgba(1,4,17,0.95)] border-r border-[rgba(67,79,138,0.2)] h-screen lg:h-[calc(100vh-5rem)] overflow-y-auto backdrop-blur-xl z-40 -translate-x-full lg:translate-x-0 transition-transform duration-300">
+      
+      
+      <div class="sticky top-0 bg-[rgba(1,4,17,0.9)] backdrop-blur-sm border-b border-[rgba(67,79,138,0.2)] p-6">
+        <div class="flex items-center space-x-3 mb-6">
+          <div class="w-8 h-8 bg-[#82aaff] rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-[#d4dff3]">Documentation</h3>
+        </div>
+        
+        
+        <div class="relative">
+          <svg class="absolute left-3 top-3.5 w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+          </svg>
+          <input type="text" placeholder="Search docs..." class="w-full pl-10 pr-4 py-3 bg-[rgba(10,12,26,0.6)] border border-[rgba(67,79,138,0.2)] rounded-lg text-[#d4dff3] placeholder-[#8b9cc2] focus:outline-none focus:border-[#82aaff] focus:ring-1 focus:ring-[#82aaff] transition-colors">
+        </div>
+      </div>
+
+      
+      <nav class="p-4 space-y-2">
+        
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="getting-started">
+            <span class="uppercase tracking-wider">Getting Started</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/getting-started/introduction/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Introduction
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/getting-started/quick-start/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Quick Start
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/getting-started/installation/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Installation
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/getting-started/github-oauth/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                GitHub OAuth Setup
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/getting-started/configuration/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Configuration
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="core-features">
+            <span class="uppercase tracking-wider">Core Features</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/core-features/terminal-access/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Terminal Access
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/core-features/workspace-management/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Workspace Management
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/core-features/github-integration/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                GitHub Integration
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/core-features/claude-integration/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors active bg-[rgba(130,170,255,0.1)] !text-[#82aaff] font-medium">
+                Claude Integration
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/core-features/real-time-features/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Real-time Features
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="authentication">
+            <span class="uppercase tracking-wider">Authentication</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/authentication/auth-flow/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Authentication Flow
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/authentication/security-features/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Security Features
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/authentication/token-management/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Token Management
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="api">
+            <span class="uppercase tracking-wider">API & WebSocket</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/api/endpoints/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                API Endpoints
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/api/websocket/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                WebSocket Events
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="database">
+            <span class="uppercase tracking-wider">Database</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/database/schema/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Database Schema
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/database/models/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Data Models
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="development">
+            <span class="uppercase tracking-wider">Development</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/development/setup/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Development Setup
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/development/testing/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Testing
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="deployment">
+            <span class="uppercase tracking-wider">Deployment</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/deployment/docker/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Docker Deployment
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+      </nav>
+    </aside>
+
+    
+    <main class="flex-1 lg:ml-80">
+      
+      
+      <div class="sticky top-20 bg-[rgba(1,4,17,0.9)] backdrop-blur-sm border-b border-[rgba(67,79,138,0.2)] px-8 py-4 z-10">
+        <nav class="flex items-center space-x-2 text-sm">
+          <a href="/" class="text-[#8b9cc2] hover:text-[#d4dff3] transition-colors">Home</a>
+          <svg class="w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+          <a href="/docs" class="text-[#8b9cc2] hover:text-[#d4dff3] transition-colors">Documentation</a>
+          
+          <svg class="w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+          <a href="http://localhost:1313/docs/core-features/" class="text-[#8b9cc2] hover:text-[#d4dff3] transition-colors">Core Features</a>
+          
+          <svg class="w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+          <span class="text-[#82aaff] font-medium">Claude Integration</span>
+        </nav>
+      </div>
+
+      <div class="flex">
+        
+        <article class="flex-1 px-8 py-12 max-w-4xl">
+          
+          
+          <header class="mb-12">
+            
+            
+            <h1 class="text-4xl lg:text-5xl font-bold text-[#d4dff3] mb-6 leading-tight">Claude Integration</h1>
+            
+            
+            <p class="text-xl text-[#8b9cc2] leading-relaxed mb-8">Built-in Claude Code support for AI-assisted development workflows</p>
+            
+            
+            
+            <div class="flex items-center space-x-6 text-sm text-[#8b9cc2]">
+              
+              
+              <div class="flex items-center space-x-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span>5 min read</span>
+              </div>
+              
+            </div>
+            
+          </header>
+
+          
+          <div class="prose prose-invert prose-lg max-w-none">
+            <h1 id="claude-integration">Claude Integration</h1>
+<p>AI Code Terminal includes built-in support for Claude Code, providing AI-assisted development directly in your terminal environment.</p>
+<h2 id="claude-code-installation">Claude Code Installation</h2>
+<h3 id="automatic-installation">Automatic Installation</h3>
+<p>Claude Code is automatically installed in the Docker container:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-dockerfile" data-lang="dockerfile"><span style="display:flex;"><span><span style="color:#75715e"># Pre-installed in Docker image</span><span style="color:#960050;background-color:#1e0010">
+</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> npm install -g @anthropic/claude-code<span style="color:#960050;background-color:#1e0010">
+</span></span></span></code></pre></div><h3 id="manual-installation">Manual Installation</h3>
+<p>For local development setups:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Install Claude Code globally</span>
+</span></span><span style="display:flex;"><span>npm install -g @anthropic/claude-code
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Verify installation</span>
+</span></span><span style="display:flex;"><span>claude --version
+</span></span></code></pre></div><h2 id="getting-started-with-claude-code">Getting Started with Claude Code</h2>
+<h3 id="initial-setup">Initial Setup</h3>
+<p>After accessing your terminal, set up Claude Code:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Login to Claude Code (interactive)</span>
+</span></span><span style="display:flex;"><span>claude login
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Verify authentication</span>
+</span></span><span style="display:flex;"><span>claude auth status
+</span></span></code></pre></div><h3 id="claudemd-auto-generation">CLAUDE.md Auto-Generation</h3>
+<p>Each workspace automatically generates a <code>CLAUDE.md</code> file with project context:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span># Project: my-react-app
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">## Overview
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>React application with TypeScript and modern tooling.
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">## Technology Stack
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">-</span> React 18.x
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> TypeScript 5.x
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> Vite build system
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> Tailwind CSS
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> Jest testing framework
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">## Development Setup
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>npm install
+</span></span><span style="display:flex;"><span>npm run dev
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">## Key Files
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">-</span> <span style="color:#e6db74">`src/App.tsx`</span> - Main application component
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> <span style="color:#e6db74">`src/main.tsx`</span> - Application entry point
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> <span style="color:#e6db74">`vite.config.ts`</span> - Build configuration
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">## Common Commands
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>npm run build    # Production build
+</span></span><span style="display:flex;"><span>npm run test     # Run tests
+</span></span><span style="display:flex;"><span>npm run lint     # Lint code
+</span></span></code></pre></div><p>This context helps Claude understand your project structure and provide more relevant assistance.</p>
+<h2 id="core-claude-code-features">Core Claude Code Features</h2>
+<h3 id="interactive-chat">Interactive Chat</h3>
+<p>Start conversations with Claude directly in your terminal:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Start interactive chat session</span>
+</span></span><span style="display:flex;"><span>claude chat
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Ask specific questions</span>
+</span></span><span style="display:flex;"><span>claude chat <span style="color:#e6db74">&#34;How do I optimize this React component?&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Get help with code in current directory</span>
+</span></span><span style="display:flex;"><span>claude chat <span style="color:#e6db74">&#34;Review my TypeScript configuration&#34;</span>
+</span></span></code></pre></div><h3 id="code-analysis-and-review">Code Analysis and Review</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Analyze current project</span>
+</span></span><span style="display:flex;"><span>claude analyze
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Review specific files</span>
+</span></span><span style="display:flex;"><span>claude review src/components/Header.tsx
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Check for potential issues</span>
+</span></span><span style="display:flex;"><span>claude audit --security
+</span></span></code></pre></div><h3 id="code-generation-and-modification">Code Generation and Modification</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Generate new components</span>
+</span></span><span style="display:flex;"><span>claude generate component UserProfile --typescript
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Create API endpoints</span>
+</span></span><span style="display:flex;"><span>claude generate api user --express
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Add tests for existing code</span>
+</span></span><span style="display:flex;"><span>claude generate tests src/utils/helpers.js
+</span></span></code></pre></div><h3 id="diff-and-patch-operations">Diff and Patch Operations</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Apply suggested changes</span>
+</span></span><span style="display:flex;"><span>claude apply changes.patch
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Generate diffs for review</span>
+</span></span><span style="display:flex;"><span>claude diff --proposed-changes
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Interactive code modification</span>
+</span></span><span style="display:flex;"><span>claude edit src/App.tsx <span style="color:#e6db74">&#34;Add error boundary&#34;</span>
+</span></span></code></pre></div><h2 id="workspace-specific-features">Workspace-Specific Features</h2>
+<h3 id="project-context-awareness">Project Context Awareness</h3>
+<p>Claude Code automatically understands your project:</p>
+<ul>
+<li><strong>Technology Stack</strong> - Detects frameworks and tools</li>
+<li><strong>File Structure</strong> - Understands project organization</li>
+<li><strong>Dependencies</strong> - Knows about installed packages</li>
+<li><strong>Git Context</strong> - Aware of current branch and changes</li>
+</ul>
+<h3 id="terminal-integration">Terminal Integration</h3>
+<p>Claude Code works seamlessly in the terminal environment:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Use with pipes</span>
+</span></span><span style="display:flex;"><span>git diff | claude explain
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Chain with other commands</span>
+</span></span><span style="display:flex;"><span>npm run build <span style="color:#f92672">&amp;&amp;</span> claude analyze --performance
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Interactive debugging</span>
+</span></span><span style="display:flex;"><span>claude debug --interactive
+</span></span></code></pre></div><h3 id="multi-language-support">Multi-Language Support</h3>
+<p>Claude Code supports all popular languages and frameworks:</p>
+<ul>
+<li><strong>JavaScript/TypeScript</strong> - React, Node.js, Vue, Angular</li>
+<li><strong>Python</strong> - Django, Flask, FastAPI, data science</li>
+<li><strong>Go</strong> - Web services, CLI tools, microservices</li>
+<li><strong>Rust</strong> - Systems programming, web assembly</li>
+<li><strong>Java/Kotlin</strong> - Spring Boot, Android development</li>
+<li><strong>C#/.NET</strong> - ASP.NET, desktop applications</li>
+</ul>
+<h2 id="advanced-workflows">Advanced Workflows</h2>
+<h3 id="ai-assisted-development">AI-Assisted Development</h3>
+<p>Integrate Claude into your development workflow:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Code review workflow</span>
+</span></span><span style="display:flex;"><span>git add .
+</span></span><span style="display:flex;"><span>claude review --staged
+</span></span><span style="display:flex;"><span>git commit -m <span style="color:#e6db74">&#34;</span><span style="color:#66d9ef">$(</span>claude suggest-commit-message<span style="color:#66d9ef">)</span><span style="color:#e6db74">&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Feature development</span>
+</span></span><span style="display:flex;"><span>claude plan <span style="color:#e6db74">&#34;Add user authentication&#34;</span>
+</span></span><span style="display:flex;"><span>claude implement --plan auth-plan.md
+</span></span><span style="display:flex;"><span>claude test --coverage
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Bug fixing</span>
+</span></span><span style="display:flex;"><span>claude debug <span style="color:#e6db74">&#34;API returns 500 error&#34;</span>
+</span></span><span style="display:flex;"><span>claude fix --apply-suggestions
+</span></span></code></pre></div><h3 id="documentation-generation">Documentation Generation</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Generate README files</span>
+</span></span><span style="display:flex;"><span>claude docs generate README
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># API documentation</span>
+</span></span><span style="display:flex;"><span>claude docs api --openapi
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Code comments</span>
+</span></span><span style="display:flex;"><span>claude docs comment src/**/*.js
+</span></span></code></pre></div><h3 id="refactoring-support">Refactoring Support</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Refactor for better performance</span>
+</span></span><span style="display:flex;"><span>claude refactor --optimize
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Update to newer patterns</span>
+</span></span><span style="display:flex;"><span>claude modernize --target es2024
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Extract reusable components</span>
+</span></span><span style="display:flex;"><span>claude extract --component UserCard
+</span></span></code></pre></div><h2 id="configuration-and-customization">Configuration and Customization</h2>
+<h3 id="claude-code-configuration">Claude Code Configuration</h3>
+<p>Configure Claude Code for your preferences:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Set default model</span>
+</span></span><span style="display:flex;"><span>claude config set model claude-3-sonnet
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Configure output format</span>
+</span></span><span style="display:flex;"><span>claude config set output detailed
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Set project preferences</span>
+</span></span><span style="display:flex;"><span>claude config set language typescript
+</span></span><span style="display:flex;"><span>claude config set framework react
+</span></span></code></pre></div><h3 id="project-specific-settings">Project-Specific Settings</h3>
+<p>Each workspace can have custom Claude settings:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span><span style="color:#75715e">// .claude-config.json
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;model&#34;</span>: <span style="color:#e6db74">&#34;claude-3-sonnet&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;context&#34;</span>: {
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;include&#34;</span>: [<span style="color:#e6db74">&#34;src/**/*&#34;</span>, <span style="color:#e6db74">&#34;*.md&#34;</span>, <span style="color:#e6db74">&#34;package.json&#34;</span>],
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;exclude&#34;</span>: [<span style="color:#e6db74">&#34;node_modules/**/*&#34;</span>, <span style="color:#e6db74">&#34;dist/**/*&#34;</span>]
+</span></span><span style="display:flex;"><span>  },
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;preferences&#34;</span>: {
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;codeStyle&#34;</span>: <span style="color:#e6db74">&#34;airbnb&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;testing&#34;</span>: <span style="color:#e6db74">&#34;jest&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;documentation&#34;</span>: <span style="color:#e6db74">&#34;detailed&#34;</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="environment-variables">Environment Variables</h3>
+<p>Control Claude Code behavior:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Set API preferences</span>
+</span></span><span style="display:flex;"><span>export CLAUDE_MODEL<span style="color:#f92672">=</span>claude-3-sonnet
+</span></span><span style="display:flex;"><span>export CLAUDE_MAX_TOKENS<span style="color:#f92672">=</span><span style="color:#ae81ff">4096</span>
+</span></span><span style="display:flex;"><span>export CLAUDE_TEMPERATURE<span style="color:#f92672">=</span>0.3
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Project context</span>
+</span></span><span style="display:flex;"><span>export CLAUDE_PROJECT_TYPE<span style="color:#f92672">=</span>webapp
+</span></span><span style="display:flex;"><span>export CLAUDE_FRAMEWORK<span style="color:#f92672">=</span>react
+</span></span></code></pre></div><h2 id="security-and-privacy">Security and Privacy</h2>
+<h3 id="api-key-management">API Key Management</h3>
+<p>Claude Code manages API keys securely:</p>
+<ul>
+<li><strong>Local Storage</strong> - Keys stored locally, never in workspace</li>
+<li><strong>Encryption</strong> - API keys encrypted at rest</li>
+<li><strong>Session-based</strong> - Keys tied to terminal sessions</li>
+<li><strong>No Logging</strong> - API keys never logged or transmitted</li>
+</ul>
+<h3 id="code-privacy">Code Privacy</h3>
+<p>Your code remains private:</p>
+<ul>
+<li><strong>Local Processing</strong> - Code analysis happens locally when possible</li>
+<li><strong>Selective Sharing</strong> - Only relevant context sent to API</li>
+<li><strong>No Storage</strong> - Anthropic doesn&rsquo;t store your code</li>
+<li><strong>Encryption</strong> - All API communications encrypted</li>
+</ul>
+<h3 id="access-control">Access Control</h3>
+<p>Claude Code respects workspace boundaries:</p>
+<ul>
+<li><strong>Workspace Isolation</strong> - Each workspace has independent context</li>
+<li><strong>Permission-based</strong> - Respects file system permissions</li>
+<li><strong>Git Integration</strong> - Only accesses committed/staged code when requested</li>
+</ul>
+<h2 id="performance-optimization">Performance Optimization</h2>
+<h3 id="context-management">Context Management</h3>
+<p>Optimize Claude&rsquo;s understanding of your project:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Update project context</span>
+</span></span><span style="display:flex;"><span>claude context refresh
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Selective context inclusion</span>
+</span></span><span style="display:flex;"><span>claude context add src/components/
+</span></span><span style="display:flex;"><span>claude context remove tests/fixtures/
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Context size optimization</span>
+</span></span><span style="display:flex;"><span>claude context optimize
+</span></span></code></pre></div><h3 id="response-caching">Response Caching</h3>
+<p>Claude Code caches responses for better performance:</p>
+<ul>
+<li><strong>Analysis Caching</strong> - Reuses analysis for unchanged files</li>
+<li><strong>Response Memoization</strong> - Caches similar queries</li>
+<li><strong>Context Reuse</strong> - Maintains context across sessions</li>
+</ul>
+<h2 id="troubleshooting-claude-integration">Troubleshooting Claude Integration</h2>
+<h3 id="authentication-issues">Authentication Issues</h3>
+<p><strong>&ldquo;Not authenticated&rdquo; Error</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Re-authenticate</span>
+</span></span><span style="display:flex;"><span>claude logout
+</span></span><span style="display:flex;"><span>claude login
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Check auth status</span>
+</span></span><span style="display:flex;"><span>claude auth status
+</span></span></code></pre></div><p><strong>API Key Issues</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Verify API key</span>
+</span></span><span style="display:flex;"><span>claude auth verify
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Reset authentication</span>
+</span></span><span style="display:flex;"><span>claude auth reset
+</span></span></code></pre></div><h3 id="performance-issues">Performance Issues</h3>
+<p><strong>Slow Response Times</strong></p>
+<ul>
+<li>Reduce context size with <code>.claude-ignore</code></li>
+<li>Use specific queries instead of broad requests</li>
+<li>Optimize project structure</li>
+</ul>
+<p><strong>Rate Limiting</strong></p>
+<ul>
+<li>Check API usage with <code>claude usage</code></li>
+<li>Implement request spacing</li>
+<li>Use appropriate model for task complexity</li>
+</ul>
+<h3 id="context-issues">Context Issues</h3>
+<p><strong>Claude Doesn&rsquo;t Understand Project</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Regenerate project context</span>
+</span></span><span style="display:flex;"><span>claude context rebuild
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Update CLAUDE.md manually</span>
+</span></span><span style="display:flex;"><span>claude context update
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Verify context accuracy</span>
+</span></span><span style="display:flex;"><span>claude context show
+</span></span></code></pre></div><h2 id="best-practices">Best Practices</h2>
+<h3 id="effective-prompting">Effective Prompting</h3>
+<ul>
+<li><strong>Be Specific</strong> - Provide clear, detailed requirements</li>
+<li><strong>Include Context</strong> - Reference relevant files and functions</li>
+<li><strong>Iterative Approach</strong> - Build on previous interactions</li>
+<li><strong>Code Examples</strong> - Show desired patterns and styles</li>
+</ul>
+<h3 id="workflow-integration">Workflow Integration</h3>
+<ul>
+<li><strong>Regular Context Updates</strong> - Keep CLAUDE.md current</li>
+<li><strong>Selective Queries</strong> - Focus on specific problems</li>
+<li><strong>Review Suggestions</strong> - Always review AI-generated code</li>
+<li><strong>Incremental Changes</strong> - Apply changes gradually</li>
+</ul>
+<h3 id="team-collaboration">Team Collaboration</h3>
+<ul>
+<li><strong>Shared Context</strong> - Keep CLAUDE.md in version control</li>
+<li><strong>Consistent Patterns</strong> - Use Claude to maintain coding standards</li>
+<li><strong>Documentation</strong> - Generate and maintain docs with AI assistance</li>
+<li><strong>Code Review</strong> - Use Claude for pre-review analysis</li>
+</ul>
+<h2 id="next-steps">Next Steps</h2>
+<ul>
+<li><strong><a href="/docs/core-features/terminal-access/">Terminal Access</a>:</strong> Master terminal operations</li>
+<li><strong><a href="/docs/core-features/workspace-management/">Workspace Management</a>:</strong> Organize your projects</li>
+<li><strong><a href="/docs/development/setup/">Development Setup</a>:</strong> Advanced development workflows</li>
+</ul>
+
+          </div>
+
+          
+          <nav class="flex justify-between items-center mt-16 pt-8 border-t border-[rgba(67,79,138,0.2)]">
+            <div>
+              
+              <a href="http://localhost:1313/docs/core-features/real-time-features/" class="inline-flex flex-col items-start px-6 py-4 bg-[rgba(10,12,26,0.5)] border border-[rgba(67,79,138,0.2)] rounded-lg hover:bg-[rgba(130,170,255,0.05)] hover:border-[#82aaff] transition-all transform hover:-translate-y-1">
+                <span class="text-xs text-[#8b9cc2] uppercase tracking-wider mb-1">Previous</span>
+                <span class="text-[#d4dff3] font-medium">Real-time Features</span>
+              </a>
+              
+            </div>
+            <div>
+              
+              <a href="http://localhost:1313/docs/core-features/github-integration/" class="inline-flex flex-col items-end px-6 py-4 bg-[rgba(10,12,26,0.5)] border border-[rgba(67,79,138,0.2)] rounded-lg hover:bg-[rgba(130,170,255,0.05)] hover:border-[#82aaff] transition-all transform hover:-translate-y-1">
+                <span class="text-xs text-[#8b9cc2] uppercase tracking-wider mb-1">Next</span>
+                <span class="text-[#d4dff3] font-medium">GitHub Integration</span>
+              </a>
+              
+            </div>
+          </nav>
+        </article>
+
+        
+        <aside class="hidden xl:block w-80 p-8 sticky top-32 self-start max-h-[calc(100vh-8rem)] overflow-y-auto">
+          <div class="bg-[rgba(10,12,26,0.3)] border border-[rgba(67,79,138,0.2)] rounded-lg p-6">
+            <h3 class="flex items-center text-[#82aaff] font-medium mb-4">
+              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path>
+              </svg>
+              On This Page
+            </h3>
+            <div id="table-of-contents" class="space-y-1">
+              
+            </div>
+          </div>
+        </aside>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  
+  const mobileSidebarToggle = document.getElementById('mobile-sidebar-toggle');
+  const mobileOverlay = document.getElementById('mobile-overlay');
+  const sidebar = document.getElementById('docs-sidebar');
+
+  function toggleMobileSidebar() {
+    sidebar.classList.toggle('-translate-x-full');
+    mobileOverlay.classList.toggle('hidden');
+    document.body.classList.toggle('overflow-hidden');
+  }
+
+  mobileSidebarToggle.addEventListener('click', toggleMobileSidebar);
+  mobileOverlay.addEventListener('click', toggleMobileSidebar);
+
+  
+  const navSectionToggles = document.querySelectorAll('.nav-section-toggle');
+  
+  navSectionToggles.forEach(toggle => {
+    toggle.addEventListener('click', function() {
+      const section = this.closest('.nav-section');
+      const content = section.querySelector('.nav-section-content');
+      const chevron = this.querySelector('.chevron');
+      
+      if (content.style.maxHeight === '0px' || content.style.maxHeight === '') {
+        content.style.maxHeight = content.scrollHeight + 'px';
+        chevron.style.transform = 'rotate(90deg)';
+      } else {
+        content.style.maxHeight = '0px';
+        chevron.style.transform = 'rotate(0deg)';
+      }
+    });
+  });
+
+  
+  const activeLink = document.querySelector('.nav-link.active');
+  if (activeLink) {
+    const section = activeLink.closest('.nav-section');
+    if (section) {
+      const content = section.querySelector('.nav-section-content');
+      const chevron = section.querySelector('.chevron');
+      content.style.maxHeight = content.scrollHeight + 'px';
+      chevron.style.transform = 'rotate(90deg)';
+    }
+  }
+
+  
+  function generateTableOfContents() {
+    const headings = document.querySelectorAll('article h2, article h3, article h4, article h5, article h6');
+    const toc = document.getElementById('table-of-contents');
+    
+    if (headings.length === 0 || !toc) return;
+
+    headings.forEach((heading, index) => {
+      
+      if (!heading.id) {
+        heading.id = heading.textContent.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+      }
+
+      const link = document.createElement('a');
+      link.href = '#' + heading.id;
+      link.textContent = heading.textContent;
+      link.className = 'block py-1.5 px-3 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded transition-colors';
+      
+      
+      const level = parseInt(heading.tagName.charAt(1));
+      if (level > 2) {
+        link.style.paddingLeft = `${(level - 2) * 16 + 12}px`;
+        link.style.borderLeft = '1px solid rgba(67,79,138,0.2)';
+      }
+
+      toc.appendChild(link);
+    });
+
+    
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        const id = entry.target.id;
+        const link = toc.querySelector(`a[href="#${id}"]`);
+        if (link) {
+          if (entry.isIntersecting) {
+            toc.querySelectorAll('a').forEach(l => l.classList.remove('!text-[#82aaff]', 'bg-[rgba(130,170,255,0.1)]', 'font-medium'));
+            link.classList.add('!text-[#82aaff]', 'bg-[rgba(130,170,255,0.1)]', 'font-medium');
+          }
+        }
+      });
+    }, { rootMargin: '-100px 0px -80% 0px' });
+
+    headings.forEach((heading) => {
+      observer.observe(heading);
+    });
+  }
+
+  generateTableOfContents();
+
+  
+  document.addEventListener('click', function(e) {
+    if (e.target.matches('a[href^="#"]')) {
+      e.preventDefault();
+      const target = document.querySelector(e.target.getAttribute('href'));
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  });
+});
+</script>
+
+    </main>
+
+    <footer class="fade-in-section">
+    <div class="container">
+        <p>&copy; 2025 AI Code Terminal. A statement on developer sovereignty.</p>
+    </div>
+</footer>
+    
+<script>
+    feather.replace();
+</script>
+
+    <script src="/js/docs.js"></script>
+
+</body>
+</html>

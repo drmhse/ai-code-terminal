@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+<title>GitHub Integration | AI Code Terminal: The AI-Native Shell</title>
+<meta name="description" content="Seamless GitHub authentication, repository management, and Git operations">
+<meta name="keywords" content="AI development, Claude Code, self-hosted terminal, development environment, AI coding, browser terminal, Docker deployment">
+<meta name="author" content="AI Code Terminal">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="http://localhost:1313/docs/core-features/github-integration/">
+
+
+<meta property="og:type" content="article">
+<meta property="og:title" content="GitHub Integration | AI Code Terminal: The AI-Native Shell">
+<meta property="og:description" content="Seamless GitHub authentication, repository management, and Git operations">
+<meta property="og:url" content="http://localhost:1313/docs/core-features/github-integration/">
+<meta property="og:site_name" content="AI Code Terminal: The AI-Native Shell">
+<meta property="og:image" content="http://localhost:1313/images/claude_code_in_action.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="AI Code Terminal - Browser-based development environment with Claude integration">
+
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="GitHub Integration | AI Code Terminal: The AI-Native Shell">
+<meta name="twitter:description" content="Seamless GitHub authentication, repository management, and Git operations">
+<meta name="twitter:image" content="http://localhost:1313/images/claude_code_in_action.png">
+<meta name="twitter:image:alt" content="AI Code Terminal - Browser-based development environment with Claude integration">
+
+
+<link rel="icon" type="image/svg+xml" href="/terminal-icon.svg">
+<link rel="icon" type="image/png" href="/favicon.png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
+
+
+<meta name="theme-color" content="#010411">
+<meta name="msapplication-TileColor" content="#010411">
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+
+
+<script src="https://unpkg.com/feather-icons"></script>
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "AI Code Terminal: The AI-Native Shell",
+  "description": "A self-hosted development environment for the post-IDE era. Code from any device with a fast, lightweight, AI-native shell.",
+  "url": "http:\/\/localhost:1313\/",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Linux, macOS, Windows",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "author": {
+    "@type": "Organization",
+    "name": "AI Code Terminal"
+  }
+}
+</script>
+
+
+<link rel="stylesheet" href="/css/shared.css">
+
+    <link rel="stylesheet" href="/css/docs.css">
+
+</head>
+<body class="docs-site">
+    
+    
+    <header>
+    <div class="container">
+        <nav>
+            <a href="http://localhost:1313/" class="logo">
+                <span class="prompt-char">&gt;</span> AI Code Terminal
+            </a>
+            <div class="nav-links">
+                <a href="/docs/getting-started/introduction/" class="nav-link">
+                    <i data-feather="book"></i>
+                    <span>Documentation</span>
+                </a>
+                <a href="/getting-started/" class="nav-link">
+                    <i data-feather="book-open"></i>
+                    <span>Getting Started</span>
+                </a>
+                <a href="https://github.com/drmhse/ai-code-terminal" target="_blank" rel="noopener noreferrer" class="nav-link">
+                    <i data-feather="github"></i>
+                    <span>View on GitHub</span>
+                </a>
+            </div>
+        </nav>
+    </div>
+</header>
+
+    <main>
+        
+
+<div class="min-h-screen bg-[#010411] text-[#d4dff3]">
+  
+  
+  <button id="mobile-sidebar-toggle" class="lg:hidden fixed top-4 left-4 z-50 p-3 bg-[#0a0c1a] border border-[rgba(67,79,138,0.2)] rounded-lg">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+    </svg>
+  </button>
+
+  
+  <div id="mobile-overlay" class="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30 hidden"></div>
+
+  <div class="flex pt-20"> 
+    
+    
+    <aside id="docs-sidebar" class="fixed lg:relative w-80 bg-[rgba(1,4,17,0.95)] border-r border-[rgba(67,79,138,0.2)] h-screen lg:h-[calc(100vh-5rem)] overflow-y-auto backdrop-blur-xl z-40 -translate-x-full lg:translate-x-0 transition-transform duration-300">
+      
+      
+      <div class="sticky top-0 bg-[rgba(1,4,17,0.9)] backdrop-blur-sm border-b border-[rgba(67,79,138,0.2)] p-6">
+        <div class="flex items-center space-x-3 mb-6">
+          <div class="w-8 h-8 bg-[#82aaff] rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-[#d4dff3]">Documentation</h3>
+        </div>
+        
+        
+        <div class="relative">
+          <svg class="absolute left-3 top-3.5 w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+          </svg>
+          <input type="text" placeholder="Search docs..." class="w-full pl-10 pr-4 py-3 bg-[rgba(10,12,26,0.6)] border border-[rgba(67,79,138,0.2)] rounded-lg text-[#d4dff3] placeholder-[#8b9cc2] focus:outline-none focus:border-[#82aaff] focus:ring-1 focus:ring-[#82aaff] transition-colors">
+        </div>
+      </div>
+
+      
+      <nav class="p-4 space-y-2">
+        
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="getting-started">
+            <span class="uppercase tracking-wider">Getting Started</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/getting-started/introduction/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Introduction
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/getting-started/quick-start/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Quick Start
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/getting-started/installation/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Installation
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/getting-started/github-oauth/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                GitHub OAuth Setup
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/getting-started/configuration/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Configuration
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="core-features">
+            <span class="uppercase tracking-wider">Core Features</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/core-features/terminal-access/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Terminal Access
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/core-features/workspace-management/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Workspace Management
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/core-features/github-integration/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors active bg-[rgba(130,170,255,0.1)] !text-[#82aaff] font-medium">
+                GitHub Integration
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/core-features/claude-integration/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Claude Integration
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/core-features/real-time-features/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Real-time Features
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="authentication">
+            <span class="uppercase tracking-wider">Authentication</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/authentication/auth-flow/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Authentication Flow
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/authentication/security-features/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Security Features
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/authentication/token-management/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Token Management
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="api">
+            <span class="uppercase tracking-wider">API & WebSocket</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/api/endpoints/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                API Endpoints
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/api/websocket/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                WebSocket Events
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="database">
+            <span class="uppercase tracking-wider">Database</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/database/schema/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Database Schema
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/database/models/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Data Models
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="development">
+            <span class="uppercase tracking-wider">Development</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/development/setup/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Development Setup
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/development/testing/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Testing
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="deployment">
+            <span class="uppercase tracking-wider">Deployment</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/deployment/docker/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Docker Deployment
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+      </nav>
+    </aside>
+
+    
+    <main class="flex-1 lg:ml-80">
+      
+      
+      <div class="sticky top-20 bg-[rgba(1,4,17,0.9)] backdrop-blur-sm border-b border-[rgba(67,79,138,0.2)] px-8 py-4 z-10">
+        <nav class="flex items-center space-x-2 text-sm">
+          <a href="/" class="text-[#8b9cc2] hover:text-[#d4dff3] transition-colors">Home</a>
+          <svg class="w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+          <a href="/docs" class="text-[#8b9cc2] hover:text-[#d4dff3] transition-colors">Documentation</a>
+          
+          <svg class="w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+          <a href="http://localhost:1313/docs/core-features/" class="text-[#8b9cc2] hover:text-[#d4dff3] transition-colors">Core Features</a>
+          
+          <svg class="w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+          <span class="text-[#82aaff] font-medium">GitHub Integration</span>
+        </nav>
+      </div>
+
+      <div class="flex">
+        
+        <article class="flex-1 px-8 py-12 max-w-4xl">
+          
+          
+          <header class="mb-12">
+            
+            
+            <h1 class="text-4xl lg:text-5xl font-bold text-[#d4dff3] mb-6 leading-tight">GitHub Integration</h1>
+            
+            
+            <p class="text-xl text-[#8b9cc2] leading-relaxed mb-8">Seamless GitHub authentication, repository management, and Git operations</p>
+            
+            
+            
+            <div class="flex items-center space-x-6 text-sm text-[#8b9cc2]">
+              
+              
+              <div class="flex items-center space-x-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span>5 min read</span>
+              </div>
+              
+            </div>
+            
+          </header>
+
+          
+          <div class="prose prose-invert prose-lg max-w-none">
+            <h1 id="github-integration">GitHub Integration</h1>
+<p>AI Code Terminal provides seamless integration with GitHub for authentication, repository browsing, and automated Git operations with OAuth credential management.</p>
+<h2 id="authentication-integration">Authentication Integration</h2>
+<h3 id="oauth-flow">OAuth Flow</h3>
+<p>The GitHub integration handles the complete OAuth 2.0 flow:</p>
+<ol>
+<li><strong>Authorization Request</strong> - User clicks &ldquo;Login with GitHub&rdquo;</li>
+<li><strong>GitHub Authorization</strong> - User authorizes the application</li>
+<li><strong>Token Exchange</strong> - Application receives access token</li>
+<li><strong>User Validation</strong> - Validates against <code>TENANT_GITHUB_USERNAME</code></li>
+<li><strong>Session Creation</strong> - Creates authenticated session with JWT</li>
+</ol>
+<h3 id="single-tenant-security">Single-Tenant Security</h3>
+<p>The application enforces single-tenant access:</p>
+<ul>
+<li>Only the configured <code>TENANT_GITHUB_USERNAME</code> can access</li>
+<li>All other GitHub users are denied access</li>
+<li>Provides secure, personal development environment</li>
+</ul>
+<h2 id="repository-management">Repository Management</h2>
+<h3 id="repository-discovery">Repository Discovery</h3>
+<p>Browse all your GitHub repositories through the integrated interface:</p>
+<ul>
+<li><strong>All Repositories</strong> - Public, private, and organization repos</li>
+<li><strong>Search &amp; Filter</strong> - Find repositories quickly</li>
+<li><strong>Repository Info</strong> - Description, language, last update</li>
+<li><strong>Permission Awareness</strong> - Only shows accessible repositories</li>
+</ul>
+<h3 id="repository-selection">Repository Selection</h3>
+<p>When selecting a repository for workspace creation:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Repository information includes:
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#e6db74">&#34;name&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;my-project&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#e6db74">&#34;full_name&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;username/my-project&#34;</span>, 
+</span></span><span style="display:flex;"><span>  <span style="color:#e6db74">&#34;description&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;Project description&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#e6db74">&#34;private&#34;</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#e6db74">&#34;clone_url&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;https://github.com/username/my-project.git&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#e6db74">&#34;default_branch&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;main&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#e6db74">&#34;language&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;JavaScript&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#e6db74">&#34;updated_at&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;2024-01-15T10:30:00Z&#34;</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h2 id="git-credential-management">Git Credential Management</h2>
+<h3 id="oauth-credential-helper">OAuth Credential Helper</h3>
+<p>AI Code Terminal includes a custom Git credential helper that automatically provides OAuth tokens for GitHub operations:</p>
+<p><strong>Location:</strong> <code>/scripts/git-credential-oauth</code></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e">#!/usr/bin/env node
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>// Provides OAuth tokens to Git operations
+</span></span><span style="display:flex;"><span>// Reads from application database
+</span></span><span style="display:flex;"><span>// Handles token refresh automatically
+</span></span></code></pre></div><h3 id="automatic-git-configuration">Automatic Git Configuration</h3>
+<p>Each workspace is automatically configured with:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Credential helper setup</span>
+</span></span><span style="display:flex;"><span>git config credential.helper <span style="color:#e6db74">&#39;oauth&#39;</span>
+</span></span><span style="display:flex;"><span>git config credential.https://github.com.helper <span style="color:#e6db74">&#39;oauth&#39;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># User information from GitHub profile</span>
+</span></span><span style="display:flex;"><span>git config user.name <span style="color:#e6db74">&#34;Your GitHub Name&#34;</span>
+</span></span><span style="display:flex;"><span>git config user.email <span style="color:#e6db74">&#34;your@github-email.com&#34;</span>
+</span></span></code></pre></div><h3 id="supported-git-operations">Supported Git Operations</h3>
+<p>All standard Git operations work seamlessly:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Clone (handled automatically by workspace creation)</span>
+</span></span><span style="display:flex;"><span>git clone https://github.com/username/repo.git
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Fetch and pull</span>
+</span></span><span style="display:flex;"><span>git fetch origin
+</span></span><span style="display:flex;"><span>git pull origin main
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Push operations</span>
+</span></span><span style="display:flex;"><span>git push origin feature-branch
+</span></span><span style="display:flex;"><span>git push origin main
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Remote management</span>
+</span></span><span style="display:flex;"><span>git remote -v
+</span></span><span style="display:flex;"><span>git remote add upstream https://github.com/upstream/repo.git
+</span></span></code></pre></div><h2 id="token-management">Token Management</h2>
+<h3 id="automatic-token-refresh">Automatic Token Refresh</h3>
+<p>The system handles OAuth token lifecycle automatically:</p>
+<ul>
+<li><strong>Expiration Detection</strong> - Monitors token expiration</li>
+<li><strong>Refresh Process</strong> - Uses refresh tokens when available</li>
+<li><strong>Re-authentication</strong> - Prompts for re-auth when needed</li>
+<li><strong>Error Handling</strong> - Graceful handling of token failures</li>
+</ul>
+<h3 id="token-security">Token Security</h3>
+<p>OAuth tokens are securely managed:</p>
+<ul>
+<li><strong>Encryption</strong> - Tokens encrypted at rest using AES-256-CBC</li>
+<li><strong>Memory Protection</strong> - Tokens cleared from memory after use</li>
+<li><strong>Database Security</strong> - Secure token storage in SQLite database</li>
+<li><strong>Network Security</strong> - HTTPS-only token transmission</li>
+</ul>
+<h2 id="api-integration">API Integration</h2>
+<h3 id="github-rest-api">GitHub REST API</h3>
+<p>The application uses the GitHub REST API v4 for:</p>
+<ul>
+<li><strong>User Information</strong> - Profile data and email addresses</li>
+<li><strong>Repository Listing</strong> - All accessible repositories</li>
+<li><strong>Repository Details</strong> - Metadata and permissions</li>
+<li><strong>Organization Access</strong> - Organization repositories</li>
+</ul>
+<h3 id="api-rate-limiting">API Rate Limiting</h3>
+<p>Respectful API usage with:</p>
+<ul>
+<li><strong>Rate Limit Headers</strong> - Monitors GitHub rate limits</li>
+<li><strong>Caching</strong> - Caches repository data to reduce API calls</li>
+<li><strong>Retry Logic</strong> - Handles rate limit exceeded scenarios</li>
+<li><strong>Pagination</strong> - Handles large repository lists efficiently</li>
+</ul>
+<h3 id="example-api-usage">Example API Usage</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Repository listing with pagination
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">Octokit</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;@octokit/rest&#39;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">octokit</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">Octokit</span>({
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">auth</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userToken</span>
+</span></span><span style="display:flex;"><span>});
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">repositories</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">octokit</span>.<span style="color:#a6e22e">paginate</span>(
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">octokit</span>.<span style="color:#a6e22e">rest</span>.<span style="color:#a6e22e">repos</span>.<span style="color:#a6e22e">listForAuthenticatedUser</span>,
+</span></span><span style="display:flex;"><span>  {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;all&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">sort</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;updated&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">per_page</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">100</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>);
+</span></span></code></pre></div><h2 id="webhook-support">Webhook Support</h2>
+<h3 id="repository-events">Repository Events</h3>
+<p>The application can be configured to receive GitHub webhooks for:</p>
+<ul>
+<li><strong>Push Events</strong> - Automatic workspace synchronization</li>
+<li><strong>Pull Request Events</strong> - Workspace updates for PR changes</li>
+<li><strong>Issue Events</strong> - Notifications and workspace context</li>
+<li><strong>Release Events</strong> - Version management integration</li>
+</ul>
+<h3 id="webhook-configuration">Webhook Configuration</h3>
+<p>To set up webhooks (optional):</p>
+<ol>
+<li>Go to your repository settings</li>
+<li>Click &ldquo;Webhooks&rdquo; → &ldquo;Add webhook&rdquo;</li>
+<li>Set URL to <code>https://your-domain.com/api/webhooks/github</code></li>
+<li>Select events: <code>push</code>, <code>pull_request</code>, <code>issues</code></li>
+<li>Set content type to <code>application/json</code></li>
+</ol>
+<h2 id="advanced-git-features">Advanced Git Features</h2>
+<h3 id="multiple-remote-support">Multiple Remote Support</h3>
+<p>Each workspace supports multiple Git remotes:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Add upstream remote for forks</span>
+</span></span><span style="display:flex;"><span>git remote add upstream https://github.com/original/repo.git
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Fetch from all remotes</span>
+</span></span><span style="display:flex;"><span>git fetch --all
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Push to different remotes</span>
+</span></span><span style="display:flex;"><span>git push origin feature
+</span></span><span style="display:flex;"><span>git push upstream main
+</span></span></code></pre></div><h3 id="branch-management">Branch Management</h3>
+<p>Integrated branch operations:</p>
+<ul>
+<li><strong>Branch Creation</strong> - Create and switch to new branches</li>
+<li><strong>Branch Switching</strong> - Change branches with workspace context</li>
+<li><strong>Remote Tracking</strong> - Automatic upstream branch setup</li>
+<li><strong>Merge Operations</strong> - Handle merges and conflicts</li>
+</ul>
+<h3 id="git-hooks-integration">Git Hooks Integration</h3>
+<p>Support for Git hooks in workspaces:</p>
+<ul>
+<li><strong>Pre-commit Hooks</strong> - Code formatting and linting</li>
+<li><strong>Pre-push Hooks</strong> - Testing and validation</li>
+<li><strong>Post-merge Hooks</strong> - Dependency updates</li>
+<li><strong>Custom Hooks</strong> - Project-specific automation</li>
+</ul>
+<h2 id="troubleshooting-github-integration">Troubleshooting GitHub Integration</h2>
+<h3 id="authentication-issues">Authentication Issues</h3>
+<p><strong>&ldquo;Authentication failed&rdquo; Error</strong></p>
+<ul>
+<li>Verify GitHub OAuth credentials are correct</li>
+<li>Check that OAuth app is active (not suspended)</li>
+<li>Ensure callback URL matches exactly</li>
+</ul>
+<p><strong>&ldquo;Access denied&rdquo; Error</strong></p>
+<ul>
+<li>Verify your GitHub username matches <code>TENANT_GITHUB_USERNAME</code></li>
+<li>Check that you have access to the repository</li>
+<li>Ensure OAuth app has required permissions</li>
+</ul>
+<h3 id="repository-access-issues">Repository Access Issues</h3>
+<p><strong>&ldquo;Repository not found&rdquo; Error</strong></p>
+<ul>
+<li>Verify repository exists and you have access</li>
+<li>Check if repository is private and token has repo scope</li>
+<li>Ensure repository hasn&rsquo;t been renamed or transferred</li>
+</ul>
+<h3 id="git-operation-failures">Git Operation Failures</h3>
+<p><strong>&ldquo;Authentication failed&rdquo; during Git operations</strong></p>
+<ul>
+<li>Check OAuth token hasn&rsquo;t expired</li>
+<li>Verify credential helper is properly configured</li>
+<li>Ensure network connectivity to GitHub</li>
+</ul>
+<p><strong>&ldquo;Permission denied&rdquo; during push operations</strong></p>
+<ul>
+<li>Verify you have write access to the repository</li>
+<li>Check if branch is protected</li>
+<li>Ensure you&rsquo;re pushing to correct remote/branch</li>
+</ul>
+<h2 id="security-considerations">Security Considerations</h2>
+<h3 id="oauth-scope-minimization">OAuth Scope Minimization</h3>
+<p>The application requests only necessary scopes:</p>
+<ul>
+<li><code>read:user</code> - Basic profile information</li>
+<li><code>user:email</code> - Email addresses for Git configuration</li>
+<li><code>repo</code> - Repository access (both public and private)</li>
+</ul>
+<h3 id="token-security-best-practices">Token Security Best Practices</h3>
+<ul>
+<li>Tokens are encrypted at rest</li>
+<li>Regular token rotation in production</li>
+<li>Secure token transmission (HTTPS only)</li>
+<li>Automatic token cleanup on logout</li>
+</ul>
+<h3 id="network-security">Network Security</h3>
+<ul>
+<li>All GitHub API calls use HTTPS</li>
+<li>Certificate validation enforced</li>
+<li>No token logging or debugging output</li>
+<li>Secure session management</li>
+</ul>
+<h2 id="next-steps">Next Steps</h2>
+<ul>
+<li><strong><a href="/docs/core-features/workspace-management/">Workspace Management</a>:</strong> Learn about workspace features</li>
+<li><strong><a href="/docs/authentication/auth-flow/">Authentication Flow</a>:</strong> Understand the security model</li>
+<li><strong><a href="/docs/api/endpoints/">API Endpoints</a>:</strong> Explore the API interface</li>
+</ul>
+
+          </div>
+
+          
+          <nav class="flex justify-between items-center mt-16 pt-8 border-t border-[rgba(67,79,138,0.2)]">
+            <div>
+              
+              <a href="http://localhost:1313/docs/core-features/claude-integration/" class="inline-flex flex-col items-start px-6 py-4 bg-[rgba(10,12,26,0.5)] border border-[rgba(67,79,138,0.2)] rounded-lg hover:bg-[rgba(130,170,255,0.05)] hover:border-[#82aaff] transition-all transform hover:-translate-y-1">
+                <span class="text-xs text-[#8b9cc2] uppercase tracking-wider mb-1">Previous</span>
+                <span class="text-[#d4dff3] font-medium">Claude Integration</span>
+              </a>
+              
+            </div>
+            <div>
+              
+              <a href="http://localhost:1313/docs/core-features/workspace-management/" class="inline-flex flex-col items-end px-6 py-4 bg-[rgba(10,12,26,0.5)] border border-[rgba(67,79,138,0.2)] rounded-lg hover:bg-[rgba(130,170,255,0.05)] hover:border-[#82aaff] transition-all transform hover:-translate-y-1">
+                <span class="text-xs text-[#8b9cc2] uppercase tracking-wider mb-1">Next</span>
+                <span class="text-[#d4dff3] font-medium">Workspace Management</span>
+              </a>
+              
+            </div>
+          </nav>
+        </article>
+
+        
+        <aside class="hidden xl:block w-80 p-8 sticky top-32 self-start max-h-[calc(100vh-8rem)] overflow-y-auto">
+          <div class="bg-[rgba(10,12,26,0.3)] border border-[rgba(67,79,138,0.2)] rounded-lg p-6">
+            <h3 class="flex items-center text-[#82aaff] font-medium mb-4">
+              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path>
+              </svg>
+              On This Page
+            </h3>
+            <div id="table-of-contents" class="space-y-1">
+              
+            </div>
+          </div>
+        </aside>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  
+  const mobileSidebarToggle = document.getElementById('mobile-sidebar-toggle');
+  const mobileOverlay = document.getElementById('mobile-overlay');
+  const sidebar = document.getElementById('docs-sidebar');
+
+  function toggleMobileSidebar() {
+    sidebar.classList.toggle('-translate-x-full');
+    mobileOverlay.classList.toggle('hidden');
+    document.body.classList.toggle('overflow-hidden');
+  }
+
+  mobileSidebarToggle.addEventListener('click', toggleMobileSidebar);
+  mobileOverlay.addEventListener('click', toggleMobileSidebar);
+
+  
+  const navSectionToggles = document.querySelectorAll('.nav-section-toggle');
+  
+  navSectionToggles.forEach(toggle => {
+    toggle.addEventListener('click', function() {
+      const section = this.closest('.nav-section');
+      const content = section.querySelector('.nav-section-content');
+      const chevron = this.querySelector('.chevron');
+      
+      if (content.style.maxHeight === '0px' || content.style.maxHeight === '') {
+        content.style.maxHeight = content.scrollHeight + 'px';
+        chevron.style.transform = 'rotate(90deg)';
+      } else {
+        content.style.maxHeight = '0px';
+        chevron.style.transform = 'rotate(0deg)';
+      }
+    });
+  });
+
+  
+  const activeLink = document.querySelector('.nav-link.active');
+  if (activeLink) {
+    const section = activeLink.closest('.nav-section');
+    if (section) {
+      const content = section.querySelector('.nav-section-content');
+      const chevron = section.querySelector('.chevron');
+      content.style.maxHeight = content.scrollHeight + 'px';
+      chevron.style.transform = 'rotate(90deg)';
+    }
+  }
+
+  
+  function generateTableOfContents() {
+    const headings = document.querySelectorAll('article h2, article h3, article h4, article h5, article h6');
+    const toc = document.getElementById('table-of-contents');
+    
+    if (headings.length === 0 || !toc) return;
+
+    headings.forEach((heading, index) => {
+      
+      if (!heading.id) {
+        heading.id = heading.textContent.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+      }
+
+      const link = document.createElement('a');
+      link.href = '#' + heading.id;
+      link.textContent = heading.textContent;
+      link.className = 'block py-1.5 px-3 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded transition-colors';
+      
+      
+      const level = parseInt(heading.tagName.charAt(1));
+      if (level > 2) {
+        link.style.paddingLeft = `${(level - 2) * 16 + 12}px`;
+        link.style.borderLeft = '1px solid rgba(67,79,138,0.2)';
+      }
+
+      toc.appendChild(link);
+    });
+
+    
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        const id = entry.target.id;
+        const link = toc.querySelector(`a[href="#${id}"]`);
+        if (link) {
+          if (entry.isIntersecting) {
+            toc.querySelectorAll('a').forEach(l => l.classList.remove('!text-[#82aaff]', 'bg-[rgba(130,170,255,0.1)]', 'font-medium'));
+            link.classList.add('!text-[#82aaff]', 'bg-[rgba(130,170,255,0.1)]', 'font-medium');
+          }
+        }
+      });
+    }, { rootMargin: '-100px 0px -80% 0px' });
+
+    headings.forEach((heading) => {
+      observer.observe(heading);
+    });
+  }
+
+  generateTableOfContents();
+
+  
+  document.addEventListener('click', function(e) {
+    if (e.target.matches('a[href^="#"]')) {
+      e.preventDefault();
+      const target = document.querySelector(e.target.getAttribute('href'));
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  });
+});
+</script>
+
+    </main>
+
+    <footer class="fade-in-section">
+    <div class="container">
+        <p>&copy; 2025 AI Code Terminal. A statement on developer sovereignty.</p>
+    </div>
+</footer>
+    
+<script>
+    feather.replace();
+</script>
+
+    <script src="/js/docs.js"></script>
+
+</body>
+</html>

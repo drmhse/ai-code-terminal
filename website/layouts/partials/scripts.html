@@ -1,0 +1,9 @@
+<!-- Conditional JavaScript Loading -->
+<script>
+    feather.replace();
+</script>
+{{ if eq .Section "docs" }}
+    <script src="/js/docs.js"></script>
+{{ else }}
+    <script src="/js/main.js"></script>
+{{ end }}

@@ -1,0 +1,1553 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+<title>Testing | AI Code Terminal: The AI-Native Shell</title>
+<meta name="description" content="Comprehensive testing strategies for AI Code Terminal including unit, integration, and end-to-end tests">
+<meta name="keywords" content="AI development, Claude Code, self-hosted terminal, development environment, AI coding, browser terminal, Docker deployment">
+<meta name="author" content="AI Code Terminal">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="http://localhost:1313/docs/development/testing/">
+
+
+<meta property="og:type" content="article">
+<meta property="og:title" content="Testing | AI Code Terminal: The AI-Native Shell">
+<meta property="og:description" content="Comprehensive testing strategies for AI Code Terminal including unit, integration, and end-to-end tests">
+<meta property="og:url" content="http://localhost:1313/docs/development/testing/">
+<meta property="og:site_name" content="AI Code Terminal: The AI-Native Shell">
+<meta property="og:image" content="http://localhost:1313/images/claude_code_in_action.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="AI Code Terminal - Browser-based development environment with Claude integration">
+
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Testing | AI Code Terminal: The AI-Native Shell">
+<meta name="twitter:description" content="Comprehensive testing strategies for AI Code Terminal including unit, integration, and end-to-end tests">
+<meta name="twitter:image" content="http://localhost:1313/images/claude_code_in_action.png">
+<meta name="twitter:image:alt" content="AI Code Terminal - Browser-based development environment with Claude integration">
+
+
+<link rel="icon" type="image/svg+xml" href="/terminal-icon.svg">
+<link rel="icon" type="image/png" href="/favicon.png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
+
+
+<meta name="theme-color" content="#010411">
+<meta name="msapplication-TileColor" content="#010411">
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+
+
+<script src="https://unpkg.com/feather-icons"></script>
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "AI Code Terminal: The AI-Native Shell",
+  "description": "A self-hosted development environment for the post-IDE era. Code from any device with a fast, lightweight, AI-native shell.",
+  "url": "http:\/\/localhost:1313\/",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Linux, macOS, Windows",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "author": {
+    "@type": "Organization",
+    "name": "AI Code Terminal"
+  }
+}
+</script>
+
+
+<link rel="stylesheet" href="/css/shared.css">
+
+    <link rel="stylesheet" href="/css/docs.css">
+
+</head>
+<body class="docs-site">
+    
+    
+    <header>
+    <div class="container">
+        <nav>
+            <a href="http://localhost:1313/" class="logo">
+                <span class="prompt-char">&gt;</span> AI Code Terminal
+            </a>
+            <div class="nav-links">
+                <a href="/docs/getting-started/introduction/" class="nav-link">
+                    <i data-feather="book"></i>
+                    <span>Documentation</span>
+                </a>
+                <a href="/getting-started/" class="nav-link">
+                    <i data-feather="book-open"></i>
+                    <span>Getting Started</span>
+                </a>
+                <a href="https://github.com/drmhse/ai-code-terminal" target="_blank" rel="noopener noreferrer" class="nav-link">
+                    <i data-feather="github"></i>
+                    <span>View on GitHub</span>
+                </a>
+            </div>
+        </nav>
+    </div>
+</header>
+
+    <main>
+        
+
+<div class="min-h-screen bg-[#010411] text-[#d4dff3]">
+  
+  
+  <button id="mobile-sidebar-toggle" class="lg:hidden fixed top-4 left-4 z-50 p-3 bg-[#0a0c1a] border border-[rgba(67,79,138,0.2)] rounded-lg">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+    </svg>
+  </button>
+
+  
+  <div id="mobile-overlay" class="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30 hidden"></div>
+
+  <div class="flex pt-20"> 
+    
+    
+    <aside id="docs-sidebar" class="fixed lg:relative w-80 bg-[rgba(1,4,17,0.95)] border-r border-[rgba(67,79,138,0.2)] h-screen lg:h-[calc(100vh-5rem)] overflow-y-auto backdrop-blur-xl z-40 -translate-x-full lg:translate-x-0 transition-transform duration-300">
+      
+      
+      <div class="sticky top-0 bg-[rgba(1,4,17,0.9)] backdrop-blur-sm border-b border-[rgba(67,79,138,0.2)] p-6">
+        <div class="flex items-center space-x-3 mb-6">
+          <div class="w-8 h-8 bg-[#82aaff] rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-[#d4dff3]">Documentation</h3>
+        </div>
+        
+        
+        <div class="relative">
+          <svg class="absolute left-3 top-3.5 w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+          </svg>
+          <input type="text" placeholder="Search docs..." class="w-full pl-10 pr-4 py-3 bg-[rgba(10,12,26,0.6)] border border-[rgba(67,79,138,0.2)] rounded-lg text-[#d4dff3] placeholder-[#8b9cc2] focus:outline-none focus:border-[#82aaff] focus:ring-1 focus:ring-[#82aaff] transition-colors">
+        </div>
+      </div>
+
+      
+      <nav class="p-4 space-y-2">
+        
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="getting-started">
+            <span class="uppercase tracking-wider">Getting Started</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/getting-started/introduction/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Introduction
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/getting-started/quick-start/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Quick Start
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/getting-started/installation/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Installation
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/getting-started/github-oauth/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                GitHub OAuth Setup
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/getting-started/configuration/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Configuration
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="core-features">
+            <span class="uppercase tracking-wider">Core Features</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/core-features/terminal-access/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Terminal Access
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/core-features/workspace-management/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Workspace Management
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/core-features/github-integration/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                GitHub Integration
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/core-features/claude-integration/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Claude Integration
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/core-features/real-time-features/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Real-time Features
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="authentication">
+            <span class="uppercase tracking-wider">Authentication</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/authentication/auth-flow/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Authentication Flow
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/authentication/security-features/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Security Features
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/authentication/token-management/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Token Management
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="api">
+            <span class="uppercase tracking-wider">API & WebSocket</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/api/endpoints/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                API Endpoints
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/api/websocket/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                WebSocket Events
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="database">
+            <span class="uppercase tracking-wider">Database</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/database/schema/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Database Schema
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/database/models/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Data Models
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="development">
+            <span class="uppercase tracking-wider">Development</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/development/setup/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Development Setup
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/development/testing/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors active bg-[rgba(130,170,255,0.1)] !text-[#82aaff] font-medium">
+                Testing
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="deployment">
+            <span class="uppercase tracking-wider">Deployment</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/deployment/docker/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Docker Deployment
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+      </nav>
+    </aside>
+
+    
+    <main class="flex-1 lg:ml-80">
+      
+      
+      <div class="sticky top-20 bg-[rgba(1,4,17,0.9)] backdrop-blur-sm border-b border-[rgba(67,79,138,0.2)] px-8 py-4 z-10">
+        <nav class="flex items-center space-x-2 text-sm">
+          <a href="/" class="text-[#8b9cc2] hover:text-[#d4dff3] transition-colors">Home</a>
+          <svg class="w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+          <a href="/docs" class="text-[#8b9cc2] hover:text-[#d4dff3] transition-colors">Documentation</a>
+          
+          <svg class="w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+          <a href="http://localhost:1313/docs/development/" class="text-[#8b9cc2] hover:text-[#d4dff3] transition-colors">Development</a>
+          
+          <svg class="w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+          <span class="text-[#82aaff] font-medium">Testing</span>
+        </nav>
+      </div>
+
+      <div class="flex">
+        
+        <article class="flex-1 px-8 py-12 max-w-4xl">
+          
+          
+          <header class="mb-12">
+            
+            
+            <h1 class="text-4xl lg:text-5xl font-bold text-[#d4dff3] mb-6 leading-tight">Testing</h1>
+            
+            
+            <p class="text-xl text-[#8b9cc2] leading-relaxed mb-8">Comprehensive testing strategies for AI Code Terminal including unit, integration, and end-to-end tests</p>
+            
+            
+            
+            <div class="flex items-center space-x-6 text-sm text-[#8b9cc2]">
+              
+              
+              <div class="flex items-center space-x-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span>11 min read</span>
+              </div>
+              
+            </div>
+            
+          </header>
+
+          
+          <div class="prose prose-invert prose-lg max-w-none">
+            <h1 id="testing">Testing</h1>
+<p>AI Code Terminal uses a comprehensive testing strategy with Jest as the primary testing framework. This guide covers unit tests, integration tests, and end-to-end testing approaches.</p>
+<h2 id="testing-framework-overview">Testing Framework Overview</h2>
+<h3 id="technology-stack">Technology Stack</h3>
+<ul>
+<li><strong>Test Runner:</strong> Jest 30.x</li>
+<li><strong>Assertion Library:</strong> Jest built-in matchers</li>
+<li><strong>Mocking:</strong> Jest mocks and manual mocks</li>
+<li><strong>Coverage:</strong> Jest coverage with c8</li>
+<li><strong>Database Testing:</strong> In-memory SQLite with Prisma</li>
+<li><strong>HTTP Testing:</strong> Supertest</li>
+<li><strong>WebSocket Testing:</strong> Socket.IO client testing utilities</li>
+</ul>
+<h3 id="test-configuration">Test Configuration</h3>
+<p><strong><code>jest.config.js</code>:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#a6e22e">module</span>.<span style="color:#a6e22e">exports</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">testEnvironment</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;node&#39;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">roots</span><span style="color:#f92672">:</span> [<span style="color:#e6db74">&#39;&lt;rootDir&gt;/src&#39;</span>, <span style="color:#e6db74">&#39;&lt;rootDir&gt;/__tests__&#39;</span>],
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">testMatch</span><span style="color:#f92672">:</span> [
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;**/__tests__/**/*.js&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;**/?(*.)+(spec|test).js&#39;</span>
+</span></span><span style="display:flex;"><span>  ],
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">collectCoverageFrom</span><span style="color:#f92672">:</span> [
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;src/**/*.js&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;!src/**/*.test.js&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;!src/config/**&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;!src/utils/logger.js&#39;</span>
+</span></span><span style="display:flex;"><span>  ],
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">coverageDirectory</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;coverage&#39;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">coverageReporters</span><span style="color:#f92672">:</span> [<span style="color:#e6db74">&#39;text&#39;</span>, <span style="color:#e6db74">&#39;lcov&#39;</span>, <span style="color:#e6db74">&#39;html&#39;</span>],
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">setupFilesAfterEnv</span><span style="color:#f92672">:</span> [<span style="color:#e6db74">&#39;&lt;rootDir&gt;/jest.setup.js&#39;</span>],
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">testTimeout</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">30000</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">maxWorkers</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">1</span> <span style="color:#75715e">// SQLite doesn&#39;t support concurrent connections
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>};
+</span></span></code></pre></div><p><strong><code>jest.setup.js</code>:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">PrismaClient</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;@prisma/client&#39;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Global test setup
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">beforeAll</span>(<span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Set test environment
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">NODE_ENV</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;test&#39;</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DATABASE_URL</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;file:./test.db&#39;</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">JWT_SECRET</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;test-jwt-secret-at-least-32-characters-long&#39;</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">TENANT_GITHUB_USERNAME</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;testuser&#39;</span>;
+</span></span><span style="display:flex;"><span>});
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">afterAll</span>(<span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Global cleanup
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">await</span> <span style="color:#66d9ef">new</span> Promise(<span style="color:#a6e22e">resolve</span> =&gt; <span style="color:#a6e22e">setTimeout</span>(<span style="color:#a6e22e">resolve</span>, <span style="color:#ae81ff">500</span>));
+</span></span><span style="display:flex;"><span>});
+</span></span></code></pre></div><h2 id="unit-testing">Unit Testing</h2>
+<h3 id="service-layer-testing">Service Layer Testing</h3>
+<h4 id="github-service-tests">GitHub Service Tests</h4>
+<p><strong><code>__tests__/services/github.service.test.js</code>:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">GitHubService</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;../../src/services/github.service&#39;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">Octokit</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;@octokit/rest&#39;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Mock GitHub API
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">mock</span>(<span style="color:#e6db74">&#39;@octokit/rest&#39;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">describe</span>(<span style="color:#e6db74">&#39;GitHubService&#39;</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">let</span> <span style="color:#a6e22e">mockOctokit</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">beforeEach</span>(() =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mockOctokit</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">rest</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">users</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">getAuthenticated</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">fn</span>()
+</span></span><span style="display:flex;"><span>        },
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">repos</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">listForAuthenticatedUser</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">fn</span>()
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Octokit</span>.<span style="color:#a6e22e">mockImplementation</span>(() =&gt; <span style="color:#a6e22e">mockOctokit</span>);
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">afterEach</span>(() =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">clearAllMocks</span>();
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">describe</span>(<span style="color:#e6db74">&#39;getUserInfo&#39;</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should return user information&#39;</span>, <span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Arrange
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">mockUser</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">id</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">12345</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">login</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;testuser&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">email</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;test@example.com&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">avatar_url</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;https://github.com/avatar.jpg&#39;</span>
+</span></span><span style="display:flex;"><span>      };
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">mockOctokit</span>.<span style="color:#a6e22e">rest</span>.<span style="color:#a6e22e">users</span>.<span style="color:#a6e22e">getAuthenticated</span>.<span style="color:#a6e22e">mockResolvedValue</span>({ <span style="color:#a6e22e">data</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">mockUser</span> });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Act
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">result</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">GitHubService</span>.<span style="color:#a6e22e">getUserInfo</span>(<span style="color:#e6db74">&#39;test-token&#39;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Assert
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">result</span>).<span style="color:#a6e22e">toEqual</span>(<span style="color:#a6e22e">mockUser</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">mockOctokit</span>.<span style="color:#a6e22e">rest</span>.<span style="color:#a6e22e">users</span>.<span style="color:#a6e22e">getAuthenticated</span>).<span style="color:#a6e22e">toHaveBeenCalledTimes</span>(<span style="color:#ae81ff">1</span>);
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should handle API errors&#39;</span>, <span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Arrange
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">mockOctokit</span>.<span style="color:#a6e22e">rest</span>.<span style="color:#a6e22e">users</span>.<span style="color:#a6e22e">getAuthenticated</span>.<span style="color:#a6e22e">mockRejectedValue</span>(
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">new</span> Error(<span style="color:#e6db74">&#39;GitHub API Error&#39;</span>)
+</span></span><span style="display:flex;"><span>      );
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Act &amp; Assert
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">GitHubService</span>.<span style="color:#a6e22e">getUserInfo</span>(<span style="color:#e6db74">&#39;invalid-token&#39;</span>))
+</span></span><span style="display:flex;"><span>        .<span style="color:#a6e22e">rejects</span>.<span style="color:#a6e22e">toThrow</span>(<span style="color:#e6db74">&#39;GitHub API Error&#39;</span>);
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">describe</span>(<span style="color:#e6db74">&#39;getRepositories&#39;</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should return paginated repositories&#39;</span>, <span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Arrange
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">mockRepos</span> <span style="color:#f92672">=</span> [
+</span></span><span style="display:flex;"><span>        { <span style="color:#a6e22e">id</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">1</span>, <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;repo1&#39;</span>, <span style="color:#a6e22e">full_name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;testuser/repo1&#39;</span> },
+</span></span><span style="display:flex;"><span>        { <span style="color:#a6e22e">id</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">2</span>, <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;repo2&#39;</span>, <span style="color:#a6e22e">full_name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;testuser/repo2&#39;</span> }
+</span></span><span style="display:flex;"><span>      ];
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">mockOctokit</span>.<span style="color:#a6e22e">rest</span>.<span style="color:#a6e22e">repos</span>.<span style="color:#a6e22e">listForAuthenticatedUser</span>.<span style="color:#a6e22e">mockResolvedValue</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">data</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">mockRepos</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">headers</span><span style="color:#f92672">:</span> {}
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Act
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">result</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">GitHubService</span>.<span style="color:#a6e22e">getRepositories</span>(<span style="color:#e6db74">&#39;test-token&#39;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Assert
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">result</span>.<span style="color:#a6e22e">repositories</span>).<span style="color:#a6e22e">toEqual</span>(<span style="color:#a6e22e">mockRepos</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">result</span>.<span style="color:#a6e22e">repositories</span>).<span style="color:#a6e22e">toHaveLength</span>(<span style="color:#ae81ff">2</span>);
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should handle pagination&#39;</span>, <span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Arrange
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">page1Repos</span> <span style="color:#f92672">=</span> [{ <span style="color:#a6e22e">id</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">1</span>, <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;repo1&#39;</span> }];
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">mockOctokit</span>.<span style="color:#a6e22e">rest</span>.<span style="color:#a6e22e">repos</span>.<span style="color:#a6e22e">listForAuthenticatedUser</span>.<span style="color:#a6e22e">mockResolvedValue</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">data</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">page1Repos</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">headers</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">link</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;&lt;https://api.github.com/repos?page=2&gt;; rel=&#34;next&#34;&#39;</span>
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Act
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">result</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">GitHubService</span>.<span style="color:#a6e22e">getRepositories</span>(<span style="color:#e6db74">&#39;test-token&#39;</span>, <span style="color:#ae81ff">1</span>, <span style="color:#ae81ff">30</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Assert
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">result</span>.<span style="color:#a6e22e">has_next</span>).<span style="color:#a6e22e">toBe</span>(<span style="color:#66d9ef">true</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">mockOctokit</span>.<span style="color:#a6e22e">rest</span>.<span style="color:#a6e22e">repos</span>.<span style="color:#a6e22e">listForAuthenticatedUser</span>).<span style="color:#a6e22e">toHaveBeenCalledWith</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">page</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">1</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">per_page</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">30</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">sort</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;updated&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">direction</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;desc&#39;</span>
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>});
+</span></span></code></pre></div><h4 id="workspace-service-tests">Workspace Service Tests</h4>
+<p><strong><code>__tests__/services/workspace.service.test.js</code>:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">WorkspaceService</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;../../src/services/workspace.service&#39;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">prisma</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;../../src/config/database&#39;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">fs</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;fs&#39;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">path</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;path&#39;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Mock file system operations
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">mock</span>(<span style="color:#e6db74">&#39;fs&#39;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">mock</span>(<span style="color:#e6db74">&#39;simple-git&#39;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">describe</span>(<span style="color:#e6db74">&#39;WorkspaceService&#39;</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">beforeEach</span>(<span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Clear database
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">session</span>.<span style="color:#a6e22e">deleteMany</span>();
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">workspace</span>.<span style="color:#a6e22e">deleteMany</span>();
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">describe</span>(<span style="color:#e6db74">&#39;createWorkspace&#39;</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should create a new workspace&#39;</span>, <span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Arrange
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">workspaceData</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;test-workspace&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">githubRepo</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;testuser/test-repo&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">githubUrl</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;https://github.com/testuser/test-repo&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">description</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Test workspace&#39;</span>
+</span></span><span style="display:flex;"><span>      };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">fs</span>.<span style="color:#a6e22e">existsSync</span>.<span style="color:#a6e22e">mockReturnValue</span>(<span style="color:#66d9ef">false</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">fs</span>.<span style="color:#a6e22e">promises</span>.<span style="color:#a6e22e">mkdir</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">fn</span>().<span style="color:#a6e22e">mockResolvedValue</span>();
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">fs</span>.<span style="color:#a6e22e">promises</span>.<span style="color:#a6e22e">chmod</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">fn</span>().<span style="color:#a6e22e">mockResolvedValue</span>();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Act
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">result</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">WorkspaceService</span>.<span style="color:#a6e22e">createWorkspace</span>(<span style="color:#a6e22e">workspaceData</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Assert
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">result</span>).<span style="color:#a6e22e">toMatchObject</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">workspaceData</span>.<span style="color:#a6e22e">name</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">githubRepo</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">workspaceData</span>.<span style="color:#a6e22e">githubRepo</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">isActive</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">result</span>.<span style="color:#a6e22e">id</span>).<span style="color:#a6e22e">toBeDefined</span>();
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">result</span>.<span style="color:#a6e22e">localPath</span>).<span style="color:#a6e22e">toContain</span>(<span style="color:#a6e22e">workspaceData</span>.<span style="color:#a6e22e">name</span>);
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should prevent duplicate workspace names&#39;</span>, <span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Arrange
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">workspace</span>.<span style="color:#a6e22e">create</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">data</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;existing-workspace&#39;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">githubRepo</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;testuser/existing&#39;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">githubUrl</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;https://github.com/testuser/existing&#39;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">localPath</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;/tmp/existing&#39;</span>
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">duplicateData</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;existing-workspace&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">githubRepo</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;testuser/different&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">githubUrl</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;https://github.com/testuser/different&#39;</span>
+</span></span><span style="display:flex;"><span>      };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Act &amp; Assert
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">WorkspaceService</span>.<span style="color:#a6e22e">createWorkspace</span>(<span style="color:#a6e22e">duplicateData</span>))
+</span></span><span style="display:flex;"><span>        .<span style="color:#a6e22e">rejects</span>.<span style="color:#a6e22e">toThrow</span>(<span style="color:#e6db74">&#39;Workspace with name &#34;existing-workspace&#34; already exists&#39;</span>);
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should prevent duplicate GitHub repositories&#39;</span>, <span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Arrange
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">workspace</span>.<span style="color:#a6e22e">create</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">data</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;existing-workspace&#39;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">githubRepo</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;testuser/existing&#39;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">githubUrl</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;https://github.com/testuser/existing&#39;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">localPath</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;/tmp/existing&#39;</span>
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">duplicateData</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;different-name&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">githubRepo</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;testuser/existing&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">githubUrl</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;https://github.com/testuser/existing&#39;</span>
+</span></span><span style="display:flex;"><span>      };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Act &amp; Assert
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">WorkspaceService</span>.<span style="color:#a6e22e">createWorkspace</span>(<span style="color:#a6e22e">duplicateData</span>))
+</span></span><span style="display:flex;"><span>        .<span style="color:#a6e22e">rejects</span>.<span style="color:#a6e22e">toThrow</span>(<span style="color:#e6db74">&#39;Workspace for repository &#34;testuser/existing&#34; already exists&#39;</span>);
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">describe</span>(<span style="color:#e6db74">&#39;getWorkspaces&#39;</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should return all active workspaces&#39;</span>, <span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Arrange
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">workspace</span>.<span style="color:#a6e22e">createMany</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">data</span><span style="color:#f92672">:</span> [
+</span></span><span style="display:flex;"><span>          {
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;workspace1&#39;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">githubRepo</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;testuser/repo1&#39;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">githubUrl</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;https://github.com/testuser/repo1&#39;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">localPath</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;/tmp/workspace1&#39;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">isActive</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>          },
+</span></span><span style="display:flex;"><span>          {
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;workspace2&#39;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">githubRepo</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;testuser/repo2&#39;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">githubUrl</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;https://github.com/testuser/repo2&#39;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">localPath</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;/tmp/workspace2&#39;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">isActive</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">false</span>
+</span></span><span style="display:flex;"><span>          }
+</span></span><span style="display:flex;"><span>        ]
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Act
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">result</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">WorkspaceService</span>.<span style="color:#a6e22e">getWorkspaces</span>();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Assert
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">result</span>).<span style="color:#a6e22e">toHaveLength</span>(<span style="color:#ae81ff">1</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">result</span>[<span style="color:#ae81ff">0</span>].<span style="color:#a6e22e">name</span>).<span style="color:#a6e22e">toBe</span>(<span style="color:#e6db74">&#39;workspace1&#39;</span>);
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">describe</span>(<span style="color:#e6db74">&#39;deleteWorkspace&#39;</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should delete workspace and cleanup filesystem&#39;</span>, <span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Arrange
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">workspace</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">workspace</span>.<span style="color:#a6e22e">create</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">data</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;test-workspace&#39;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">githubRepo</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;testuser/test&#39;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">githubUrl</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;https://github.com/testuser/test&#39;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">localPath</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;/tmp/test-workspace&#39;</span>
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">fs</span>.<span style="color:#a6e22e">existsSync</span>.<span style="color:#a6e22e">mockReturnValue</span>(<span style="color:#66d9ef">true</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">fs</span>.<span style="color:#a6e22e">promises</span>.<span style="color:#a6e22e">rm</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">fn</span>().<span style="color:#a6e22e">mockResolvedValue</span>();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Act
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">WorkspaceService</span>.<span style="color:#a6e22e">deleteWorkspace</span>(<span style="color:#a6e22e">workspace</span>.<span style="color:#a6e22e">id</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Assert
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">deletedWorkspace</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">workspace</span>.<span style="color:#a6e22e">findUnique</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">where</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">workspace</span>.<span style="color:#a6e22e">id</span> }
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">deletedWorkspace</span>).<span style="color:#a6e22e">toBeNull</span>();
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">fs</span>.<span style="color:#a6e22e">promises</span>.<span style="color:#a6e22e">rm</span>).<span style="color:#a6e22e">toHaveBeenCalledWith</span>(<span style="color:#a6e22e">workspace</span>.<span style="color:#a6e22e">localPath</span>, { <span style="color:#a6e22e">recursive</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span> });
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>});
+</span></span></code></pre></div><h3 id="controller-testing">Controller Testing</h3>
+<h4 id="authentication-controller-tests">Authentication Controller Tests</h4>
+<p><strong><code>__tests__/controllers/auth.controller.test.js</code>:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">request</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;supertest&#39;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">app</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;../../src/app&#39;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">jwt</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;jsonwebtoken&#39;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">describe</span>(<span style="color:#e6db74">&#39;Auth Controller&#39;</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">describe</span>(<span style="color:#e6db74">&#39;GET /api/auth/status&#39;</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should return authentication status for valid token&#39;</span>, <span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Arrange
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">token</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">jwt</span>.<span style="color:#a6e22e">sign</span>(
+</span></span><span style="display:flex;"><span>        { <span style="color:#a6e22e">userId</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">12345</span>, <span style="color:#a6e22e">username</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;testuser&#39;</span> },
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">JWT_SECRET</span>
+</span></span><span style="display:flex;"><span>      );
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Act
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">response</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">request</span>(<span style="color:#a6e22e">app</span>)
+</span></span><span style="display:flex;"><span>        .<span style="color:#a6e22e">get</span>(<span style="color:#e6db74">&#39;/api/auth/status&#39;</span>)
+</span></span><span style="display:flex;"><span>        .<span style="color:#a6e22e">set</span>(<span style="color:#e6db74">&#39;Authorization&#39;</span>, <span style="color:#e6db74">`Bearer </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">token</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Assert
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">status</span>).<span style="color:#a6e22e">toBe</span>(<span style="color:#ae81ff">200</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">body</span>).<span style="color:#a6e22e">toMatchObject</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">authenticated</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">user</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">userId</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">12345</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">username</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;testuser&#39;</span>
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should return 401 for missing token&#39;</span>, <span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Act
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">response</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">request</span>(<span style="color:#a6e22e">app</span>)
+</span></span><span style="display:flex;"><span>        .<span style="color:#a6e22e">get</span>(<span style="color:#e6db74">&#39;/api/auth/status&#39;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Assert
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">status</span>).<span style="color:#a6e22e">toBe</span>(<span style="color:#ae81ff">401</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">body</span>).<span style="color:#a6e22e">toMatchObject</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">error</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Access token required&#39;</span>
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should return 403 for invalid token&#39;</span>, <span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Act
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">response</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">request</span>(<span style="color:#a6e22e">app</span>)
+</span></span><span style="display:flex;"><span>        .<span style="color:#a6e22e">get</span>(<span style="color:#e6db74">&#39;/api/auth/status&#39;</span>)
+</span></span><span style="display:flex;"><span>        .<span style="color:#a6e22e">set</span>(<span style="color:#e6db74">&#39;Authorization&#39;</span>, <span style="color:#e6db74">&#39;Bearer invalid-token&#39;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Assert
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">status</span>).<span style="color:#a6e22e">toBe</span>(<span style="color:#ae81ff">403</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">body</span>).<span style="color:#a6e22e">toMatchObject</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">error</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Invalid or expired token&#39;</span>
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">describe</span>(<span style="color:#e6db74">&#39;POST /api/auth/logout&#39;</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should successfully logout user&#39;</span>, <span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Arrange
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">token</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">jwt</span>.<span style="color:#a6e22e">sign</span>(
+</span></span><span style="display:flex;"><span>        { <span style="color:#a6e22e">userId</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">12345</span>, <span style="color:#a6e22e">username</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;testuser&#39;</span> },
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">JWT_SECRET</span>
+</span></span><span style="display:flex;"><span>      );
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Act
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">response</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">request</span>(<span style="color:#a6e22e">app</span>)
+</span></span><span style="display:flex;"><span>        .<span style="color:#a6e22e">post</span>(<span style="color:#e6db74">&#39;/api/auth/logout&#39;</span>)
+</span></span><span style="display:flex;"><span>        .<span style="color:#a6e22e">set</span>(<span style="color:#e6db74">&#39;Authorization&#39;</span>, <span style="color:#e6db74">`Bearer </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">token</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>)
+</span></span><span style="display:flex;"><span>        .<span style="color:#a6e22e">send</span>({ <span style="color:#a6e22e">revokeGitHubToken</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">false</span> });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Assert
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">status</span>).<span style="color:#a6e22e">toBe</span>(<span style="color:#ae81ff">200</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">body</span>).<span style="color:#a6e22e">toMatchObject</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">success</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">message</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Successfully logged out&#39;</span>
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>});
+</span></span></code></pre></div><h2 id="integration-testing">Integration Testing</h2>
+<h3 id="database-integration-tests">Database Integration Tests</h3>
+<p><strong><code>__tests__/integration/database.test.js</code>:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">prisma</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;../../src/config/database&#39;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">describe</span>(<span style="color:#e6db74">&#39;Database Integration&#39;</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">beforeEach</span>(<span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Clean database
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">session</span>.<span style="color:#a6e22e">deleteMany</span>();
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">workspace</span>.<span style="color:#a6e22e">deleteMany</span>();
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">deleteMany</span>();
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">describe</span>(<span style="color:#e6db74">&#39;Settings Model&#39;</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should implement singleton pattern&#39;</span>, <span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Act
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">create</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">data</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">id</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;singleton&#39;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">theme</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;dark&#39;</span>
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Try to create another settings record
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">create</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">data</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">id</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;another&#39;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">theme</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;light&#39;</span>
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>      })).<span style="color:#a6e22e">rejects</span>.<span style="color:#a6e22e">toThrow</span>();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Assert
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">settings</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">findMany</span>();
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">settings</span>).<span style="color:#a6e22e">toHaveLength</span>(<span style="color:#ae81ff">1</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">settings</span>[<span style="color:#ae81ff">0</span>].<span style="color:#a6e22e">id</span>).<span style="color:#a6e22e">toBe</span>(<span style="color:#e6db74">&#39;singleton&#39;</span>);
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">describe</span>(<span style="color:#e6db74">&#39;Workspace and Session Relations&#39;</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should create workspace with sessions&#39;</span>, <span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Arrange
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">workspace</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">workspace</span>.<span style="color:#a6e22e">create</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">data</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;test-workspace&#39;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">githubRepo</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;testuser/test&#39;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">githubUrl</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;https://github.com/testuser/test&#39;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">localPath</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;/tmp/test&#39;</span>
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Act
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">session</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">session</span>.<span style="color:#a6e22e">create</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">data</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">workspaceId</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">workspace</span>.<span style="color:#a6e22e">id</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">shell</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;bash&#39;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">socketId</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;test-socket-id&#39;</span>
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Assert
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">workspaceWithSessions</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">workspace</span>.<span style="color:#a6e22e">findUnique</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">where</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">workspace</span>.<span style="color:#a6e22e">id</span> },
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">include</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">sessions</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span> }
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">workspaceWithSessions</span>.<span style="color:#a6e22e">sessions</span>).<span style="color:#a6e22e">toHaveLength</span>(<span style="color:#ae81ff">1</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">workspaceWithSessions</span>.<span style="color:#a6e22e">sessions</span>[<span style="color:#ae81ff">0</span>].<span style="color:#a6e22e">id</span>).<span style="color:#a6e22e">toBe</span>(<span style="color:#a6e22e">session</span>.<span style="color:#a6e22e">id</span>);
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should cascade delete sessions when workspace is deleted&#39;</span>, <span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Arrange
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">workspace</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">workspace</span>.<span style="color:#a6e22e">create</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">data</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;test-workspace&#39;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">githubRepo</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;testuser/test&#39;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">githubUrl</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;https://github.com/testuser/test&#39;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">localPath</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;/tmp/test&#39;</span>
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">session</span>.<span style="color:#a6e22e">create</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">data</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">workspaceId</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">workspace</span>.<span style="color:#a6e22e">id</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">shell</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;bash&#39;</span>
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Act
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">workspace</span>.<span style="color:#66d9ef">delete</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">where</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">workspace</span>.<span style="color:#a6e22e">id</span> }
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Assert
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">remainingSessions</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">session</span>.<span style="color:#a6e22e">findMany</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">where</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">workspaceId</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">workspace</span>.<span style="color:#a6e22e">id</span> }
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">remainingSessions</span>).<span style="color:#a6e22e">toHaveLength</span>(<span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>});
+</span></span></code></pre></div><h3 id="api-integration-tests">API Integration Tests</h3>
+<p><strong><code>__tests__/integration/api.test.js</code>:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">request</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;supertest&#39;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">app</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;../../src/app&#39;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">prisma</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;../../src/config/database&#39;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">jwt</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;jsonwebtoken&#39;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">describe</span>(<span style="color:#e6db74">&#39;API Integration&#39;</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">let</span> <span style="color:#a6e22e">authToken</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">beforeAll</span>(<span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Create auth token
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">authToken</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">jwt</span>.<span style="color:#a6e22e">sign</span>(
+</span></span><span style="display:flex;"><span>      { <span style="color:#a6e22e">userId</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">12345</span>, <span style="color:#a6e22e">username</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;testuser&#39;</span> },
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">JWT_SECRET</span>
+</span></span><span style="display:flex;"><span>    );
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">beforeEach</span>(<span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Clean database
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">session</span>.<span style="color:#a6e22e">deleteMany</span>();
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">workspace</span>.<span style="color:#a6e22e">deleteMany</span>();
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">describe</span>(<span style="color:#e6db74">&#39;Workspace API&#39;</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should create, list, and delete workspace&#39;</span>, <span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Create workspace
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">createResponse</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">request</span>(<span style="color:#a6e22e">app</span>)
+</span></span><span style="display:flex;"><span>        .<span style="color:#a6e22e">post</span>(<span style="color:#e6db74">&#39;/api/workspaces&#39;</span>)
+</span></span><span style="display:flex;"><span>        .<span style="color:#a6e22e">set</span>(<span style="color:#e6db74">&#39;Authorization&#39;</span>, <span style="color:#e6db74">`Bearer </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">authToken</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>)
+</span></span><span style="display:flex;"><span>        .<span style="color:#a6e22e">send</span>({
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;integration-test&#39;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">githubRepo</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;testuser/integration-test&#39;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">githubUrl</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;https://github.com/testuser/integration-test&#39;</span>
+</span></span><span style="display:flex;"><span>        });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">createResponse</span>.<span style="color:#a6e22e">status</span>).<span style="color:#a6e22e">toBe</span>(<span style="color:#ae81ff">200</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">createResponse</span>.<span style="color:#a6e22e">body</span>.<span style="color:#a6e22e">workspace</span>.<span style="color:#a6e22e">name</span>).<span style="color:#a6e22e">toBe</span>(<span style="color:#e6db74">&#39;integration-test&#39;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">workspaceId</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">createResponse</span>.<span style="color:#a6e22e">body</span>.<span style="color:#a6e22e">workspace</span>.<span style="color:#a6e22e">id</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// List workspaces
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">listResponse</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">request</span>(<span style="color:#a6e22e">app</span>)
+</span></span><span style="display:flex;"><span>        .<span style="color:#a6e22e">get</span>(<span style="color:#e6db74">&#39;/api/workspaces&#39;</span>)
+</span></span><span style="display:flex;"><span>        .<span style="color:#a6e22e">set</span>(<span style="color:#e6db74">&#39;Authorization&#39;</span>, <span style="color:#e6db74">`Bearer </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">authToken</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">listResponse</span>.<span style="color:#a6e22e">status</span>).<span style="color:#a6e22e">toBe</span>(<span style="color:#ae81ff">200</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">listResponse</span>.<span style="color:#a6e22e">body</span>.<span style="color:#a6e22e">workspaces</span>).<span style="color:#a6e22e">toHaveLength</span>(<span style="color:#ae81ff">1</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">listResponse</span>.<span style="color:#a6e22e">body</span>.<span style="color:#a6e22e">workspaces</span>[<span style="color:#ae81ff">0</span>].<span style="color:#a6e22e">id</span>).<span style="color:#a6e22e">toBe</span>(<span style="color:#a6e22e">workspaceId</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Delete workspace
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">deleteResponse</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">request</span>(<span style="color:#a6e22e">app</span>)
+</span></span><span style="display:flex;"><span>        .<span style="color:#66d9ef">delete</span>(<span style="color:#e6db74">`/api/workspaces/</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">workspaceId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>)
+</span></span><span style="display:flex;"><span>        .<span style="color:#a6e22e">set</span>(<span style="color:#e6db74">&#39;Authorization&#39;</span>, <span style="color:#e6db74">`Bearer </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">authToken</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">deleteResponse</span>.<span style="color:#a6e22e">status</span>).<span style="color:#a6e22e">toBe</span>(<span style="color:#ae81ff">200</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Verify deletion
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">finalListResponse</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">request</span>(<span style="color:#a6e22e">app</span>)
+</span></span><span style="display:flex;"><span>        .<span style="color:#a6e22e">get</span>(<span style="color:#e6db74">&#39;/api/workspaces&#39;</span>)
+</span></span><span style="display:flex;"><span>        .<span style="color:#a6e22e">set</span>(<span style="color:#e6db74">&#39;Authorization&#39;</span>, <span style="color:#e6db74">`Bearer </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">authToken</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">finalListResponse</span>.<span style="color:#a6e22e">body</span>.<span style="color:#a6e22e">workspaces</span>).<span style="color:#a6e22e">toHaveLength</span>(<span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>});
+</span></span></code></pre></div><h2 id="websocket-testing">WebSocket Testing</h2>
+<h3 id="socketio-event-testing">Socket.IO Event Testing</h3>
+<p><strong><code>__tests__/socket/terminal.test.js</code>:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">io</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;socket.io-client&#39;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">jwt</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;jsonwebtoken&#39;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">app</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;../../src/app&#39;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">describe</span>(<span style="color:#e6db74">&#39;Terminal WebSocket&#39;</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">let</span> <span style="color:#a6e22e">server</span>, <span style="color:#a6e22e">clientSocket</span>, <span style="color:#a6e22e">serverSocket</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">port</span> <span style="color:#f92672">=</span> <span style="color:#ae81ff">3015</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">beforeAll</span>((<span style="color:#a6e22e">done</span>) =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">server</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">app</span>.<span style="color:#a6e22e">listen</span>(<span style="color:#a6e22e">port</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">done</span>();
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">afterAll</span>(() =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">server</span>.<span style="color:#a6e22e">close</span>();
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">beforeEach</span>((<span style="color:#a6e22e">done</span>) =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">token</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">jwt</span>.<span style="color:#a6e22e">sign</span>(
+</span></span><span style="display:flex;"><span>      { <span style="color:#a6e22e">userId</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">12345</span>, <span style="color:#a6e22e">username</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;testuser&#39;</span> },
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">JWT_SECRET</span>
+</span></span><span style="display:flex;"><span>    );
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">clientSocket</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">io</span>(<span style="color:#e6db74">`http://localhost:</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">port</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">auth</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">token</span> }
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">server</span>.<span style="color:#a6e22e">on</span>(<span style="color:#e6db74">&#39;connection&#39;</span>, (<span style="color:#a6e22e">socket</span>) =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">serverSocket</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">socket</span>;
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">clientSocket</span>.<span style="color:#a6e22e">on</span>(<span style="color:#e6db74">&#39;connect&#39;</span>, <span style="color:#a6e22e">done</span>);
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">afterEach</span>(() =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">clientSocket</span>.<span style="color:#a6e22e">connected</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">clientSocket</span>.<span style="color:#a6e22e">disconnect</span>();
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">describe</span>(<span style="color:#e6db74">&#39;Terminal Creation&#39;</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should create terminal session&#39;</span>, (<span style="color:#a6e22e">done</span>) =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Arrange
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">workspaceId</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;test-workspace-id&#39;</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Act
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">clientSocket</span>.<span style="color:#a6e22e">emit</span>(<span style="color:#e6db74">&#39;create-terminal&#39;</span>, {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">workspaceId</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">cols</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">80</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">rows</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">24</span>
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Assert
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">clientSocket</span>.<span style="color:#a6e22e">on</span>(<span style="color:#e6db74">&#39;terminal-created&#39;</span>, (<span style="color:#a6e22e">data</span>) =&gt; {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">data</span>).<span style="color:#a6e22e">toMatchObject</span>({
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">sessionId</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">expect</span>.<span style="color:#a6e22e">any</span>(String),
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">workspaceId</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">shell</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;bash&#39;</span>
+</span></span><span style="display:flex;"><span>        });
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">done</span>();
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should handle terminal input&#39;</span>, (<span style="color:#a6e22e">done</span>) =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">let</span> <span style="color:#a6e22e">sessionId</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Create terminal first
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">clientSocket</span>.<span style="color:#a6e22e">emit</span>(<span style="color:#e6db74">&#39;create-terminal&#39;</span>, {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">workspaceId</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;test-workspace&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">cols</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">80</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">rows</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">24</span>
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">clientSocket</span>.<span style="color:#a6e22e">on</span>(<span style="color:#e6db74">&#39;terminal-created&#39;</span>, (<span style="color:#a6e22e">data</span>) =&gt; {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">sessionId</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">data</span>.<span style="color:#a6e22e">sessionId</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// Send terminal input
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">clientSocket</span>.<span style="color:#a6e22e">emit</span>(<span style="color:#e6db74">&#39;terminal-input&#39;</span>, {
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">sessionId</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">data</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;ls -la\r&#39;</span>
+</span></span><span style="display:flex;"><span>        });
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Expect terminal output
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">clientSocket</span>.<span style="color:#a6e22e">on</span>(<span style="color:#e6db74">&#39;terminal-output&#39;</span>, (<span style="color:#a6e22e">data</span>) =&gt; {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">data</span>).<span style="color:#a6e22e">toMatchObject</span>({
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">sessionId</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">output</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">expect</span>.<span style="color:#a6e22e">any</span>(String)
+</span></span><span style="display:flex;"><span>        });
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">done</span>();
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">describe</span>(<span style="color:#e6db74">&#39;Error Handling&#39;</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should handle invalid workspace&#39;</span>, (<span style="color:#a6e22e">done</span>) =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Act
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">clientSocket</span>.<span style="color:#a6e22e">emit</span>(<span style="color:#e6db74">&#39;create-terminal&#39;</span>, {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">workspaceId</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;non-existent-workspace&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">cols</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">80</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">rows</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">24</span>
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Assert
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">clientSocket</span>.<span style="color:#a6e22e">on</span>(<span style="color:#e6db74">&#39;terminal-error&#39;</span>, (<span style="color:#a6e22e">error</span>) =&gt; {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">error</span>).<span style="color:#a6e22e">toMatchObject</span>({
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">code</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;WORKSPACE_NOT_FOUND&#39;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">message</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">expect</span>.<span style="color:#a6e22e">stringContaining</span>(<span style="color:#e6db74">&#39;Workspace not found&#39;</span>)
+</span></span><span style="display:flex;"><span>        });
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">done</span>();
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>});
+</span></span></code></pre></div><h2 id="test-utilities-and-helpers">Test Utilities and Helpers</h2>
+<h3 id="test-database-setup">Test Database Setup</h3>
+<p><strong><code>__tests__/utils/test-db.js</code>:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">PrismaClient</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;@prisma/client&#39;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">TestDatabase</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">constructor</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">prisma</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">PrismaClient</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">datasource</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">url</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;file:./test.db&#39;</span>
+</span></span><span style="display:flex;"><span>      },
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">log</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DEBUG_TESTS</span> <span style="color:#f92672">?</span> [<span style="color:#e6db74">&#39;query&#39;</span>, <span style="color:#e6db74">&#39;error&#39;</span>] <span style="color:#f92672">:</span> [<span style="color:#e6db74">&#39;error&#39;</span>]
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">setup</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Push schema to test database
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">execSync</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;child_process&#39;</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">execSync</span>(<span style="color:#e6db74">&#39;npx prisma db push --schema=./prisma/schema.prisma&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">env</span><span style="color:#f92672">:</span> { ...<span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>, <span style="color:#a6e22e">DATABASE_URL</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;file:./test.db&#39;</span> }
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">cleanup</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Clean all tables
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">await</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">session</span>.<span style="color:#a6e22e">deleteMany</span>();
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">await</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">workspace</span>.<span style="color:#a6e22e">deleteMany</span>();
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">await</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">deleteMany</span>();
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">await</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">authLog</span>.<span style="color:#a6e22e">deleteMany</span>();
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">await</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">systemMetric</span>.<span style="color:#a6e22e">deleteMany</span>();
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">teardown</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">await</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">$disconnect</span>();
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Helper methods for test data creation
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">createTestWorkspace</span>(<span style="color:#a6e22e">overrides</span> <span style="color:#f92672">=</span> {}) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">await</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">workspace</span>.<span style="color:#a6e22e">create</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">data</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;test-workspace&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">githubRepo</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;testuser/test-repo&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">githubUrl</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;https://github.com/testuser/test-repo&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">localPath</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;/tmp/test-workspace&#39;</span>,
+</span></span><span style="display:flex;"><span>        ...<span style="color:#a6e22e">overrides</span>
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">createTestSession</span>(<span style="color:#a6e22e">workspaceId</span>, <span style="color:#a6e22e">overrides</span> <span style="color:#f92672">=</span> {}) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">await</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">session</span>.<span style="color:#a6e22e">create</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">data</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">workspaceId</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">shell</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;bash&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">socketId</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;test-socket-id&#39;</span>,
+</span></span><span style="display:flex;"><span>        ...<span style="color:#a6e22e">overrides</span>
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">module</span>.<span style="color:#a6e22e">exports</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">TestDatabase</span>;
+</span></span></code></pre></div><h3 id="mock-helpers">Mock Helpers</h3>
+<p><strong><code>__tests__/utils/mocks.js</code>:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Mock GitHub API responses
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">createMockGitHubUser</span> <span style="color:#f92672">=</span> (<span style="color:#a6e22e">overrides</span> <span style="color:#f92672">=</span> {}) =&gt; ({
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">id</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">12345</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">login</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;testuser&#39;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">email</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;test@example.com&#39;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">avatar_url</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;https://github.com/avatar.jpg&#39;</span>,
+</span></span><span style="display:flex;"><span>  ...<span style="color:#a6e22e">overrides</span>
+</span></span><span style="display:flex;"><span>});
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">createMockRepository</span> <span style="color:#f92672">=</span> (<span style="color:#a6e22e">overrides</span> <span style="color:#f92672">=</span> {}) =&gt; ({
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">id</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">123456</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;test-repo&#39;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">full_name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;testuser/test-repo&#39;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">clone_url</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;https://github.com/testuser/test-repo.git&#39;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">default_branch</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;main&#39;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">private</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">false</span>,
+</span></span><span style="display:flex;"><span>  ...<span style="color:#a6e22e">overrides</span>
+</span></span><span style="display:flex;"><span>});
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Mock file system operations
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">mockFileSystem</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">existsSync</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">fn</span>(),
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">promises</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mkdir</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">fn</span>(),
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">rm</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">fn</span>(),
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">readFile</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">fn</span>(),
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">writeFile</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">fn</span>(),
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">chmod</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">fn</span>()
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Mock child process
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">mockChildProcess</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">spawn</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">fn</span>(() =&gt; ({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pid</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">12345</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">stdout</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">on</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">fn</span>(),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">pipe</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">fn</span>()
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">stderr</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">on</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">fn</span>(),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">pipe</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">fn</span>()
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">on</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">fn</span>(),
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">kill</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">fn</span>()
+</span></span><span style="display:flex;"><span>  }))
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">module</span>.<span style="color:#a6e22e">exports</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">createMockGitHubUser</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">createMockRepository</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">mockFileSystem</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">mockChildProcess</span>
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><h2 id="testing-scripts">Testing Scripts</h2>
+<h3 id="packagejson-scripts">Package.json Scripts</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;scripts&#34;</span>: {
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;test&#34;</span>: <span style="color:#e6db74">&#34;jest&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;test:watch&#34;</span>: <span style="color:#e6db74">&#34;jest --watch&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;test:coverage&#34;</span>: <span style="color:#e6db74">&#34;jest --coverage&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;test:ci&#34;</span>: <span style="color:#e6db74">&#34;jest --ci --coverage --watchAll=false&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;test:unit&#34;</span>: <span style="color:#e6db74">&#34;jest __tests__/unit&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;test:integration&#34;</span>: <span style="color:#e6db74">&#34;jest __tests__/integration&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;test:socket&#34;</span>: <span style="color:#e6db74">&#34;jest __tests__/socket&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;test:e2e&#34;</span>: <span style="color:#e6db74">&#34;jest __tests__/e2e&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;test:db&#34;</span>: <span style="color:#e6db74">&#34;jest __tests__/database&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;test:debug&#34;</span>: <span style="color:#e6db74">&#34;DEBUG_TESTS=1 jest --runInBand&#34;</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="cicd-testing">CI/CD Testing</h3>
+<p><strong><code>.github/workflows/test.yml</code>:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">name</span>: <span style="color:#ae81ff">Tests</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">on</span>: [<span style="color:#ae81ff">push, pull_request]</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">jobs</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">test</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">runs-on</span>: <span style="color:#ae81ff">ubuntu-latest</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">steps</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">uses</span>: <span style="color:#ae81ff">actions/checkout@v3</span>
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Setup Node.js</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">uses</span>: <span style="color:#ae81ff">actions/setup-node@v3</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">with</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">node-version</span>: <span style="color:#e6db74">&#39;18&#39;</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">cache</span>: <span style="color:#e6db74">&#39;npm&#39;</span>
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Install dependencies</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">run</span>: <span style="color:#ae81ff">npm ci</span>
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Setup test database</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">run</span>: <span style="color:#ae81ff">npx prisma db push</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">env</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">DATABASE_URL</span>: <span style="color:#ae81ff">file:./test.db</span>
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Run tests</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">run</span>: <span style="color:#ae81ff">npm run test:ci</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">env</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">JWT_SECRET</span>: <span style="color:#ae81ff">test-jwt-secret-at-least-32-characters-long</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">TENANT_GITHUB_USERNAME</span>: <span style="color:#ae81ff">testuser</span>
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Upload coverage</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">uses</span>: <span style="color:#ae81ff">codecov/codecov-action@v3</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">with</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">file</span>: <span style="color:#ae81ff">./coverage/lcov.info</span>
+</span></span></code></pre></div><h2 id="test-coverage-goals">Test Coverage Goals</h2>
+<h3 id="coverage-targets">Coverage Targets</h3>
+<ul>
+<li><strong>Overall Coverage:</strong> 80%+</li>
+<li><strong>Services:</strong> 90%+</li>
+<li><strong>Controllers:</strong> 85%+</li>
+<li><strong>Middleware:</strong> 95%+</li>
+<li><strong>Utils:</strong> 90%+</li>
+</ul>
+<h3 id="coverage-reports">Coverage Reports</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Generate coverage report</span>
+</span></span><span style="display:flex;"><span>npm run test:coverage
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># View HTML coverage report</span>
+</span></span><span style="display:flex;"><span>open coverage/lcov-report/index.html
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Coverage summary</span>
+</span></span><span style="display:flex;"><span>npm run test:coverage -- --coverageReporters<span style="color:#f92672">=</span>text-summary
+</span></span></code></pre></div><h2 id="best-practices">Best Practices</h2>
+<h3 id="writing-good-tests">Writing Good Tests</h3>
+<ol>
+<li>
+<p><strong>Follow AAA Pattern</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should do something&#39;</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Arrange
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">input</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;test data&#39;</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Act
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">result</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">functionUnderTest</span>(<span style="color:#a6e22e">input</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Assert
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">result</span>).<span style="color:#a6e22e">toBe</span>(<span style="color:#e6db74">&#39;expected output&#39;</span>);
+</span></span><span style="display:flex;"><span>});
+</span></span></code></pre></div></li>
+<li>
+<p><strong>Use Descriptive Test Names</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Good
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should return 401 when JWT token is expired&#39;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Bad
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should handle invalid token&#39;</span>)
+</span></span></code></pre></div></li>
+<li>
+<p><strong>Test Edge Cases</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#a6e22e">describe</span>(<span style="color:#e6db74">&#39;validateInput&#39;</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should handle null input&#39;</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should handle empty string&#39;</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should handle special characters&#39;</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should handle very long strings&#39;</span>);
+</span></span><span style="display:flex;"><span>});
+</span></span></code></pre></div></li>
+<li>
+<p><strong>Mock External Dependencies</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Mock GitHub API
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">mock</span>(<span style="color:#e6db74">&#39;@octokit/rest&#39;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Mock file system
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">mock</span>(<span style="color:#e6db74">&#39;fs&#39;</span>);
+</span></span></code></pre></div></li>
+</ol>
+<h3 id="common-testing-patterns">Common Testing Patterns</h3>
+<h4 id="async-testing">Async Testing</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Async/await
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should create workspace&#39;</span>, <span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">result</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">WorkspaceService</span>.<span style="color:#a6e22e">createWorkspace</span>(<span style="color:#a6e22e">data</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">result</span>.<span style="color:#a6e22e">id</span>).<span style="color:#a6e22e">toBeDefined</span>();
+</span></span><span style="display:flex;"><span>});
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Promise resolution
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should resolve promise&#39;</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">asyncFunction</span>()).<span style="color:#a6e22e">resolves</span>.<span style="color:#a6e22e">toBe</span>(<span style="color:#a6e22e">expectedValue</span>);
+</span></span><span style="display:flex;"><span>});
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Promise rejection
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should reject promise&#39;</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">asyncFunction</span>()).<span style="color:#a6e22e">rejects</span>.<span style="color:#a6e22e">toThrow</span>(<span style="color:#e6db74">&#39;Error message&#39;</span>);
+</span></span><span style="display:flex;"><span>});
+</span></span></code></pre></div><h4 id="database-testing">Database Testing</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Test with clean database
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">beforeEach</span>(<span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">testDb</span>.<span style="color:#a6e22e">cleanup</span>();
+</span></span><span style="display:flex;"><span>});
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Test with seed data
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">beforeEach</span>(<span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">testDb</span>.<span style="color:#a6e22e">cleanup</span>();
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">workspace</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">testDb</span>.<span style="color:#a6e22e">createTestWorkspace</span>();
+</span></span><span style="display:flex;"><span>});
+</span></span></code></pre></div><h2 id="troubleshooting-tests">Troubleshooting Tests</h2>
+<h3 id="common-issues">Common Issues</h3>
+<p><strong>Tests Timing Out</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Increase timeout for slow tests
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">describe</span>(<span style="color:#e6db74">&#39;Slow operations&#39;</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">setTimeout</span>(<span style="color:#ae81ff">10000</span>); <span style="color:#75715e">// 10 seconds
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">it</span>(<span style="color:#e6db74">&#39;should handle slow operation&#39;</span>, <span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// test code
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  });
+</span></span><span style="display:flex;"><span>});
+</span></span></code></pre></div><p><strong>Database Connection Issues</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Ensure test database is clean</span>
+</span></span><span style="display:flex;"><span>rm test.db
+</span></span><span style="display:flex;"><span>npx prisma db push
+</span></span></code></pre></div><p><strong>Mock Issues</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Clear mocks between tests
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">afterEach</span>(() =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">clearAllMocks</span>();
+</span></span><span style="display:flex;"><span>});
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Reset modules between tests
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">afterEach</span>(() =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">jest</span>.<span style="color:#a6e22e">resetModules</span>();
+</span></span><span style="display:flex;"><span>});
+</span></span></code></pre></div><h2 id="next-steps">Next Steps</h2>
+<ul>
+<li><strong><a href="/docs/deployment/production/">Production Setup</a>:</strong> Production deployment</li>
+<li><strong><a href="/docs/troubleshooting/common-issues/">Troubleshooting</a>:</strong> Common issues</li>
+<li><strong><a href="/docs/troubleshooting/performance-tips/">Performance Tips</a>:</strong> Optimization guide</li>
+</ul>
+
+          </div>
+
+          
+          <nav class="flex justify-between items-center mt-16 pt-8 border-t border-[rgba(67,79,138,0.2)]">
+            <div>
+              
+            </div>
+            <div>
+              
+              <a href="http://localhost:1313/docs/development/setup/" class="inline-flex flex-col items-end px-6 py-4 bg-[rgba(10,12,26,0.5)] border border-[rgba(67,79,138,0.2)] rounded-lg hover:bg-[rgba(130,170,255,0.05)] hover:border-[#82aaff] transition-all transform hover:-translate-y-1">
+                <span class="text-xs text-[#8b9cc2] uppercase tracking-wider mb-1">Next</span>
+                <span class="text-[#d4dff3] font-medium">Development Setup</span>
+              </a>
+              
+            </div>
+          </nav>
+        </article>
+
+        
+        <aside class="hidden xl:block w-80 p-8 sticky top-32 self-start max-h-[calc(100vh-8rem)] overflow-y-auto">
+          <div class="bg-[rgba(10,12,26,0.3)] border border-[rgba(67,79,138,0.2)] rounded-lg p-6">
+            <h3 class="flex items-center text-[#82aaff] font-medium mb-4">
+              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path>
+              </svg>
+              On This Page
+            </h3>
+            <div id="table-of-contents" class="space-y-1">
+              
+            </div>
+          </div>
+        </aside>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  
+  const mobileSidebarToggle = document.getElementById('mobile-sidebar-toggle');
+  const mobileOverlay = document.getElementById('mobile-overlay');
+  const sidebar = document.getElementById('docs-sidebar');
+
+  function toggleMobileSidebar() {
+    sidebar.classList.toggle('-translate-x-full');
+    mobileOverlay.classList.toggle('hidden');
+    document.body.classList.toggle('overflow-hidden');
+  }
+
+  mobileSidebarToggle.addEventListener('click', toggleMobileSidebar);
+  mobileOverlay.addEventListener('click', toggleMobileSidebar);
+
+  
+  const navSectionToggles = document.querySelectorAll('.nav-section-toggle');
+  
+  navSectionToggles.forEach(toggle => {
+    toggle.addEventListener('click', function() {
+      const section = this.closest('.nav-section');
+      const content = section.querySelector('.nav-section-content');
+      const chevron = this.querySelector('.chevron');
+      
+      if (content.style.maxHeight === '0px' || content.style.maxHeight === '') {
+        content.style.maxHeight = content.scrollHeight + 'px';
+        chevron.style.transform = 'rotate(90deg)';
+      } else {
+        content.style.maxHeight = '0px';
+        chevron.style.transform = 'rotate(0deg)';
+      }
+    });
+  });
+
+  
+  const activeLink = document.querySelector('.nav-link.active');
+  if (activeLink) {
+    const section = activeLink.closest('.nav-section');
+    if (section) {
+      const content = section.querySelector('.nav-section-content');
+      const chevron = section.querySelector('.chevron');
+      content.style.maxHeight = content.scrollHeight + 'px';
+      chevron.style.transform = 'rotate(90deg)';
+    }
+  }
+
+  
+  function generateTableOfContents() {
+    const headings = document.querySelectorAll('article h2, article h3, article h4, article h5, article h6');
+    const toc = document.getElementById('table-of-contents');
+    
+    if (headings.length === 0 || !toc) return;
+
+    headings.forEach((heading, index) => {
+      
+      if (!heading.id) {
+        heading.id = heading.textContent.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+      }
+
+      const link = document.createElement('a');
+      link.href = '#' + heading.id;
+      link.textContent = heading.textContent;
+      link.className = 'block py-1.5 px-3 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded transition-colors';
+      
+      
+      const level = parseInt(heading.tagName.charAt(1));
+      if (level > 2) {
+        link.style.paddingLeft = `${(level - 2) * 16 + 12}px`;
+        link.style.borderLeft = '1px solid rgba(67,79,138,0.2)';
+      }
+
+      toc.appendChild(link);
+    });
+
+    
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        const id = entry.target.id;
+        const link = toc.querySelector(`a[href="#${id}"]`);
+        if (link) {
+          if (entry.isIntersecting) {
+            toc.querySelectorAll('a').forEach(l => l.classList.remove('!text-[#82aaff]', 'bg-[rgba(130,170,255,0.1)]', 'font-medium'));
+            link.classList.add('!text-[#82aaff]', 'bg-[rgba(130,170,255,0.1)]', 'font-medium');
+          }
+        }
+      });
+    }, { rootMargin: '-100px 0px -80% 0px' });
+
+    headings.forEach((heading) => {
+      observer.observe(heading);
+    });
+  }
+
+  generateTableOfContents();
+
+  
+  document.addEventListener('click', function(e) {
+    if (e.target.matches('a[href^="#"]')) {
+      e.preventDefault();
+      const target = document.querySelector(e.target.getAttribute('href'));
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  });
+});
+</script>
+
+    </main>
+
+    <footer class="fade-in-section">
+    <div class="container">
+        <p>&copy; 2025 AI Code Terminal. A statement on developer sovereignty.</p>
+    </div>
+</footer>
+    
+<script>
+    feather.replace();
+</script>
+
+    <script src="/js/docs.js"></script>
+
+</body>
+</html>

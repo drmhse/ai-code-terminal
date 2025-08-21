@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Deployment on AI Code Terminal: The AI-Native Shell</title>
+    <link>http://localhost:1313/docs/deployment/</link>
+    <description>Recent content in Deployment on AI Code Terminal: The AI-Native Shell</description>
+    <generator>Hugo</generator>
+    <language>en-us</language>
+    <atom:link href="http://localhost:1313/docs/deployment/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Docker Deployment</title>
+      <link>http://localhost:1313/docs/deployment/docker/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/docs/deployment/docker/</guid>
+      <description>&lt;h1 id=&#34;docker-deployment&#34;&gt;Docker Deployment&lt;/h1&gt;&#xA;&lt;p&gt;AI Code Terminal is designed for containerized deployment with Docker. This guide covers production Docker deployment with security hardening, volume management, and orchestration.&lt;/p&gt;&#xA;&lt;h2 id=&#34;docker-architecture&#34;&gt;Docker Architecture&lt;/h2&gt;&#xA;&lt;h3 id=&#34;container-design&#34;&gt;Container Design&lt;/h3&gt;&#xA;&lt;p&gt;The application uses a security-hardened Docker container with:&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;&lt;strong&gt;Base Image:&lt;/strong&gt; Node.js 20 Alpine Linux&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Non-root User:&lt;/strong&gt; Runs as &lt;code&gt;claude&lt;/code&gt; user (UID 1001)&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Read-only Root Filesystem:&lt;/strong&gt; Enhanced security&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Resource Limits:&lt;/strong&gt; Memory and CPU constraints&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Health Checks:&lt;/strong&gt; Built-in health monitoring&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;&lt;h3 id=&#34;security-features&#34;&gt;Security Features&lt;/h3&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;&lt;strong&gt;Minimal Attack Surface:&lt;/strong&gt; Alpine Linux base&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;No New Privileges:&lt;/strong&gt; Prevents privilege escalation&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Dropped Capabilities:&lt;/strong&gt; Minimal required capabilities&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Non-root Execution:&lt;/strong&gt; All processes run as non-root user&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Temporary File Systems:&lt;/strong&gt; Writable areas in tmpfs&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;&lt;h2 id=&#34;dockerfile-overview&#34;&gt;Dockerfile Overview&lt;/h2&gt;&#xA;&lt;h3 id=&#34;multi-stage-build&#34;&gt;Multi-stage Build&lt;/h3&gt;&#xA;&lt;p&gt;&lt;strong&gt;&lt;code&gt;Dockerfile&lt;/code&gt;:&lt;/strong&gt;&lt;/p&gt;</description>
+    </item>
+  </channel>
+</rss>

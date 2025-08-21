@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+<title>Authentication Flow | AI Code Terminal: The AI-Native Shell</title>
+<meta name="description" content="Complete GitHub OAuth 2.0 authentication flow with single-tenant validation">
+<meta name="keywords" content="AI development, Claude Code, self-hosted terminal, development environment, AI coding, browser terminal, Docker deployment">
+<meta name="author" content="AI Code Terminal">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="http://localhost:1313/docs/authentication/auth-flow/">
+
+
+<meta property="og:type" content="article">
+<meta property="og:title" content="Authentication Flow | AI Code Terminal: The AI-Native Shell">
+<meta property="og:description" content="Complete GitHub OAuth 2.0 authentication flow with single-tenant validation">
+<meta property="og:url" content="http://localhost:1313/docs/authentication/auth-flow/">
+<meta property="og:site_name" content="AI Code Terminal: The AI-Native Shell">
+<meta property="og:image" content="http://localhost:1313/images/claude_code_in_action.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="AI Code Terminal - Browser-based development environment with Claude integration">
+
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Authentication Flow | AI Code Terminal: The AI-Native Shell">
+<meta name="twitter:description" content="Complete GitHub OAuth 2.0 authentication flow with single-tenant validation">
+<meta name="twitter:image" content="http://localhost:1313/images/claude_code_in_action.png">
+<meta name="twitter:image:alt" content="AI Code Terminal - Browser-based development environment with Claude integration">
+
+
+<link rel="icon" type="image/svg+xml" href="/terminal-icon.svg">
+<link rel="icon" type="image/png" href="/favicon.png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
+
+
+<meta name="theme-color" content="#010411">
+<meta name="msapplication-TileColor" content="#010411">
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+
+
+<script src="https://unpkg.com/feather-icons"></script>
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "AI Code Terminal: The AI-Native Shell",
+  "description": "A self-hosted development environment for the post-IDE era. Code from any device with a fast, lightweight, AI-native shell.",
+  "url": "http:\/\/localhost:1313\/",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Linux, macOS, Windows",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "author": {
+    "@type": "Organization",
+    "name": "AI Code Terminal"
+  }
+}
+</script>
+
+
+<link rel="stylesheet" href="/css/shared.css">
+
+    <link rel="stylesheet" href="/css/docs.css">
+
+</head>
+<body class="docs-site">
+    
+    
+    <header>
+    <div class="container">
+        <nav>
+            <a href="http://localhost:1313/" class="logo">
+                <span class="prompt-char">&gt;</span> AI Code Terminal
+            </a>
+            <div class="nav-links">
+                <a href="/docs/getting-started/introduction/" class="nav-link">
+                    <i data-feather="book"></i>
+                    <span>Documentation</span>
+                </a>
+                <a href="/getting-started/" class="nav-link">
+                    <i data-feather="book-open"></i>
+                    <span>Getting Started</span>
+                </a>
+                <a href="https://github.com/drmhse/ai-code-terminal" target="_blank" rel="noopener noreferrer" class="nav-link">
+                    <i data-feather="github"></i>
+                    <span>View on GitHub</span>
+                </a>
+            </div>
+        </nav>
+    </div>
+</header>
+
+    <main>
+        
+
+<div class="min-h-screen bg-[#010411] text-[#d4dff3]">
+  
+  
+  <button id="mobile-sidebar-toggle" class="lg:hidden fixed top-4 left-4 z-50 p-3 bg-[#0a0c1a] border border-[rgba(67,79,138,0.2)] rounded-lg">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+    </svg>
+  </button>
+
+  
+  <div id="mobile-overlay" class="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30 hidden"></div>
+
+  <div class="flex pt-20"> 
+    
+    
+    <aside id="docs-sidebar" class="fixed lg:relative w-80 bg-[rgba(1,4,17,0.95)] border-r border-[rgba(67,79,138,0.2)] h-screen lg:h-[calc(100vh-5rem)] overflow-y-auto backdrop-blur-xl z-40 -translate-x-full lg:translate-x-0 transition-transform duration-300">
+      
+      
+      <div class="sticky top-0 bg-[rgba(1,4,17,0.9)] backdrop-blur-sm border-b border-[rgba(67,79,138,0.2)] p-6">
+        <div class="flex items-center space-x-3 mb-6">
+          <div class="w-8 h-8 bg-[#82aaff] rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-[#d4dff3]">Documentation</h3>
+        </div>
+        
+        
+        <div class="relative">
+          <svg class="absolute left-3 top-3.5 w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+          </svg>
+          <input type="text" placeholder="Search docs..." class="w-full pl-10 pr-4 py-3 bg-[rgba(10,12,26,0.6)] border border-[rgba(67,79,138,0.2)] rounded-lg text-[#d4dff3] placeholder-[#8b9cc2] focus:outline-none focus:border-[#82aaff] focus:ring-1 focus:ring-[#82aaff] transition-colors">
+        </div>
+      </div>
+
+      
+      <nav class="p-4 space-y-2">
+        
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="getting-started">
+            <span class="uppercase tracking-wider">Getting Started</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/getting-started/introduction/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Introduction
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/getting-started/quick-start/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Quick Start
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/getting-started/installation/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Installation
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/getting-started/github-oauth/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                GitHub OAuth Setup
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/getting-started/configuration/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Configuration
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="core-features">
+            <span class="uppercase tracking-wider">Core Features</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/core-features/terminal-access/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Terminal Access
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/core-features/workspace-management/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Workspace Management
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/core-features/github-integration/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                GitHub Integration
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/core-features/claude-integration/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Claude Integration
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/core-features/real-time-features/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Real-time Features
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="authentication">
+            <span class="uppercase tracking-wider">Authentication</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/authentication/auth-flow/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors active bg-[rgba(130,170,255,0.1)] !text-[#82aaff] font-medium">
+                Authentication Flow
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/authentication/security-features/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Security Features
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/authentication/token-management/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Token Management
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="api">
+            <span class="uppercase tracking-wider">API & WebSocket</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/api/endpoints/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                API Endpoints
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/api/websocket/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                WebSocket Events
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="database">
+            <span class="uppercase tracking-wider">Database</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/database/schema/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Database Schema
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/database/models/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Data Models
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="development">
+            <span class="uppercase tracking-wider">Development</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/development/setup/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Development Setup
+              </a>
+            </li>
+            
+            <li>
+              <a href="http://localhost:1313/docs/development/testing/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Testing
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+        
+        <div class="nav-section">
+          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="deployment">
+            <span class="uppercase tracking-wider">Deployment</span>
+            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            
+            
+            <li>
+              <a href="http://localhost:1313/docs/deployment/docker/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
+                Docker Deployment
+              </a>
+            </li>
+            
+            
+          </ul>
+        </div>
+
+      </nav>
+    </aside>
+
+    
+    <main class="flex-1 lg:ml-80">
+      
+      
+      <div class="sticky top-20 bg-[rgba(1,4,17,0.9)] backdrop-blur-sm border-b border-[rgba(67,79,138,0.2)] px-8 py-4 z-10">
+        <nav class="flex items-center space-x-2 text-sm">
+          <a href="/" class="text-[#8b9cc2] hover:text-[#d4dff3] transition-colors">Home</a>
+          <svg class="w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+          <a href="/docs" class="text-[#8b9cc2] hover:text-[#d4dff3] transition-colors">Documentation</a>
+          
+          <svg class="w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+          <a href="http://localhost:1313/docs/authentication/" class="text-[#8b9cc2] hover:text-[#d4dff3] transition-colors">Authentication &amp; Security</a>
+          
+          <svg class="w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+          <span class="text-[#82aaff] font-medium">Authentication Flow</span>
+        </nav>
+      </div>
+
+      <div class="flex">
+        
+        <article class="flex-1 px-8 py-12 max-w-4xl">
+          
+          
+          <header class="mb-12">
+            
+            
+            <h1 class="text-4xl lg:text-5xl font-bold text-[#d4dff3] mb-6 leading-tight">Authentication Flow</h1>
+            
+            
+            <p class="text-xl text-[#8b9cc2] leading-relaxed mb-8">Complete GitHub OAuth 2.0 authentication flow with single-tenant validation</p>
+            
+            
+            
+            <div class="flex items-center space-x-6 text-sm text-[#8b9cc2]">
+              
+              
+              <div class="flex items-center space-x-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span>6 min read</span>
+              </div>
+              
+            </div>
+            
+          </header>
+
+          
+          <div class="prose prose-invert prose-lg max-w-none">
+            <h1 id="authentication-flow">Authentication Flow</h1>
+<p>AI Code Terminal implements a secure GitHub OAuth 2.0 authentication flow with single-tenant validation and JWT-based session management.</p>
+<h2 id="overview">Overview</h2>
+<p>The authentication system provides:</p>
+<ul>
+<li><strong>GitHub OAuth 2.0</strong> - Standard OAuth flow with GitHub</li>
+<li><strong>Single-Tenant Validation</strong> - Only authorized user can access</li>
+<li><strong>JWT Sessions</strong> - Stateless session management</li>
+<li><strong>Token Refresh</strong> - Automatic token renewal</li>
+<li><strong>Secure Storage</strong> - Encrypted token storage</li>
+</ul>
+<h2 id="complete-authentication-flow">Complete Authentication Flow</h2>
+<h3 id="step-1-initial-access">Step 1: Initial Access</h3>
+<p>When a user visits the application:</p>
+<pre tabindex="0"><code>User Browser → AI Code Terminal
+GET /
+
+Response:
+- If authenticated: Main application
+- If not authenticated: Login page
+</code></pre><h3 id="step-2-oauth-initiation">Step 2: OAuth Initiation</h3>
+<p>User clicks &ldquo;Login with GitHub&rdquo;:</p>
+<pre tabindex="0"><code>1. Generate CSRF state token
+2. Build GitHub OAuth URL
+3. Redirect to GitHub
+</code></pre><p><strong>OAuth URL Structure:</strong></p>
+<pre tabindex="0"><code>https://github.com/login/oauth/authorize
+  ?client_id={GITHUB_CLIENT_ID}
+  &amp;redirect_uri={GITHUB_CALLBACK_URL}
+  &amp;scope=read:user user:email repo
+  &amp;state={CSRF_TOKEN}
+</code></pre><h3 id="step-3-github-authorization">Step 3: GitHub Authorization</h3>
+<p>At GitHub&rsquo;s authorization server:</p>
+<pre tabindex="0"><code>1. User sees application permission request
+2. User authorizes the application
+3. GitHub redirects back with authorization code
+</code></pre><p><strong>Callback URL:</strong></p>
+<pre tabindex="0"><code>GET /auth/github/callback
+  ?code={AUTHORIZATION_CODE}
+  &amp;state={CSRF_TOKEN}
+</code></pre><h3 id="step-4-token-exchange">Step 4: Token Exchange</h3>
+<p>Server exchanges code for access token:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Token exchange request
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">response</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">fetch</span>(<span style="color:#e6db74">&#39;https://github.com/login/oauth/access_token&#39;</span>, {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">method</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;POST&#39;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">headers</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;Accept&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;application/json&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;Content-Type&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;application/json&#39;</span>
+</span></span><span style="display:flex;"><span>  },
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">client_id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">GITHUB_CLIENT_ID</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">client_secret</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">GITHUB_CLIENT_SECRET</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">code</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">authorizationCode</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">redirect_uri</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">GITHUB_CALLBACK_URL</span>
+</span></span><span style="display:flex;"><span>  })
+</span></span><span style="display:flex;"><span>});
+</span></span></code></pre></div><p><strong>Response:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;access_token&#34;</span>: <span style="color:#e6db74">&#34;gho_xxxx&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;token_type&#34;</span>: <span style="color:#e6db74">&#34;bearer&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;scope&#34;</span>: <span style="color:#e6db74">&#34;read:user,user:email,repo&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;expires_in&#34;</span>: <span style="color:#ae81ff">28800</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;refresh_token&#34;</span>: <span style="color:#e6db74">&#34;ghr_xxxx&#34;</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="step-5-user-validation">Step 5: User Validation</h3>
+<p>Retrieve GitHub user information:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Get user profile
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">userResponse</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">octokit</span>.<span style="color:#a6e22e">rest</span>.<span style="color:#a6e22e">users</span>.<span style="color:#a6e22e">getAuthenticated</span>();
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">user</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">userResponse</span>.<span style="color:#a6e22e">data</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Single-tenant validation
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">user</span>.<span style="color:#a6e22e">login</span> <span style="color:#f92672">!==</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">TENANT_GITHUB_USERNAME</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> Error(<span style="color:#e6db74">&#39;Access denied: unauthorized user&#39;</span>);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="step-6-jwt-creation">Step 6: JWT Creation</h3>
+<p>Create JWT token for session management:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">jwtPayload</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">userId</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">user</span>.<span style="color:#a6e22e">id</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">username</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">user</span>.<span style="color:#a6e22e">login</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">email</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">user</span>.<span style="color:#a6e22e">email</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">iat</span><span style="color:#f92672">:</span> Math.<span style="color:#a6e22e">floor</span>(Date.<span style="color:#a6e22e">now</span>() <span style="color:#f92672">/</span> <span style="color:#ae81ff">1000</span>),
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">exp</span><span style="color:#f92672">:</span> Math.<span style="color:#a6e22e">floor</span>(Date.<span style="color:#a6e22e">now</span>() <span style="color:#f92672">/</span> <span style="color:#ae81ff">1000</span>) <span style="color:#f92672">+</span> (<span style="color:#ae81ff">7</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">24</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">60</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">60</span>) <span style="color:#75715e">// 7 days
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">jwtToken</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">jwt</span>.<span style="color:#a6e22e">sign</span>(<span style="color:#a6e22e">jwtPayload</span>, <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">JWT_SECRET</span>);
+</span></span></code></pre></div><h3 id="step-7-token-storage">Step 7: Token Storage</h3>
+<p>Store OAuth tokens securely:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Encrypt OAuth tokens
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">encryptedAccessToken</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">encrypt</span>(<span style="color:#a6e22e">accessToken</span>);
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">encryptedRefreshToken</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">encrypt</span>(<span style="color:#a6e22e">refreshToken</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Store in database
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">await</span> <span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">upsert</span>({
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">where</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">id</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;singleton&#39;</span> },
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">update</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">githubToken</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">encryptedAccessToken</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">githubRefreshToken</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">encryptedRefreshToken</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">githubTokenExpiresAt</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date(Date.<span style="color:#a6e22e">now</span>() <span style="color:#f92672">+</span> (<span style="color:#a6e22e">expiresIn</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">1000</span>))
+</span></span><span style="display:flex;"><span>  },
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">create</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">id</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;singleton&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">githubToken</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">encryptedAccessToken</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">githubRefreshToken</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">encryptedRefreshToken</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">githubTokenExpiresAt</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date(Date.<span style="color:#a6e22e">now</span>() <span style="color:#f92672">+</span> (<span style="color:#a6e22e">expiresIn</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">1000</span>))
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>});
+</span></span></code></pre></div><h3 id="step-8-session-establishment">Step 8: Session Establishment</h3>
+<p>Return JWT to client:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Set HTTP-only cookie (optional)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">cookie</span>(<span style="color:#e6db74">&#39;jwt&#39;</span>, <span style="color:#a6e22e">jwtToken</span>, {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">httpOnly</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">secure</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">NODE_ENV</span> <span style="color:#f92672">===</span> <span style="color:#e6db74">&#39;production&#39;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">sameSite</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;strict&#39;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">maxAge</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">7</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">24</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">60</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">60</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">1000</span> <span style="color:#75715e">// 7 days
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>});
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Also return in response for localStorage storage
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">json</span>({
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">success</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">token</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">jwtToken</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">user</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">user</span>.<span style="color:#a6e22e">id</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">username</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">user</span>.<span style="color:#a6e22e">login</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">email</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">user</span>.<span style="color:#a6e22e">email</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">avatar_url</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">user</span>.<span style="color:#a6e22e">avatar_url</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>});
+</span></span></code></pre></div><h2 id="authentication-middleware">Authentication Middleware</h2>
+<h3 id="jwt-validation">JWT Validation</h3>
+<p>Every protected request validates the JWT:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// JWT validation middleware
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">authenticateToken</span> <span style="color:#f92672">=</span> (<span style="color:#a6e22e">req</span>, <span style="color:#a6e22e">res</span>, <span style="color:#a6e22e">next</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">authHeader</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">headers</span>[<span style="color:#e6db74">&#39;authorization&#39;</span>];
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">token</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">authHeader</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#a6e22e">authHeader</span>.<span style="color:#a6e22e">split</span>(<span style="color:#e6db74">&#39; &#39;</span>)[<span style="color:#ae81ff">1</span>]; <span style="color:#75715e">// Bearer TOKEN
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">token</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">status</span>(<span style="color:#ae81ff">401</span>).<span style="color:#a6e22e">json</span>({ <span style="color:#a6e22e">error</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Access token required&#39;</span> });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">jwt</span>.<span style="color:#a6e22e">verify</span>(<span style="color:#a6e22e">token</span>, <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">JWT_SECRET</span>, (<span style="color:#a6e22e">err</span>, <span style="color:#a6e22e">user</span>) =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">err</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">status</span>(<span style="color:#ae81ff">403</span>).<span style="color:#a6e22e">json</span>({ <span style="color:#a6e22e">error</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Invalid or expired token&#39;</span> });
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">user</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">user</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">next</span>();
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><h3 id="socketio-authentication">Socket.IO Authentication</h3>
+<p>WebSocket connections also require authentication:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Socket.IO authentication middleware
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">io</span>.<span style="color:#a6e22e">use</span>((<span style="color:#a6e22e">socket</span>, <span style="color:#a6e22e">next</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">token</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">socket</span>.<span style="color:#a6e22e">handshake</span>.<span style="color:#a6e22e">auth</span>.<span style="color:#a6e22e">token</span>;
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">token</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">next</span>(<span style="color:#66d9ef">new</span> Error(<span style="color:#e6db74">&#39;Authentication token required&#39;</span>));
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">jwt</span>.<span style="color:#a6e22e">verify</span>(<span style="color:#a6e22e">token</span>, <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">JWT_SECRET</span>, (<span style="color:#a6e22e">err</span>, <span style="color:#a6e22e">decoded</span>) =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">err</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">next</span>(<span style="color:#66d9ef">new</span> Error(<span style="color:#e6db74">&#39;Invalid authentication token&#39;</span>));
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">socket</span>.<span style="color:#a6e22e">userId</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">decoded</span>.<span style="color:#a6e22e">userId</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">socket</span>.<span style="color:#a6e22e">username</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">decoded</span>.<span style="color:#a6e22e">username</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">next</span>();
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>});
+</span></span></code></pre></div><h2 id="token-refresh-flow">Token Refresh Flow</h2>
+<h3 id="automatic-token-refresh">Automatic Token Refresh</h3>
+<p>When OAuth tokens expire, automatic refresh is attempted:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">refreshGitHubToken</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">settings</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">findUnique</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">where</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">id</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;singleton&#39;</span> }
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">githubRefreshToken</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> Error(<span style="color:#e6db74">&#39;No refresh token available&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">refreshToken</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">decrypt</span>(<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">githubRefreshToken</span>);
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">response</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">fetch</span>(<span style="color:#e6db74">&#39;https://github.com/login/oauth/access_token&#39;</span>, {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">method</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;POST&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">headers</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;Accept&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;application/json&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;Content-Type&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;application/json&#39;</span>
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">client_id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">GITHUB_CLIENT_ID</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">client_secret</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">GITHUB_CLIENT_SECRET</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">refresh_token</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">refreshToken</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">grant_type</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;refresh_token&#39;</span>
+</span></span><span style="display:flex;"><span>    })
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">tokenData</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">json</span>();
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Store new tokens
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">updateStoredTokens</span>(<span style="color:#a6e22e">tokenData</span>);
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">tokenData</span>.<span style="color:#a6e22e">access_token</span>;
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><h3 id="re-authentication-flow">Re-authentication Flow</h3>
+<p>When refresh fails, user must re-authenticate:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Check token expiration
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">isTokenExpired</span> <span style="color:#f92672">=</span> (<span style="color:#a6e22e">tokenExpiresAt</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> Date() <span style="color:#f92672">&gt;=</span> <span style="color:#66d9ef">new</span> Date(<span style="color:#a6e22e">tokenExpiresAt</span>);
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Middleware to handle expired tokens
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">checkTokenExpiry</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">async</span> (<span style="color:#a6e22e">req</span>, <span style="color:#a6e22e">res</span>, <span style="color:#a6e22e">next</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">settings</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getSettings</span>();
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">isTokenExpired</span>(<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">githubTokenExpiresAt</span>)) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">refreshGitHubToken</span>();
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Refresh failed, require re-authentication
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">status</span>(<span style="color:#ae81ff">401</span>).<span style="color:#a6e22e">json</span>({ 
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">error</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Token expired&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">requiresReauth</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span> 
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">next</span>();
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><h2 id="security-measures">Security Measures</h2>
+<h3 id="csrf-protection">CSRF Protection</h3>
+<p>State parameter prevents CSRF attacks:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Generate and store CSRF token
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">csrfToken</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">crypto</span>.<span style="color:#a6e22e">randomBytes</span>(<span style="color:#ae81ff">32</span>).<span style="color:#a6e22e">toString</span>(<span style="color:#e6db74">&#39;hex&#39;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">session</span>.<span style="color:#a6e22e">oauthState</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">csrfToken</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Validate on callback
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">query</span>.<span style="color:#a6e22e">state</span> <span style="color:#f92672">!==</span> <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">session</span>.<span style="color:#a6e22e">oauthState</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> Error(<span style="color:#e6db74">&#39;Invalid state parameter&#39;</span>);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="jwt-security">JWT Security</h3>
+<p>JWT tokens include security measures:</p>
+<ul>
+<li><strong>Expiration</strong> - Limited lifetime (7 days default)</li>
+<li><strong>Signature</strong> - HMAC signature prevents tampering</li>
+<li><strong>Issuer Validation</strong> - Verify token issuer</li>
+<li><strong>Audience Validation</strong> - Ensure token is for this application</li>
+</ul>
+<h3 id="token-storage-security">Token Storage Security</h3>
+<p>OAuth tokens are protected:</p>
+<ul>
+<li><strong>Encryption at Rest</strong> - AES-256-CBC encryption</li>
+<li><strong>Secure Key Management</strong> - JWT secret from environment</li>
+<li><strong>Database Security</strong> - SQLite with proper permissions</li>
+<li><strong>Memory Protection</strong> - Tokens cleared after use</li>
+</ul>
+<h2 id="session-management">Session Management</h2>
+<h3 id="session-lifecycle">Session Lifecycle</h3>
+<ol>
+<li><strong>Creation</strong> - JWT created after successful OAuth</li>
+<li><strong>Validation</strong> - JWT validated on each request</li>
+<li><strong>Refresh</strong> - OAuth tokens refreshed automatically</li>
+<li><strong>Expiration</strong> - JWT expires after configured time</li>
+<li><strong>Cleanup</strong> - Expired sessions cleaned up automatically</li>
+</ol>
+<h3 id="multi-device-support">Multi-Device Support</h3>
+<p>Users can have sessions on multiple devices:</p>
+<ul>
+<li><strong>Independent Sessions</strong> - Each device has its own JWT</li>
+<li><strong>Shared OAuth Tokens</strong> - Single set of GitHub tokens</li>
+<li><strong>Synchronized State</strong> - Changes reflect across devices</li>
+<li><strong>Individual Logout</strong> - Can logout specific devices</li>
+</ul>
+<h3 id="session-security">Session Security</h3>
+<ul>
+<li><strong>HTTP-Only Cookies</strong> - Prevent XSS access to tokens</li>
+<li><strong>Secure Transmission</strong> - HTTPS-only in production</li>
+<li><strong>SameSite Protection</strong> - CSRF protection</li>
+<li><strong>Token Rotation</strong> - Regular token refresh</li>
+</ul>
+<h2 id="logout-flow">Logout Flow</h2>
+<h3 id="client-initiated-logout">Client-Initiated Logout</h3>
+<p>When user logs out:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Client-side logout
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">logout</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Clear local storage
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#a6e22e">localStorage</span>.<span style="color:#a6e22e">removeItem</span>(<span style="color:#e6db74">&#39;jwt_token&#39;</span>);
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Call logout API
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">fetch</span>(<span style="color:#e6db74">&#39;/api/auth/logout&#39;</span>, {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">method</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;POST&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">headers</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;Authorization&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`Bearer </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">token</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Redirect to login
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  window.<span style="color:#a6e22e">location</span>.<span style="color:#a6e22e">href</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;/&#39;</span>;
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><h3 id="server-side-cleanup">Server-Side Cleanup</h3>
+<p>Server performs cleanup:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Logout endpoint
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">app</span>.<span style="color:#a6e22e">post</span>(<span style="color:#e6db74">&#39;/api/auth/logout&#39;</span>, <span style="color:#a6e22e">authenticateToken</span>, <span style="color:#66d9ef">async</span> (<span style="color:#a6e22e">req</span>, <span style="color:#a6e22e">res</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Optionally revoke GitHub tokens
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">body</span>.<span style="color:#a6e22e">revokeGitHubToken</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">revokeGitHubToken</span>();
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Clear stored tokens
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">prisma</span>.<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">update</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">where</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">id</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;singleton&#39;</span> },
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">data</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">githubToken</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">null</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">githubRefreshToken</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">null</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">githubTokenExpiresAt</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">null</span>
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">json</span>({ <span style="color:#a6e22e">success</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span> });
+</span></span><span style="display:flex;"><span>  } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">status</span>(<span style="color:#ae81ff">500</span>).<span style="color:#a6e22e">json</span>({ <span style="color:#a6e22e">error</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Logout failed&#39;</span> });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>});
+</span></span></code></pre></div><h3 id="github-token-revocation">GitHub Token Revocation</h3>
+<p>Optionally revoke GitHub tokens:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">revokeGitHubToken</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">settings</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getSettings</span>();
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">accessToken</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">decrypt</span>(<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">githubToken</span>);
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">fetch</span>(<span style="color:#e6db74">`https://api.github.com/applications/</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">GITHUB_CLIENT_ID</span><span style="color:#e6db74">}</span><span style="color:#e6db74">/token`</span>, {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">method</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;DELETE&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">headers</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;Authorization&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`Basic </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">Buffer</span>.<span style="color:#a6e22e">from</span>(<span style="color:#e6db74">`</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">GITHUB_CLIENT_ID</span><span style="color:#e6db74">}</span><span style="color:#e6db74">:</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">GITHUB_CLIENT_SECRET</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>).<span style="color:#a6e22e">toString</span>(<span style="color:#e6db74">&#39;base64&#39;</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;Accept&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;application/vnd.github.v3+json&#39;</span>
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">access_token</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">accessToken</span>
+</span></span><span style="display:flex;"><span>    })
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><h2 id="error-handling">Error Handling</h2>
+<h3 id="authentication-errors">Authentication Errors</h3>
+<p>Common authentication errors and handling:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Error</th>
+          <th>Cause</th>
+          <th>Resolution</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>invalid_client</code></td>
+          <td>Wrong client credentials</td>
+          <td>Verify GitHub OAuth app settings</td>
+      </tr>
+      <tr>
+          <td><code>invalid_grant</code></td>
+          <td>Invalid/expired auth code</td>
+          <td>Restart OAuth flow</td>
+      </tr>
+      <tr>
+          <td><code>invalid_scope</code></td>
+          <td>Requested scope not available</td>
+          <td>Check OAuth app permissions</td>
+      </tr>
+      <tr>
+          <td><code>access_denied</code></td>
+          <td>User denied authorization</td>
+          <td>User must authorize application</td>
+      </tr>
+      <tr>
+          <td><code>unauthorized_user</code></td>
+          <td>User not in tenant allowlist</td>
+          <td>Verify TENANT_GITHUB_USERNAME</td>
+      </tr>
+  </tbody>
+</table>
+<h3 id="error-responses">Error Responses</h3>
+<p>Structured error responses:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Authentication error response
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#e6db74">&#34;error&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;authentication_failed&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#e6db74">&#34;error_description&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;Invalid or expired access token&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#e6db74">&#34;error_code&#34;</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">401</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#e6db74">&#34;requires_reauth&#34;</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h2 id="monitoring-and-logging">Monitoring and Logging</h2>
+<h3 id="authentication-events">Authentication Events</h3>
+<p>Log important authentication events:</p>
+<ul>
+<li><strong>Login Attempts</strong> - Successful and failed logins</li>
+<li><strong>Token Refresh</strong> - OAuth token refresh events</li>
+<li><strong>Logout Events</strong> - User-initiated logouts</li>
+<li><strong>Security Events</strong> - Invalid tokens, unauthorized access</li>
+</ul>
+<h3 id="security-monitoring">Security Monitoring</h3>
+<p>Monitor for security issues:</p>
+<ul>
+<li><strong>Failed Authentication Attempts</strong> - Potential brute force</li>
+<li><strong>Invalid Token Usage</strong> - Potential token theft</li>
+<li><strong>Unusual Access Patterns</strong> - Potential compromise</li>
+<li><strong>Rate Limiting Triggers</strong> - Abuse detection</li>
+</ul>
+<h2 id="next-steps">Next Steps</h2>
+<ul>
+<li><strong><a href="/docs/authentication/security-features/">Security Features</a>:</strong> Advanced security measures</li>
+<li><strong><a href="/docs/authentication/token-management/">Token Management</a>:</strong> Token lifecycle management</li>
+<li><strong><a href="/docs/api/endpoints/">API Endpoints</a>:</strong> API authentication requirements</li>
+</ul>
+
+          </div>
+
+          
+          <nav class="flex justify-between items-center mt-16 pt-8 border-t border-[rgba(67,79,138,0.2)]">
+            <div>
+              
+              <a href="http://localhost:1313/docs/authentication/security-features/" class="inline-flex flex-col items-start px-6 py-4 bg-[rgba(10,12,26,0.5)] border border-[rgba(67,79,138,0.2)] rounded-lg hover:bg-[rgba(130,170,255,0.05)] hover:border-[#82aaff] transition-all transform hover:-translate-y-1">
+                <span class="text-xs text-[#8b9cc2] uppercase tracking-wider mb-1">Previous</span>
+                <span class="text-[#d4dff3] font-medium">Security Features</span>
+              </a>
+              
+            </div>
+            <div>
+              
+            </div>
+          </nav>
+        </article>
+
+        
+        <aside class="hidden xl:block w-80 p-8 sticky top-32 self-start max-h-[calc(100vh-8rem)] overflow-y-auto">
+          <div class="bg-[rgba(10,12,26,0.3)] border border-[rgba(67,79,138,0.2)] rounded-lg p-6">
+            <h3 class="flex items-center text-[#82aaff] font-medium mb-4">
+              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path>
+              </svg>
+              On This Page
+            </h3>
+            <div id="table-of-contents" class="space-y-1">
+              
+            </div>
+          </div>
+        </aside>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  
+  const mobileSidebarToggle = document.getElementById('mobile-sidebar-toggle');
+  const mobileOverlay = document.getElementById('mobile-overlay');
+  const sidebar = document.getElementById('docs-sidebar');
+
+  function toggleMobileSidebar() {
+    sidebar.classList.toggle('-translate-x-full');
+    mobileOverlay.classList.toggle('hidden');
+    document.body.classList.toggle('overflow-hidden');
+  }
+
+  mobileSidebarToggle.addEventListener('click', toggleMobileSidebar);
+  mobileOverlay.addEventListener('click', toggleMobileSidebar);
+
+  
+  const navSectionToggles = document.querySelectorAll('.nav-section-toggle');
+  
+  navSectionToggles.forEach(toggle => {
+    toggle.addEventListener('click', function() {
+      const section = this.closest('.nav-section');
+      const content = section.querySelector('.nav-section-content');
+      const chevron = this.querySelector('.chevron');
+      
+      if (content.style.maxHeight === '0px' || content.style.maxHeight === '') {
+        content.style.maxHeight = content.scrollHeight + 'px';
+        chevron.style.transform = 'rotate(90deg)';
+      } else {
+        content.style.maxHeight = '0px';
+        chevron.style.transform = 'rotate(0deg)';
+      }
+    });
+  });
+
+  
+  const activeLink = document.querySelector('.nav-link.active');
+  if (activeLink) {
+    const section = activeLink.closest('.nav-section');
+    if (section) {
+      const content = section.querySelector('.nav-section-content');
+      const chevron = section.querySelector('.chevron');
+      content.style.maxHeight = content.scrollHeight + 'px';
+      chevron.style.transform = 'rotate(90deg)';
+    }
+  }
+
+  
+  function generateTableOfContents() {
+    const headings = document.querySelectorAll('article h2, article h3, article h4, article h5, article h6');
+    const toc = document.getElementById('table-of-contents');
+    
+    if (headings.length === 0 || !toc) return;
+
+    headings.forEach((heading, index) => {
+      
+      if (!heading.id) {
+        heading.id = heading.textContent.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+      }
+
+      const link = document.createElement('a');
+      link.href = '#' + heading.id;
+      link.textContent = heading.textContent;
+      link.className = 'block py-1.5 px-3 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded transition-colors';
+      
+      
+      const level = parseInt(heading.tagName.charAt(1));
+      if (level > 2) {
+        link.style.paddingLeft = `${(level - 2) * 16 + 12}px`;
+        link.style.borderLeft = '1px solid rgba(67,79,138,0.2)';
+      }
+
+      toc.appendChild(link);
+    });
+
+    
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        const id = entry.target.id;
+        const link = toc.querySelector(`a[href="#${id}"]`);
+        if (link) {
+          if (entry.isIntersecting) {
+            toc.querySelectorAll('a').forEach(l => l.classList.remove('!text-[#82aaff]', 'bg-[rgba(130,170,255,0.1)]', 'font-medium'));
+            link.classList.add('!text-[#82aaff]', 'bg-[rgba(130,170,255,0.1)]', 'font-medium');
+          }
+        }
+      });
+    }, { rootMargin: '-100px 0px -80% 0px' });
+
+    headings.forEach((heading) => {
+      observer.observe(heading);
+    });
+  }
+
+  generateTableOfContents();
+
+  
+  document.addEventListener('click', function(e) {
+    if (e.target.matches('a[href^="#"]')) {
+      e.preventDefault();
+      const target = document.querySelector(e.target.getAttribute('href'));
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  });
+});
+</script>
+
+    </main>
+
+    <footer class="fade-in-section">
+    <div class="container">
+        <p>&copy; 2025 AI Code Terminal. A statement on developer sovereignty.</p>
+    </div>
+</footer>
+    
+<script>
+    feather.replace();
+</script>
+
+    <script src="/js/docs.js"></script>
+
+</body>
+</html>
