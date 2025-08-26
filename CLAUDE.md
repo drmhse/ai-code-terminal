@@ -169,21 +169,59 @@ The application includes:
 
 ## Testing Approach
 
-No specific test framework is configured yet. When adding tests:
-- Set up Jest or Mocha for unit testing
-- Create separate test database configuration
-- Test GitHub OAuth integration thoroughly
-- Test workspace isolation and security
-- Test terminal session management with node-pty
-- Test Shell service process management
-- Add integration tests for end-to-end terminal workflows
-- Test database operations and migrations
-- Test Socket.IO real-time communication
-- Test Docker containerization and security
+Comprehensive Jest test suite is configured and available:
+
+**Test Framework**: Jest 30.x with supertest for API testing
+**Coverage**: Complete test coverage for controllers, services, middleware, and utilities
+
+**Test Structure**:
+```
+__tests__/
+├── controllers/          # API endpoint tests
+│   ├── github.controller.test.js
+│   ├── health.controller.test.js
+│   ├── theme.controller.test.js
+│   └── workspace.controller.test.js
+├── middleware/           # Middleware tests
+│   ├── auth.middleware.test.js
+│   ├── error.middleware.test.js
+│   ├── security.middleware.test.js
+│   └── validation.middleware.test.js
+├── services/            # Service layer tests
+│   ├── github.service.test.js
+│   ├── resource.service.test.js
+│   ├── settings.service.test.js
+│   ├── shell.service.test.js
+│   ├── theme.service.test.js
+│   └── workspace.service.test.js
+└── utils/               # Utility tests
+    ├── RingBuffer.test.js
+    ├── encryption.test.js
+    ├── init.test.js
+    ├── logger.test.js
+    ├── process.test.js
+    └── validation.test.js
+```
+
+**Available Test Commands**:
+- `npm test` - Run all tests
+- `npm run test:controllers` - Run controller tests only
+- `npm run test:watch` - Run tests in watch mode
+- `npm run test:coverage` - Generate coverage report
+- `npm run test:passing` - Run passing controller tests
+
+**Test Features**:
+- Comprehensive API testing with supertest
+- Mocked external dependencies (@octokit/rest, @prisma/client)
+- Database integration testing
+- Authentication and authorization testing
+- Shell service and terminal session testing
+- Error handling and validation testing
+- Socket.IO real-time communication testing
 
 ## Current Implementation Notes
 
-- Package name: `claude-code-terminal` (v2.0.0)
+- Package name: `ai-code-terminal` (v2.0.0)
 - Main server entry: `server.js`
 - Database: SQLite with Prisma ORM
 - Frontend: EJS templates with Vue.js 3 + xterm.js for terminal interface

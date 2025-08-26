@@ -1,7 +1,7 @@
 module.exports = {
   JWT_SECRET: process.env.JWT_SECRET || 'fallback-secret-change-in-production',
   NODE_ENV: process.env.NODE_ENV || 'development',
-  PORT: parseInt(process.env.PORT) || 3000,
+  PORT: parseInt(process.env.PORT) || 3014,
   DATABASE_URL: process.env.DATABASE_URL || 'file:./data/database.db',
   GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID,
   GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,

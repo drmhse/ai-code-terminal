@@ -14,7 +14,7 @@ AI Code Terminal uses SQLite with Prisma ORM for lightweight, efficient data sto
 ### Core Components
 
 - **Database Engine:** SQLite 3.x
-- **ORM:** Prisma 5.x
+- **ORM:** Prisma 6.x
 - **Query Builder:** Prisma Client
 - **Migrations:** Prisma Migrate
 - **Schema Definition:** Prisma Schema Language
@@ -30,13 +30,13 @@ AI Code Terminal uses SQLite with Prisma ORM for lightweight, efficient data sto
 
 ## Complete Schema Definition
 
-### Prisma Schema File
+### Actual Prisma Schema File
 
 **Location:** `/prisma/schema.prisma`
 
 ```prisma
-// This is your Prisma schema file
-// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
@@ -47,89 +47,50 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Single-tenant settings (singleton pattern)
+// Single-user system: minimal global settings
 model Settings {
   id                    String    @id @default("singleton")
   githubToken           String?   // Encrypted GitHub OAuth access token
-  githubTokenIv         String?   // Initialization vector for token encryption
-  githubRefreshToken    String?   // Encrypted GitHub OAuth refresh token  
-  githubRefreshTokenIv  String?   // Initialization vector for refresh token
-  githubTokenExpiresAt  DateTime? // Token expiration timestamp
-  theme                 String?   // Current UI theme preference
-  preferences           String?   // JSON string of user preferences
+  githubRefreshToken    String?   // Encrypted GitHub OAuth refresh token
+  githubTokenExpiresAt  DateTime? // The expiration date of the current access token
+  theme                 String?   // Theme preference JSON
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
   @@map("settings")
 }
 
-// Repository workspaces
 model Workspace {
-  id            String    @id @default(cuid())
-  name          String    @unique // Workspace display name
-  githubRepo    String    @unique // "owner/repo" format
-  githubUrl     String    // Full GitHub repository URL
-  githubId      Int?      // GitHub repository ID
-  localPath     String    // Local filesystem path
-  branch        String    @default("main") // Default branch
-  description   String?   // Optional description
-  isActive      Boolean   @default(true)
-  lastSyncAt    DateTime? // Last Git sync timestamp
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
+  id            String   @id @default(cuid())
+  name          String
+  githubRepo    String   @unique // Format: "owner/repo" - unique across system
+  githubUrl     String   // Full GitHub repository URL
+  localPath     String   // Local filesystem path
+  isActive      Boolean  @default(true)
+  lastSyncAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
   // Relations
-  sessions      Session[] // Terminal sessions in this workspace
-  
+  sessions      Session[]
+
   @@map("workspaces")
 }
 
-// Terminal sessions
 model Session {
   id               String    @id @default(cuid())
-  shellPid         Int?      // Process ID of shell process
-  socketId         String?   // Socket.IO connection ID
-  shell            String    @default("bash") // Shell type (bash, zsh, fish)
+  shellPid         Int?      // Process ID of the shell session
+  socketId         String?   // Current Socket.IO connection ID
   status           String    @default("active") // active, paused, terminated
-  workingDirectory String?   // Current working directory
-  environment      String?   // JSON string of environment variables
   lastActivityAt   DateTime  @default(now())
   createdAt        DateTime  @default(now())
-  endedAt          DateTime? // Session termination time
-  exitCode         Int?      // Shell exit code
-  
-  // Relations
+  endedAt          DateTime?
+
+  // Foreign keys
   workspaceId      String?
-  workspace        Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  
+  workspace        Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
   @@map("sessions")
-}
-
-// Authentication and usage logs
-model AuthLog {
-  id          String   @id @default(cuid())
-  action      String   // login, logout, token_refresh, api_access
-  success     Boolean
-  ipAddress   String?
-  userAgent   String?
-  details     String?  // JSON string with additional details
-  createdAt   DateTime @default(now())
-  
-  @@map("auth_logs")
-}
-
-// System metrics and monitoring
-model SystemMetric {
-  id          String   @id @default(cuid())
-  metric      String   // cpu_usage, memory_usage, disk_usage, active_sessions
-  value       Float    // Numeric value
-  unit        String?  // percentage, bytes, count, etc.
-  metadata    String?  // JSON string with additional data
-  createdAt   DateTime @default(now())
-  
-  // Index for efficient time-series queries
-  @@index([metric, createdAt])
-  @@map("system_metrics")
 }
 ```
 
@@ -143,13 +104,10 @@ The Settings model implements a singleton pattern for single-tenant configuratio
 // TypeScript interface (generated by Prisma)
 interface Settings {
   id: string;                    // Always "singleton"
-  githubToken: string | null;    // Encrypted access token
-  githubTokenIv: string | null;  // Encryption IV
-  githubRefreshToken: string | null;
-  githubRefreshTokenIv: string | null;
-  githubTokenExpiresAt: Date | null;
-  theme: string | null;          // "dark" | "light" | custom
-  preferences: string | null;    // JSON preferences
+  githubToken: string | null;    // Encrypted GitHub OAuth access token
+  githubRefreshToken: string | null; // Encrypted GitHub OAuth refresh token
+  githubTokenExpiresAt: Date | null; // Token expiration timestamp
+  theme: string | null;          // Theme preference JSON
   createdAt: Date;
   updatedAt: Date;
 }
@@ -168,13 +126,13 @@ await prisma.settings.upsert({
   where: { id: 'singleton' },
   update: {
     githubToken: encryptedToken,
-    githubTokenIv: iv,
+    githubRefreshToken: encryptedRefreshToken,
     githubTokenExpiresAt: expiryDate
   },
   create: {
     id: 'singleton',
     githubToken: encryptedToken,
-    githubTokenIv: iv,
+    githubRefreshToken: encryptedRefreshToken,
     githubTokenExpiresAt: expiryDate
   }
 });
@@ -187,18 +145,15 @@ Represents individual repository workspaces:
 ```typescript
 interface Workspace {
   id: string;              // CUID identifier
-  name: string;            // Display name (unique)
-  githubRepo: string;      // "owner/repository"
+  name: string;            // Workspace name
+  githubRepo: string;      // "owner/repository" (unique)
   githubUrl: string;       // Full GitHub URL
-  githubId: number | null; // GitHub repository ID
   localPath: string;       // Filesystem path
-  branch: string;          // Default branch
-  description: string | null;
-  isActive: boolean;
-  lastSyncAt: Date | null; // Last Git operation
+  isActive: boolean;       // Active status
+  lastSyncAt: Date | null; // Last Git sync timestamp
   createdAt: Date;
   updatedAt: Date;
-  sessions: Session[];     // Related sessions
+  sessions: Session[];     // Related terminal sessions
 }
 ```
 
@@ -211,10 +166,7 @@ const workspace = await prisma.workspace.create({
     name: 'my-react-app',
     githubRepo: 'octocat/my-react-app',
     githubUrl: 'https://github.com/octocat/my-react-app',
-    githubId: 123456,
-    localPath: '/app/workspaces/my-react-app',
-    branch: 'main',
-    description: 'React application workspace'
+    localPath: '/app/workspaces/my-react-app'
   }
 });
 
@@ -242,18 +194,14 @@ Terminal session tracking:
 ```typescript
 interface Session {
   id: string;                    // CUID identifier
-  shellPid: number | null;       // Process ID
-  socketId: string | null;       // Socket.IO connection
-  shell: string;                 // Shell type
-  status: string;                // Session status
-  workingDirectory: string | null;
-  environment: string | null;    // JSON env vars
-  lastActivityAt: Date;
+  shellPid: number | null;       // Process ID of the shell session
+  socketId: string | null;       // Socket.IO connection ID
+  status: string;                // active, paused, terminated
+  lastActivityAt: Date;          // Last activity timestamp
   createdAt: Date;
-  endedAt: Date | null;
-  exitCode: number | null;
-  workspaceId: string | null;
-  workspace: Workspace | null;
+  endedAt: Date | null;          // Session end time
+  workspaceId: string | null;    // Associated workspace
+  workspace: Workspace | null;   // Workspace relation
 }
 ```
 
@@ -263,11 +211,8 @@ interface Session {
 // Create new session
 const session = await prisma.session.create({
   data: {
-    shell: 'bash',
     socketId: socket.id,
-    workspaceId: workspace.id,
-    workingDirectory: workspace.localPath,
-    environment: JSON.stringify(process.env)
+    workspaceId: workspace.id
   }
 });
 
@@ -282,8 +227,7 @@ await prisma.session.update({
   where: { id: session.id },
   data: {
     status: 'terminated',
-    endedAt: new Date(),
-    exitCode: 0
+    endedAt: new Date()
   }
 });
 
@@ -329,7 +273,7 @@ process.on('beforeExit', async () => {
 #### Single-Tenant Settings Management
 
 ```typescript
-// Settings service
+// Settings service (actual implementation)
 export class SettingsService {
   private static readonly SETTINGS_ID = 'singleton';
 
@@ -357,11 +301,8 @@ export class SettingsService {
       throw new Error('GitHub token not found');
     }
     
-    // Decrypt token
-    return decrypt({
-      encryptedData: settings.githubToken,
-      iv: settings.githubTokenIv!
-    });
+    // Decrypt token using AES-256-CBC
+    return decrypt(settings.githubToken);
   }
 }
 ```
@@ -370,11 +311,13 @@ export class SettingsService {
 
 ```typescript
 export class WorkspaceService {
-  static async createWorkspace(data: CreateWorkspaceData) {
+  static async createWorkspace(githubRepo: string, githubUrl: string) {
     return await prisma.workspace.create({
       data: {
-        ...data,
-        localPath: path.join(process.env.WORKSPACE_ROOT || './workspaces', data.name)
+        name: githubRepo.split('/')[1], // Extract repo name
+        githubRepo,
+        githubUrl,
+        localPath: `/app/workspaces/${githubRepo.split('/')[1]}`
       }
     });
   }
@@ -399,7 +342,7 @@ export class WorkspaceService {
   }
 
   static async deleteWorkspace(workspaceId: string) {
-    // Cascade delete will handle related sessions
+    // Sessions are set to null on workspace delete (SetNull cascade)
     return await prisma.workspace.delete({
       where: { id: workspaceId }
     });
@@ -415,8 +358,7 @@ export class SessionService {
     return await prisma.session.create({
       data: {
         workspaceId,
-        socketId,
-        shell: 'bash'
+        socketId
       }
     });
   }
@@ -428,13 +370,12 @@ export class SessionService {
     });
   }
 
-  static async terminateSession(sessionId: string, exitCode?: number) {
+  static async terminateSession(sessionId: string) {
     return await prisma.session.update({
       where: { id: sessionId },
       data: {
         status: 'terminated',
-        endedAt: new Date(),
-        exitCode
+        endedAt: new Date()
       }
     });
   }
@@ -513,13 +454,11 @@ CREATE UNIQUE INDEX "workspaces_githubRepo_key" ON "workspaces"("githubRepo");
 
 ```sql
 -- Automatic indexes on unique fields
-CREATE UNIQUE INDEX "workspaces_name_key" ON "workspaces"("name");
 CREATE UNIQUE INDEX "workspaces_githubRepo_key" ON "workspaces"("githubRepo");
 
--- Custom indexes for common queries
-CREATE INDEX "sessions_workspace_id_status_idx" ON "sessions"("workspaceId", "status");
-CREATE INDEX "sessions_last_activity_idx" ON "sessions"("lastActivityAt");
-CREATE INDEX "system_metrics_metric_created_idx" ON "system_metrics"("metric", "createdAt");
+-- Implicit indexes on foreign keys and frequently queried fields
+-- SQLite automatically creates indexes on PRIMARY KEY and UNIQUE constraints
+-- Additional indexes created as needed for performance optimization
 ```
 
 ### Query Optimization
@@ -543,8 +482,8 @@ const workspacesWithActiveSessions = await prisma.workspace.findMany({
   }
 });
 
-// Pagination for large datasets
-const getWorkspacesPaginated = async (page: number, limit: number) => {
+// Simple pagination for workspaces
+const getWorkspacesPaginated = async (page: number = 1, limit: number = 10) => {
   const skip = (page - 1) * limit;
   
   const [workspaces, total] = await Promise.all([
@@ -554,8 +493,7 @@ const getWorkspacesPaginated = async (page: number, limit: number) => {
       orderBy: { updatedAt: 'desc' },
       include: {
         sessions: {
-          where: { status: 'active' },
-          take: 1
+          where: { status: 'active' }
         }
       }
     }),
@@ -573,18 +511,17 @@ const getWorkspacesPaginated = async (page: number, limit: number) => {
 ```prisma
 model Workspace {
   // Unique constraints
-  name        String @unique
-  githubRepo  String @unique
+  githubRepo  String @unique  // "owner/repo" must be unique
   
   // Required fields
+  name        String
   localPath   String
   githubUrl   String
   
   // Default values
   isActive    Boolean @default(true)
-  branch      String  @default("main")
   
-  // Timestamps
+  // Timestamps (automatically managed)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -593,35 +530,49 @@ model Workspace {
 ### Application-Level Validation
 
 ```typescript
-import { z } from 'zod';
+// Validation middleware used in the actual implementation
+const validateWorkspaceCreation = (req, res, next) => {
+  const { githubRepo, githubUrl } = req.body;
 
-// Validation schemas
-export const CreateWorkspaceSchema = z.object({
-  name: z.string().min(1).max(50).regex(/^[a-zA-Z0-9-_]+$/),
-  githubRepo: z.string().regex(/^[a-zA-Z0-9-_.]+\/[a-zA-Z0-9-_.]+$/),
-  githubUrl: z.string().url(),
-  description: z.string().max(200).optional(),
-  branch: z.string().min(1).default('main')
-});
+  if (!githubRepo || !githubUrl) {
+    return res.status(400).json({
+      error: 'Invalid parameters',
+      message: 'githubRepo and githubUrl are required'
+    });
+  }
 
-export const UpdateSessionSchema = z.object({
-  status: z.enum(['active', 'paused', 'terminated']),
-  workingDirectory: z.string().optional(),
-  lastActivityAt: z.date().default(() => new Date())
-});
+  // Validate GitHub repository format (owner/repo)
+  if (!githubRepo.match(/^[\w\-\.]+\/[\w\-\.]+$/)) {
+    return res.status(400).json({
+      error: 'Invalid repository format',
+      message: 'Repository must be in format: owner/repo'
+    });
+  }
 
-// Usage in API endpoints
-export const createWorkspace = async (req: Request, res: Response) => {
+  next();
+};
+
+// Session status validation
+const validateSessionUpdate = (status) => {
+  const validStatuses = ['active', 'paused', 'terminated'];
+  return validStatuses.includes(status);
+};
+
+// Usage in controllers (simplified validation)
+export const createWorkspace = async (req, res) => {
   try {
-    const validatedData = CreateWorkspaceSchema.parse(req.body);
-    const workspace = await WorkspaceService.createWorkspace(validatedData);
-    res.json(workspace);
+    const { githubRepo, githubUrl } = req.body;
+    const workspace = await WorkspaceService.createWorkspace(githubRepo, githubUrl);
+    res.status(201).json({
+      success: true,
+      workspace,
+      message: 'Workspace created successfully'
+    });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      res.status(400).json({ error: 'Validation failed', details: error.errors });
-    } else {
-      res.status(500).json({ error: 'Internal server error' });
-    }
+    res.status(500).json({
+      error: 'Failed to create workspace',
+      message: error.message
+    });
   }
 };
 ```

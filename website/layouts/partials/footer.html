@@ -1,5 +1,95 @@
-<footer class="fade-in-section">
+{{ $footer := .Site.Data.footer }}
+{{ $icons := .Site.Data.icons }}
+
+<footer class="fade-in-section" style="background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%); color: #e0e0e0; padding: 4rem 0 2rem;">
     <div class="container">
-        <p>&copy; 2025 AI Code Terminal. A statement on developer sovereignty.</p>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 3rem; margin-bottom: 3rem;">
+            
+            <!-- Project Info -->
+            <div>
+                <h3 style="color: #00d4ff; font-size: 1.2rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                    {{ $icons.icons.terminal | safeHTML }}
+                    {{ $footer.branding.name }}
+                </h3>
+                <p style="color: #b0b0b0; line-height: 1.6; margin-bottom: 1rem;">
+                    {{ $footer.branding.tagline }}
+                </p>
+                <div style="display: flex; gap: 0.5rem;">
+                    {{ range $footer.branding.badges }}
+                    <span style="background: {{ .color }}; color: #0f0f23; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">{{ .label }}</span>
+                    {{ end }}
+                </div>
+            </div>
+
+            {{ range $footer.sections }}
+            <div>
+                <h3 style="color: #00d4ff; font-size: 1.1rem; margin-bottom: 1rem;">{{ .title }}</h3>
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                    {{ range .links }}
+                    <li style="margin-bottom: 0.5rem;">
+                        <a href="{{ .url }}" 
+                           {{ if .external }}target="_blank" rel="noopener"{{ end }}
+                           style="color: #e0e0e0; text-decoration: none; display: flex; align-items: center; gap: 0.5rem; transition: color 0.3s;">
+                            {{ index $icons.icons .icon | safeHTML }}
+                            {{ .title }}
+                        </a>
+                    </li>
+                    {{ end }}
+                </ul>
+
+                {{ if .callout }}
+                <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(0, 212, 255, 0.1); border-radius: 8px; border-left: 3px solid #00d4ff;">
+                    <p style="margin: 0; font-size: 0.9rem; color: #b0b0b0;">
+                        <strong style="color: #00d4ff;">{{ .callout.title }}</strong><br>
+                        {{ .callout.text }}
+                    </p>
+                </div>
+                {{ end }}
+            </div>
+            {{ end }}
+        </div>
+
+        <!-- Bottom Bar -->
+        <div style="border-top: 1px solid #333; padding-top: 2rem; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem;">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <p style="margin: 0; color: #b0b0b0; font-size: 0.9rem;">
+                    {{ $footer.bottom.copyright | safeHTML }}
+                </p>
+                <div style="display: flex; gap: 0.5rem; font-size: 0.8rem;">
+                    {{ range $footer.bottom.features }}
+                    <span style="color: {{ .color }};">{{ $icons.icons.check | safeHTML }} {{ .label }}</span>
+                    {{ end }}
+                </div>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <span style="color: #666; font-size: 0.8rem;">{{ $footer.bottom.tagline }} {{ $icons.icons.heart | safeHTML }}</span>
+                <a href="{{ $footer.bottom.website_url }}" style="color: #00d4ff; text-decoration: none; font-weight: 600; font-size: 0.9rem;">
+                    {{ $footer.bottom.website_url | replaceRE "https?://" "" }}
+                </a>
+            </div>
+        </div>
     </div>
 </footer>
+
+<style>
+    footer a:hover {
+        color: #00d4ff !important;
+        transform: translateX(2px);
+    }
+    footer .container > div > div:hover {
+        transform: translateY(-2px);
+        transition: transform 0.3s ease;
+    }
+    @media (max-width: 768px) {
+        footer .container > div:first-child {
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+        footer .container > div:last-child {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+    }
+</style>

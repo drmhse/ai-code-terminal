@@ -29,63 +29,49 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 **`GET /api/github/auth`**
 
-Initiates GitHub OAuth authentication flow.
+Initiates GitHub OAuth authentication flow. Redirects to GitHub authorization page.
 
-**Response:**
-```json
-{
-  "url": "https://github.com/login/oauth/authorize?client_id=...&redirect_uri=...&scope=read:user+user:email+repo&state=..."
-}
-```
+**Response:** `302 Redirect` to GitHub OAuth authorization URL
 
 **Example:**
 ```bash
 curl -X GET http://localhost:3014/api/github/auth
+# Redirects to: https://github.com/login/oauth/authorize?client_id=...&redirect_uri=...&scope=user:email+repo&state=...
 ```
 
 ### OAuth Callback Handler
 
 **`GET /auth/github/callback`**
 
-Handles GitHub OAuth callback and creates JWT session.
+Handles GitHub OAuth callback and creates JWT session. Redirects to main page with token.
 
 **Parameters:**
 - `code` (query) - Authorization code from GitHub
 - `state` (query) - CSRF protection state parameter
 
-**Response:**
-```json
-{
-  "success": true,
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "id": 12345,
-    "username": "octocat",
-    "email": "octocat@github.com",
-    "avatar_url": "https://github.com/images/error/octocat_happy.gif"
-  }
-}
-```
+**Response:** `302 Redirect` to `/?token=<jwt_token>` on success or `/?error=<error>` on failure
 
 ### Check Authentication Status
 
 **`GET /api/auth/status`**
 
-Returns current authentication status and user information.
+Returns current GitHub authentication status and user information.
 
 **Headers:** `Authorization: Bearer <token>`
 
 **Response:**
 ```json
 {
-  "authenticated": true,
-  "user": {
+  "success": true,
+  "authorized": true,
+  "userInfo": {
+    "login": "octocat",
     "id": 12345,
-    "username": "octocat",
-    "email": "octocat@github.com",
-    "avatar_url": "https://github.com/images/error/octocat_happy.gif"
+    "avatar_url": "https://avatars.githubusercontent.com/u/12345?v=4",
+    "name": "The Octocat",
+    "email": "octocat@github.com"
   },
-  "tokenExpiry": "2024-01-15T10:30:00.000Z"
+  "githubConfigured": true
 }
 ```
 
@@ -99,22 +85,15 @@ curl -H "Authorization: Bearer <token>" \
 
 **`POST /api/auth/logout`**
 
-Revokes GitHub tokens and invalidates session.
+Revokes GitHub tokens and clears authentication.
 
 **Headers:** `Authorization: Bearer <token>`
-
-**Request Body:**
-```json
-{
-  "revokeGitHubToken": true
-}
-```
 
 **Response:**
 ```json
 {
   "success": true,
-  "message": "Successfully logged out"
+  "message": "Logged out successfully"
 }
 ```
 
@@ -124,19 +103,20 @@ Revokes GitHub tokens and invalidates session.
 
 **`GET /api/github/repositories`**
 
-Retrieves all accessible GitHub repositories for the authenticated user.
+Retrieves GitHub repositories for the authenticated user with pagination support.
 
 **Headers:** `Authorization: Bearer <token>`
 
 **Query Parameters:**
 - `page` (optional) - Page number for pagination (default: 1)
 - `per_page` (optional) - Results per page (default: 30, max: 100)
-- `sort` (optional) - Sort order: `created`, `updated`, `pushed`, `full_name` (default: `updated`)
-- `direction` (optional) - Sort direction: `asc`, `desc` (default: `desc`)
+- `sort` (optional) - Sort order: `updated`, `created`, `pushed` (default: `updated`)
+- `type` (optional) - Repository type: `all`, `owner`, `member` (default: `all`)
 
 **Response:**
 ```json
 {
+  "success": true,
   "repositories": [
     {
       "id": 123456,
@@ -157,10 +137,19 @@ Retrieves all accessible GitHub repositories for the authenticated user.
       "pushed_at": "2024-01-10T15:30:00Z"
     }
   ],
-  "total_count": 25,
-  "page": 1,
-  "per_page": 30,
-  "has_next": false
+  "pagination": {
+    "page": 1,
+    "per_page": 30,
+    "has_more": false
+  }
+}
+```
+
+**Error Response:**
+```json
+{
+  "error": "Re-authentication required",
+  "message": "GitHub token expired, please re-authenticate"
 }
 ```
 
@@ -180,9 +169,13 @@ Returns all workspaces for the authenticated user.
 
 **Headers:** `Authorization: Bearer <token>`
 
+**Query Parameters:**
+- `include_inactive` (optional) - Include inactive workspaces (default: false)
+
 **Response:**
 ```json
 {
+  "success": true,
   "workspaces": [
     {
       "id": "clp123abc",
@@ -203,8 +196,7 @@ Returns all workspaces for the authenticated user.
       ]
     }
   ],
-  "total": 3,
-  "active": 1
+  "count": 3
 }
 ```
 
@@ -212,17 +204,15 @@ Returns all workspaces for the authenticated user.
 
 **`POST /api/workspaces`**
 
-Creates a new workspace by cloning a GitHub repository.
+Creates a new workspace from a GitHub repository.
 
 **Headers:** `Authorization: Bearer <token>`
 
 **Request Body:**
 ```json
 {
-  "name": "my-new-project",
   "githubRepo": "octocat/my-new-project",
-  "githubUrl": "https://github.com/octocat/my-new-project",
-  "description": "My new project workspace"
+  "githubUrl": "https://github.com/octocat/my-new-project"
 }
 ```
 
@@ -239,16 +229,15 @@ Creates a new workspace by cloning a GitHub repository.
     "isActive": true,
     "createdAt": "2024-01-10T16:00:00.000Z"
   },
-  "message": "Workspace created and repository cloned successfully"
+  "message": "Workspace created successfully"
 }
 ```
 
 **Error Response:**
 ```json
 {
-  "error": "Workspace creation failed",
-  "details": "Repository clone failed: authentication required",
-  "code": "CLONE_FAILED"
+  "error": "Workspace already exists",
+  "message": "A workspace with this repository already exists"
 }
 ```
 
@@ -256,12 +245,15 @@ Creates a new workspace by cloning a GitHub repository.
 
 **`DELETE /api/workspaces/:workspaceId`**
 
-Deletes a workspace and all associated data.
+Deletes a workspace and optionally removes the files.
 
 **Headers:** `Authorization: Bearer <token>`
 
 **Path Parameters:**
 - `workspaceId` - The workspace ID to delete
+
+**Query Parameters:**
+- `delete_files` (optional) - Whether to delete workspace files (default: false)
 
 **Response:**
 ```json
@@ -275,7 +267,7 @@ Deletes a workspace and all associated data.
 ```bash
 curl -X DELETE \
      -H "Authorization: Bearer <token>" \
-     http://localhost:3014/api/workspaces/clp123abc
+     "http://localhost:3014/api/workspaces/clp123abc?delete_files=true"
 ```
 
 ## System Information Endpoints
@@ -291,7 +283,8 @@ Basic health check endpoint (no authentication required).
 {
   "status": "healthy",
   "timestamp": "2024-01-10T15:30:00.000Z",
-  "uptime": 3600
+  "uptime": 3600,
+  "version": "2.0.0"
 }
 ```
 
@@ -307,24 +300,24 @@ Detailed health information (no authentication required).
   "status": "healthy",
   "timestamp": "2024-01-10T15:30:00.000Z",
   "uptime": 3600,
+  "version": "2.0.0",
   "system": {
     "memory": {
       "used": "256 MB",
       "total": "4 GB",
-      "usage": "6.4%"
+      "percentage": 6.4
     },
     "cpu": {
-      "usage": "15%"
+      "usage": 15.2
     },
     "disk": {
       "used": "2.1 GB", 
       "available": "58 GB",
-      "usage": "3.5%"
+      "percentage": 3.5
     }
   },
   "database": {
     "status": "connected",
-    "tables": 3,
     "size": "1.2 MB"
   },
   "services": {
@@ -345,27 +338,11 @@ Returns API information and available endpoints.
 {
   "name": "AI Code Terminal API",
   "version": "2.0.0",
-  "description": "REST API for terminal workspace management",
+  "status": "running",
   "endpoints": {
-    "authentication": [
-      "GET /api/github/auth",
-      "GET /auth/github/callback", 
-      "GET /api/auth/status",
-      "POST /api/auth/logout"
-    ],
-    "workspaces": [
-      "GET /api/workspaces",
-      "POST /api/workspaces",
-      "DELETE /api/workspaces/:id"
-    ],
-    "github": [
-      "GET /api/github/repositories"
-    ],
-    "system": [
-      "GET /health",
-      "GET /health/detailed",
-      "GET /api/stats"
-    ]
+    "health": "/health",
+    "auth": "/api/github/auth",
+    "stats": "/api/stats"
   }
 }
 ```
@@ -374,31 +351,36 @@ Returns API information and available endpoints.
 
 **`GET /api/stats`**
 
-Returns system usage statistics (requires authentication).
+Returns system usage statistics and resource monitoring (requires authentication).
 
 **Headers:** `Authorization: Bearer <token>`
 
 **Response:**
 ```json
 {
-  "workspaces": {
-    "total": 5,
-    "active": 2,
-    "inactive": 3
-  },
-  "sessions": {
-    "active": 2,
-    "total_today": 8
-  },
   "system": {
     "uptime": 86400,
-    "memory_usage": "15%",
-    "cpu_usage": "8%",
-    "active_connections": 2
+    "memory": {
+      "used": 268435456,
+      "total": 4294967296,
+      "percentage": 6.25
+    },
+    "cpu": {
+      "usage": 8.5
+    },
+    "processes": {
+      "active_sessions": 2,
+      "total_processes": 15
+    }
   },
-  "github": {
-    "api_calls_today": 145,
-    "rate_limit_remaining": 4855
+  "database": {
+    "status": "healthy",
+    "size": "1245184",
+    "connection_count": 1
+  },
+  "workspaces": {
+    "total": 3,
+    "active": 2
   }
 }
 ```
@@ -409,24 +391,25 @@ Returns system usage statistics (requires authentication).
 
 **`GET /api/theme`**
 
-Returns the current theme configuration.
+Returns the current user theme preferences.
 
 **Headers:** `Authorization: Bearer <token>`
 
 **Response:**
 ```json
 {
-  "current_theme": "dark",
-  "theme_data": {
-    "name": "Dark Theme",
+  "success": true,
+  "theme": {
+    "name": "VS Code Dark",
+    "type": "dark",
     "colors": {
-      "background": "#1a1a1a",
-      "foreground": "#ffffff",
-      "accent": "#007acc"
-    },
-    "fonts": {
-      "primary": "Inter",
-      "monospace": "Fira Code"
+      "primary": "#1e1e1e",
+      "secondary": "#252526",
+      "tertiary": "#2d2d30",
+      "sidebar": "#181818",
+      "border": "#3c3c3c",
+      "textPrimary": "#cccccc",
+      "textSecondary": "#969696"
     }
   }
 }
@@ -436,14 +419,22 @@ Returns the current theme configuration.
 
 **`POST /api/theme`**
 
-Updates the current theme.
+Updates the user's theme preferences.
 
 **Headers:** `Authorization: Bearer <token>`
 
 **Request Body:**
 ```json
 {
-  "theme": "light"
+  "theme": {
+    "name": "VS Code Light",
+    "type": "light",
+    "colors": {
+      "primary": "#ffffff",
+      "secondary": "#f3f3f3",
+      "textPrimary": "#333333"
+    }
+  }
 }
 ```
 
@@ -451,8 +442,7 @@ Updates the current theme.
 ```json
 {
   "success": true,
-  "theme": "light",
-  "message": "Theme updated successfully"
+  "message": "Theme preferences updated successfully"
 }
 ```
 
@@ -460,21 +450,31 @@ Updates the current theme.
 
 **`GET /api/themes`**
 
-Returns all available themes.
+Returns all available predefined themes.
+
+**Headers:** `Authorization: Bearer <token>`
 
 **Response:**
 ```json
 {
   "themes": [
     {
-      "id": "dark",
-      "name": "Dark Theme",
-      "description": "Default dark theme"
+      "id": "vs-code-dark",
+      "name": "VS Code Dark",
+      "type": "dark",
+      "description": "Dark theme inspired by VS Code"
     },
     {
-      "id": "light", 
-      "name": "Light Theme",
-      "description": "Clean light theme"
+      "id": "github-light", 
+      "name": "GitHub Light",
+      "type": "light",
+      "description": "Light theme inspired by GitHub"
+    },
+    {
+      "id": "monokai",
+      "name": "Monokai",
+      "type": "dark", 
+      "description": "Popular Monokai color scheme"
     }
   ]
 }
@@ -484,31 +484,52 @@ Returns all available themes.
 
 **`GET /api/themes/:themeId`**
 
-Returns detailed information about a specific theme.
+Returns detailed configuration for a specific theme.
+
+**Headers:** `Authorization: Bearer <token>`
 
 **Response:**
 ```json
 {
-  "id": "dark",
-  "name": "Dark Theme",
-  "description": "Default dark theme optimized for extended coding sessions",
+  "id": "vs-code-dark",
+  "name": "VS Code Dark",
+  "type": "dark",
+  "description": "Dark theme inspired by VS Code editor",
   "colors": {
-    "background": "#1a1a1a",
-    "surface": "#2d2d2d", 
-    "primary": "#007acc",
-    "secondary": "#17a2b8",
-    "text": "#ffffff",
-    "textSecondary": "#cccccc"
-  },
-  "fonts": {
-    "primary": "Inter, system-ui, sans-serif",
-    "monospace": "Fira Code, Consolas, monospace"
+    "primary": "#1e1e1e",
+    "secondary": "#252526",
+    "tertiary": "#2d2d30",
+    "sidebar": "#181818",
+    "border": "#3c3c3c",
+    "textPrimary": "#cccccc",
+    "textSecondary": "#969696",
+    "success": "#4caf50",
+    "warning": "#ff9800",
+    "error": "#f44336"
   },
   "terminal": {
     "background": "#1e1e1e",
     "foreground": "#d4d4d4",
-    "cursor": "#007acc"
+    "cursor": "#007acc",
+    "selection": "#264f78"
   }
+}
+```
+
+### Reload Themes (Development)
+
+**`POST /api/themes/reload`**
+
+Reloads themes from configuration files (development endpoint).
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Themes reloaded successfully",
+  "count": 8
 }
 ```
 
@@ -577,47 +598,38 @@ All API endpoints return consistent error responses:
 }
 ```
 
-## Rate Limiting
+## Error Handling
 
-API endpoints are rate limited to prevent abuse:
-
-### Default Limits
-
-- **General API:** 100 requests per 15 minutes per IP
-- **GitHub API Proxy:** 60 requests per hour per user
-- **Workspace Operations:** 10 requests per 5 minutes per user
-
-### Rate Limit Headers
-
-```http
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 87
-X-RateLimit-Reset: 1641825000
-```
+The API uses standard HTTP status codes and returns JSON error responses for failed requests.
 
 ## Request Examples
 
-### Complete Authentication Flow
+### Complete Authentication and Workspace Creation Flow
 
 ```bash
-# 1. Start OAuth flow
+# 1. Start OAuth flow (redirects to GitHub)
 curl -X GET http://localhost:3014/api/github/auth
 
 # 2. User completes OAuth on GitHub, callback handled automatically
+# User is redirected to /?token=<jwt_token>
 
 # 3. Check authentication status
 curl -H "Authorization: Bearer <token>" \
      http://localhost:3014/api/auth/status
 
-# 4. Get repositories
+# 4. Get user's GitHub repositories
 curl -H "Authorization: Bearer <token>" \
-     http://localhost:3014/api/github/repositories
+     "http://localhost:3014/api/github/repositories?page=1&per_page=10"
 
-# 5. Create workspace
+# 5. Create workspace from repository
 curl -X POST \
      -H "Authorization: Bearer <token>" \
      -H "Content-Type: application/json" \
-     -d '{"name": "test-project", "githubRepo": "octocat/Hello-World", "githubUrl": "https://github.com/octocat/Hello-World"}' \
+     -d '{"githubRepo": "octocat/Hello-World", "githubUrl": "https://github.com/octocat/Hello-World"}' \
+     http://localhost:3014/api/workspaces
+
+# 6. List all workspaces
+curl -H "Authorization: Bearer <token>" \
      http://localhost:3014/api/workspaces
 ```
 
@@ -625,7 +637,7 @@ curl -X POST \
 
 ```typescript
 class AICodeTerminalAPI {
-  private baseURL = 'http://localhost:3014/api';
+  private baseURL = 'http://localhost:3014';
   private token: string | null = null;
 
   setToken(token: string) {
@@ -649,7 +661,7 @@ class AICodeTerminalAPI {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || 'API request failed');
+      throw new Error(error.error || error.message || 'API request failed');
     }
 
     return response.json();
@@ -657,39 +669,70 @@ class AICodeTerminalAPI {
 
   // Authentication
   async getAuthStatus() {
-    return this.request('GET', '/auth/status');
+    return this.request('GET', '/api/auth/status');
   }
 
   async logout() {
-    return this.request('POST', '/auth/logout');
+    return this.request('POST', '/api/auth/logout');
   }
 
-  // Repositories
-  async getRepositories(page = 1, perPage = 30) {
-    return this.request('GET', `/github/repositories?page=${page}&per_page=${perPage}`);
+  // GitHub Integration
+  async getRepositories(page = 1, perPage = 30, sort = 'updated') {
+    return this.request('GET', `/api/github/repositories?page=${page}&per_page=${perPage}&sort=${sort}`);
   }
 
   // Workspaces
   async getWorkspaces() {
-    return this.request('GET', '/workspaces');
+    return this.request('GET', '/api/workspaces');
   }
 
-  async createWorkspace(workspace: CreateWorkspaceRequest) {
-    return this.request('POST', '/workspaces', workspace);
+  async createWorkspace(githubRepo: string, githubUrl: string) {
+    return this.request('POST', '/api/workspaces', { githubRepo, githubUrl });
   }
 
-  async deleteWorkspace(workspaceId: string) {
-    return this.request('DELETE', `/workspaces/${workspaceId}`);
+  async deleteWorkspace(workspaceId: string, deleteFiles = false) {
+    return this.request('DELETE', `/api/workspaces/${workspaceId}?delete_files=${deleteFiles}`);
+  }
+
+  // Themes
+  async getThemes() {
+    return this.request('GET', '/api/themes');
+  }
+
+  async getCurrentTheme() {
+    return this.request('GET', '/api/theme');
+  }
+
+  async updateTheme(theme: any) {
+    return this.request('POST', '/api/theme', { theme });
+  }
+
+  // System
+  async getStats() {
+    return this.request('GET', '/api/stats');
   }
 }
 
 // Usage example
 const api = new AICodeTerminalAPI();
-api.setToken(localStorage.getItem('jwt_token'));
+api.setToken(localStorage.getItem('authToken'));
 
 try {
-  const workspaces = await api.getWorkspaces();
-  console.log('Workspaces:', workspaces);
+  // Get authentication status
+  const authStatus = await api.getAuthStatus();
+  console.log('Auth status:', authStatus);
+
+  // List repositories
+  const repos = await api.getRepositories(1, 10);
+  console.log('Repositories:', repos.repositories);
+
+  // Create workspace
+  const workspace = await api.createWorkspace(
+    'octocat/Hello-World', 
+    'https://github.com/octocat/Hello-World'
+  );
+  console.log('Created workspace:', workspace);
+
 } catch (error) {
   console.error('API Error:', error.message);
 }

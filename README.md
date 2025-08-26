@@ -95,7 +95,9 @@ Website: [act.drmhse.com](https://act.drmhse.com)
 
 ## Environment Variables
 
-All configuration is managed through environment variables. See `env.example` for the full list.
+All configuration is managed through environment variables. Copy `env.example` to `.env` and configure the following:
+
+### Required Variables
 
 | Variable                 | Required | Description                                     |
 | ------------------------ | -------- | ----------------------------------------------- |
@@ -104,6 +106,47 @@ All configuration is managed through environment variables. See `env.example` fo
 | `GITHUB_CLIENT_SECRET`   | Yes      | GitHub OAuth App Client Secret                  |
 | `GITHUB_CALLBACK_URL`    | Yes      | The exact callback URL from your OAuth App      |
 | `TENANT_GITHUB_USERNAME` | Yes      | The single GitHub username authorized to log in |
+
+### Optional Variables
+
+| Variable                 | Default | Description                                     |
+| ------------------------ | ------- | ----------------------------------------------- |
+| `NODE_ENV`              | `development` | Environment mode (`production`, `development`) |
+| `PORT`                  | `3014`  | Server port number                               |
+| `DATABASE_URL`          | `file:./data/database.db` | SQLite database path   |
+| `FRONTEND_URL`          | -       | Frontend URL for CORS (separate deployment)     |
+| `ALLOWED_ORIGINS`       | -       | Additional allowed CORS origins (comma-separated) |
+| `WORKSPACE_CLEANUP_DAYS` | `30`    | Auto-cleanup inactive workspaces after N days  |
+
+### Environment Configuration Examples
+
+**Development Setup:**
+```env
+NODE_ENV=development
+PORT=3014
+JWT_SECRET=your-super-secure-jwt-secret-at-least-32-characters-long
+DATABASE_URL=file:./data/database.db
+GITHUB_CLIENT_ID=your-github-oauth-client-id
+GITHUB_CLIENT_SECRET=your-github-oauth-client-secret
+GITHUB_CALLBACK_URL=http://localhost:3014/auth/github/callback
+TENANT_GITHUB_USERNAME=your-github-username
+WORKSPACE_CLEANUP_DAYS=7
+```
+
+**Production Setup:**
+```env
+NODE_ENV=production
+PORT=3014
+JWT_SECRET=ultra-secure-production-jwt-secret-minimum-32-chars
+DATABASE_URL=file:./data/database.db
+GITHUB_CLIENT_ID=prod-github-oauth-client-id
+GITHUB_CLIENT_SECRET=prod-github-oauth-client-secret
+GITHUB_CALLBACK_URL=https://your-domain.com/auth/github/callback
+TENANT_GITHUB_USERNAME=your-github-username
+FRONTEND_URL=https://your-frontend-domain.com
+ALLOWED_ORIGINS=https://your-domain.com,https://preview--your-app.netlify.app
+WORKSPACE_CLEANUP_DAYS=30
+```
 
 ## License
 

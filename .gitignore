@@ -32,7 +32,7 @@ jspm_packages/
 # Database files
 *.db
 
-# Workspaces directory  
+# Workspaces directory
 data/workspaces/
 
 # Logs
@@ -47,3 +47,4 @@ logs
 .Trashes
 ehthumbs.db
 Thumbs.db
+website/public

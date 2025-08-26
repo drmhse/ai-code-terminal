@@ -67,32 +67,86 @@ git push origin main
 | `↑/↓` | History | Navigate command history |
 | `Tab` | Complete | Auto-complete commands and paths |
 
-## Session Management
+## Advanced Session Management
 
-Terminal sessions are automatically managed:
+Terminal sessions feature sophisticated persistence and sharing capabilities:
 
-- **Auto-creation:** New session created when entering workspace
-- **Persistence:** Sessions survive browser refreshes and reconnections
-- **Isolation:** Each workspace has its own independent shell
-- **Cleanup:** Inactive sessions automatically terminated after timeout
-- **Multi-connection:** Multiple browser tabs can connect to same session
+### Session Persistence
+- **Persistent History:** All terminal output stored to disk with 5000-line memory buffer
+- **Session Resurrection:** Terminal sessions survive server restarts and browser disconnects
+- **History Replay:** New connections automatically replay recent session history
+- **Cross-Device Access:** Sessions accessible from multiple devices simultaneously
 
-## Advanced Features
+### Room-Based Communication
+- **Workspace Isolation:** Each workspace gets its own Socket.IO room
+- **Multi-Client Support:** Multiple browser tabs/devices can connect to the same session
+- **Real-time Synchronization:** All connected clients see output in real-time
+- **Conflict-Free Sharing:** Shared sessions prevent output bleeding between workspaces
 
-### Environment Variables
-Each terminal session inherits the full system environment plus workspace-specific variables.
+### Process Management
+- **Intelligent Session Tracking:** Maps Socket.IO connections to PTY processes
+- **Graceful Cleanup:** Automatic cleanup of zombie processes every 5 minutes
+- **Resource Monitoring:** Process health checks and automatic recovery
+- **Session Lifecycle:** Complete tracking from creation to termination
 
-### Working Directory
-Terminal sessions automatically start in the workspace root directory.
+### Advanced Features
 
-### Shell Integration
-The terminal works with any POSIX-compatible shell and supports:
-- Command completion
-- History search
-- Job control
-- Signal handling
+#### Persistent Session History
+```javascript
+// History storage structure
+/home/claude/.terminal_history/
+├── workspace-id-1.log    # Base64 encoded terminal output
+├── workspace-id-2.log    # Timestamped entries
+└── workspace-id-3.log    # Automatic cleanup of old entries
+```
 
-### Performance
-- Low-latency I/O via optimized WebSocket communication
-- Efficient PTY process management
-- Minimal resource usage per session
+#### RingBuffer Implementation
+- **Memory Management:** In-memory circular buffer for fast access
+- **Disk Persistence:** Automatic background writes to disk storage
+- **Configurable Capacity:** 5000-line default capacity per session
+- **Performance Optimized:** Non-blocking I/O for terminal responsiveness
+
+#### Environment Variables
+Each terminal session includes:
+- Full system environment inheritance
+- Workspace-specific PATH modifications
+- Claude Code integration variables
+- Custom prompt configuration (PS1)
+- Development tool paths (`/home/claude/.local/bin`)
+
+#### Working Directory Management
+- **Automatic Navigation:** Sessions start in workspace root directory
+- **Path Persistence:** Working directory maintained across reconnections
+- **Workspace Isolation:** Each workspace maintains independent working state
+
+#### Shell Integration
+Advanced shell features supported:
+- **Login Shell:** Bash with `--login` flag for proper initialization
+- **Job Control:** Full support for background/foreground processes
+- **Signal Handling:** Proper SIGINT, SIGTERM, SIGKILL propagation
+- **Terminal Resize:** Dynamic resize handling with PTY process updates
+- **Color Support:** Full 256-color terminal with xterm-256color
+
+#### Git Integration
+- **OAuth Credential Helper:** Automatic GitHub authentication using stored tokens
+- **Repository Management:** Built-in Git operations with credential management
+- **Authentication Fixing:** Automatic repair of Git authentication issues
+
+### Performance Optimizations
+
+#### WebSocket Communication
+- **Low Latency:** Optimized Socket.IO configuration for minimal delay
+- **Connection Pooling:** Efficient connection management per workspace
+- **Bandwidth Optimization:** Compressed data transmission
+- **Error Recovery:** Automatic reconnection with session restoration
+
+#### Resource Management
+- **Memory Efficient:** Ring buffer prevents memory leaks
+- **Disk Usage:** Automatic cleanup of old session logs
+- **Process Limits:** Controlled resource usage per terminal session
+- **Health Monitoring:** Continuous process health checks
+
+#### Concurrent Access
+- **Thread Safety:** Safe multi-client access to shared sessions
+- **Race Condition Prevention:** Proper synchronization of terminal I/O
+- **State Consistency:** Guaranteed consistent view across all clients
