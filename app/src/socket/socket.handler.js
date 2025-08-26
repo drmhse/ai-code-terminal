@@ -27,10 +27,10 @@ class SocketHandler {
       this.registerWorkspaceHandlers(socket);
 
       // Disconnect handler
-      socket.on('disconnect', (reason) => {
+      socket.on('disconnect', async (reason) => {
         logger.info(`User ${socket.user.username} disconnected (${socket.id}): ${reason}`);
         // Detach socket from session but keep process alive
-        shellService.handleSocketDisconnect(socket.id);
+        await shellService.handleSocketDisconnect(socket.id);
       });
     });
   }
@@ -39,8 +39,8 @@ class SocketHandler {
     // Create terminal session
     socket.on('create-terminal', async (data) => {
       try {
-        const { workspaceId } = data || {};
-        await shellService.createPtyForSocket(socket, workspaceId);
+        const { workspaceId, recoveryToken } = data || {};
+        await shellService.createPtyForSocket(socket, workspaceId, recoveryToken);
       } catch (error) {
         logger.error('Error creating terminal:', error);
         socket.emit('terminal-error', { error: error.message });
@@ -48,9 +48,9 @@ class SocketHandler {
     });
 
     // Handle terminal input
-    socket.on('terminal-input', (data) => {
+    socket.on('terminal-input', async (data) => {
       try {
-        shellService.writeToPty(socket.id, data);
+        await shellService.writeToPty(socket.id, data);
       } catch (error) {
         logger.error('Error handling terminal input:', error);
         socket.emit('terminal-error', { error: error.message });
@@ -58,10 +58,10 @@ class SocketHandler {
     });
 
     // Handle terminal resize
-    socket.on('terminal-resize', (data) => {
+    socket.on('terminal-resize', async (data) => {
       try {
         const { cols, rows } = data;
-        shellService.resizePty(socket.id, cols, rows);
+        await shellService.resizePty(socket.id, cols, rows);
       } catch (error) {
         logger.error('Error resizing terminal:', error);
         socket.emit('terminal-error', { error: error.message });

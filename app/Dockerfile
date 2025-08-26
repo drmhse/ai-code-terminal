@@ -36,6 +36,15 @@ RUN npm install --omit=dev && npm cache clean --force
 # Copy application code
 COPY . .
 
+# Copy and install act CLI
+COPY ../cli /tmp/act-cli
+WORKDIR /tmp/act-cli
+RUN npm install --omit=dev
+RUN chmod +x bin/act.js
+RUN mkdir -p /usr/local/bin
+RUN cp bin/act.js /usr/local/bin/act
+WORKDIR /app
+
 # Make startup script executable
 RUN chmod +x start.sh
 
@@ -59,6 +68,7 @@ RUN echo 'export PS1="\[\033[1;32m\]\u@\h\[\033[0m\]:\[\033[1;34m\]\w\[\033[0m\]
     echo 'alias gl="git log --oneline"' >> /home/claude/.bashrc && \
     echo 'cd /app/workspaces 2>/dev/null || cd /app' >> /home/claude/.bashrc && \
     echo 'echo "Welcome to Claude Code Terminal!"' >> /home/claude/.bashrc && \
+    echo 'echo "🚀 act-cli is available! Try: act context add <file>, act context --help"' >> /home/claude/.bashrc && \
     chown claude:claude /home/claude/.bashrc
 
 COPY init.sh /init.sh

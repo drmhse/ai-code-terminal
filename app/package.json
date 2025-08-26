@@ -25,7 +25,8 @@
     "node-pty": "^1.0.0",
     "prisma": "^6.13.0",
     "socket.io": "^4.7.4",
-    "sqlite3": "^5.1.7"
+    "sqlite3": "^5.1.7",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@types/node": "^24.2.1",

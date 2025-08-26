@@ -13,6 +13,7 @@ const healthController = require('./controllers/health.controller');
 const githubController = require('./controllers/github.controller');
 const workspaceController = require('./controllers/workspace.controller');
 const themeController = require('./controllers/theme.controller');
+const processController = require('./controllers/process.controller');
 
 // Middleware
 const { authenticateToken } = require('./middleware/auth.middleware');
@@ -43,6 +44,10 @@ const {
 
 // Socket handlers
 const socketHandler = require('./socket/socket.handler');
+
+// Services
+const cleanupService = require('./services/cleanup.service');
+const processSupervisorService = require('./services/process-supervisor.service');
 
 // Utilities
 const logger = require('./utils/logger');
@@ -190,6 +195,38 @@ app.delete('/api/workspaces/:workspaceId',
   asyncHandler(githubController.deleteWorkspace.bind(githubController))
 );
 
+// Process management endpoints (auth required)
+app.get('/api/processes',
+  authenticateToken,
+  asyncHandler(processController.getProcesses.bind(processController))
+);
+
+app.post('/api/processes',
+  authenticateToken,
+  validateJSON,
+  asyncHandler(processController.startProcess.bind(processController))
+);
+
+app.get('/api/processes/:processId',
+  authenticateToken,
+  asyncHandler(processController.getProcess.bind(processController))
+);
+
+app.delete('/api/processes/:processId',
+  authenticateToken,
+  asyncHandler(processController.stopProcess.bind(processController))
+);
+
+app.post('/api/processes/:processId/restart',
+  authenticateToken,
+  asyncHandler(processController.restartProcess.bind(processController))
+);
+
+app.get('/api/processes/supervisor/status',
+  authenticateToken,
+  asyncHandler(processController.getStatus.bind(processController))
+);
+
 // 404 handler
 app.use(notFoundHandler);
 
@@ -215,6 +252,14 @@ async function initializeApp() {
     // Initialize directories
     await initializeDirectories();
 
+    // Start cleanup service
+    logger.info('Starting cleanup service...');
+    cleanupService.start();
+
+    // Start process supervisor service
+    logger.info('Starting process supervisor service...');
+    await processSupervisorService.start();
+
     logger.info('Application initialized successfully');
     return { app: server, io };
   } catch (error) {
@@ -227,6 +272,14 @@ async function initializeApp() {
 async function gracefulShutdown() {
   logger.info('Starting graceful shutdown...');
   try {
+    // Stop cleanup service
+    logger.info('Stopping cleanup service...');
+    cleanupService.stop();
+    
+    // Stop process supervisor service
+    logger.info('Stopping process supervisor service...');
+    await processSupervisorService.stop();
+    
     await disconnect();
     logger.info('Database connection closed');
   } catch (error) {

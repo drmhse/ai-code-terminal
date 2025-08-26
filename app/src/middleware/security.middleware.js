@@ -1,47 +1,70 @@
 // Security middleware for rate limiting and input sanitization
-// Future: Can be enhanced with libraries like express-rate-limit and helmet
+// Database-backed rate limiting and CSRF protection
 
 const crypto = require('crypto');
-const rateLimit = new Map(); // In-memory rate limiting (Future: Redis-based)
-const csrfTokens = new Map(); // In-memory CSRF tokens (Future: Redis-based)
+const { PrismaClient } = require('@prisma/client');
+
+const prisma = new PrismaClient();
 
 function createRateLimiter(windowMs = 15 * 60 * 1000, maxRequests = 100, keyPrefix = 'general') {
-  return function rateLimitMiddleware(req, res, next) {
+  return async function rateLimitMiddleware(req, res, next) {
     // Skip rate limiting in test environment if disabled
     if (process.env.NODE_ENV === 'test' && process.env.DISABLE_RATE_LIMITING === 'true') {
       return next();
     }
 
-    const clientIp = req.ip || req.connection.remoteAddress;
-    const key = `${keyPrefix}:${clientIp}`;
-    const now = Date.now();
-    const windowStart = now - windowMs;
-    
-    // Clean up old entries
-    if (!rateLimit.has(key)) {
-      rateLimit.set(key, []);
-    }
-    
-    const requests = rateLimit.get(key);
-    const validRequests = requests.filter(timestamp => timestamp > windowStart);
-    
-    if (validRequests.length >= maxRequests) {
-      return res.status(429).json({
-        error: 'Too many requests',
-        message: `Rate limit exceeded for ${keyPrefix} operations`,
-        retryAfter: Math.ceil(windowMs / 1000)
+    try {
+      const clientIp = req.ip || req.connection.remoteAddress;
+      const now = new Date();
+      const windowStart = new Date(now.getTime() - windowMs);
+      
+      // Clean up expired entries for this client/prefix
+      await prisma.rateLimit.deleteMany({
+        where: {
+          clientIp,
+          keyPrefix,
+          expiresAt: { lt: now }
+        }
       });
+      
+      // Count valid requests in the time window
+      const validRequests = await prisma.rateLimit.count({
+        where: {
+          clientIp,
+          keyPrefix,
+          requestTime: { gte: windowStart }
+        }
+      });
+      
+      if (validRequests >= maxRequests) {
+        return res.status(429).json({
+          error: 'Too many requests',
+          message: `Rate limit exceeded for ${keyPrefix} operations`,
+          retryAfter: Math.ceil(windowMs / 1000)
+        });
+      }
+      
+      // Record this request
+      await prisma.rateLimit.create({
+        data: {
+          clientIp,
+          keyPrefix,
+          requestTime: now,
+          expiresAt: new Date(now.getTime() + windowMs)
+        }
+      });
+      
+      // Add rate limit headers
+      res.setHeader('X-RateLimit-Limit', maxRequests);
+      res.setHeader('X-RateLimit-Remaining', Math.max(0, maxRequests - validRequests - 1));
+      res.setHeader('X-RateLimit-Reset', Math.ceil((now.getTime() + windowMs) / 1000));
+      
+      next();
+    } catch (error) {
+      console.error('Rate limiting error:', error);
+      // Fail open in case of database error
+      next();
     }
-    
-    validRequests.push(now);
-    rateLimit.set(key, validRequests);
-    
-    // Add rate limit headers
-    res.setHeader('X-RateLimit-Limit', maxRequests);
-    res.setHeader('X-RateLimit-Remaining', Math.max(0, maxRequests - validRequests.length));
-    res.setHeader('X-RateLimit-Reset', Math.ceil((now + windowMs) / 1000));
-    
-    next();
   };
 }
 
@@ -107,42 +130,49 @@ function generateCSRFToken() {
   return crypto.randomBytes(32).toString('hex');
 }
 
-function createCSRFToken(req, res, next) {
+async function createCSRFToken(req, res, next) {
   // Skip CSRF for GET requests and API endpoints that don't need it
   if (req.method === 'GET' || req.path.startsWith('/health')) {
     return next();
   }
 
-  // Generate CSRF token for authenticated requests
-  if (req.user) {
-    const token = generateCSRFToken();
-    const key = `${req.user.userId}_${Date.now()}`;
-    
-    // Store token with expiration (15 minutes)
-    csrfTokens.set(key, {
-      token,
-      userId: req.user.userId,
-      expires: Date.now() + 15 * 60 * 1000
-    });
-
-    // Clean up expired tokens periodically
-    if (Math.random() < 0.1) { // 10% chance to clean up
-      const now = Date.now();
-      for (const [k, v] of csrfTokens.entries()) {
-        if (v.expires < now) {
-          csrfTokens.delete(k);
+  try {
+    // Generate CSRF token for authenticated requests
+    if (req.user) {
+      const token = generateCSRFToken();
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 15 * 60 * 1000); // 15 minutes
+      
+      // Store token in database
+      await prisma.csrfToken.create({
+        data: {
+          token,
+          userId: req.user.userId,
+          expiresAt
         }
+      });
+
+      // Periodic cleanup (10% chance)
+      if (Math.random() < 0.1) {
+        await prisma.csrfToken.deleteMany({
+          where: {
+            expiresAt: { lt: now }
+          }
+        });
       }
+
+      res.setHeader('X-CSRF-Token', token);
+      req.csrfToken = token;
     }
 
-    res.setHeader('X-CSRF-Token', token);
-    req.csrfToken = token;
+    next();
+  } catch (error) {
+    console.error('CSRF token creation error:', error);
+    next();
   }
-
-  next();
 }
 
-function validateCSRFToken(req, res, next) {
+async function validateCSRFToken(req, res, next) {
   // Skip CSRF validation for GET requests, health checks, and auth endpoints
   if (req.method === 'GET' || 
       req.path.startsWith('/health') || 
@@ -157,33 +187,41 @@ function validateCSRFToken(req, res, next) {
     return next();
   }
 
-  // Check for CSRF token in header or body
-  const token = req.headers['x-csrf-token'] || req.body.csrfToken;
-  
-  if (!token) {
-    return res.status(403).json({ error: 'CSRF token missing' });
-  }
-
-  // Find and validate token
-  let validToken = false;
-  const now = Date.now();
-  
-  for (const [key, value] of csrfTokens.entries()) {
-    if (value.token === token && 
-        value.userId === req.user?.userId && 
-        value.expires > now) {
-      validToken = true;
-      // Remove used token (one-time use)
-      csrfTokens.delete(key);
-      break;
+  try {
+    // Check for CSRF token in header or body
+    const token = req.headers['x-csrf-token'] || req.body.csrfToken;
+    
+    if (!token) {
+      return res.status(403).json({ error: 'CSRF token missing' });
     }
-  }
 
-  if (!validToken) {
-    return res.status(403).json({ error: 'Invalid CSRF token' });
-  }
+    const now = new Date();
+    
+    // Find and validate token
+    const validToken = await prisma.csrfToken.findFirst({
+      where: {
+        token,
+        userId: req.user?.userId,
+        expiresAt: { gt: now }
+      }
+    });
 
-  next();
+    if (!validToken) {
+      return res.status(403).json({ error: 'Invalid CSRF token' });
+    }
+
+    // Remove used token (one-time use)
+    await prisma.csrfToken.delete({
+      where: {
+        id: validToken.id
+      }
+    });
+
+    next();
+  } catch (error) {
+    console.error('CSRF token validation error:', error);
+    return res.status(403).json({ error: 'CSRF token validation failed' });
+  }
 }
 
 module.exports = {
