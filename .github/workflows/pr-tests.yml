@@ -16,6 +16,8 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: '22'
+    - name: Change directory
+      run: cd app
     - name: Install dependencies
       run: npm install
     - name: Run tests and generate coverage

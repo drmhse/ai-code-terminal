@@ -38,6 +38,7 @@ data/workspaces/
 # Logs
 logs
 *.log
+_*.md
 
 # OS generated files
 .DS_Store
