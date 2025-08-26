@@ -1,18 +1,23 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-  <channel>
-    <title>Deployment on AI Code Terminal: The AI-Native Shell</title>
-    <link>http://localhost:1313/docs/deployment/</link>
-    <description>Recent content in Deployment on AI Code Terminal: The AI-Native Shell</description>
-    <generator>Hugo</generator>
-    <language>en-us</language>
-    <atom:link href="http://localhost:1313/docs/deployment/index.xml" rel="self" type="application/rss+xml" />
-    <item>
-      <title>Docker Deployment</title>
-      <link>http://localhost:1313/docs/deployment/docker/</link>
-      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-      <guid>http://localhost:1313/docs/deployment/docker/</guid>
-      <description>&lt;h1 id=&#34;docker-deployment&#34;&gt;Docker Deployment&lt;/h1&gt;&#xA;&lt;p&gt;AI Code Terminal is designed for containerized deployment with Docker. This guide covers production Docker deployment with security hardening, volume management, and orchestration.&lt;/p&gt;&#xA;&lt;h2 id=&#34;docker-architecture&#34;&gt;Docker Architecture&lt;/h2&gt;&#xA;&lt;h3 id=&#34;container-design&#34;&gt;Container Design&lt;/h3&gt;&#xA;&lt;p&gt;The application uses a security-hardened Docker container with:&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;&lt;strong&gt;Base Image:&lt;/strong&gt; Node.js 20 Alpine Linux&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Non-root User:&lt;/strong&gt; Runs as &lt;code&gt;claude&lt;/code&gt; user (UID 1001)&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Read-only Root Filesystem:&lt;/strong&gt; Enhanced security&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Resource Limits:&lt;/strong&gt; Memory and CPU constraints&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Health Checks:&lt;/strong&gt; Built-in health monitoring&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;&lt;h3 id=&#34;security-features&#34;&gt;Security Features&lt;/h3&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;&lt;strong&gt;Minimal Attack Surface:&lt;/strong&gt; Alpine Linux base&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;No New Privileges:&lt;/strong&gt; Prevents privilege escalation&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Dropped Capabilities:&lt;/strong&gt; Minimal required capabilities&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Non-root Execution:&lt;/strong&gt; All processes run as non-root user&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Temporary File Systems:&lt;/strong&gt; Writable areas in tmpfs&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;&lt;h2 id=&#34;dockerfile-overview&#34;&gt;Dockerfile Overview&lt;/h2&gt;&#xA;&lt;h3 id=&#34;multi-stage-build&#34;&gt;Multi-stage Build&lt;/h3&gt;&#xA;&lt;p&gt;&lt;strong&gt;&lt;code&gt;Dockerfile&lt;/code&gt;:&lt;/strong&gt;&lt;/p&gt;</description>
-    </item>
-  </channel>
-</rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Deployment on AI Code Terminal: The AI-Native Shell</title><link>https://act.drmhse.com/docs/deployment/</link><description>Recent content in Deployment on AI Code Terminal: The AI-Native Shell</description><generator>Hugo</generator><language>en-us</language><atom:link href="https://act.drmhse.com/docs/deployment/index.xml" rel="self" type="application/rss+xml"/><item><title>Docker Deployment</title><link>https://act.drmhse.com/docs/deployment/docker/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://act.drmhse.com/docs/deployment/docker/</guid><description>&lt;h1 id="docker-deployment">Docker Deployment&lt;/h1>
+&lt;p>AI Code Terminal is designed for containerized deployment with Docker. This guide covers production Docker deployment with security hardening, volume management, and orchestration.&lt;/p>
+&lt;h2 id="docker-architecture">Docker Architecture&lt;/h2>
+&lt;h3 id="container-design">Container Design&lt;/h3>
+&lt;p>The application uses a security-hardened Docker container with:&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Base Image:&lt;/strong> Node.js 20 Alpine Linux&lt;/li>
+&lt;li>&lt;strong>Non-root User:&lt;/strong> Runs as &lt;code>claude&lt;/code> user (UID 1001)&lt;/li>
+&lt;li>&lt;strong>Read-only Root Filesystem:&lt;/strong> Enhanced security&lt;/li>
+&lt;li>&lt;strong>Resource Limits:&lt;/strong> Memory and CPU constraints&lt;/li>
+&lt;li>&lt;strong>Health Checks:&lt;/strong> Built-in health monitoring&lt;/li>
+&lt;/ul>
+&lt;h3 id="security-features">Security Features&lt;/h3>
+&lt;ul>
+&lt;li>&lt;strong>Minimal Attack Surface:&lt;/strong> Alpine Linux base&lt;/li>
+&lt;li>&lt;strong>No New Privileges:&lt;/strong> Prevents privilege escalation&lt;/li>
+&lt;li>&lt;strong>Dropped Capabilities:&lt;/strong> Minimal required capabilities&lt;/li>
+&lt;li>&lt;strong>Non-root Execution:&lt;/strong> All processes run as non-root user&lt;/li>
+&lt;li>&lt;strong>Temporary File Systems:&lt;/strong> Writable areas in tmpfs&lt;/li>
+&lt;/ul>
+&lt;h2 id="dockerfile-overview">Dockerfile Overview&lt;/h2>
+&lt;h3 id="multi-stage-build">Multi-stage Build&lt;/h3>
+&lt;p>&lt;strong>&lt;code>Dockerfile&lt;/code>:&lt;/strong>&lt;/p></description></item></channel></rss>

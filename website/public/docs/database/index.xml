@@ -1,25 +1,65 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-  <channel>
-    <title>Database &amp; Storage on AI Code Terminal: The AI-Native Shell</title>
-    <link>http://localhost:1313/docs/database/</link>
-    <description>Recent content in Database &amp; Storage on AI Code Terminal: The AI-Native Shell</description>
-    <generator>Hugo</generator>
-    <language>en-us</language>
-    <atom:link href="http://localhost:1313/docs/database/index.xml" rel="self" type="application/rss+xml" />
-    <item>
-      <title>Database Schema</title>
-      <link>http://localhost:1313/docs/database/schema/</link>
-      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-      <guid>http://localhost:1313/docs/database/schema/</guid>
-      <description>&lt;h1 id=&#34;database-schema&#34;&gt;Database Schema&lt;/h1&gt;&#xA;&lt;p&gt;AI Code Terminal uses SQLite with Prisma ORM for lightweight, efficient data storage. The schema is designed for single-tenant operation with minimal data requirements while maintaining security and performance.&lt;/p&gt;&#xA;&lt;h2 id=&#34;database-technology-stack&#34;&gt;Database Technology Stack&lt;/h2&gt;&#xA;&lt;h3 id=&#34;core-components&#34;&gt;Core Components&lt;/h3&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;&lt;strong&gt;Database Engine:&lt;/strong&gt; SQLite 3.x&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;ORM:&lt;/strong&gt; Prisma 5.x&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Query Builder:&lt;/strong&gt; Prisma Client&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Migrations:&lt;/strong&gt; Prisma Migrate&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Schema Definition:&lt;/strong&gt; Prisma Schema Language&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;&lt;h3 id=&#34;advantages-of-sqlite--prisma&#34;&gt;Advantages of SQLite + Prisma&lt;/h3&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;&lt;strong&gt;Zero Configuration:&lt;/strong&gt; No database server setup required&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;ACID Compliance:&lt;/strong&gt; Full transaction support&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Cross-platform:&lt;/strong&gt; Works on all operating systems&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Embedded:&lt;/strong&gt; No network overhead&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Type Safety:&lt;/strong&gt; Prisma generates TypeScript types&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Migration System:&lt;/strong&gt; Version-controlled schema changes&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;&lt;h2 id=&#34;complete-schema-definition&#34;&gt;Complete Schema Definition&lt;/h2&gt;&#xA;&lt;h3 id=&#34;prisma-schema-file&#34;&gt;Prisma Schema File&lt;/h3&gt;&#xA;&lt;p&gt;&lt;strong&gt;Location:&lt;/strong&gt; &lt;code&gt;/prisma/schema.prisma&lt;/code&gt;&lt;/p&gt;</description>
-    </item>
-    <item>
-      <title>Data Models</title>
-      <link>http://localhost:1313/docs/database/models/</link>
-      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-      <guid>http://localhost:1313/docs/database/models/</guid>
-      <description>&lt;h1 id=&#34;data-models&#34;&gt;Data Models&lt;/h1&gt;&#xA;&lt;p&gt;AI Code Terminal uses a carefully designed data model that supports single-tenant operation, workspace isolation, and real-time session management. This guide covers the business logic, relationships, and usage patterns for each model.&lt;/p&gt;&#xA;&lt;h2 id=&#34;model-relationships-overview&#34;&gt;Model Relationships Overview&lt;/h2&gt;&#xA;&lt;pre tabindex=&#34;0&#34;&gt;&lt;code class=&#34;language-mermaid&#34; data-lang=&#34;mermaid&#34;&gt;erDiagram&#xA;    Settings ||--|| User : &amp;#34;single-tenant&amp;#34;&#xA;    Workspace ||--o{ Session : &amp;#34;has-many&amp;#34;&#xA;    Workspace ||--o{ AuthLog : &amp;#34;references&amp;#34;&#xA;    Session ||--o{ SystemMetric : &amp;#34;monitors&amp;#34;&#xA;    &#xA;    Settings {&#xA;        string id PK &amp;#34;singleton&amp;#34;&#xA;        string githubToken &amp;#34;encrypted&amp;#34;&#xA;        string githubRefreshToken &amp;#34;encrypted&amp;#34;&#xA;        datetime githubTokenExpiresAt&#xA;        string theme&#xA;        string preferences &amp;#34;JSON&amp;#34;&#xA;    }&#xA;    &#xA;    Workspace {&#xA;        string id PK &amp;#34;cuid&amp;#34;&#xA;        string name UK &amp;#34;unique&amp;#34;&#xA;        string githubRepo UK &amp;#34;owner/repo&amp;#34;&#xA;        string githubUrl&#xA;        int githubId&#xA;        string localPath&#xA;        string branch&#xA;        boolean isActive&#xA;        datetime lastSyncAt&#xA;    }&#xA;    &#xA;    Session {&#xA;        string id PK &amp;#34;cuid&amp;#34;&#xA;        string workspaceId FK&#xA;        int shellPid&#xA;        string socketId&#xA;        string shell&#xA;        string status&#xA;        string workingDirectory&#xA;        datetime lastActivityAt&#xA;    }&#xA;&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&#34;settings-model-business-logic&#34;&gt;Settings Model Business Logic&lt;/h2&gt;&#xA;&lt;h3 id=&#34;single-tenant-configuration&#34;&gt;Single-Tenant Configuration&lt;/h3&gt;&#xA;&lt;p&gt;The Settings model implements the singleton pattern for single-tenant configuration:&lt;/p&gt;</description>
-    </item>
-  </channel>
-</rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Database &amp; Storage on AI Code Terminal: The AI-Native Shell</title><link>https://act.drmhse.com/docs/database/</link><description>Recent content in Database &amp; Storage on AI Code Terminal: The AI-Native Shell</description><generator>Hugo</generator><language>en-us</language><atom:link href="https://act.drmhse.com/docs/database/index.xml" rel="self" type="application/rss+xml"/><item><title>Database Schema</title><link>https://act.drmhse.com/docs/database/schema/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://act.drmhse.com/docs/database/schema/</guid><description>&lt;h1 id="database-schema">Database Schema&lt;/h1>
+&lt;p>AI Code Terminal uses SQLite with Prisma ORM for lightweight, efficient data storage. The schema is designed for single-tenant operation with minimal data requirements while maintaining security and performance.&lt;/p>
+&lt;h2 id="database-technology-stack">Database Technology Stack&lt;/h2>
+&lt;h3 id="core-components">Core Components&lt;/h3>
+&lt;ul>
+&lt;li>&lt;strong>Database Engine:&lt;/strong> SQLite 3.x&lt;/li>
+&lt;li>&lt;strong>ORM:&lt;/strong> Prisma 5.x&lt;/li>
+&lt;li>&lt;strong>Query Builder:&lt;/strong> Prisma Client&lt;/li>
+&lt;li>&lt;strong>Migrations:&lt;/strong> Prisma Migrate&lt;/li>
+&lt;li>&lt;strong>Schema Definition:&lt;/strong> Prisma Schema Language&lt;/li>
+&lt;/ul>
+&lt;h3 id="advantages-of-sqlite--prisma">Advantages of SQLite + Prisma&lt;/h3>
+&lt;ul>
+&lt;li>&lt;strong>Zero Configuration:&lt;/strong> No database server setup required&lt;/li>
+&lt;li>&lt;strong>ACID Compliance:&lt;/strong> Full transaction support&lt;/li>
+&lt;li>&lt;strong>Cross-platform:&lt;/strong> Works on all operating systems&lt;/li>
+&lt;li>&lt;strong>Embedded:&lt;/strong> No network overhead&lt;/li>
+&lt;li>&lt;strong>Type Safety:&lt;/strong> Prisma generates TypeScript types&lt;/li>
+&lt;li>&lt;strong>Migration System:&lt;/strong> Version-controlled schema changes&lt;/li>
+&lt;/ul>
+&lt;h2 id="complete-schema-definition">Complete Schema Definition&lt;/h2>
+&lt;h3 id="prisma-schema-file">Prisma Schema File&lt;/h3>
+&lt;p>&lt;strong>Location:&lt;/strong> &lt;code>/prisma/schema.prisma&lt;/code>&lt;/p></description></item><item><title>Data Models</title><link>https://act.drmhse.com/docs/database/models/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://act.drmhse.com/docs/database/models/</guid><description>&lt;h1 id="data-models">Data Models&lt;/h1>
+&lt;p>AI Code Terminal uses a carefully designed data model that supports single-tenant operation, workspace isolation, and real-time session management. This guide covers the business logic, relationships, and usage patterns for each model.&lt;/p>
+&lt;h2 id="model-relationships-overview">Model Relationships Overview&lt;/h2>
+&lt;pre tabindex="0">&lt;code class="language-mermaid" data-lang="mermaid">erDiagram
+ Settings ||--|| User : &amp;#34;single-tenant&amp;#34;
+ Workspace ||--o{ Session : &amp;#34;has-many&amp;#34;
+ Workspace ||--o{ AuthLog : &amp;#34;references&amp;#34;
+ Session ||--o{ SystemMetric : &amp;#34;monitors&amp;#34;
+ 
+ Settings {
+ string id PK &amp;#34;singleton&amp;#34;
+ string githubToken &amp;#34;encrypted&amp;#34;
+ string githubRefreshToken &amp;#34;encrypted&amp;#34;
+ datetime githubTokenExpiresAt
+ string theme
+ string preferences &amp;#34;JSON&amp;#34;
+ }
+ 
+ Workspace {
+ string id PK &amp;#34;cuid&amp;#34;
+ string name UK &amp;#34;unique&amp;#34;
+ string githubRepo UK &amp;#34;owner/repo&amp;#34;
+ string githubUrl
+ int githubId
+ string localPath
+ string branch
+ boolean isActive
+ datetime lastSyncAt
+ }
+ 
+ Session {
+ string id PK &amp;#34;cuid&amp;#34;
+ string workspaceId FK
+ int shellPid
+ string socketId
+ string shell
+ string status
+ string workingDirectory
+ datetime lastActivityAt
+ }
+&lt;/code>&lt;/pre>&lt;h2 id="settings-model-business-logic">Settings Model Business Logic&lt;/h2>
+&lt;h3 id="single-tenant-configuration">Single-Tenant Configuration&lt;/h3>
+&lt;p>The Settings model implements the singleton pattern for single-tenant configuration:&lt;/p></description></item></channel></rss>

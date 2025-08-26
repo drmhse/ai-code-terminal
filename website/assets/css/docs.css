@@ -1,0 +1,241 @@
+@import "tailwindcss";
+@source "hugo_stats.json";
+
+/* Additional styling specifically for docs layout */
+@layer components {
+  
+  /* Enhanced grid layout with proper proportions - full viewport height */
+  .docs-grid {
+    @apply grid grid-cols-1 lg:grid-cols-[300px_1fr_280px] gap-0 h-screen bg-gray-950;
+  }
+
+  /* Left sidebar styling - fixed within grid */
+  .docs-sidebar {
+    @apply bg-gray-900 border-r border-gray-800 flex flex-col overflow-y-auto;
+    background: linear-gradient(135deg, rgb(17 24 39) 0%, rgb(31 41 55) 100%);
+  }
+
+  .docs-sidebar .nav-section-toggle {
+    @apply text-blue-300 hover:bg-blue-500/10 hover:text-blue-200;
+    transition: all 0.2s ease;
+  }
+
+  .docs-sidebar .nav-section-toggle:hover {
+    transform: translateX(2px);
+  }
+
+  /* Main content area - scrollable */
+  .docs-main {
+    @apply flex flex-col bg-gray-900 overflow-y-auto;
+    background: linear-gradient(180deg, rgb(17 24 39) 0%, rgb(15 23 42) 100%);
+  }
+
+  /* Enhanced breadcrumbs - sticky below main navbar */
+  .docs-breadcrumbs {
+    @apply bg-gray-800/80 backdrop-blur-sm border-b border-gray-700/50 px-6 py-4 sticky z-10;
+    top: 73px; /* Position below the main navbar */
+    background: linear-gradient(90deg, rgb(31 41 55 / 0.8) 0%, rgb(55 65 81 / 0.8) 100%);
+  }
+
+  /* Content area with better typography */
+  .docs-content {
+    @apply flex-1 p-8;
+  }
+
+  .docs-content article {
+    @apply max-w-4xl mx-auto;
+  }
+
+  .docs-content h1 {
+    @apply text-4xl font-bold bg-gradient-to-r from-blue-200 to-blue-400 bg-clip-text text-transparent mb-6;
+  }
+
+  .docs-content h2 {
+    @apply text-2xl font-semibold text-gray-100 mt-8 mb-4 border-b border-gray-700 pb-2;
+  }
+
+  .docs-content h3 {
+    @apply text-xl font-medium text-gray-200 mt-6 mb-3;
+  }
+
+  .docs-content p {
+    @apply text-gray-300 leading-relaxed mb-4;
+  }
+
+  .docs-content code {
+    @apply bg-gray-800 text-blue-300 px-2 py-1 rounded text-sm font-mono;
+  }
+
+  .docs-content pre {
+    @apply bg-gray-800 border border-gray-700 rounded-lg p-4 overflow-x-auto mb-6;
+  }
+
+  .docs-content pre code {
+    @apply bg-transparent text-gray-100 px-0 py-0;
+  }
+
+  /* Enhanced navigation */
+  .docs-nav {
+    @apply flex justify-between items-center border-t border-gray-700/50 px-8 py-6;
+    background: linear-gradient(90deg, rgb(31 41 55 / 0.5) 0%, rgb(55 65 81 / 0.5) 100%);
+  }
+
+  .docs-nav a {
+    @apply transform transition-all duration-200;
+  }
+
+  .docs-nav a:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 8px 25px rgba(59, 130, 246, 0.15);
+  }
+
+  /* Right sidebar styling - fixed within grid */
+  .docs-toc {
+    @apply bg-gray-900 border-l border-gray-800 p-6 flex flex-col overflow-y-auto;
+    background: linear-gradient(225deg, rgb(17 24 39) 0%, rgb(31 41 55) 100%);
+  }
+
+  .docs-toc h3 {
+    @apply text-sm font-semibold text-gray-200 mb-6 text-center;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  /* Enhanced table of contents */
+  .docs-toc #table-of-contents a {
+    @apply block py-2 px-3 text-xs text-gray-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-md transition-all duration-200;
+    border-left: 2px solid transparent;
+  }
+
+  .docs-toc #table-of-contents a:hover {
+    border-left-color: rgb(59 130 246);
+    transform: translateX(4px);
+  }
+
+  .docs-toc #table-of-contents a.active {
+    @apply text-blue-300 bg-blue-500/10 font-medium;
+    border-left-color: rgb(59 130 246);
+  }
+
+  /* Logo styling */
+  .docs-sidebar .logo-section {
+    @apply p-6 border-b border-gray-700/50;
+    background: linear-gradient(135deg, rgb(55 65 81) 0%, rgb(75 85 99) 100%);
+  }
+
+  .docs-sidebar .logo-box {
+    @apply w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-lg;
+  }
+
+  /* Interactive elements */
+  .nav-link {
+    @apply block py-2.5 px-4 text-sm text-gray-300 hover:text-gray-100 hover:bg-blue-500/10 rounded-lg transition-all duration-200 border-l-2 border-transparent;
+  }
+
+  .nav-link:hover {
+    border-left-color: rgb(59 130 246);
+    transform: translateX(2px);
+  }
+
+  .nav-link.active {
+    @apply bg-blue-500/15 text-blue-300 font-medium border-l-2 border-blue-500;
+    box-shadow: inset 0 1px 3px rgba(59, 130, 246, 0.1);
+  }
+
+  /* Responsive design enhancements */
+  @media (max-width: 1024px) {
+    .docs-grid {
+      @apply grid-cols-1;
+    }
+    
+    .docs-sidebar, .docs-toc {
+      @apply hidden;
+    }
+  }
+
+  /* Scroll behavior */
+  .docs-sidebar nav,
+  .docs-toc {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(75 85 99) transparent;
+  }
+
+  .docs-sidebar nav::-webkit-scrollbar,
+  .docs-toc::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .docs-sidebar nav::-webkit-scrollbar-track,
+  .docs-toc::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .docs-sidebar nav::-webkit-scrollbar-thumb,
+  .docs-toc::-webkit-scrollbar-thumb {
+    background-color: rgb(75 85 99);
+    border-radius: 2px;
+  }
+
+  /* Animation enhancements */
+  .nav-section-content {
+    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .chevron {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Enhanced focus states */
+  .docs-sidebar button:focus,
+  .docs-toc a:focus,
+  .nav-link:focus {
+    @apply outline-none ring-2 ring-blue-500 ring-offset-2 ring-offset-gray-900;
+  }
+
+  /* Better visual hierarchy - sticky main navbar */
+  .docs-main > div:first-child {
+    @apply shadow-lg sticky top-0 z-20;
+    background: linear-gradient(90deg, rgb(31 41 55) 0%, rgb(55 65 81) 50%, rgb(31 41 55) 100%);
+  }
+
+  /* Header navbar styles - self-contained with proper classes */
+  .main-header {
+    @apply bg-slate-950/90 backdrop-blur-md border-b border-slate-600;
+  }
+
+  .main-nav {
+    @apply flex justify-between items-center py-5 h-full;
+  }
+
+  .main-nav .container {
+    @apply max-w-7xl mx-auto px-5;
+  }
+
+  .main-nav .nav-links {
+    @apply flex gap-4 items-center;
+  }
+
+  .main-nav .logo {
+    @apply font-mono font-medium text-xl text-slate-200 no-underline;
+  }
+
+  .main-nav .logo .prompt-char {
+    @apply text-blue-500;
+  }
+
+  .main-nav .nav-link {
+    @apply flex items-center gap-2.5 px-5 py-2.5 border border-slate-600 rounded-full no-underline text-slate-200 bg-slate-800/50 backdrop-blur-sm transition-all duration-300 shadow-md shadow-blue-500/15 hover:bg-blue-500/10 hover:border-blue-500 hover:text-white;
+  }
+
+  .main-nav .nav-link svg {
+    @apply w-[18px] h-[18px];
+  }
+
+  /* Mobile responsive for navbar */
+  @media (max-width: 768px) {
+    .main-nav .nav-link span {
+      @apply hidden;
+    }
+  }
+
+}

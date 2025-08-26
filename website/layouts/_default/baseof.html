@@ -7,14 +7,14 @@
     {{ if ne .Section "docs" }}
         {{ partial "starfield.html" . }}
     {{ end }}
-    
-    {{ partial "header.html" . }}
 
     <main>
         {{ block "main" . }}{{ end }}
     </main>
 
-    {{ partial "footer.html" . }}
+    {{ if ne .Section "docs" }}
+        {{ partial "footer.html" . }}
+    {{ end }}
     {{ partial "scripts.html" . }}
 </body>
 </html>

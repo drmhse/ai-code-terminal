@@ -2,6 +2,19 @@ baseURL = 'https://act.drmhse.com/'
 languageCode = 'en-us'
 title = 'AI Code Terminal: The AI-Native Shell'
 
+# Enable build stats for TailwindCSS
+[build]
+  writeStats = true
+
+# Cache busters for TailwindCSS
+[[module.mounts]]
+  source = "assets"
+  target = "assets"
+
+[[module.mounts]]
+  source = "hugo_stats.json"
+  target = "assets/watching/hugo_stats.json"
+
 [params]
   description = 'A self-hosted development environment for the post-IDE era. Code from any device with a fast, lightweight, AI-native shell.'
   github_url = 'https://github.com/drmhse/ai-code-terminal'

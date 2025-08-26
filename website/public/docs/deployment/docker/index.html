@@ -1,1207 +1,550 @@
-<!DOCTYPE html>
-<html lang="en-us">
-<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
-    <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-
-<title>Docker Deployment | AI Code Terminal: The AI-Native Shell</title>
-<meta name="description" content="Complete Docker deployment guide with security hardening and production configuration">
-<meta name="keywords" content="AI development, Claude Code, self-hosted terminal, development environment, AI coding, browser terminal, Docker deployment">
-<meta name="author" content="AI Code Terminal">
-<meta name="robots" content="index, follow">
-<link rel="canonical" href="http://localhost:1313/docs/deployment/docker/">
-
-
-<meta property="og:type" content="article">
-<meta property="og:title" content="Docker Deployment | AI Code Terminal: The AI-Native Shell">
-<meta property="og:description" content="Complete Docker deployment guide with security hardening and production configuration">
-<meta property="og:url" content="http://localhost:1313/docs/deployment/docker/">
-<meta property="og:site_name" content="AI Code Terminal: The AI-Native Shell">
-<meta property="og:image" content="http://localhost:1313/images/claude_code_in_action.png">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="AI Code Terminal - Browser-based development environment with Claude integration">
-
-
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Docker Deployment | AI Code Terminal: The AI-Native Shell">
-<meta name="twitter:description" content="Complete Docker deployment guide with security hardening and production configuration">
-<meta name="twitter:image" content="http://localhost:1313/images/claude_code_in_action.png">
-<meta name="twitter:image:alt" content="AI Code Terminal - Browser-based development environment with Claude integration">
-
-
-<link rel="icon" type="image/svg+xml" href="/terminal-icon.svg">
-<link rel="icon" type="image/png" href="/favicon.png" sizes="32x32">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
-
-
-<meta name="theme-color" content="#010411">
-<meta name="msapplication-TileColor" content="#010411">
-
-
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
-
-
-<script src="https://unpkg.com/feather-icons"></script>
-
-
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "AI Code Terminal: The AI-Native Shell",
-  "description": "A self-hosted development environment for the post-IDE era. Code from any device with a fast, lightweight, AI-native shell.",
-  "url": "http:\/\/localhost:1313\/",
-  "applicationCategory": "DeveloperApplication",
-  "operatingSystem": "Linux, macOS, Windows",
-  "offers": {
-    "@type": "Offer",
-    "price": "0",
-    "priceCurrency": "USD"
-  },
-  "author": {
-    "@type": "Organization",
-    "name": "AI Code Terminal"
-  }
-}
-</script>
-
-
-<link rel="stylesheet" href="/css/shared.css">
-
-    <link rel="stylesheet" href="/css/docs.css">
-
-</head>
-<body class="docs-site">
-    
-    
-    <header>
-    <div class="container">
-        <nav>
-            <a href="http://localhost:1313/" class="logo">
-                <span class="prompt-char">&gt;</span> AI Code Terminal
-            </a>
-            <div class="nav-links">
-                <a href="/docs/getting-started/introduction/" class="nav-link">
-                    <i data-feather="book"></i>
-                    <span>Documentation</span>
-                </a>
-                <a href="/getting-started/" class="nav-link">
-                    <i data-feather="book-open"></i>
-                    <span>Getting Started</span>
-                </a>
-                <a href="https://github.com/drmhse/ai-code-terminal" target="_blank" rel="noopener noreferrer" class="nav-link">
-                    <i data-feather="github"></i>
-                    <span>View on GitHub</span>
-                </a>
-            </div>
-        </nav>
-    </div>
-</header>
-
-    <main>
-        
-
-<div class="min-h-screen bg-[#010411] text-[#d4dff3]">
-  
-  
-  <button id="mobile-sidebar-toggle" class="lg:hidden fixed top-4 left-4 z-50 p-3 bg-[#0a0c1a] border border-[rgba(67,79,138,0.2)] rounded-lg">
-    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-    </svg>
-  </button>
-
-  
-  <div id="mobile-overlay" class="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30 hidden"></div>
-
-  <div class="flex pt-20"> 
-    
-    
-    <aside id="docs-sidebar" class="fixed lg:relative w-80 bg-[rgba(1,4,17,0.95)] border-r border-[rgba(67,79,138,0.2)] h-screen lg:h-[calc(100vh-5rem)] overflow-y-auto backdrop-blur-xl z-40 -translate-x-full lg:translate-x-0 transition-transform duration-300">
-      
-      
-      <div class="sticky top-0 bg-[rgba(1,4,17,0.9)] backdrop-blur-sm border-b border-[rgba(67,79,138,0.2)] p-6">
-        <div class="flex items-center space-x-3 mb-6">
-          <div class="w-8 h-8 bg-[#82aaff] rounded-lg flex items-center justify-center">
-            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-            </svg>
-          </div>
-          <h3 class="text-lg font-semibold text-[#d4dff3]">Documentation</h3>
-        </div>
-        
-        
-        <div class="relative">
-          <svg class="absolute left-3 top-3.5 w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-          </svg>
-          <input type="text" placeholder="Search docs..." class="w-full pl-10 pr-4 py-3 bg-[rgba(10,12,26,0.6)] border border-[rgba(67,79,138,0.2)] rounded-lg text-[#d4dff3] placeholder-[#8b9cc2] focus:outline-none focus:border-[#82aaff] focus:ring-1 focus:ring-[#82aaff] transition-colors">
-        </div>
-      </div>
-
-      
-      <nav class="p-4 space-y-2">
-        
-        
-        <div class="nav-section">
-          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="getting-started">
-            <span class="uppercase tracking-wider">Getting Started</span>
-            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </button>
-          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-            
-            
-            <li>
-              <a href="http://localhost:1313/docs/getting-started/introduction/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Introduction
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/getting-started/quick-start/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Quick Start
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/getting-started/installation/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Installation
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/getting-started/github-oauth/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                GitHub OAuth Setup
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/getting-started/configuration/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Configuration
-              </a>
-            </li>
-            
-            
-          </ul>
-        </div>
-
-        
-        <div class="nav-section">
-          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="core-features">
-            <span class="uppercase tracking-wider">Core Features</span>
-            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </button>
-          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-            
-            
-            <li>
-              <a href="http://localhost:1313/docs/core-features/terminal-access/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Terminal Access
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/core-features/workspace-management/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Workspace Management
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/core-features/github-integration/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                GitHub Integration
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/core-features/claude-integration/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Claude Integration
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/core-features/real-time-features/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Real-time Features
-              </a>
-            </li>
-            
-            
-          </ul>
-        </div>
-
-        
-        <div class="nav-section">
-          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="authentication">
-            <span class="uppercase tracking-wider">Authentication</span>
-            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </button>
-          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-            
-            
-            <li>
-              <a href="http://localhost:1313/docs/authentication/auth-flow/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Authentication Flow
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/authentication/security-features/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Security Features
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/authentication/token-management/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Token Management
-              </a>
-            </li>
-            
-            
-          </ul>
-        </div>
-
-        
-        <div class="nav-section">
-          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="api">
-            <span class="uppercase tracking-wider">API & WebSocket</span>
-            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </button>
-          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-            
-            
-            <li>
-              <a href="http://localhost:1313/docs/api/endpoints/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                API Endpoints
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/api/websocket/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                WebSocket Events
-              </a>
-            </li>
-            
-            
-          </ul>
-        </div>
-
-        
-        <div class="nav-section">
-          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="database">
-            <span class="uppercase tracking-wider">Database</span>
-            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </button>
-          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-            
-            
-            <li>
-              <a href="http://localhost:1313/docs/database/schema/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Database Schema
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/database/models/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Data Models
-              </a>
-            </li>
-            
-            
-          </ul>
-        </div>
-
-        
-        <div class="nav-section">
-          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="development">
-            <span class="uppercase tracking-wider">Development</span>
-            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </button>
-          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-            
-            
-            <li>
-              <a href="http://localhost:1313/docs/development/setup/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Development Setup
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/development/testing/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Testing
-              </a>
-            </li>
-            
-            
-          </ul>
-        </div>
-
-        
-        <div class="nav-section">
-          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="deployment">
-            <span class="uppercase tracking-wider">Deployment</span>
-            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </button>
-          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-            
-            
-            <li>
-              <a href="http://localhost:1313/docs/deployment/docker/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors active bg-[rgba(130,170,255,0.1)] !text-[#82aaff] font-medium">
-                Docker Deployment
-              </a>
-            </li>
-            
-            
-          </ul>
-        </div>
-
-      </nav>
-    </aside>
-
-    
-    <main class="flex-1 lg:ml-80">
-      
-      
-      <div class="sticky top-20 bg-[rgba(1,4,17,0.9)] backdrop-blur-sm border-b border-[rgba(67,79,138,0.2)] px-8 py-4 z-10">
-        <nav class="flex items-center space-x-2 text-sm">
-          <a href="/" class="text-[#8b9cc2] hover:text-[#d4dff3] transition-colors">Home</a>
-          <svg class="w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-          </svg>
-          <a href="/docs" class="text-[#8b9cc2] hover:text-[#d4dff3] transition-colors">Documentation</a>
-          
-          <svg class="w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-          </svg>
-          <a href="http://localhost:1313/docs/deployment/" class="text-[#8b9cc2] hover:text-[#d4dff3] transition-colors">Deployment</a>
-          
-          <svg class="w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-          </svg>
-          <span class="text-[#82aaff] font-medium">Docker Deployment</span>
-        </nav>
-      </div>
-
-      <div class="flex">
-        
-        <article class="flex-1 px-8 py-12 max-w-4xl">
-          
-          
-          <header class="mb-12">
-            
-            
-            <h1 class="text-4xl lg:text-5xl font-bold text-[#d4dff3] mb-6 leading-tight">Docker Deployment</h1>
-            
-            
-            <p class="text-xl text-[#8b9cc2] leading-relaxed mb-8">Complete Docker deployment guide with security hardening and production configuration</p>
-            
-            
-            
-            <div class="flex items-center space-x-6 text-sm text-[#8b9cc2]">
-              
-              
-              <div class="flex items-center space-x-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <span>8 min read</span>
-              </div>
-              
-            </div>
-            
-          </header>
-
-          
-          <div class="prose prose-invert prose-lg max-w-none">
-            <h1 id="docker-deployment">Docker Deployment</h1>
-<p>AI Code Terminal is designed for containerized deployment with Docker. This guide covers production Docker deployment with security hardening, volume management, and orchestration.</p>
-<h2 id="docker-architecture">Docker Architecture</h2>
-<h3 id="container-design">Container Design</h3>
-<p>The application uses a security-hardened Docker container with:</p>
-<ul>
-<li><strong>Base Image:</strong> Node.js 20 Alpine Linux</li>
-<li><strong>Non-root User:</strong> Runs as <code>claude</code> user (UID 1001)</li>
-<li><strong>Read-only Root Filesystem:</strong> Enhanced security</li>
-<li><strong>Resource Limits:</strong> Memory and CPU constraints</li>
-<li><strong>Health Checks:</strong> Built-in health monitoring</li>
-</ul>
-<h3 id="security-features">Security Features</h3>
-<ul>
-<li><strong>Minimal Attack Surface:</strong> Alpine Linux base</li>
-<li><strong>No New Privileges:</strong> Prevents privilege escalation</li>
-<li><strong>Dropped Capabilities:</strong> Minimal required capabilities</li>
-<li><strong>Non-root Execution:</strong> All processes run as non-root user</li>
-<li><strong>Temporary File Systems:</strong> Writable areas in tmpfs</li>
-</ul>
-<h2 id="dockerfile-overview">Dockerfile Overview</h2>
-<h3 id="multi-stage-build">Multi-stage Build</h3>
-<p><strong><code>Dockerfile</code>:</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-dockerfile" data-lang="dockerfile"><span style="display:flex;"><span><span style="color:#75715e"># Build stage</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">FROM</span><span style="color:#e6db74"> node:20-alpine AS builder</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># Install build dependencies</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> apk add --no-cache <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    python3 <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    make <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    g++ <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    git <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    openssh-client<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">WORKDIR</span><span style="color:#e6db74"> /app</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># Copy package files</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">COPY</span> package*.json ./<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">COPY</span> prisma ./prisma/<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># Install dependencies</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> npm ci --only<span style="color:#f92672">=</span>production <span style="color:#f92672">&amp;&amp;</span> <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    npm cache clean --force<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># Generate Prisma client</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> npx prisma generate<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># Production stage</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">FROM</span><span style="color:#e6db74"> node:20-alpine AS production</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># Install runtime dependencies</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> apk add --no-cache <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    bash <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    git <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    openssh-client <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    sqlite <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    curl <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    dumb-init <span style="color:#f92672">&amp;&amp;</span> <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    <span style="color:#75715e"># Install Claude Code globally</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span>    npm install -g @anthropic/claude-code <span style="color:#f92672">&amp;&amp;</span> <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    npm cache clean --force<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># Create non-root user</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> adduser -D -s /bin/bash -u <span style="color:#ae81ff">1001</span> claude<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># Set working directory</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">WORKDIR</span><span style="color:#e6db74"> /app</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># Copy application files</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">COPY</span> --from<span style="color:#f92672">=</span>builder /app/node_modules ./node_modules<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">COPY</span> --from<span style="color:#f92672">=</span>builder /app/prisma ./prisma<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">COPY</span> . .<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># Create necessary directories</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> mkdir -p data workspaces <span style="color:#f92672">&amp;&amp;</span> <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    chown -R claude:claude /app<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># Copy initialization script</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">COPY</span> init.sh /usr/local/bin/init.sh<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> chmod +x /usr/local/bin/init.sh<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># Switch to non-root user</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">USER</span><span style="color:#e6db74"> claude</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># Health check</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">HEALTHCHECK --interval=30s --timeout=10s </span>--start-period<span style="color:#f92672">=</span>5s --retries<span style="color:#f92672">=</span><span style="color:#ae81ff">3</span> <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  CMD curl -f http://localhost:3014/health <span style="color:#f92672">||</span> exit <span style="color:#ae81ff">1</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># Expose port</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">EXPOSE</span><span style="color:#e6db74"> 3014</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># Use dumb-init for proper signal handling</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">ENTRYPOINT</span> [<span style="color:#e6db74">&#34;/usr/bin/dumb-init&#34;</span>, <span style="color:#e6db74">&#34;--&#34;</span>]<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">CMD</span> [<span style="color:#e6db74">&#34;/usr/local/bin/init.sh&#34;</span>]<span style="color:#960050;background-color:#1e0010">
-</span></span></span></code></pre></div><h3 id="initialization-script">Initialization Script</h3>
-<p><strong><code>init.sh</code>:</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e">#!/bin/bash
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>set -e
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Ensure proper permissions</span>
-</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;Setting up permissions...&#34;</span>
-</span></span><span style="display:flex;"><span>chmod -R <span style="color:#ae81ff">755</span> /app/workspaces 2&gt;/dev/null <span style="color:#f92672">||</span> true
-</span></span><span style="display:flex;"><span>chmod <span style="color:#ae81ff">644</span> /app/data/database.db 2&gt;/dev/null <span style="color:#f92672">||</span> true
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Initialize database if needed</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> <span style="color:#f92672">[</span> ! -f <span style="color:#e6db74">&#34;/app/data/database.db&#34;</span> <span style="color:#f92672">]</span>; <span style="color:#66d9ef">then</span>
-</span></span><span style="display:flex;"><span>    echo <span style="color:#e6db74">&#34;Initializing database...&#34;</span>
-</span></span><span style="display:flex;"><span>    cd /app <span style="color:#f92672">&amp;&amp;</span> npx prisma db push --schema<span style="color:#f92672">=</span>./prisma/schema.prisma
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">fi</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Start the application</span>
-</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;Starting AI Code Terminal...&#34;</span>
-</span></span><span style="display:flex;"><span>cd /app <span style="color:#f92672">&amp;&amp;</span> node server.js
-</span></span></code></pre></div><h2 id="docker-compose-configuration">Docker Compose Configuration</h2>
-<h3 id="production-compose-file">Production Compose File</h3>
-<p><strong><code>docker-compose.yml</code>:</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">version</span>: <span style="color:#e6db74">&#39;3.8&#39;</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">services</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">ai-code-terminal</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">build</span>:
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">context</span>: <span style="color:#ae81ff">.</span>
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">dockerfile</span>: <span style="color:#ae81ff">Dockerfile</span>
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">target</span>: <span style="color:#ae81ff">production</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">container_name</span>: <span style="color:#ae81ff">ai-code-terminal</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">restart</span>: <span style="color:#ae81ff">unless-stopped</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># Security settings</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">security_opt</span>:
-</span></span><span style="display:flex;"><span>      - <span style="color:#66d9ef">no</span>-<span style="color:#ae81ff">new-privileges:true</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">read_only</span>: <span style="color:#66d9ef">true</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">cap_drop</span>:
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">ALL</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">cap_add</span>:
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">SETUID</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">SETGID</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># Resource limits</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">deploy</span>:
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">resources</span>:
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">limits</span>:
-</span></span><span style="display:flex;"><span>          <span style="color:#f92672">memory</span>: <span style="color:#ae81ff">4G</span>
-</span></span><span style="display:flex;"><span>          <span style="color:#f92672">cpus</span>: <span style="color:#e6db74">&#39;2.0&#39;</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">reservations</span>:
-</span></span><span style="display:flex;"><span>          <span style="color:#f92672">memory</span>: <span style="color:#ae81ff">1G</span>
-</span></span><span style="display:flex;"><span>          <span style="color:#f92672">cpus</span>: <span style="color:#e6db74">&#39;0.5&#39;</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># Environment variables</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">environment</span>:
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">NODE_ENV=production</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">PORT=3014</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">env_file</span>:
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">.env</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># Port mapping</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">ports</span>:
-</span></span><span style="display:flex;"><span>      - <span style="color:#e6db74">&#34;3014:3014&#34;</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># Volume mounts</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">volumes</span>:
-</span></span><span style="display:flex;"><span>      <span style="color:#75715e"># Persistent data</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">claude_data:/app/data</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">claude_workspaces:/app/workspaces</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">claude_home:/home/claude</span>
-</span></span><span style="display:flex;"><span>      
-</span></span><span style="display:flex;"><span>      <span style="color:#75715e"># Writable temporary directories</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">type</span>: <span style="color:#ae81ff">tmpfs</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">target</span>: <span style="color:#ae81ff">/tmp</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">tmpfs</span>:
-</span></span><span style="display:flex;"><span>          <span style="color:#f92672">size</span>: <span style="color:#ae81ff">100M</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">type</span>: <span style="color:#ae81ff">tmpfs</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">target</span>: <span style="color:#ae81ff">/app/logs</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">tmpfs</span>:
-</span></span><span style="display:flex;"><span>          <span style="color:#f92672">size</span>: <span style="color:#ae81ff">50M</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># Health check</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">healthcheck</span>:
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">test</span>: [<span style="color:#e6db74">&#34;CMD&#34;</span>, <span style="color:#e6db74">&#34;curl&#34;</span>, <span style="color:#e6db74">&#34;-f&#34;</span>, <span style="color:#e6db74">&#34;http://localhost:3014/health&#34;</span>]
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">interval</span>: <span style="color:#ae81ff">30s</span>
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">timeout</span>: <span style="color:#ae81ff">10s</span>
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">retries</span>: <span style="color:#ae81ff">3</span>
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">start_period</span>: <span style="color:#ae81ff">10s</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># Logging configuration</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">logging</span>:
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">driver</span>: <span style="color:#e6db74">&#34;json-file&#34;</span>
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">options</span>:
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">max-size</span>: <span style="color:#e6db74">&#34;10m&#34;</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">max-file</span>: <span style="color:#e6db74">&#34;3&#34;</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Named volumes for persistence</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">volumes</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">claude_data</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">driver</span>: <span style="color:#ae81ff">local</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">driver_opts</span>:
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">type</span>: <span style="color:#ae81ff">none</span>
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">o</span>: <span style="color:#ae81ff">bind</span>
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">device</span>: <span style="color:#ae81ff">./data</span>
-</span></span><span style="display:flex;"><span>  
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">claude_workspaces</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">driver</span>: <span style="color:#ae81ff">local</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">driver_opts</span>:
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">type</span>: <span style="color:#ae81ff">none</span>
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">o</span>: <span style="color:#ae81ff">bind</span>
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">device</span>: <span style="color:#ae81ff">./workspaces</span>
-</span></span><span style="display:flex;"><span>  
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">claude_home</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">driver</span>: <span style="color:#ae81ff">local</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">driver_opts</span>:
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">type</span>: <span style="color:#ae81ff">none</span>
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">o</span>: <span style="color:#ae81ff">bind</span>
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">device</span>: <span style="color:#ae81ff">./home</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">networks</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">default</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">driver</span>: <span style="color:#ae81ff">bridge</span>
-</span></span></code></pre></div><h3 id="development-compose-override">Development Compose Override</h3>
-<p><strong><code>docker-compose.override.yml</code>:</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">version</span>: <span style="color:#e6db74">&#39;3.8&#39;</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">services</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">ai-code-terminal</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># Development overrides</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">environment</span>:
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">NODE_ENV=development</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">DEBUG=ai-code-terminal:*</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># Development volume mounts</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">volumes</span>:
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">.:/app</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">/app/node_modules</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">claude_data_dev:/app/data</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">claude_workspaces_dev:/app/workspaces</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># Development port (optional)</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">ports</span>:
-</span></span><span style="display:flex;"><span>      - <span style="color:#e6db74">&#34;3015:3014&#34;</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># Disable read-only for development</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">read_only</span>: <span style="color:#66d9ef">false</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># Development command</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">command</span>: [<span style="color:#e6db74">&#34;npm&#34;</span>, <span style="color:#e6db74">&#34;run&#34;</span>, <span style="color:#e6db74">&#34;dev&#34;</span>]
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">volumes</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">claude_data_dev</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">claude_workspaces_dev</span>:
-</span></span></code></pre></div><h2 id="building-and-running">Building and Running</h2>
-<h3 id="build-commands">Build Commands</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Build production image</span>
-</span></span><span style="display:flex;"><span>docker build -t ai-code-terminal:latest .
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Build with specific tag</span>
-</span></span><span style="display:flex;"><span>docker build -t ai-code-terminal:v2.0.0 .
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Build with build args</span>
-</span></span><span style="display:flex;"><span>docker build <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --build-arg NODE_VERSION<span style="color:#f92672">=</span><span style="color:#ae81ff">20</span> <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -t ai-code-terminal:latest .
-</span></span></code></pre></div><h3 id="running-containers">Running Containers</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Run with Docker Compose (recommended)</span>
-</span></span><span style="display:flex;"><span>docker-compose up -d
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Run single container</span>
-</span></span><span style="display:flex;"><span>docker run -d <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --name ai-code-terminal <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --restart unless-stopped <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -p 3014:3014 <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --env-file .env <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -v <span style="color:#66d9ef">$(</span>pwd<span style="color:#66d9ef">)</span>/data:/app/data <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -v <span style="color:#66d9ef">$(</span>pwd<span style="color:#66d9ef">)</span>/workspaces:/app/workspaces <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  ai-code-terminal:latest
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Run in development mode</span>
-</span></span><span style="display:flex;"><span>docker-compose -f docker-compose.yml -f docker-compose.override.yml up -d
-</span></span></code></pre></div><h3 id="container-management">Container Management</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># View logs</span>
-</span></span><span style="display:flex;"><span>docker-compose logs -f
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Restart container</span>
-</span></span><span style="display:flex;"><span>docker-compose restart
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Stop and remove</span>
-</span></span><span style="display:flex;"><span>docker-compose down
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Update and restart</span>
-</span></span><span style="display:flex;"><span>docker-compose pull <span style="color:#f92672">&amp;&amp;</span> docker-compose up -d
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Execute commands in container</span>
-</span></span><span style="display:flex;"><span>docker-compose exec ai-code-terminal bash
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># View container stats</span>
-</span></span><span style="display:flex;"><span>docker stats ai-code-terminal
-</span></span></code></pre></div><h2 id="volume-management">Volume Management</h2>
-<h3 id="persistent-volumes">Persistent Volumes</h3>
-<h4 id="database-volume">Database Volume</h4>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Create data directory</span>
-</span></span><span style="display:flex;"><span>mkdir -p ./data
-</span></span><span style="display:flex;"><span>chmod <span style="color:#ae81ff">755</span> ./data
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Initialize database</span>
-</span></span><span style="display:flex;"><span>docker-compose exec ai-code-terminal npx prisma db push
-</span></span></code></pre></div><h4 id="workspace-volume">Workspace Volume</h4>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Create workspaces directory</span>
-</span></span><span style="display:flex;"><span>mkdir -p ./workspaces
-</span></span><span style="display:flex;"><span>chmod <span style="color:#ae81ff">755</span> ./workspaces
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Set proper ownership (if needed)</span>
-</span></span><span style="display:flex;"><span>sudo chown -R 1001:1001 ./workspaces
-</span></span></code></pre></div><h4 id="home-directory-volume">Home Directory Volume</h4>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Create home directory for claude user</span>
-</span></span><span style="display:flex;"><span>mkdir -p ./home
-</span></span><span style="display:flex;"><span>chmod <span style="color:#ae81ff">755</span> ./home
-</span></span></code></pre></div><h3 id="volume-backup">Volume Backup</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e">#!/bin/bash
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#75715e"># backup-volumes.sh</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>BACKUP_DIR<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;./backups/</span><span style="color:#66d9ef">$(</span>date +%Y%m%d_%H%M%S<span style="color:#66d9ef">)</span><span style="color:#e6db74">&#34;</span>
-</span></span><span style="display:flex;"><span>mkdir -p <span style="color:#e6db74">&#34;</span>$BACKUP_DIR<span style="color:#e6db74">&#34;</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Backup database</span>
-</span></span><span style="display:flex;"><span>cp ./data/database.db <span style="color:#e6db74">&#34;</span>$BACKUP_DIR<span style="color:#e6db74">/&#34;</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Backup workspaces</span>
-</span></span><span style="display:flex;"><span>tar -czf <span style="color:#e6db74">&#34;</span>$BACKUP_DIR<span style="color:#e6db74">/workspaces.tar.gz&#34;</span> ./workspaces
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Backup home directory</span>
-</span></span><span style="display:flex;"><span>tar -czf <span style="color:#e6db74">&#34;</span>$BACKUP_DIR<span style="color:#e6db74">/home.tar.gz&#34;</span> ./home
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;Backup created: </span>$BACKUP_DIR<span style="color:#e6db74">&#34;</span>
-</span></span></code></pre></div><h3 id="volume-restoration">Volume Restoration</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e">#!/bin/bash
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#75715e"># restore-volumes.sh</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>BACKUP_DIR<span style="color:#f92672">=</span>$1
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> <span style="color:#f92672">[</span> -z <span style="color:#e6db74">&#34;</span>$BACKUP_DIR<span style="color:#e6db74">&#34;</span> <span style="color:#f92672">]</span>; <span style="color:#66d9ef">then</span>
-</span></span><span style="display:flex;"><span>    echo <span style="color:#e6db74">&#34;Usage: </span>$0<span style="color:#e6db74"> &lt;backup_directory&gt;&#34;</span>
-</span></span><span style="display:flex;"><span>    exit <span style="color:#ae81ff">1</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">fi</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Stop container</span>
-</span></span><span style="display:flex;"><span>docker-compose down
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Restore database</span>
-</span></span><span style="display:flex;"><span>cp <span style="color:#e6db74">&#34;</span>$BACKUP_DIR<span style="color:#e6db74">/database.db&#34;</span> ./data/
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Restore workspaces</span>
-</span></span><span style="display:flex;"><span>tar -xzf <span style="color:#e6db74">&#34;</span>$BACKUP_DIR<span style="color:#e6db74">/workspaces.tar.gz&#34;</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Restore home directory</span>
-</span></span><span style="display:flex;"><span>tar -xzf <span style="color:#e6db74">&#34;</span>$BACKUP_DIR<span style="color:#e6db74">/home.tar.gz&#34;</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Start container</span>
-</span></span><span style="display:flex;"><span>docker-compose up -d
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;Restore completed from: </span>$BACKUP_DIR<span style="color:#e6db74">&#34;</span>
-</span></span></code></pre></div><h2 id="environment-configuration">Environment Configuration</h2>
-<h3 id="production-environment">Production Environment</h3>
-<p><strong><code>.env.production</code>:</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Production Configuration</span>
-</span></span><span style="display:flex;"><span>NODE_ENV<span style="color:#f92672">=</span>production
-</span></span><span style="display:flex;"><span>PORT<span style="color:#f92672">=</span><span style="color:#ae81ff">3014</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Security</span>
-</span></span><span style="display:flex;"><span>JWT_SECRET<span style="color:#f92672">=</span>production-jwt-secret-minimum-32-characters-cryptographically-secure
-</span></span><span style="display:flex;"><span>TENANT_GITHUB_USERNAME<span style="color:#f92672">=</span>your-production-github-username
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># GitHub OAuth (Production App)</span>
-</span></span><span style="display:flex;"><span>GITHUB_CLIENT_ID<span style="color:#f92672">=</span>your_production_client_id
-</span></span><span style="display:flex;"><span>GITHUB_CLIENT_SECRET<span style="color:#f92672">=</span>your_production_client_secret
-</span></span><span style="display:flex;"><span>GITHUB_CALLBACK_URL<span style="color:#f92672">=</span>https://your-domain.com/auth/github/callback
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Database</span>
-</span></span><span style="display:flex;"><span>DATABASE_URL<span style="color:#f92672">=</span>file:/app/data/database.db
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Workspace Configuration</span>
-</span></span><span style="display:flex;"><span>MAX_WORKSPACES_PER_USER<span style="color:#f92672">=</span><span style="color:#ae81ff">10</span>
-</span></span><span style="display:flex;"><span>WORKSPACE_CLEANUP_DAYS<span style="color:#f92672">=</span><span style="color:#ae81ff">30</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Logging</span>
-</span></span><span style="display:flex;"><span>LOG_LEVEL<span style="color:#f92672">=</span>warn
-</span></span><span style="display:flex;"><span>LOG_FORMAT<span style="color:#f92672">=</span>combined
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># CORS (if using separate frontend)</span>
-</span></span><span style="display:flex;"><span>ALLOWED_ORIGINS<span style="color:#f92672">=</span>https://your-frontend-domain.com
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Health Check</span>
-</span></span><span style="display:flex;"><span>HEALTH_CHECK_INTERVAL<span style="color:#f92672">=</span><span style="color:#ae81ff">30000</span>
-</span></span></code></pre></div><h3 id="environment-validation">Environment Validation</h3>
-<p>The container includes environment validation:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Check required variables are set</span>
-</span></span><span style="display:flex;"><span>docker-compose exec ai-code-terminal node -e <span style="color:#e6db74">&#34;
-</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">const required = [&#39;JWT_SECRET&#39;, &#39;GITHUB_CLIENT_ID&#39;, &#39;GITHUB_CLIENT_SECRET&#39;, &#39;TENANT_GITHUB_USERNAME&#39;];
-</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">const missing = required.filter(key =&gt; !process.env[key]);
-</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">if (missing.length &gt; 0) {
-</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  console.error(&#39;Missing required environment variables:&#39;, missing);
-</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  process.exit(1);
-</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}
-</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">console.log(&#39;Environment validation passed&#39;);
-</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">&#34;</span>
-</span></span></code></pre></div><h2 id="security-hardening">Security Hardening</h2>
-<h3 id="container-security">Container Security</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#75715e"># Additional security options in docker-compose.yml</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">services</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">ai-code-terminal</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># Security options</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">security_opt</span>:
-</span></span><span style="display:flex;"><span>      - <span style="color:#66d9ef">no</span>-<span style="color:#ae81ff">new-privileges:true</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">seccomp:unconfined </span> <span style="color:#75715e"># Only if needed for terminal functionality</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># AppArmor/SELinux profiles (if available)</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">security_opt</span>:
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">apparmor:docker-default</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># User namespace remapping</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">userns_mode</span>: <span style="color:#ae81ff">host</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># PID namespace</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">pid</span>: <span style="color:#e6db74">&#34;container:name&#34;</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># Network security</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">networks</span>:
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">ai_code_network</span>
-</span></span></code></pre></div><h3 id="network-security">Network Security</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#75715e"># Create custom network</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">networks</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">ai_code_network</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">driver</span>: <span style="color:#ae81ff">bridge</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">ipam</span>:
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">config</span>:
-</span></span><span style="display:flex;"><span>        - <span style="color:#f92672">subnet</span>: <span style="color:#ae81ff">172.20.0.0</span><span style="color:#ae81ff">/16</span>
-</span></span><span style="display:flex;"><span>          <span style="color:#f92672">gateway</span>: <span style="color:#ae81ff">172.20.0.1</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">driver_opts</span>:
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">com.docker.network.bridge.enable_icc</span>: <span style="color:#e6db74">&#34;false&#34;</span>
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">com.docker.network.bridge.enable_ip_masquerade</span>: <span style="color:#e6db74">&#34;true&#34;</span>
-</span></span></code></pre></div><h3 id="secrets-management">Secrets Management</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#75715e"># Using Docker secrets (Docker Swarm)</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">services</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">ai-code-terminal</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">secrets</span>:
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">jwt_secret</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">github_client_secret</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">environment</span>:
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">JWT_SECRET_FILE=/run/secrets/jwt_secret</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">GITHUB_CLIENT_SECRET_FILE=/run/secrets/github_client_secret</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">secrets</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">jwt_secret</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">file</span>: <span style="color:#ae81ff">./secrets/jwt_secret.txt</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">github_client_secret</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">file</span>: <span style="color:#ae81ff">./secrets/github_client_secret.txt</span>
-</span></span></code></pre></div><h2 id="health-monitoring">Health Monitoring</h2>
-<h3 id="health-check-configuration">Health Check Configuration</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-dockerfile" data-lang="dockerfile"><span style="display:flex;"><span><span style="color:#75715e"># Enhanced health check</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">HEALTHCHECK --interval=30s --timeout=10s </span>--start-period<span style="color:#f92672">=</span>30s --retries<span style="color:#f92672">=</span><span style="color:#ae81ff">3</span> <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  CMD curl -f http://localhost:3014/health/detailed <span style="color:#f92672">||</span> exit <span style="color:#ae81ff">1</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span></code></pre></div><h3 id="monitoring-script">Monitoring Script</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e">#!/bin/bash
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#75715e"># monitor-container.sh</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>check_health<span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    local container_name<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;ai-code-terminal&#34;</span>
-</span></span><span style="display:flex;"><span>    local health_status<span style="color:#f92672">=</span><span style="color:#66d9ef">$(</span>docker inspect --format<span style="color:#f92672">=</span><span style="color:#e6db74">&#39;{{.State.Health.Status}}&#39;</span> $container_name<span style="color:#66d9ef">)</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    echo <span style="color:#e6db74">&#34;Container health: </span>$health_status<span style="color:#e6db74">&#34;</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">[</span> <span style="color:#e6db74">&#34;</span>$health_status<span style="color:#e6db74">&#34;</span> !<span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;healthy&#34;</span> <span style="color:#f92672">]</span>; <span style="color:#66d9ef">then</span>
-</span></span><span style="display:flex;"><span>        echo <span style="color:#e6db74">&#34;Container is unhealthy, checking logs...&#34;</span>
-</span></span><span style="display:flex;"><span>        docker logs --tail <span style="color:#ae81ff">50</span> $container_name
-</span></span><span style="display:flex;"><span>        
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># Optional: restart if unhealthy</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">[</span> <span style="color:#e6db74">&#34;</span>$1<span style="color:#e6db74">&#34;</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;--restart-on-unhealthy&#34;</span> <span style="color:#f92672">]</span>; <span style="color:#66d9ef">then</span>
-</span></span><span style="display:flex;"><span>            echo <span style="color:#e6db74">&#34;Restarting unhealthy container...&#34;</span>
-</span></span><span style="display:flex;"><span>            docker-compose restart
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">fi</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">fi</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>check_health $1
-</span></span></code></pre></div><h3 id="log-monitoring">Log Monitoring</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e">#!/bin/bash
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#75715e"># log-monitor.sh</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Monitor application logs</span>
-</span></span><span style="display:flex;"><span>docker-compose logs -f ai-code-terminal | <span style="color:#66d9ef">while</span> read line; <span style="color:#66d9ef">do</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># Check for error patterns</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> echo <span style="color:#e6db74">&#34;</span>$line<span style="color:#e6db74">&#34;</span> | grep -q <span style="color:#e6db74">&#34;ERROR\|FATAL&#34;</span>; <span style="color:#66d9ef">then</span>
-</span></span><span style="display:flex;"><span>        echo <span style="color:#e6db74">&#34;Error detected: </span>$line<span style="color:#e6db74">&#34;</span> | mail -s <span style="color:#e6db74">&#34;AI Code Terminal Error&#34;</span> admin@yourdomain.com
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">fi</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># Check for security events</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> echo <span style="color:#e6db74">&#34;</span>$line<span style="color:#e6db74">&#34;</span> | grep -q <span style="color:#e6db74">&#34;Authentication failed\|Unauthorized access&#34;</span>; <span style="color:#66d9ef">then</span>
-</span></span><span style="display:flex;"><span>        echo <span style="color:#e6db74">&#34;Security event: </span>$line<span style="color:#e6db74">&#34;</span> &gt;&gt; /var/log/security.log
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">fi</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">done</span>
-</span></span></code></pre></div><h2 id="performance-optimization">Performance Optimization</h2>
-<h3 id="resource-optimization">Resource Optimization</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#75715e"># Optimized resource configuration</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">services</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">ai-code-terminal</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">deploy</span>:
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">resources</span>:
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">limits</span>:
-</span></span><span style="display:flex;"><span>          <span style="color:#f92672">memory</span>: <span style="color:#ae81ff">2G     </span> <span style="color:#75715e"># Reduced from 4G</span>
-</span></span><span style="display:flex;"><span>          <span style="color:#f92672">cpus</span>: <span style="color:#e6db74">&#39;1.0&#39;</span>     <span style="color:#75715e"># Reduced from 2.0</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">reservations</span>:
-</span></span><span style="display:flex;"><span>          <span style="color:#f92672">memory</span>: <span style="color:#ae81ff">512M   </span> <span style="color:#75715e"># Reduced from 1G</span>
-</span></span><span style="display:flex;"><span>          <span style="color:#f92672">cpus</span>: <span style="color:#e6db74">&#39;0.25&#39;</span>    <span style="color:#75715e"># Reduced from 0.5</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># Optimize for memory usage</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">environment</span>:
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">NODE_OPTIONS=--max-old-space-size=1024</span>
-</span></span></code></pre></div><h3 id="image-optimization">Image Optimization</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-dockerfile" data-lang="dockerfile"><span style="display:flex;"><span><span style="color:#75715e"># Multi-stage build optimizations</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">FROM</span><span style="color:#e6db74"> node:20-alpine AS builder</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># Install only necessary dependencies</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> apk add --no-cache --virtual .build-deps <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    python3 <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    make <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    g++<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># Clean up build dependencies</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> apk del .build-deps<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># Minimize final image</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">FROM</span><span style="color:#e6db74"> node:20-alpine AS production</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">COPY</span> --from<span style="color:#f92672">=</span>builder /app/node_modules ./node_modules<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> rm -rf /var/cache/apk/*<span style="color:#960050;background-color:#1e0010">
-</span></span></span></code></pre></div><h3 id="cache-optimization">Cache Optimization</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-dockerfile" data-lang="dockerfile"><span style="display:flex;"><span><span style="color:#75715e"># Optimize Docker layer caching</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">COPY</span> package*.json ./<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> npm ci --only<span style="color:#f92672">=</span>production<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># Copy application code after dependencies</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">COPY</span> . .<span style="color:#960050;background-color:#1e0010">
-</span></span></span></code></pre></div><h2 id="troubleshooting-docker-deployment">Troubleshooting Docker Deployment</h2>
-<h3 id="common-issues">Common Issues</h3>
-<p><strong>Container Won&rsquo;t Start</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Check logs</span>
-</span></span><span style="display:flex;"><span>docker-compose logs ai-code-terminal
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Check environment variables</span>
-</span></span><span style="display:flex;"><span>docker-compose exec ai-code-terminal env | grep -E <span style="color:#e6db74">&#39;^(JWT_SECRET|GITHUB_|NODE_ENV)&#39;</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Verify permissions</span>
-</span></span><span style="display:flex;"><span>docker-compose exec ai-code-terminal ls -la /app/data
-</span></span></code></pre></div><p><strong>Database Connection Issues</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Check database file</span>
-</span></span><span style="display:flex;"><span>docker-compose exec ai-code-terminal ls -la /app/data/database.db
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Initialize database manually</span>
-</span></span><span style="display:flex;"><span>docker-compose exec ai-code-terminal npx prisma db push
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Reset database (if needed)</span>
-</span></span><span style="display:flex;"><span>docker-compose exec ai-code-terminal rm /app/data/database.db
-</span></span><span style="display:flex;"><span>docker-compose restart
-</span></span></code></pre></div><p><strong>Permission Issues</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Fix volume permissions</span>
-</span></span><span style="display:flex;"><span>sudo chown -R 1001:1001 ./data ./workspaces ./home
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Check container user</span>
-</span></span><span style="display:flex;"><span>docker-compose exec ai-code-terminal whoami
-</span></span><span style="display:flex;"><span>docker-compose exec ai-code-terminal id
-</span></span></code></pre></div><p><strong>Memory Issues</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Check container memory usage</span>
-</span></span><span style="display:flex;"><span>docker stats ai-code-terminal
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Increase memory limits</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Edit docker-compose.yml and increase memory limit</span>
-</span></span><span style="display:flex;"><span>docker-compose up -d
-</span></span></code></pre></div><h3 id="debug-mode">Debug Mode</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#75715e"># Debug configuration override</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">services</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">ai-code-terminal</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">environment</span>:
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">NODE_ENV=development</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">DEBUG=*</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">LOG_LEVEL=debug</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># Enable interactive debugging</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">stdin_open</span>: <span style="color:#66d9ef">true</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">tty</span>: <span style="color:#66d9ef">true</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># Override entrypoint for debugging</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">entrypoint</span>: [<span style="color:#e6db74">&#34;tail&#34;</span>, <span style="color:#e6db74">&#34;-f&#34;</span>, <span style="color:#e6db74">&#34;/dev/null&#34;</span>]
-</span></span></code></pre></div><h2 id="production-checklist">Production Checklist</h2>
-<h3 id="pre-deployment">Pre-deployment</h3>
-<ul>
-<li><input disabled="" type="checkbox"> Environment variables configured</li>
-<li><input disabled="" type="checkbox"> GitHub OAuth app created with production URLs</li>
-<li><input disabled="" type="checkbox"> SSL/TLS certificates ready</li>
-<li><input disabled="" type="checkbox"> Backup strategy implemented</li>
-<li><input disabled="" type="checkbox"> Monitoring configured</li>
-<li><input disabled="" type="checkbox"> Log rotation setup</li>
-<li><input disabled="" type="checkbox"> Resource limits appropriate</li>
-<li><input disabled="" type="checkbox"> Security hardening applied</li>
-</ul>
-<h3 id="post-deployment">Post-deployment</h3>
-<ul>
-<li><input disabled="" type="checkbox"> Health checks passing</li>
-<li><input disabled="" type="checkbox"> Application accessible</li>
-<li><input disabled="" type="checkbox"> Authentication working</li>
-<li><input disabled="" type="checkbox"> Terminal sessions functional</li>
-<li><input disabled="" type="checkbox"> Workspace creation working</li>
-<li><input disabled="" type="checkbox"> Logs being captured</li>
-<li><input disabled="" type="checkbox"> Backups running</li>
-<li><input disabled="" type="checkbox"> Performance monitoring active</li>
-</ul>
-<h2 id="next-steps">Next Steps</h2>
-<ul>
-<li><strong><a href="/docs/deployment/production/">Production Setup</a>:</strong> Complete production deployment guide</li>
-<li><strong><a href="/docs/deployment/monitoring/">Monitoring</a>:</strong> Production monitoring setup</li>
-<li><strong><a href="/docs/troubleshooting/common-issues/">Troubleshooting</a>:</strong> Common deployment issues</li>
-</ul>
-
-          </div>
-
-          
-          <nav class="flex justify-between items-center mt-16 pt-8 border-t border-[rgba(67,79,138,0.2)]">
-            <div>
-              
-            </div>
-            <div>
-              
-            </div>
-          </nav>
-        </article>
-
-        
-        <aside class="hidden xl:block w-80 p-8 sticky top-32 self-start max-h-[calc(100vh-8rem)] overflow-y-auto">
-          <div class="bg-[rgba(10,12,26,0.3)] border border-[rgba(67,79,138,0.2)] rounded-lg p-6">
-            <h3 class="flex items-center text-[#82aaff] font-medium mb-4">
-              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path>
-              </svg>
-              On This Page
-            </h3>
-            <div id="table-of-contents" class="space-y-1">
-              
-            </div>
-          </div>
-        </aside>
-
-      </div>
-    </main>
-  </div>
-</div>
-
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  
-  const mobileSidebarToggle = document.getElementById('mobile-sidebar-toggle');
-  const mobileOverlay = document.getElementById('mobile-overlay');
-  const sidebar = document.getElementById('docs-sidebar');
-
-  function toggleMobileSidebar() {
-    sidebar.classList.toggle('-translate-x-full');
-    mobileOverlay.classList.toggle('hidden');
-    document.body.classList.toggle('overflow-hidden');
-  }
-
-  mobileSidebarToggle.addEventListener('click', toggleMobileSidebar);
-  mobileOverlay.addEventListener('click', toggleMobileSidebar);
-
-  
-  const navSectionToggles = document.querySelectorAll('.nav-section-toggle');
-  
-  navSectionToggles.forEach(toggle => {
-    toggle.addEventListener('click', function() {
-      const section = this.closest('.nav-section');
-      const content = section.querySelector('.nav-section-content');
-      const chevron = this.querySelector('.chevron');
-      
-      if (content.style.maxHeight === '0px' || content.style.maxHeight === '') {
-        content.style.maxHeight = content.scrollHeight + 'px';
-        chevron.style.transform = 'rotate(90deg)';
-      } else {
-        content.style.maxHeight = '0px';
-        chevron.style.transform = 'rotate(0deg)';
-      }
-    });
-  });
-
-  
-  const activeLink = document.querySelector('.nav-link.active');
-  if (activeLink) {
-    const section = activeLink.closest('.nav-section');
-    if (section) {
-      const content = section.querySelector('.nav-section-content');
-      const chevron = section.querySelector('.chevron');
-      content.style.maxHeight = content.scrollHeight + 'px';
-      chevron.style.transform = 'rotate(90deg)';
-    }
-  }
-
-  
-  function generateTableOfContents() {
-    const headings = document.querySelectorAll('article h2, article h3, article h4, article h5, article h6');
-    const toc = document.getElementById('table-of-contents');
-    
-    if (headings.length === 0 || !toc) return;
-
-    headings.forEach((heading, index) => {
-      
-      if (!heading.id) {
-        heading.id = heading.textContent.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-      }
-
-      const link = document.createElement('a');
-      link.href = '#' + heading.id;
-      link.textContent = heading.textContent;
-      link.className = 'block py-1.5 px-3 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded transition-colors';
-      
-      
-      const level = parseInt(heading.tagName.charAt(1));
-      if (level > 2) {
-        link.style.paddingLeft = `${(level - 2) * 16 + 12}px`;
-        link.style.borderLeft = '1px solid rgba(67,79,138,0.2)';
-      }
-
-      toc.appendChild(link);
-    });
-
-    
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        const id = entry.target.id;
-        const link = toc.querySelector(`a[href="#${id}"]`);
-        if (link) {
-          if (entry.isIntersecting) {
-            toc.querySelectorAll('a').forEach(l => l.classList.remove('!text-[#82aaff]', 'bg-[rgba(130,170,255,0.1)]', 'font-medium'));
-            link.classList.add('!text-[#82aaff]', 'bg-[rgba(130,170,255,0.1)]', 'font-medium');
-          }
-        }
-      });
-    }, { rootMargin: '-100px 0px -80% 0px' });
-
-    headings.forEach((heading) => {
-      observer.observe(heading);
-    });
-  }
-
-  generateTableOfContents();
-
-  
-  document.addEventListener('click', function(e) {
-    if (e.target.matches('a[href^="#"]')) {
-      e.preventDefault();
-      const target = document.querySelector(e.target.getAttribute('href'));
-      if (target) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }
-  });
-});
-</script>
-
-    </main>
-
-    <footer class="fade-in-section">
-    <div class="container">
-        <p>&copy; 2025 AI Code Terminal. A statement on developer sovereignty.</p>
-    </div>
-</footer>
-    
-<script>
-    feather.replace();
-</script>
-
-    <script src="/js/docs.js"></script>
-
-</body>
-</html>
+<!doctype html><html lang=en-us><head><meta charset=UTF-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Docker Deployment | AI Code Terminal: The AI-Native Shell</title><meta name=description content="Complete Docker deployment guide with security hardening and production configuration"><meta name=keywords content="AI development,Claude Code,self-hosted terminal,development environment,AI coding,browser terminal,Docker deployment"><meta name=author content="AI Code Terminal"><meta name=robots content="index, follow"><link rel=canonical href=https://act.drmhse.com/docs/deployment/docker/><meta property="og:type" content="article"><meta property="og:title" content="Docker Deployment | AI Code Terminal: The AI-Native Shell"><meta property="og:description" content="Complete Docker deployment guide with security hardening and production configuration"><meta property="og:url" content="https://act.drmhse.com/docs/deployment/docker/"><meta property="og:site_name" content="AI Code Terminal: The AI-Native Shell"><meta property="og:image" content="https://act.drmhse.com/images/claude_code_in_action.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="AI Code Terminal - Browser-based development environment with Claude integration"><meta name=twitter:card content="summary_large_image"><meta name=twitter:title content="Docker Deployment | AI Code Terminal: The AI-Native Shell"><meta name=twitter:description content="Complete Docker deployment guide with security hardening and production configuration"><meta name=twitter:image content="https://act.drmhse.com/images/claude_code_in_action.png"><meta name=twitter:image:alt content="AI Code Terminal - Browser-based development environment with Claude integration"><link rel=icon type=image/svg+xml href=/terminal-icon.svg><link rel=icon type=image/png href=/favicon.png sizes=32x32><link rel=apple-touch-icon href=/apple-touch-icon.png sizes=180x180><meta name=theme-color content="#010411"><meta name=msapplication-TileColor content="#010411"><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500&family=Space+Grotesk:wght@400;500;700&display=swap" rel=stylesheet><script src=https://unpkg.com/feather-icons></script><script type=application/ld+json>{"@context":"https://schema.org","@type":"SoftwareApplication","name":"AI Code Terminal: The AI-Native Shell","description":"A self-hosted development environment for the post-IDE era. Code from any device with a fast, lightweight, AI-native shell.","url":"https:\/\/act.drmhse.com\/","applicationCategory":"DeveloperApplication","operatingSystem":"Linux, macOS, Windows","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"AI Code Terminal"}}</script><link rel=stylesheet href=/css/docs.min.css integrity crossorigin=anonymous></head><body class=docs-site><main><div class="docs-grid bg-gray-900 text-gray-100 min-h-screen"><aside class=docs-sidebar><div class=logo-section><div class="flex items-center space-x-3"><div class=logo-box><img src=/android-chrome-512x512.png alt="AI Code Terminal" class="w-10 h-10 rounded-lg"></div><h2 class="text-lg font-semibold text-gray-100">sections<br>& Links</h2></div></div><nav class="p-4 space-y-2 overflow-y-auto"><div class=nav-section><button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section=getting-started>
+<span class="uppercase tracking-wider">Getting Started</span>
+<svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button><ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out"><li><a href=https://act.drmhse.com/docs/getting-started/introduction/ class=nav-link>Introduction</a></li><li><a href=https://act.drmhse.com/docs/getting-started/quick-start/ class=nav-link>Quick Start</a></li><li><a href=https://act.drmhse.com/docs/getting-started/installation/ class=nav-link>Installation</a></li><li><a href=https://act.drmhse.com/docs/getting-started/github-oauth/ class=nav-link>GitHub OAuth Setup</a></li><li><a href=https://act.drmhse.com/docs/getting-started/configuration/ class=nav-link>Configuration</a></li></ul></div><div class=nav-section><button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section=core-features>
+<span class="uppercase tracking-wider">Core Features</span>
+<svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button><ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out"><li><a href=https://act.drmhse.com/docs/core-features/terminal-access/ class=nav-link>Terminal Access</a></li><li><a href=https://act.drmhse.com/docs/core-features/workspace-management/ class=nav-link>Workspace Management</a></li><li><a href=https://act.drmhse.com/docs/core-features/github-integration/ class=nav-link>GitHub Integration</a></li><li><a href=https://act.drmhse.com/docs/core-features/claude-integration/ class=nav-link>Claude Integration</a></li><li><a href=https://act.drmhse.com/docs/core-features/real-time-features/ class=nav-link>Real-time Features</a></li></ul></div><div class=nav-section><button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section=authentication>
+<span class="uppercase tracking-wider">Authentication</span>
+<svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button><ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out"><li><a href=https://act.drmhse.com/docs/authentication/auth-flow/ class=nav-link>Authentication Flow</a></li><li><a href=https://act.drmhse.com/docs/authentication/security-features/ class=nav-link>Security Features</a></li><li><a href=https://act.drmhse.com/docs/authentication/token-management/ class=nav-link>Token Management</a></li></ul></div><div class=nav-section><button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section=api>
+<span class="uppercase tracking-wider">API & WebSocket</span>
+<svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button><ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out"><li><a href=https://act.drmhse.com/docs/api/endpoints/ class=nav-link>API Endpoints</a></li><li><a href=https://act.drmhse.com/docs/api/websocket/ class=nav-link>WebSocket Events</a></li></ul></div><div class=nav-section><button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section=database>
+<span class="uppercase tracking-wider">Database</span>
+<svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button><ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out"><li><a href=https://act.drmhse.com/docs/database/schema/ class=nav-link>Database Schema</a></li><li><a href=https://act.drmhse.com/docs/database/models/ class=nav-link>Data Models</a></li></ul></div><div class=nav-section><button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section=development>
+<span class="uppercase tracking-wider">Development</span>
+<svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button><ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out"><li><a href=https://act.drmhse.com/docs/development/setup/ class=nav-link>Development Setup</a></li><li><a href=https://act.drmhse.com/docs/development/testing/ class=nav-link>Testing</a></li></ul></div><div class=nav-section><button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section=deployment>
+<span class="uppercase tracking-wider">Deployment</span>
+<svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button><ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out"><li><a href=https://act.drmhse.com/docs/deployment/docker/ class="nav-link active">Docker Deployment</a></li></ul></div></nav></aside><main class=docs-main><header class=main-header><div class=container><nav class=main-nav><a href=https://act.drmhse.com/ class=logo><span class=prompt-char>></span> AI Code Terminal</a><div class=nav-links><a href=/docs/getting-started/introduction/ class=nav-link><i data-feather=book></i>
+<span>Documentation</span>
+</a><a href=/getting-started/ class=nav-link><i data-feather=book-open></i>
+<span>Getting Started</span>
+</a><a href=https://github.com/drmhse/ai-code-terminal target=_blank rel="noopener noreferrer" class=nav-link><i data-feather=github></i>
+<span>View on GitHub</span></a></div></nav></div></header><div class=docs-breadcrumbs><nav class="flex items-center space-x-2 text-sm"><a href=/ class="text-gray-400 hover:text-gray-100 transition-colors">Home</a>
+<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+<a href=/docs class="text-gray-400 hover:text-gray-100 transition-colors">Documentation</a>
+<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+<a href=https://act.drmhse.com/docs/deployment/ class="text-gray-400 hover:text-gray-100 transition-colors">Deployment</a>
+<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+<span class="text-blue-400 font-medium">Docker Deployment</span></nav></div><div class=docs-content><article class="max-w-4xl mx-auto"><header class=mb-8><h1 class="text-3xl lg:text-4xl font-bold text-gray-100 mb-4 leading-tight">Docker Deployment</h1><p class="text-lg text-gray-300 leading-relaxed mb-6">Complete Docker deployment guide with security hardening and production configuration</p><div class="flex items-center space-x-6 text-sm text-gray-400"><div class="flex items-center space-x-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3A9 9 0 113 12a9 9 0 0118 0z"/></svg>
+<span>8 min read</span></div></div></header><div class="prose prose-invert prose-lg max-w-none"><h1 id=docker-deployment>Docker Deployment</h1><p>AI Code Terminal is designed for containerized deployment with Docker. This guide covers production Docker deployment with security hardening, volume management, and orchestration.</p><h2 id=docker-architecture>Docker Architecture</h2><h3 id=container-design>Container Design</h3><p>The application uses a security-hardened Docker container with:</p><ul><li><strong>Base Image:</strong> Node.js 20 Alpine Linux</li><li><strong>Non-root User:</strong> Runs as <code>claude</code> user (UID 1001)</li><li><strong>Read-only Root Filesystem:</strong> Enhanced security</li><li><strong>Resource Limits:</strong> Memory and CPU constraints</li><li><strong>Health Checks:</strong> Built-in health monitoring</li></ul><h3 id=security-features>Security Features</h3><ul><li><strong>Minimal Attack Surface:</strong> Alpine Linux base</li><li><strong>No New Privileges:</strong> Prevents privilege escalation</li><li><strong>Dropped Capabilities:</strong> Minimal required capabilities</li><li><strong>Non-root Execution:</strong> All processes run as non-root user</li><li><strong>Temporary File Systems:</strong> Writable areas in tmpfs</li></ul><h2 id=dockerfile-overview>Dockerfile Overview</h2><h3 id=multi-stage-build>Multi-stage Build</h3><p><strong><code>Dockerfile</code>:</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-dockerfile data-lang=dockerfile><span style=display:flex><span><span style=color:#75715e># Build stage</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>FROM</span><span style=color:#e6db74> node:20-alpine AS builder</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#75715e># Install build dependencies</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>RUN</span> apk add --no-cache <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>    python3 <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>    make <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>    g++ <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>    git <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>    openssh-client<span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>WORKDIR</span><span style=color:#e6db74> /app</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#75715e># Copy package files</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>COPY</span> package*.json ./<span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>COPY</span> prisma ./prisma/<span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#75715e># Install dependencies</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>RUN</span> npm ci --only<span style=color:#f92672>=</span>production <span style=color:#f92672>&amp;&amp;</span> <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>    npm cache clean --force<span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#75715e># Generate Prisma client</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>RUN</span> npx prisma generate<span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#75715e># Production stage</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>FROM</span><span style=color:#e6db74> node:20-alpine AS production</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#75715e># Install runtime dependencies</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>RUN</span> apk add --no-cache <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>    bash <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>    git <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>    openssh-client <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>    sqlite <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>    curl <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>    dumb-init <span style=color:#f92672>&amp;&amp;</span> <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>    <span style=color:#75715e># Install Claude Code globally</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span>    npm install -g @anthropic/claude-code <span style=color:#f92672>&amp;&amp;</span> <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>    npm cache clean --force<span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#75715e># Create non-root user</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>RUN</span> adduser -D -s /bin/bash -u <span style=color:#ae81ff>1001</span> claude<span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#75715e># Set working directory</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>WORKDIR</span><span style=color:#e6db74> /app</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#75715e># Copy application files</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>COPY</span> --from<span style=color:#f92672>=</span>builder /app/node_modules ./node_modules<span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>COPY</span> --from<span style=color:#f92672>=</span>builder /app/prisma ./prisma<span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>COPY</span> . .<span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#75715e># Create necessary directories</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>RUN</span> mkdir -p data workspaces <span style=color:#f92672>&amp;&amp;</span> <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>    chown -R claude:claude /app<span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#75715e># Copy initialization script</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>COPY</span> init.sh /usr/local/bin/init.sh<span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>RUN</span> chmod +x /usr/local/bin/init.sh<span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#75715e># Switch to non-root user</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>USER</span><span style=color:#e6db74> claude</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#75715e># Health check</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010>HEALTHCHECK --interval=30s --timeout=10s </span>--start-period<span style=color:#f92672>=</span>5s --retries<span style=color:#f92672>=</span><span style=color:#ae81ff>3</span> <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>  CMD curl -f http://localhost:3014/health <span style=color:#f92672>||</span> exit <span style=color:#ae81ff>1</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#75715e># Expose port</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>EXPOSE</span><span style=color:#e6db74> 3014</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#75715e># Use dumb-init for proper signal handling</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>ENTRYPOINT</span> [<span style=color:#e6db74>&#34;/usr/bin/dumb-init&#34;</span>, <span style=color:#e6db74>&#34;--&#34;</span>]<span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>CMD</span> [<span style=color:#e6db74>&#34;/usr/local/bin/init.sh&#34;</span>]<span style=color:#960050;background-color:#1e0010>
+</span></span></span></code></pre></div><h3 id=initialization-script>Initialization Script</h3><p><strong><code>init.sh</code>:</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e>#!/bin/bash
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>set -e
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Ensure proper permissions</span>
+</span></span><span style=display:flex><span>echo <span style=color:#e6db74>&#34;Setting up permissions...&#34;</span>
+</span></span><span style=display:flex><span>chmod -R <span style=color:#ae81ff>755</span> /app/workspaces 2&gt;/dev/null <span style=color:#f92672>||</span> true
+</span></span><span style=display:flex><span>chmod <span style=color:#ae81ff>644</span> /app/data/database.db 2&gt;/dev/null <span style=color:#f92672>||</span> true
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Initialize database if needed</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>if</span> <span style=color:#f92672>[</span> ! -f <span style=color:#e6db74>&#34;/app/data/database.db&#34;</span> <span style=color:#f92672>]</span>; <span style=color:#66d9ef>then</span>
+</span></span><span style=display:flex><span>    echo <span style=color:#e6db74>&#34;Initializing database...&#34;</span>
+</span></span><span style=display:flex><span>    cd /app <span style=color:#f92672>&amp;&amp;</span> npx prisma db push --schema<span style=color:#f92672>=</span>./prisma/schema.prisma
+</span></span><span style=display:flex><span><span style=color:#66d9ef>fi</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Start the application</span>
+</span></span><span style=display:flex><span>echo <span style=color:#e6db74>&#34;Starting AI Code Terminal...&#34;</span>
+</span></span><span style=display:flex><span>cd /app <span style=color:#f92672>&amp;&amp;</span> node server.js
+</span></span></code></pre></div><h2 id=docker-compose-configuration>Docker Compose Configuration</h2><h3 id=production-compose-file>Production Compose File</h3><p><strong><code>docker-compose.yml</code>:</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#f92672>version</span>: <span style=color:#e6db74>&#39;3.8&#39;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#f92672>services</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>ai-code-terminal</span>:
+</span></span><span style=display:flex><span>    <span style=color:#f92672>build</span>:
+</span></span><span style=display:flex><span>      <span style=color:#f92672>context</span>: <span style=color:#ae81ff>.</span>
+</span></span><span style=display:flex><span>      <span style=color:#f92672>dockerfile</span>: <span style=color:#ae81ff>Dockerfile</span>
+</span></span><span style=display:flex><span>      <span style=color:#f92672>target</span>: <span style=color:#ae81ff>production</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>container_name</span>: <span style=color:#ae81ff>ai-code-terminal</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>restart</span>: <span style=color:#ae81ff>unless-stopped</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e># Security settings</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>security_opt</span>:
+</span></span><span style=display:flex><span>      - <span style=color:#66d9ef>no</span>-<span style=color:#ae81ff>new-privileges:true</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>read_only</span>: <span style=color:#66d9ef>true</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>cap_drop</span>:
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>ALL</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>cap_add</span>:
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>SETUID</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>SETGID</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e># Resource limits</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>deploy</span>:
+</span></span><span style=display:flex><span>      <span style=color:#f92672>resources</span>:
+</span></span><span style=display:flex><span>        <span style=color:#f92672>limits</span>:
+</span></span><span style=display:flex><span>          <span style=color:#f92672>memory</span>: <span style=color:#ae81ff>4G</span>
+</span></span><span style=display:flex><span>          <span style=color:#f92672>cpus</span>: <span style=color:#e6db74>&#39;2.0&#39;</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>reservations</span>:
+</span></span><span style=display:flex><span>          <span style=color:#f92672>memory</span>: <span style=color:#ae81ff>1G</span>
+</span></span><span style=display:flex><span>          <span style=color:#f92672>cpus</span>: <span style=color:#e6db74>&#39;0.5&#39;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e># Environment variables</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>environment</span>:
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>NODE_ENV=production</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>PORT=3014</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#f92672>env_file</span>:
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>.env</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e># Port mapping</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>ports</span>:
+</span></span><span style=display:flex><span>      - <span style=color:#e6db74>&#34;3014:3014&#34;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e># Volume mounts</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>volumes</span>:
+</span></span><span style=display:flex><span>      <span style=color:#75715e># Persistent data</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>claude_data:/app/data</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>claude_workspaces:/app/workspaces</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>claude_home:/home/claude</span>
+</span></span><span style=display:flex><span>      
+</span></span><span style=display:flex><span>      <span style=color:#75715e># Writable temporary directories</span>
+</span></span><span style=display:flex><span>      - <span style=color:#f92672>type</span>: <span style=color:#ae81ff>tmpfs</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>target</span>: <span style=color:#ae81ff>/tmp</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>tmpfs</span>:
+</span></span><span style=display:flex><span>          <span style=color:#f92672>size</span>: <span style=color:#ae81ff>100M</span>
+</span></span><span style=display:flex><span>      - <span style=color:#f92672>type</span>: <span style=color:#ae81ff>tmpfs</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>target</span>: <span style=color:#ae81ff>/app/logs</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>tmpfs</span>:
+</span></span><span style=display:flex><span>          <span style=color:#f92672>size</span>: <span style=color:#ae81ff>50M</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e># Health check</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>healthcheck</span>:
+</span></span><span style=display:flex><span>      <span style=color:#f92672>test</span>: [<span style=color:#e6db74>&#34;CMD&#34;</span>, <span style=color:#e6db74>&#34;curl&#34;</span>, <span style=color:#e6db74>&#34;-f&#34;</span>, <span style=color:#e6db74>&#34;http://localhost:3014/health&#34;</span>]
+</span></span><span style=display:flex><span>      <span style=color:#f92672>interval</span>: <span style=color:#ae81ff>30s</span>
+</span></span><span style=display:flex><span>      <span style=color:#f92672>timeout</span>: <span style=color:#ae81ff>10s</span>
+</span></span><span style=display:flex><span>      <span style=color:#f92672>retries</span>: <span style=color:#ae81ff>3</span>
+</span></span><span style=display:flex><span>      <span style=color:#f92672>start_period</span>: <span style=color:#ae81ff>10s</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e># Logging configuration</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>logging</span>:
+</span></span><span style=display:flex><span>      <span style=color:#f92672>driver</span>: <span style=color:#e6db74>&#34;json-file&#34;</span>
+</span></span><span style=display:flex><span>      <span style=color:#f92672>options</span>:
+</span></span><span style=display:flex><span>        <span style=color:#f92672>max-size</span>: <span style=color:#e6db74>&#34;10m&#34;</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>max-file</span>: <span style=color:#e6db74>&#34;3&#34;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Named volumes for persistence</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>volumes</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>claude_data</span>:
+</span></span><span style=display:flex><span>    <span style=color:#f92672>driver</span>: <span style=color:#ae81ff>local</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>driver_opts</span>:
+</span></span><span style=display:flex><span>      <span style=color:#f92672>type</span>: <span style=color:#ae81ff>none</span>
+</span></span><span style=display:flex><span>      <span style=color:#f92672>o</span>: <span style=color:#ae81ff>bind</span>
+</span></span><span style=display:flex><span>      <span style=color:#f92672>device</span>: <span style=color:#ae81ff>./data</span>
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>  <span style=color:#f92672>claude_workspaces</span>:
+</span></span><span style=display:flex><span>    <span style=color:#f92672>driver</span>: <span style=color:#ae81ff>local</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>driver_opts</span>:
+</span></span><span style=display:flex><span>      <span style=color:#f92672>type</span>: <span style=color:#ae81ff>none</span>
+</span></span><span style=display:flex><span>      <span style=color:#f92672>o</span>: <span style=color:#ae81ff>bind</span>
+</span></span><span style=display:flex><span>      <span style=color:#f92672>device</span>: <span style=color:#ae81ff>./workspaces</span>
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>  <span style=color:#f92672>claude_home</span>:
+</span></span><span style=display:flex><span>    <span style=color:#f92672>driver</span>: <span style=color:#ae81ff>local</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>driver_opts</span>:
+</span></span><span style=display:flex><span>      <span style=color:#f92672>type</span>: <span style=color:#ae81ff>none</span>
+</span></span><span style=display:flex><span>      <span style=color:#f92672>o</span>: <span style=color:#ae81ff>bind</span>
+</span></span><span style=display:flex><span>      <span style=color:#f92672>device</span>: <span style=color:#ae81ff>./home</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#f92672>networks</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>default</span>:
+</span></span><span style=display:flex><span>    <span style=color:#f92672>driver</span>: <span style=color:#ae81ff>bridge</span>
+</span></span></code></pre></div><h3 id=development-compose-override>Development Compose Override</h3><p><strong><code>docker-compose.override.yml</code>:</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#f92672>version</span>: <span style=color:#e6db74>&#39;3.8&#39;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#f92672>services</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>ai-code-terminal</span>:
+</span></span><span style=display:flex><span>    <span style=color:#75715e># Development overrides</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>environment</span>:
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>NODE_ENV=development</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>DEBUG=ai-code-terminal:*</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e># Development volume mounts</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>volumes</span>:
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>.:/app</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>/app/node_modules</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>claude_data_dev:/app/data</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>claude_workspaces_dev:/app/workspaces</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e># Development port (optional)</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>ports</span>:
+</span></span><span style=display:flex><span>      - <span style=color:#e6db74>&#34;3015:3014&#34;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e># Disable read-only for development</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>read_only</span>: <span style=color:#66d9ef>false</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e># Development command</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>command</span>: [<span style=color:#e6db74>&#34;npm&#34;</span>, <span style=color:#e6db74>&#34;run&#34;</span>, <span style=color:#e6db74>&#34;dev&#34;</span>]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#f92672>volumes</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>claude_data_dev</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>claude_workspaces_dev</span>:
+</span></span></code></pre></div><h2 id=building-and-running>Building and Running</h2><h3 id=build-commands>Build Commands</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Build production image</span>
+</span></span><span style=display:flex><span>docker build -t ai-code-terminal:latest .
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Build with specific tag</span>
+</span></span><span style=display:flex><span>docker build -t ai-code-terminal:v2.0.0 .
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Build with build args</span>
+</span></span><span style=display:flex><span>docker build <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>  --build-arg NODE_VERSION<span style=color:#f92672>=</span><span style=color:#ae81ff>20</span> <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>  -t ai-code-terminal:latest .
+</span></span></code></pre></div><h3 id=running-containers>Running Containers</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Run with Docker Compose (recommended)</span>
+</span></span><span style=display:flex><span>docker-compose up -d
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Run single container</span>
+</span></span><span style=display:flex><span>docker run -d <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>  --name ai-code-terminal <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>  --restart unless-stopped <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>  -p 3014:3014 <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>  --env-file .env <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>  -v <span style=color:#66d9ef>$(</span>pwd<span style=color:#66d9ef>)</span>/data:/app/data <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>  -v <span style=color:#66d9ef>$(</span>pwd<span style=color:#66d9ef>)</span>/workspaces:/app/workspaces <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>  ai-code-terminal:latest
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Run in development mode</span>
+</span></span><span style=display:flex><span>docker-compose -f docker-compose.yml -f docker-compose.override.yml up -d
+</span></span></code></pre></div><h3 id=container-management>Container Management</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># View logs</span>
+</span></span><span style=display:flex><span>docker-compose logs -f
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Restart container</span>
+</span></span><span style=display:flex><span>docker-compose restart
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Stop and remove</span>
+</span></span><span style=display:flex><span>docker-compose down
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Update and restart</span>
+</span></span><span style=display:flex><span>docker-compose pull <span style=color:#f92672>&amp;&amp;</span> docker-compose up -d
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Execute commands in container</span>
+</span></span><span style=display:flex><span>docker-compose exec ai-code-terminal bash
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># View container stats</span>
+</span></span><span style=display:flex><span>docker stats ai-code-terminal
+</span></span></code></pre></div><h2 id=volume-management>Volume Management</h2><h3 id=persistent-volumes>Persistent Volumes</h3><h4 id=database-volume>Database Volume</h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Create data directory</span>
+</span></span><span style=display:flex><span>mkdir -p ./data
+</span></span><span style=display:flex><span>chmod <span style=color:#ae81ff>755</span> ./data
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Initialize database</span>
+</span></span><span style=display:flex><span>docker-compose exec ai-code-terminal npx prisma db push
+</span></span></code></pre></div><h4 id=workspace-volume>Workspace Volume</h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Create workspaces directory</span>
+</span></span><span style=display:flex><span>mkdir -p ./workspaces
+</span></span><span style=display:flex><span>chmod <span style=color:#ae81ff>755</span> ./workspaces
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Set proper ownership (if needed)</span>
+</span></span><span style=display:flex><span>sudo chown -R 1001:1001 ./workspaces
+</span></span></code></pre></div><h4 id=home-directory-volume>Home Directory Volume</h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Create home directory for claude user</span>
+</span></span><span style=display:flex><span>mkdir -p ./home
+</span></span><span style=display:flex><span>chmod <span style=color:#ae81ff>755</span> ./home
+</span></span></code></pre></div><h3 id=volume-backup>Volume Backup</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e>#!/bin/bash
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#75715e># backup-volumes.sh</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>BACKUP_DIR<span style=color:#f92672>=</span><span style=color:#e6db74>&#34;./backups/</span><span style=color:#66d9ef>$(</span>date +%Y%m%d_%H%M%S<span style=color:#66d9ef>)</span><span style=color:#e6db74>&#34;</span>
+</span></span><span style=display:flex><span>mkdir -p <span style=color:#e6db74>&#34;</span>$BACKUP_DIR<span style=color:#e6db74>&#34;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Backup database</span>
+</span></span><span style=display:flex><span>cp ./data/database.db <span style=color:#e6db74>&#34;</span>$BACKUP_DIR<span style=color:#e6db74>/&#34;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Backup workspaces</span>
+</span></span><span style=display:flex><span>tar -czf <span style=color:#e6db74>&#34;</span>$BACKUP_DIR<span style=color:#e6db74>/workspaces.tar.gz&#34;</span> ./workspaces
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Backup home directory</span>
+</span></span><span style=display:flex><span>tar -czf <span style=color:#e6db74>&#34;</span>$BACKUP_DIR<span style=color:#e6db74>/home.tar.gz&#34;</span> ./home
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>echo <span style=color:#e6db74>&#34;Backup created: </span>$BACKUP_DIR<span style=color:#e6db74>&#34;</span>
+</span></span></code></pre></div><h3 id=volume-restoration>Volume Restoration</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e>#!/bin/bash
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#75715e># restore-volumes.sh</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>BACKUP_DIR<span style=color:#f92672>=</span>$1
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>if</span> <span style=color:#f92672>[</span> -z <span style=color:#e6db74>&#34;</span>$BACKUP_DIR<span style=color:#e6db74>&#34;</span> <span style=color:#f92672>]</span>; <span style=color:#66d9ef>then</span>
+</span></span><span style=display:flex><span>    echo <span style=color:#e6db74>&#34;Usage: </span>$0<span style=color:#e6db74> &lt;backup_directory&gt;&#34;</span>
+</span></span><span style=display:flex><span>    exit <span style=color:#ae81ff>1</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>fi</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Stop container</span>
+</span></span><span style=display:flex><span>docker-compose down
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Restore database</span>
+</span></span><span style=display:flex><span>cp <span style=color:#e6db74>&#34;</span>$BACKUP_DIR<span style=color:#e6db74>/database.db&#34;</span> ./data/
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Restore workspaces</span>
+</span></span><span style=display:flex><span>tar -xzf <span style=color:#e6db74>&#34;</span>$BACKUP_DIR<span style=color:#e6db74>/workspaces.tar.gz&#34;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Restore home directory</span>
+</span></span><span style=display:flex><span>tar -xzf <span style=color:#e6db74>&#34;</span>$BACKUP_DIR<span style=color:#e6db74>/home.tar.gz&#34;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Start container</span>
+</span></span><span style=display:flex><span>docker-compose up -d
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>echo <span style=color:#e6db74>&#34;Restore completed from: </span>$BACKUP_DIR<span style=color:#e6db74>&#34;</span>
+</span></span></code></pre></div><h2 id=environment-configuration>Environment Configuration</h2><h3 id=production-environment>Production Environment</h3><p><strong><code>.env.production</code>:</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Production Configuration</span>
+</span></span><span style=display:flex><span>NODE_ENV<span style=color:#f92672>=</span>production
+</span></span><span style=display:flex><span>PORT<span style=color:#f92672>=</span><span style=color:#ae81ff>3014</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Security</span>
+</span></span><span style=display:flex><span>JWT_SECRET<span style=color:#f92672>=</span>production-jwt-secret-minimum-32-characters-cryptographically-secure
+</span></span><span style=display:flex><span>TENANT_GITHUB_USERNAME<span style=color:#f92672>=</span>your-production-github-username
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># GitHub OAuth (Production App)</span>
+</span></span><span style=display:flex><span>GITHUB_CLIENT_ID<span style=color:#f92672>=</span>your_production_client_id
+</span></span><span style=display:flex><span>GITHUB_CLIENT_SECRET<span style=color:#f92672>=</span>your_production_client_secret
+</span></span><span style=display:flex><span>GITHUB_CALLBACK_URL<span style=color:#f92672>=</span>https://your-domain.com/auth/github/callback
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Database</span>
+</span></span><span style=display:flex><span>DATABASE_URL<span style=color:#f92672>=</span>file:/app/data/database.db
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Workspace Configuration</span>
+</span></span><span style=display:flex><span>MAX_WORKSPACES_PER_USER<span style=color:#f92672>=</span><span style=color:#ae81ff>10</span>
+</span></span><span style=display:flex><span>WORKSPACE_CLEANUP_DAYS<span style=color:#f92672>=</span><span style=color:#ae81ff>30</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Logging</span>
+</span></span><span style=display:flex><span>LOG_LEVEL<span style=color:#f92672>=</span>warn
+</span></span><span style=display:flex><span>LOG_FORMAT<span style=color:#f92672>=</span>combined
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># CORS (if using separate frontend)</span>
+</span></span><span style=display:flex><span>ALLOWED_ORIGINS<span style=color:#f92672>=</span>https://your-frontend-domain.com
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Health Check</span>
+</span></span><span style=display:flex><span>HEALTH_CHECK_INTERVAL<span style=color:#f92672>=</span><span style=color:#ae81ff>30000</span>
+</span></span></code></pre></div><h3 id=environment-validation>Environment Validation</h3><p>The container includes environment validation:</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Check required variables are set</span>
+</span></span><span style=display:flex><span>docker-compose exec ai-code-terminal node -e <span style=color:#e6db74>&#34;
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>const required = [&#39;JWT_SECRET&#39;, &#39;GITHUB_CLIENT_ID&#39;, &#39;GITHUB_CLIENT_SECRET&#39;, &#39;TENANT_GITHUB_USERNAME&#39;];
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>const missing = required.filter(key =&gt; !process.env[key]);
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>if (missing.length &gt; 0) {
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>  console.error(&#39;Missing required environment variables:&#39;, missing);
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>  process.exit(1);
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>}
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>console.log(&#39;Environment validation passed&#39;);
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>&#34;</span>
+</span></span></code></pre></div><h2 id=security-hardening>Security Hardening</h2><h3 id=container-security>Container Security</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#75715e># Additional security options in docker-compose.yml</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>services</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>ai-code-terminal</span>:
+</span></span><span style=display:flex><span>    <span style=color:#75715e># Security options</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>security_opt</span>:
+</span></span><span style=display:flex><span>      - <span style=color:#66d9ef>no</span>-<span style=color:#ae81ff>new-privileges:true</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>seccomp:unconfined </span> <span style=color:#75715e># Only if needed for terminal functionality</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e># AppArmor/SELinux profiles (if available)</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>security_opt</span>:
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>apparmor:docker-default</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e># User namespace remapping</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>userns_mode</span>: <span style=color:#ae81ff>host</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e># PID namespace</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>pid</span>: <span style=color:#e6db74>&#34;container:name&#34;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e># Network security</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>networks</span>:
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>ai_code_network</span>
+</span></span></code></pre></div><h3 id=network-security>Network Security</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#75715e># Create custom network</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>networks</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>ai_code_network</span>:
+</span></span><span style=display:flex><span>    <span style=color:#f92672>driver</span>: <span style=color:#ae81ff>bridge</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>ipam</span>:
+</span></span><span style=display:flex><span>      <span style=color:#f92672>config</span>:
+</span></span><span style=display:flex><span>        - <span style=color:#f92672>subnet</span>: <span style=color:#ae81ff>172.20.0.0</span><span style=color:#ae81ff>/16</span>
+</span></span><span style=display:flex><span>          <span style=color:#f92672>gateway</span>: <span style=color:#ae81ff>172.20.0.1</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>driver_opts</span>:
+</span></span><span style=display:flex><span>      <span style=color:#f92672>com.docker.network.bridge.enable_icc</span>: <span style=color:#e6db74>&#34;false&#34;</span>
+</span></span><span style=display:flex><span>      <span style=color:#f92672>com.docker.network.bridge.enable_ip_masquerade</span>: <span style=color:#e6db74>&#34;true&#34;</span>
+</span></span></code></pre></div><h3 id=secrets-management>Secrets Management</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#75715e># Using Docker secrets (Docker Swarm)</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>services</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>ai-code-terminal</span>:
+</span></span><span style=display:flex><span>    <span style=color:#f92672>secrets</span>:
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>jwt_secret</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>github_client_secret</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>environment</span>:
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>JWT_SECRET_FILE=/run/secrets/jwt_secret</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>GITHUB_CLIENT_SECRET_FILE=/run/secrets/github_client_secret</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#f92672>secrets</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>jwt_secret</span>:
+</span></span><span style=display:flex><span>    <span style=color:#f92672>file</span>: <span style=color:#ae81ff>./secrets/jwt_secret.txt</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>github_client_secret</span>:
+</span></span><span style=display:flex><span>    <span style=color:#f92672>file</span>: <span style=color:#ae81ff>./secrets/github_client_secret.txt</span>
+</span></span></code></pre></div><h2 id=health-monitoring>Health Monitoring</h2><h3 id=health-check-configuration>Health Check Configuration</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-dockerfile data-lang=dockerfile><span style=display:flex><span><span style=color:#75715e># Enhanced health check</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010>HEALTHCHECK --interval=30s --timeout=10s </span>--start-period<span style=color:#f92672>=</span>30s --retries<span style=color:#f92672>=</span><span style=color:#ae81ff>3</span> <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>  CMD curl -f http://localhost:3014/health/detailed <span style=color:#f92672>||</span> exit <span style=color:#ae81ff>1</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span></code></pre></div><h3 id=monitoring-script>Monitoring Script</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e>#!/bin/bash
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#75715e># monitor-container.sh</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>check_health<span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    local container_name<span style=color:#f92672>=</span><span style=color:#e6db74>&#34;ai-code-terminal&#34;</span>
+</span></span><span style=display:flex><span>    local health_status<span style=color:#f92672>=</span><span style=color:#66d9ef>$(</span>docker inspect --format<span style=color:#f92672>=</span><span style=color:#e6db74>&#39;{{.State.Health.Status}}&#39;</span> $container_name<span style=color:#66d9ef>)</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    echo <span style=color:#e6db74>&#34;Container health: </span>$health_status<span style=color:#e6db74>&#34;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> <span style=color:#f92672>[</span> <span style=color:#e6db74>&#34;</span>$health_status<span style=color:#e6db74>&#34;</span> !<span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;healthy&#34;</span> <span style=color:#f92672>]</span>; <span style=color:#66d9ef>then</span>
+</span></span><span style=display:flex><span>        echo <span style=color:#e6db74>&#34;Container is unhealthy, checking logs...&#34;</span>
+</span></span><span style=display:flex><span>        docker logs --tail <span style=color:#ae81ff>50</span> $container_name
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e># Optional: restart if unhealthy</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> <span style=color:#f92672>[</span> <span style=color:#e6db74>&#34;</span>$1<span style=color:#e6db74>&#34;</span> <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;--restart-on-unhealthy&#34;</span> <span style=color:#f92672>]</span>; <span style=color:#66d9ef>then</span>
+</span></span><span style=display:flex><span>            echo <span style=color:#e6db74>&#34;Restarting unhealthy container...&#34;</span>
+</span></span><span style=display:flex><span>            docker-compose restart
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>fi</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>fi</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>check_health $1
+</span></span></code></pre></div><h3 id=log-monitoring>Log Monitoring</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e>#!/bin/bash
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#75715e># log-monitor.sh</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Monitor application logs</span>
+</span></span><span style=display:flex><span>docker-compose logs -f ai-code-terminal | <span style=color:#66d9ef>while</span> read line; <span style=color:#66d9ef>do</span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e># Check for error patterns</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> echo <span style=color:#e6db74>&#34;</span>$line<span style=color:#e6db74>&#34;</span> | grep -q <span style=color:#e6db74>&#34;ERROR\|FATAL&#34;</span>; <span style=color:#66d9ef>then</span>
+</span></span><span style=display:flex><span>        echo <span style=color:#e6db74>&#34;Error detected: </span>$line<span style=color:#e6db74>&#34;</span> | mail -s <span style=color:#e6db74>&#34;AI Code Terminal Error&#34;</span> admin@yourdomain.com
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>fi</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e># Check for security events</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> echo <span style=color:#e6db74>&#34;</span>$line<span style=color:#e6db74>&#34;</span> | grep -q <span style=color:#e6db74>&#34;Authentication failed\|Unauthorized access&#34;</span>; <span style=color:#66d9ef>then</span>
+</span></span><span style=display:flex><span>        echo <span style=color:#e6db74>&#34;Security event: </span>$line<span style=color:#e6db74>&#34;</span> &gt;&gt; /var/log/security.log
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>fi</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>done</span>
+</span></span></code></pre></div><h2 id=performance-optimization>Performance Optimization</h2><h3 id=resource-optimization>Resource Optimization</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#75715e># Optimized resource configuration</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>services</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>ai-code-terminal</span>:
+</span></span><span style=display:flex><span>    <span style=color:#f92672>deploy</span>:
+</span></span><span style=display:flex><span>      <span style=color:#f92672>resources</span>:
+</span></span><span style=display:flex><span>        <span style=color:#f92672>limits</span>:
+</span></span><span style=display:flex><span>          <span style=color:#f92672>memory</span>: <span style=color:#ae81ff>2G     </span> <span style=color:#75715e># Reduced from 4G</span>
+</span></span><span style=display:flex><span>          <span style=color:#f92672>cpus</span>: <span style=color:#e6db74>&#39;1.0&#39;</span>     <span style=color:#75715e># Reduced from 2.0</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>reservations</span>:
+</span></span><span style=display:flex><span>          <span style=color:#f92672>memory</span>: <span style=color:#ae81ff>512M   </span> <span style=color:#75715e># Reduced from 1G</span>
+</span></span><span style=display:flex><span>          <span style=color:#f92672>cpus</span>: <span style=color:#e6db74>&#39;0.25&#39;</span>    <span style=color:#75715e># Reduced from 0.5</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e># Optimize for memory usage</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>environment</span>:
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>NODE_OPTIONS=--max-old-space-size=1024</span>
+</span></span></code></pre></div><h3 id=image-optimization>Image Optimization</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-dockerfile data-lang=dockerfile><span style=display:flex><span><span style=color:#75715e># Multi-stage build optimizations</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>FROM</span><span style=color:#e6db74> node:20-alpine AS builder</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#75715e># Install only necessary dependencies</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>RUN</span> apk add --no-cache --virtual .build-deps <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>    python3 <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>    make <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>    g++<span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#75715e># Clean up build dependencies</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>RUN</span> apk del .build-deps<span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#75715e># Minimize final image</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>FROM</span><span style=color:#e6db74> node:20-alpine AS production</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>COPY</span> --from<span style=color:#f92672>=</span>builder /app/node_modules ./node_modules<span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>RUN</span> rm -rf /var/cache/apk/*<span style=color:#960050;background-color:#1e0010>
+</span></span></span></code></pre></div><h3 id=cache-optimization>Cache Optimization</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-dockerfile data-lang=dockerfile><span style=display:flex><span><span style=color:#75715e># Optimize Docker layer caching</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>COPY</span> package*.json ./<span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>RUN</span> npm ci --only<span style=color:#f92672>=</span>production<span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#75715e># Copy application code after dependencies</span><span style=color:#960050;background-color:#1e0010>
+</span></span></span><span style=display:flex><span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>COPY</span> . .<span style=color:#960050;background-color:#1e0010>
+</span></span></span></code></pre></div><h2 id=troubleshooting-docker-deployment>Troubleshooting Docker Deployment</h2><h3 id=common-issues>Common Issues</h3><p><strong>Container Won&rsquo;t Start</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Check logs</span>
+</span></span><span style=display:flex><span>docker-compose logs ai-code-terminal
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Check environment variables</span>
+</span></span><span style=display:flex><span>docker-compose exec ai-code-terminal env | grep -E <span style=color:#e6db74>&#39;^(JWT_SECRET|GITHUB_|NODE_ENV)&#39;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Verify permissions</span>
+</span></span><span style=display:flex><span>docker-compose exec ai-code-terminal ls -la /app/data
+</span></span></code></pre></div><p><strong>Database Connection Issues</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Check database file</span>
+</span></span><span style=display:flex><span>docker-compose exec ai-code-terminal ls -la /app/data/database.db
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Initialize database manually</span>
+</span></span><span style=display:flex><span>docker-compose exec ai-code-terminal npx prisma db push
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Reset database (if needed)</span>
+</span></span><span style=display:flex><span>docker-compose exec ai-code-terminal rm /app/data/database.db
+</span></span><span style=display:flex><span>docker-compose restart
+</span></span></code></pre></div><p><strong>Permission Issues</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Fix volume permissions</span>
+</span></span><span style=display:flex><span>sudo chown -R 1001:1001 ./data ./workspaces ./home
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Check container user</span>
+</span></span><span style=display:flex><span>docker-compose exec ai-code-terminal whoami
+</span></span><span style=display:flex><span>docker-compose exec ai-code-terminal id
+</span></span></code></pre></div><p><strong>Memory Issues</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Check container memory usage</span>
+</span></span><span style=display:flex><span>docker stats ai-code-terminal
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Increase memory limits</span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Edit docker-compose.yml and increase memory limit</span>
+</span></span><span style=display:flex><span>docker-compose up -d
+</span></span></code></pre></div><h3 id=debug-mode>Debug Mode</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#75715e># Debug configuration override</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>services</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>ai-code-terminal</span>:
+</span></span><span style=display:flex><span>    <span style=color:#f92672>environment</span>:
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>NODE_ENV=development</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>DEBUG=*</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>LOG_LEVEL=debug</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e># Enable interactive debugging</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>stdin_open</span>: <span style=color:#66d9ef>true</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>tty</span>: <span style=color:#66d9ef>true</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e># Override entrypoint for debugging</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>entrypoint</span>: [<span style=color:#e6db74>&#34;tail&#34;</span>, <span style=color:#e6db74>&#34;-f&#34;</span>, <span style=color:#e6db74>&#34;/dev/null&#34;</span>]
+</span></span></code></pre></div><h2 id=production-checklist>Production Checklist</h2><h3 id=pre-deployment>Pre-deployment</h3><ul><li><input disabled type=checkbox> Environment variables configured</li><li><input disabled type=checkbox> GitHub OAuth app created with production URLs</li><li><input disabled type=checkbox> SSL/TLS certificates ready</li><li><input disabled type=checkbox> Backup strategy implemented</li><li><input disabled type=checkbox> Monitoring configured</li><li><input disabled type=checkbox> Log rotation setup</li><li><input disabled type=checkbox> Resource limits appropriate</li><li><input disabled type=checkbox> Security hardening applied</li></ul><h3 id=post-deployment>Post-deployment</h3><ul><li><input disabled type=checkbox> Health checks passing</li><li><input disabled type=checkbox> Application accessible</li><li><input disabled type=checkbox> Authentication working</li><li><input disabled type=checkbox> Terminal sessions functional</li><li><input disabled type=checkbox> Workspace creation working</li><li><input disabled type=checkbox> Logs being captured</li><li><input disabled type=checkbox> Backups running</li><li><input disabled type=checkbox> Performance monitoring active</li></ul><h2 id=next-steps>Next Steps</h2><ul><li><strong><a href=/docs/deployment/production/>Production Setup</a>:</strong> Complete production deployment guide</li><li><strong><a href=/docs/deployment/monitoring/>Monitoring</a>:</strong> Production monitoring setup</li><li><strong><a href=/docs/troubleshooting/common-issues/>Troubleshooting</a>:</strong> Common deployment issues</li></ul></div></article></div><div class=docs-nav><div><div class="text-gray-500 text-sm">prev page</div></div><div><div class="text-gray-500 text-sm">next page</div></div></div></main><aside class=docs-toc><div class="sticky top-6"><h3 class="text-sm font-semibold text-gray-100 mb-4 text-center">table<br>of<br>content</h3><div id=table-of-contents class=space-y-1></div></div></aside></div><script>document.addEventListener("DOMContentLoaded",function(){const t=document.querySelectorAll(".nav-section-toggle");t.forEach(e=>{e.addEventListener("click",function(){const n=this.closest(".nav-section"),e=n.querySelector(".nav-section-content"),t=this.querySelector(".chevron");e.style.maxHeight==="0px"||e.style.maxHeight===""?(e.style.maxHeight=e.scrollHeight+"px",t.style.transform="rotate(90deg)"):(e.style.maxHeight="0px",t.style.transform="rotate(0deg)")})});const e=document.querySelector(".nav-link.active");if(e){const t=e.closest(".nav-section");if(t){const e=t.querySelector(".nav-section-content"),n=t.querySelector(".chevron");e.style.maxHeight=e.scrollHeight+"px",n.style.transform="rotate(90deg)"}}function n(){const t=document.querySelectorAll("article h2, article h3, article h4, article h5, article h6"),e=document.getElementById("table-of-contents");if(t.length===0||!e)return;t.forEach((t)=>{t.id||(t.id=t.textContent.toLowerCase().replace(/[^a-z0-9]/g,"-").replace(/-+/g,"-").replace(/^-|-$/g,""));const s=document.createElement("a");s.href="#"+t.id,s.textContent=t.textContent,s.className="block py-1.5 px-3 text-xs text-gray-400 hover:text-gray-100 hover:bg-blue-600/5 rounded transition-colors";const o=parseInt(t.tagName.charAt(1));o>2&&(s.style.paddingLeft=`${(o-2)*12+12}px`,s.style.borderLeft="1px solid rgb(75 85 99)"),e.appendChild(s)});const n=new IntersectionObserver(t=>{t.forEach(t=>{const s=t.target.id,n=e.querySelector(`a[href="#${s}"]`);n&&t.isIntersecting&&(e.querySelectorAll("a").forEach(e=>e.classList.remove("!text-blue-400","bg-blue-600/10","font-medium")),n.classList.add("!text-blue-400","bg-blue-600/10","font-medium"))})},{rootMargin:"-100px 0px -80% 0px"});t.forEach(e=>{n.observe(e)})}n(),document.addEventListener("click",function(e){if(e.target.matches('a[href^="#"]')){e.preventDefault();const t=document.querySelector(e.target.getAttribute("href"));t&&t.scrollIntoView({behavior:"smooth",block:"start"})}})})</script></main><script>feather.replace()</script><script src=/js/docs.js></script></body></html>

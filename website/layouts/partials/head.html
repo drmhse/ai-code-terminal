@@ -66,10 +66,5 @@
 }
 </script>
 
-<!-- Conditional CSS Loading Based on Section -->
-<link rel="stylesheet" href="/css/shared.css">
-{{ if eq .Section "docs" }}
-    <link rel="stylesheet" href="/css/docs.css">
-{{ else }}
-    <link rel="stylesheet" href="/css/main.css">
-{{ end }}
+<!-- TailwindCSS processed by Hugo -->
+{{ partial "css.html" . }}

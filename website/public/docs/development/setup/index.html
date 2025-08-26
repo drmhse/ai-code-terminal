@@ -1,568 +1,115 @@
-<!DOCTYPE html>
-<html lang="en-us">
-<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
-    <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-
-<title>Development Setup | AI Code Terminal: The AI-Native Shell</title>
-<meta name="description" content="Complete development environment setup for AI Code Terminal">
-<meta name="keywords" content="AI development, Claude Code, self-hosted terminal, development environment, AI coding, browser terminal, Docker deployment">
-<meta name="author" content="AI Code Terminal">
-<meta name="robots" content="index, follow">
-<link rel="canonical" href="http://localhost:1313/docs/development/setup/">
-
-
-<meta property="og:type" content="article">
-<meta property="og:title" content="Development Setup | AI Code Terminal: The AI-Native Shell">
-<meta property="og:description" content="Complete development environment setup for AI Code Terminal">
-<meta property="og:url" content="http://localhost:1313/docs/development/setup/">
-<meta property="og:site_name" content="AI Code Terminal: The AI-Native Shell">
-<meta property="og:image" content="http://localhost:1313/images/claude_code_in_action.png">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="AI Code Terminal - Browser-based development environment with Claude integration">
-
-
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Development Setup | AI Code Terminal: The AI-Native Shell">
-<meta name="twitter:description" content="Complete development environment setup for AI Code Terminal">
-<meta name="twitter:image" content="http://localhost:1313/images/claude_code_in_action.png">
-<meta name="twitter:image:alt" content="AI Code Terminal - Browser-based development environment with Claude integration">
-
-
-<link rel="icon" type="image/svg+xml" href="/terminal-icon.svg">
-<link rel="icon" type="image/png" href="/favicon.png" sizes="32x32">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
-
-
-<meta name="theme-color" content="#010411">
-<meta name="msapplication-TileColor" content="#010411">
-
-
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
-
-
-<script src="https://unpkg.com/feather-icons"></script>
-
-
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "AI Code Terminal: The AI-Native Shell",
-  "description": "A self-hosted development environment for the post-IDE era. Code from any device with a fast, lightweight, AI-native shell.",
-  "url": "http:\/\/localhost:1313\/",
-  "applicationCategory": "DeveloperApplication",
-  "operatingSystem": "Linux, macOS, Windows",
-  "offers": {
-    "@type": "Offer",
-    "price": "0",
-    "priceCurrency": "USD"
-  },
-  "author": {
-    "@type": "Organization",
-    "name": "AI Code Terminal"
-  }
-}
-</script>
-
-
-<link rel="stylesheet" href="/css/shared.css">
-
-    <link rel="stylesheet" href="/css/docs.css">
-
-</head>
-<body class="docs-site">
-    
-    
-    <header>
-    <div class="container">
-        <nav>
-            <a href="http://localhost:1313/" class="logo">
-                <span class="prompt-char">&gt;</span> AI Code Terminal
-            </a>
-            <div class="nav-links">
-                <a href="/docs/getting-started/introduction/" class="nav-link">
-                    <i data-feather="book"></i>
-                    <span>Documentation</span>
-                </a>
-                <a href="/getting-started/" class="nav-link">
-                    <i data-feather="book-open"></i>
-                    <span>Getting Started</span>
-                </a>
-                <a href="https://github.com/drmhse/ai-code-terminal" target="_blank" rel="noopener noreferrer" class="nav-link">
-                    <i data-feather="github"></i>
-                    <span>View on GitHub</span>
-                </a>
-            </div>
-        </nav>
-    </div>
-</header>
-
-    <main>
-        
-
-<div class="min-h-screen bg-[#010411] text-[#d4dff3]">
-  
-  
-  <button id="mobile-sidebar-toggle" class="lg:hidden fixed top-4 left-4 z-50 p-3 bg-[#0a0c1a] border border-[rgba(67,79,138,0.2)] rounded-lg">
-    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-    </svg>
-  </button>
-
-  
-  <div id="mobile-overlay" class="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30 hidden"></div>
-
-  <div class="flex pt-20"> 
-    
-    
-    <aside id="docs-sidebar" class="fixed lg:relative w-80 bg-[rgba(1,4,17,0.95)] border-r border-[rgba(67,79,138,0.2)] h-screen lg:h-[calc(100vh-5rem)] overflow-y-auto backdrop-blur-xl z-40 -translate-x-full lg:translate-x-0 transition-transform duration-300">
-      
-      
-      <div class="sticky top-0 bg-[rgba(1,4,17,0.9)] backdrop-blur-sm border-b border-[rgba(67,79,138,0.2)] p-6">
-        <div class="flex items-center space-x-3 mb-6">
-          <div class="w-8 h-8 bg-[#82aaff] rounded-lg flex items-center justify-center">
-            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-            </svg>
-          </div>
-          <h3 class="text-lg font-semibold text-[#d4dff3]">Documentation</h3>
-        </div>
-        
-        
-        <div class="relative">
-          <svg class="absolute left-3 top-3.5 w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-          </svg>
-          <input type="text" placeholder="Search docs..." class="w-full pl-10 pr-4 py-3 bg-[rgba(10,12,26,0.6)] border border-[rgba(67,79,138,0.2)] rounded-lg text-[#d4dff3] placeholder-[#8b9cc2] focus:outline-none focus:border-[#82aaff] focus:ring-1 focus:ring-[#82aaff] transition-colors">
-        </div>
-      </div>
-
-      
-      <nav class="p-4 space-y-2">
-        
-        
-        <div class="nav-section">
-          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="getting-started">
-            <span class="uppercase tracking-wider">Getting Started</span>
-            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </button>
-          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-            
-            
-            <li>
-              <a href="http://localhost:1313/docs/getting-started/introduction/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Introduction
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/getting-started/quick-start/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Quick Start
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/getting-started/installation/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Installation
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/getting-started/github-oauth/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                GitHub OAuth Setup
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/getting-started/configuration/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Configuration
-              </a>
-            </li>
-            
-            
-          </ul>
-        </div>
-
-        
-        <div class="nav-section">
-          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="core-features">
-            <span class="uppercase tracking-wider">Core Features</span>
-            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </button>
-          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-            
-            
-            <li>
-              <a href="http://localhost:1313/docs/core-features/terminal-access/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Terminal Access
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/core-features/workspace-management/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Workspace Management
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/core-features/github-integration/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                GitHub Integration
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/core-features/claude-integration/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Claude Integration
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/core-features/real-time-features/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Real-time Features
-              </a>
-            </li>
-            
-            
-          </ul>
-        </div>
-
-        
-        <div class="nav-section">
-          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="authentication">
-            <span class="uppercase tracking-wider">Authentication</span>
-            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </button>
-          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-            
-            
-            <li>
-              <a href="http://localhost:1313/docs/authentication/auth-flow/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Authentication Flow
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/authentication/security-features/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Security Features
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/authentication/token-management/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Token Management
-              </a>
-            </li>
-            
-            
-          </ul>
-        </div>
-
-        
-        <div class="nav-section">
-          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="api">
-            <span class="uppercase tracking-wider">API & WebSocket</span>
-            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </button>
-          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-            
-            
-            <li>
-              <a href="http://localhost:1313/docs/api/endpoints/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                API Endpoints
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/api/websocket/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                WebSocket Events
-              </a>
-            </li>
-            
-            
-          </ul>
-        </div>
-
-        
-        <div class="nav-section">
-          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="database">
-            <span class="uppercase tracking-wider">Database</span>
-            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </button>
-          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-            
-            
-            <li>
-              <a href="http://localhost:1313/docs/database/schema/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Database Schema
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/database/models/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Data Models
-              </a>
-            </li>
-            
-            
-          </ul>
-        </div>
-
-        
-        <div class="nav-section">
-          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="development">
-            <span class="uppercase tracking-wider">Development</span>
-            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </button>
-          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-            
-            
-            <li>
-              <a href="http://localhost:1313/docs/development/setup/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors active bg-[rgba(130,170,255,0.1)] !text-[#82aaff] font-medium">
-                Development Setup
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/development/testing/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Testing
-              </a>
-            </li>
-            
-            
-          </ul>
-        </div>
-
-        
-        <div class="nav-section">
-          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="deployment">
-            <span class="uppercase tracking-wider">Deployment</span>
-            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </button>
-          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-            
-            
-            <li>
-              <a href="http://localhost:1313/docs/deployment/docker/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Docker Deployment
-              </a>
-            </li>
-            
-            
-          </ul>
-        </div>
-
-      </nav>
-    </aside>
-
-    
-    <main class="flex-1 lg:ml-80">
-      
-      
-      <div class="sticky top-20 bg-[rgba(1,4,17,0.9)] backdrop-blur-sm border-b border-[rgba(67,79,138,0.2)] px-8 py-4 z-10">
-        <nav class="flex items-center space-x-2 text-sm">
-          <a href="/" class="text-[#8b9cc2] hover:text-[#d4dff3] transition-colors">Home</a>
-          <svg class="w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-          </svg>
-          <a href="/docs" class="text-[#8b9cc2] hover:text-[#d4dff3] transition-colors">Documentation</a>
-          
-          <svg class="w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-          </svg>
-          <a href="http://localhost:1313/docs/development/" class="text-[#8b9cc2] hover:text-[#d4dff3] transition-colors">Development</a>
-          
-          <svg class="w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-          </svg>
-          <span class="text-[#82aaff] font-medium">Development Setup</span>
-        </nav>
-      </div>
-
-      <div class="flex">
-        
-        <article class="flex-1 px-8 py-12 max-w-4xl">
-          
-          
-          <header class="mb-12">
-            
-            
-            <h1 class="text-4xl lg:text-5xl font-bold text-[#d4dff3] mb-6 leading-tight">Development Setup</h1>
-            
-            
-            <p class="text-xl text-[#8b9cc2] leading-relaxed mb-8">Complete development environment setup for AI Code Terminal</p>
-            
-            
-            
-            <div class="flex items-center space-x-6 text-sm text-[#8b9cc2]">
-              
-              
-              <div class="flex items-center space-x-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <span>8 min read</span>
-              </div>
-              
-            </div>
-            
-          </header>
-
-          
-          <div class="prose prose-invert prose-lg max-w-none">
-            <h1 id="development-setup">Development Setup</h1>
-<p>This guide covers setting up a complete development environment for AI Code Terminal, including all dependencies, tools, and configurations needed for local development.</p>
-<h2 id="prerequisites">Prerequisites</h2>
-<h3 id="system-requirements">System Requirements</h3>
-<ul>
-<li><strong>Node.js:</strong> 18.x or higher (LTS recommended)</li>
-<li><strong>npm:</strong> 9.x or higher (comes with Node.js)</li>
-<li><strong>Git:</strong> Latest stable version</li>
-<li><strong>Docker:</strong> Latest stable version (optional, for containerized testing)</li>
-<li><strong>GitHub Account:</strong> For OAuth testing</li>
-</ul>
-<h3 id="recommended-tools">Recommended Tools</h3>
-<ul>
-<li><strong>VS Code:</strong> With recommended extensions</li>
-<li><strong>GitHub CLI:</strong> For repository management</li>
-<li><strong>Postman:</strong> For API testing</li>
-<li><strong>Docker Desktop:</strong> For container development</li>
-</ul>
-<h2 id="repository-setup">Repository Setup</h2>
-<h3 id="clone-repository">Clone Repository</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Clone the main repository</span>
-</span></span><span style="display:flex;"><span>git clone https://github.com/your-username/ai-coding-terminal.git
-</span></span><span style="display:flex;"><span>cd ai-coding-terminal
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Install dependencies</span>
-</span></span><span style="display:flex;"><span>npm install
-</span></span></code></pre></div><h3 id="environment-configuration">Environment Configuration</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Copy example environment file</span>
-</span></span><span style="display:flex;"><span>cp env.example .env
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Edit the environment file with your settings</span>
-</span></span><span style="display:flex;"><span>nano .env  <span style="color:#75715e"># or your preferred editor</span>
-</span></span></code></pre></div><h3 id="required-environment-variables">Required Environment Variables</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Development Environment Configuration</span>
-</span></span><span style="display:flex;"><span>NODE_ENV<span style="color:#f92672">=</span>development
-</span></span><span style="display:flex;"><span>PORT<span style="color:#f92672">=</span><span style="color:#ae81ff">3014</span>
-</span></span><span style="display:flex;"><span>HOST<span style="color:#f92672">=</span>localhost
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># JWT Configuration (generate a secure secret)</span>
-</span></span><span style="display:flex;"><span>JWT_SECRET<span style="color:#f92672">=</span>your-development-jwt-secret-at-least-32-characters-long
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># GitHub OAuth (create a GitHub OAuth app)</span>
-</span></span><span style="display:flex;"><span>GITHUB_CLIENT_ID<span style="color:#f92672">=</span>your_github_client_id
-</span></span><span style="display:flex;"><span>GITHUB_CLIENT_SECRET<span style="color:#f92672">=</span>your_github_client_secret
-</span></span><span style="display:flex;"><span>GITHUB_CALLBACK_URL<span style="color:#f92672">=</span>http://localhost:3014/auth/github/callback
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Single-tenant user (your GitHub username)</span>
-</span></span><span style="display:flex;"><span>TENANT_GITHUB_USERNAME<span style="color:#f92672">=</span>your-github-username
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Database</span>
-</span></span><span style="display:flex;"><span>DATABASE_URL<span style="color:#f92672">=</span>file:./data/database.db
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Optional Development Settings</span>
-</span></span><span style="display:flex;"><span>DEBUG<span style="color:#f92672">=</span>ai-code-terminal:*
-</span></span><span style="display:flex;"><span>LOG_LEVEL<span style="color:#f92672">=</span>debug
-</span></span><span style="display:flex;"><span>WORKSPACE_ROOT<span style="color:#f92672">=</span>./workspaces
-</span></span><span style="display:flex;"><span>MAX_WORKSPACES_PER_USER<span style="color:#f92672">=</span><span style="color:#ae81ff">10</span>
-</span></span></code></pre></div><h3 id="github-oauth-app-setup">GitHub OAuth App Setup</h3>
-<ol>
-<li>Go to <a href="https://github.com/settings/applications/new">GitHub Settings → Developer settings → OAuth Apps</a></li>
-<li>Create a new OAuth App with these settings:
-<ul>
-<li><strong>Application name:</strong> AI Code Terminal (Development)</li>
-<li><strong>Homepage URL:</strong> http://localhost:3014</li>
-<li><strong>Authorization callback URL:</strong> http://localhost:3014/auth/github/callback</li>
-</ul>
-</li>
-<li>Copy the Client ID and Client Secret to your <code>.env</code> file</li>
-</ol>
-<h2 id="database-setup">Database Setup</h2>
-<h3 id="initialize-database">Initialize Database</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Generate Prisma client</span>
-</span></span><span style="display:flex;"><span>npx prisma generate
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Push schema to database (creates tables)</span>
-</span></span><span style="display:flex;"><span>npx prisma db push
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Optional: Seed with test data</span>
-</span></span><span style="display:flex;"><span>npm run seed
-</span></span></code></pre></div><h3 id="database-management">Database Management</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># View database in Prisma Studio</span>
-</span></span><span style="display:flex;"><span>npx prisma studio
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Reset database (development only)</span>
-</span></span><span style="display:flex;"><span>npx prisma migrate reset
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Create new migration</span>
-</span></span><span style="display:flex;"><span>npx prisma migrate dev --name add_new_field
-</span></span></code></pre></div><h2 id="development-scripts">Development Scripts</h2>
-<h3 id="available-scripts">Available Scripts</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Start development server with auto-restart</span>
-</span></span><span style="display:flex;"><span>npm run dev
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Start production server</span>
-</span></span><span style="display:flex;"><span>npm start
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Build for production</span>
-</span></span><span style="display:flex;"><span>npm run build
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Run tests</span>
-</span></span><span style="display:flex;"><span>npm test
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Run tests with coverage</span>
-</span></span><span style="display:flex;"><span>npm run test:coverage
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Run tests in watch mode</span>
-</span></span><span style="display:flex;"><span>npm run test:watch
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Lint code</span>
-</span></span><span style="display:flex;"><span>npm run lint
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Format code</span>
-</span></span><span style="display:flex;"><span>npm run format
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Type check</span>
-</span></span><span style="display:flex;"><span>npm run type-check
-</span></span></code></pre></div><h3 id="development-server">Development Server</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Start with default settings</span>
-</span></span><span style="display:flex;"><span>npm run dev
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Start with debug logging</span>
-</span></span><span style="display:flex;"><span>DEBUG<span style="color:#f92672">=</span>* npm run dev
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Start on different port</span>
-</span></span><span style="display:flex;"><span>PORT<span style="color:#f92672">=</span><span style="color:#ae81ff">3015</span> npm run dev
-</span></span></code></pre></div><p>The development server includes:</p>
-<ul>
-<li><strong>Auto-restart:</strong> Automatically restarts on file changes</li>
-<li><strong>Hot reload:</strong> Frontend updates without full reload</li>
-<li><strong>Debug logging:</strong> Comprehensive logging in development</li>
-<li><strong>Source maps:</strong> For easier debugging</li>
-</ul>
-<h2 id="project-structure">Project Structure</h2>
-<h3 id="directory-overview">Directory Overview</h3>
-<pre tabindex="0"><code>ai-coding-terminal/
+<!doctype html><html lang=en-us><head><meta charset=UTF-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Development Setup | AI Code Terminal: The AI-Native Shell</title><meta name=description content="Complete development environment setup for AI Code Terminal"><meta name=keywords content="AI development,Claude Code,self-hosted terminal,development environment,AI coding,browser terminal,Docker deployment"><meta name=author content="AI Code Terminal"><meta name=robots content="index, follow"><link rel=canonical href=https://act.drmhse.com/docs/development/setup/><meta property="og:type" content="article"><meta property="og:title" content="Development Setup | AI Code Terminal: The AI-Native Shell"><meta property="og:description" content="Complete development environment setup for AI Code Terminal"><meta property="og:url" content="https://act.drmhse.com/docs/development/setup/"><meta property="og:site_name" content="AI Code Terminal: The AI-Native Shell"><meta property="og:image" content="https://act.drmhse.com/images/claude_code_in_action.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="AI Code Terminal - Browser-based development environment with Claude integration"><meta name=twitter:card content="summary_large_image"><meta name=twitter:title content="Development Setup | AI Code Terminal: The AI-Native Shell"><meta name=twitter:description content="Complete development environment setup for AI Code Terminal"><meta name=twitter:image content="https://act.drmhse.com/images/claude_code_in_action.png"><meta name=twitter:image:alt content="AI Code Terminal - Browser-based development environment with Claude integration"><link rel=icon type=image/svg+xml href=/terminal-icon.svg><link rel=icon type=image/png href=/favicon.png sizes=32x32><link rel=apple-touch-icon href=/apple-touch-icon.png sizes=180x180><meta name=theme-color content="#010411"><meta name=msapplication-TileColor content="#010411"><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500&family=Space+Grotesk:wght@400;500;700&display=swap" rel=stylesheet><script src=https://unpkg.com/feather-icons></script><script type=application/ld+json>{"@context":"https://schema.org","@type":"SoftwareApplication","name":"AI Code Terminal: The AI-Native Shell","description":"A self-hosted development environment for the post-IDE era. Code from any device with a fast, lightweight, AI-native shell.","url":"https:\/\/act.drmhse.com\/","applicationCategory":"DeveloperApplication","operatingSystem":"Linux, macOS, Windows","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"AI Code Terminal"}}</script><link rel=stylesheet href=/css/docs.min.css integrity crossorigin=anonymous></head><body class=docs-site><main><div class="docs-grid bg-gray-900 text-gray-100 min-h-screen"><aside class=docs-sidebar><div class=logo-section><div class="flex items-center space-x-3"><div class=logo-box><img src=/android-chrome-512x512.png alt="AI Code Terminal" class="w-10 h-10 rounded-lg"></div><h2 class="text-lg font-semibold text-gray-100">sections<br>& Links</h2></div></div><nav class="p-4 space-y-2 overflow-y-auto"><div class=nav-section><button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section=getting-started>
+<span class="uppercase tracking-wider">Getting Started</span>
+<svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button><ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out"><li><a href=https://act.drmhse.com/docs/getting-started/introduction/ class=nav-link>Introduction</a></li><li><a href=https://act.drmhse.com/docs/getting-started/quick-start/ class=nav-link>Quick Start</a></li><li><a href=https://act.drmhse.com/docs/getting-started/installation/ class=nav-link>Installation</a></li><li><a href=https://act.drmhse.com/docs/getting-started/github-oauth/ class=nav-link>GitHub OAuth Setup</a></li><li><a href=https://act.drmhse.com/docs/getting-started/configuration/ class=nav-link>Configuration</a></li></ul></div><div class=nav-section><button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section=core-features>
+<span class="uppercase tracking-wider">Core Features</span>
+<svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button><ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out"><li><a href=https://act.drmhse.com/docs/core-features/terminal-access/ class=nav-link>Terminal Access</a></li><li><a href=https://act.drmhse.com/docs/core-features/workspace-management/ class=nav-link>Workspace Management</a></li><li><a href=https://act.drmhse.com/docs/core-features/github-integration/ class=nav-link>GitHub Integration</a></li><li><a href=https://act.drmhse.com/docs/core-features/claude-integration/ class=nav-link>Claude Integration</a></li><li><a href=https://act.drmhse.com/docs/core-features/real-time-features/ class=nav-link>Real-time Features</a></li></ul></div><div class=nav-section><button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section=authentication>
+<span class="uppercase tracking-wider">Authentication</span>
+<svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button><ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out"><li><a href=https://act.drmhse.com/docs/authentication/auth-flow/ class=nav-link>Authentication Flow</a></li><li><a href=https://act.drmhse.com/docs/authentication/security-features/ class=nav-link>Security Features</a></li><li><a href=https://act.drmhse.com/docs/authentication/token-management/ class=nav-link>Token Management</a></li></ul></div><div class=nav-section><button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section=api>
+<span class="uppercase tracking-wider">API & WebSocket</span>
+<svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button><ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out"><li><a href=https://act.drmhse.com/docs/api/endpoints/ class=nav-link>API Endpoints</a></li><li><a href=https://act.drmhse.com/docs/api/websocket/ class=nav-link>WebSocket Events</a></li></ul></div><div class=nav-section><button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section=database>
+<span class="uppercase tracking-wider">Database</span>
+<svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button><ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out"><li><a href=https://act.drmhse.com/docs/database/schema/ class=nav-link>Database Schema</a></li><li><a href=https://act.drmhse.com/docs/database/models/ class=nav-link>Data Models</a></li></ul></div><div class=nav-section><button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section=development>
+<span class="uppercase tracking-wider">Development</span>
+<svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button><ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out"><li><a href=https://act.drmhse.com/docs/development/setup/ class="nav-link active">Development Setup</a></li><li><a href=https://act.drmhse.com/docs/development/testing/ class=nav-link>Testing</a></li></ul></div><div class=nav-section><button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section=deployment>
+<span class="uppercase tracking-wider">Deployment</span>
+<svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button><ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out"><li><a href=https://act.drmhse.com/docs/deployment/docker/ class=nav-link>Docker Deployment</a></li></ul></div></nav></aside><main class=docs-main><header class=main-header><div class=container><nav class=main-nav><a href=https://act.drmhse.com/ class=logo><span class=prompt-char>></span> AI Code Terminal</a><div class=nav-links><a href=/docs/getting-started/introduction/ class=nav-link><i data-feather=book></i>
+<span>Documentation</span>
+</a><a href=/getting-started/ class=nav-link><i data-feather=book-open></i>
+<span>Getting Started</span>
+</a><a href=https://github.com/drmhse/ai-code-terminal target=_blank rel="noopener noreferrer" class=nav-link><i data-feather=github></i>
+<span>View on GitHub</span></a></div></nav></div></header><div class=docs-breadcrumbs><nav class="flex items-center space-x-2 text-sm"><a href=/ class="text-gray-400 hover:text-gray-100 transition-colors">Home</a>
+<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+<a href=/docs class="text-gray-400 hover:text-gray-100 transition-colors">Documentation</a>
+<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+<a href=https://act.drmhse.com/docs/development/ class="text-gray-400 hover:text-gray-100 transition-colors">Development</a>
+<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+<span class="text-blue-400 font-medium">Development Setup</span></nav></div><div class=docs-content><article class="max-w-4xl mx-auto"><header class=mb-8><h1 class="text-3xl lg:text-4xl font-bold text-gray-100 mb-4 leading-tight">Development Setup</h1><p class="text-lg text-gray-300 leading-relaxed mb-6">Complete development environment setup for AI Code Terminal</p><div class="flex items-center space-x-6 text-sm text-gray-400"><div class="flex items-center space-x-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3A9 9 0 113 12a9 9 0 0118 0z"/></svg>
+<span>8 min read</span></div></div></header><div class="prose prose-invert prose-lg max-w-none"><h1 id=development-setup>Development Setup</h1><p>This guide covers setting up a complete development environment for AI Code Terminal, including all dependencies, tools, and configurations needed for local development.</p><h2 id=prerequisites>Prerequisites</h2><h3 id=system-requirements>System Requirements</h3><ul><li><strong>Node.js:</strong> 18.x or higher (LTS recommended)</li><li><strong>npm:</strong> 9.x or higher (comes with Node.js)</li><li><strong>Git:</strong> Latest stable version</li><li><strong>Docker:</strong> Latest stable version (optional, for containerized testing)</li><li><strong>GitHub Account:</strong> For OAuth testing</li></ul><h3 id=recommended-tools>Recommended Tools</h3><ul><li><strong>VS Code:</strong> With recommended extensions</li><li><strong>GitHub CLI:</strong> For repository management</li><li><strong>Postman:</strong> For API testing</li><li><strong>Docker Desktop:</strong> For container development</li></ul><h2 id=repository-setup>Repository Setup</h2><h3 id=clone-repository>Clone Repository</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Clone the main repository</span>
+</span></span><span style=display:flex><span>git clone https://github.com/your-username/ai-coding-terminal.git
+</span></span><span style=display:flex><span>cd ai-coding-terminal
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Install dependencies</span>
+</span></span><span style=display:flex><span>npm install
+</span></span></code></pre></div><h3 id=environment-configuration>Environment Configuration</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Copy example environment file</span>
+</span></span><span style=display:flex><span>cp env.example .env
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Edit the environment file with your settings</span>
+</span></span><span style=display:flex><span>nano .env  <span style=color:#75715e># or your preferred editor</span>
+</span></span></code></pre></div><h3 id=required-environment-variables>Required Environment Variables</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Development Environment Configuration</span>
+</span></span><span style=display:flex><span>NODE_ENV<span style=color:#f92672>=</span>development
+</span></span><span style=display:flex><span>PORT<span style=color:#f92672>=</span><span style=color:#ae81ff>3014</span>
+</span></span><span style=display:flex><span>HOST<span style=color:#f92672>=</span>localhost
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># JWT Configuration (generate a secure secret)</span>
+</span></span><span style=display:flex><span>JWT_SECRET<span style=color:#f92672>=</span>your-development-jwt-secret-at-least-32-characters-long
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># GitHub OAuth (create a GitHub OAuth app)</span>
+</span></span><span style=display:flex><span>GITHUB_CLIENT_ID<span style=color:#f92672>=</span>your_github_client_id
+</span></span><span style=display:flex><span>GITHUB_CLIENT_SECRET<span style=color:#f92672>=</span>your_github_client_secret
+</span></span><span style=display:flex><span>GITHUB_CALLBACK_URL<span style=color:#f92672>=</span>http://localhost:3014/auth/github/callback
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Single-tenant user (your GitHub username)</span>
+</span></span><span style=display:flex><span>TENANT_GITHUB_USERNAME<span style=color:#f92672>=</span>your-github-username
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Database</span>
+</span></span><span style=display:flex><span>DATABASE_URL<span style=color:#f92672>=</span>file:./data/database.db
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Optional Development Settings</span>
+</span></span><span style=display:flex><span>DEBUG<span style=color:#f92672>=</span>ai-code-terminal:*
+</span></span><span style=display:flex><span>LOG_LEVEL<span style=color:#f92672>=</span>debug
+</span></span><span style=display:flex><span>WORKSPACE_ROOT<span style=color:#f92672>=</span>./workspaces
+</span></span><span style=display:flex><span>MAX_WORKSPACES_PER_USER<span style=color:#f92672>=</span><span style=color:#ae81ff>10</span>
+</span></span></code></pre></div><h3 id=github-oauth-app-setup>GitHub OAuth App Setup</h3><ol><li>Go to <a href=https://github.com/settings/applications/new>GitHub Settings → Developer settings → OAuth Apps</a></li><li>Create a new OAuth App with these settings:<ul><li><strong>Application name:</strong> AI Code Terminal (Development)</li><li><strong>Homepage URL:</strong> http://localhost:3014</li><li><strong>Authorization callback URL:</strong> http://localhost:3014/auth/github/callback</li></ul></li><li>Copy the Client ID and Client Secret to your <code>.env</code> file</li></ol><h2 id=database-setup>Database Setup</h2><h3 id=initialize-database>Initialize Database</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Generate Prisma client</span>
+</span></span><span style=display:flex><span>npx prisma generate
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Push schema to database (creates tables)</span>
+</span></span><span style=display:flex><span>npx prisma db push
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Optional: Seed with test data</span>
+</span></span><span style=display:flex><span>npm run seed
+</span></span></code></pre></div><h3 id=database-management>Database Management</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># View database in Prisma Studio</span>
+</span></span><span style=display:flex><span>npx prisma studio
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Reset database (development only)</span>
+</span></span><span style=display:flex><span>npx prisma migrate reset
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Create new migration</span>
+</span></span><span style=display:flex><span>npx prisma migrate dev --name add_new_field
+</span></span></code></pre></div><h2 id=development-scripts>Development Scripts</h2><h3 id=available-scripts>Available Scripts</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Start development server with auto-restart</span>
+</span></span><span style=display:flex><span>npm run dev
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Start production server</span>
+</span></span><span style=display:flex><span>npm start
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Build for production</span>
+</span></span><span style=display:flex><span>npm run build
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Run tests</span>
+</span></span><span style=display:flex><span>npm test
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Run tests with coverage</span>
+</span></span><span style=display:flex><span>npm run test:coverage
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Run tests in watch mode</span>
+</span></span><span style=display:flex><span>npm run test:watch
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Lint code</span>
+</span></span><span style=display:flex><span>npm run lint
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Format code</span>
+</span></span><span style=display:flex><span>npm run format
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Type check</span>
+</span></span><span style=display:flex><span>npm run type-check
+</span></span></code></pre></div><h3 id=development-server>Development Server</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Start with default settings</span>
+</span></span><span style=display:flex><span>npm run dev
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Start with debug logging</span>
+</span></span><span style=display:flex><span>DEBUG<span style=color:#f92672>=</span>* npm run dev
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Start on different port</span>
+</span></span><span style=display:flex><span>PORT<span style=color:#f92672>=</span><span style=color:#ae81ff>3015</span> npm run dev
+</span></span></code></pre></div><p>The development server includes:</p><ul><li><strong>Auto-restart:</strong> Automatically restarts on file changes</li><li><strong>Hot reload:</strong> Frontend updates without full reload</li><li><strong>Debug logging:</strong> Comprehensive logging in development</li><li><strong>Source maps:</strong> For easier debugging</li></ul><h2 id=project-structure>Project Structure</h2><h3 id=directory-overview>Directory Overview</h3><pre tabindex=0><code>ai-coding-terminal/
 ├── src/                    # Source code
 │   ├── app.js             # Express application setup
 │   ├── controllers/       # API endpoint controllers
@@ -581,8 +128,7 @@
 ├── __tests__/             # Test files
 ├── docs/                  # Documentation
 └── scripts/               # Build and deployment scripts
-</code></pre><h3 id="source-code-organization">Source Code Organization</h3>
-<pre tabindex="0"><code>src/
+</code></pre><h3 id=source-code-organization>Source Code Organization</h3><pre tabindex=0><code>src/
 ├── app.js                 # Main Express app
 ├── server.js              # Server entry point
 ├── controllers/           # Request handlers
@@ -608,593 +154,329 @@
     ├── database.js
     ├── cors.js
     └── constants.js
-</code></pre><h2 id="ide-configuration">IDE Configuration</h2>
-<h3 id="vs-code-setup">VS Code Setup</h3>
-<p>Create <code>.vscode/settings.json</code>:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;typescript.preferences.importModuleSpecifier&#34;</span>: <span style="color:#e6db74">&#34;relative&#34;</span>,
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;editor.formatOnSave&#34;</span>: <span style="color:#66d9ef">true</span>,
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;editor.codeActionsOnSave&#34;</span>: {
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;source.fixAll.eslint&#34;</span>: <span style="color:#66d9ef">true</span>
-</span></span><span style="display:flex;"><span>  },
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;files.associations&#34;</span>: {
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;*.ejs&#34;</span>: <span style="color:#e6db74">&#34;html&#34;</span>
-</span></span><span style="display:flex;"><span>  },
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;emmet.includeLanguages&#34;</span>: {
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;ejs&#34;</span>: <span style="color:#e6db74">&#34;html&#34;</span>
-</span></span><span style="display:flex;"><span>  },
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;sqltools.connections&#34;</span>: [
-</span></span><span style="display:flex;"><span>    {
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;name&#34;</span>: <span style="color:#e6db74">&#34;AI Code Terminal DB&#34;</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;driver&#34;</span>: <span style="color:#e6db74">&#34;SQLite&#34;</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;database&#34;</span>: <span style="color:#e6db74">&#34;./data/database.db&#34;</span>
-</span></span><span style="display:flex;"><span>    }
-</span></span><span style="display:flex;"><span>  ]
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><h3 id="recommended-vs-code-extensions">Recommended VS Code Extensions</h3>
-<p>Create <code>.vscode/extensions.json</code>:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;recommendations&#34;</span>: [
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;esbenp.prettier-vscode&#34;</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;dbaeumer.vscode-eslint&#34;</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;bradlc.vscode-tailwindcss&#34;</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;prisma.prisma&#34;</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;ms-vscode.vscode-json&#34;</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;redhat.vscode-yaml&#34;</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;ms-vscode.vscode-typescript-next&#34;</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;formulahendry.auto-rename-tag&#34;</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;christian-kohler.path-intellisense&#34;</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;ms-vscode.vscode-node-azure-pack&#34;</span>
-</span></span><span style="display:flex;"><span>  ]
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><h3 id="debug-configuration">Debug Configuration</h3>
-<p>Create <code>.vscode/launch.json</code>:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;version&#34;</span>: <span style="color:#e6db74">&#34;0.2.0&#34;</span>,
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;configurations&#34;</span>: [
-</span></span><span style="display:flex;"><span>    {
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;name&#34;</span>: <span style="color:#e6db74">&#34;Start Development Server&#34;</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;type&#34;</span>: <span style="color:#e6db74">&#34;node&#34;</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;request&#34;</span>: <span style="color:#e6db74">&#34;launch&#34;</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;program&#34;</span>: <span style="color:#e6db74">&#34;${workspaceFolder}/server.js&#34;</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;env&#34;</span>: {
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">&#34;NODE_ENV&#34;</span>: <span style="color:#e6db74">&#34;development&#34;</span>,
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">&#34;DEBUG&#34;</span>: <span style="color:#e6db74">&#34;ai-code-terminal:*&#34;</span>
-</span></span><span style="display:flex;"><span>      },
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;console&#34;</span>: <span style="color:#e6db74">&#34;integratedTerminal&#34;</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;restart&#34;</span>: <span style="color:#66d9ef">true</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;runtimeArgs&#34;</span>: [<span style="color:#e6db74">&#34;--inspect&#34;</span>]
-</span></span><span style="display:flex;"><span>    },
-</span></span><span style="display:flex;"><span>    {
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;name&#34;</span>: <span style="color:#e6db74">&#34;Run Tests&#34;</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;type&#34;</span>: <span style="color:#e6db74">&#34;node&#34;</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;request&#34;</span>: <span style="color:#e6db74">&#34;launch&#34;</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;program&#34;</span>: <span style="color:#e6db74">&#34;${workspaceFolder}/node_modules/.bin/jest&#34;</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;args&#34;</span>: [<span style="color:#e6db74">&#34;--runInBand&#34;</span>],
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;console&#34;</span>: <span style="color:#e6db74">&#34;integratedTerminal&#34;</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;env&#34;</span>: {
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">&#34;NODE_ENV&#34;</span>: <span style="color:#e6db74">&#34;test&#34;</span>
-</span></span><span style="display:flex;"><span>      }
-</span></span><span style="display:flex;"><span>    },
-</span></span><span style="display:flex;"><span>    {
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;name&#34;</span>: <span style="color:#e6db74">&#34;Attach to Process&#34;</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;type&#34;</span>: <span style="color:#e6db74">&#34;node&#34;</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;request&#34;</span>: <span style="color:#e6db74">&#34;attach&#34;</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;port&#34;</span>: <span style="color:#ae81ff">9229</span>
-</span></span><span style="display:flex;"><span>    }
-</span></span><span style="display:flex;"><span>  ]
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><h2 id="code-quality-tools">Code Quality Tools</h2>
-<h3 id="eslint-configuration">ESLint Configuration</h3>
-<p><code>.eslintrc.js</code>:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#a6e22e">module</span>.<span style="color:#a6e22e">exports</span> <span style="color:#f92672">=</span> {
-</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">env</span><span style="color:#f92672">:</span> {
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">node</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">es2022</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">jest</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>
-</span></span><span style="display:flex;"><span>  },
-</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">extends</span><span style="color:#f92672">:</span> [
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;eslint:recommended&#39;</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;prettier&#39;</span>
-</span></span><span style="display:flex;"><span>  ],
-</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">parserOptions</span><span style="color:#f92672">:</span> {
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ecmaVersion</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">2022</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">sourceType</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;module&#39;</span>
-</span></span><span style="display:flex;"><span>  },
-</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">rules</span><span style="color:#f92672">:</span> {
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;no-console&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;warn&#39;</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;no-unused-vars&#39;</span><span style="color:#f92672">:</span> [<span style="color:#e6db74">&#39;error&#39;</span>, { <span style="color:#e6db74">&#39;argsIgnorePattern&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;^_&#39;</span> }],
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;prefer-const&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;error&#39;</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;no-var&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;error&#39;</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;object-shorthand&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;error&#39;</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;prefer-template&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;error&#39;</span>
-</span></span><span style="display:flex;"><span>  },
-</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">overrides</span><span style="color:#f92672">:</span> [
-</span></span><span style="display:flex;"><span>    {
-</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">files</span><span style="color:#f92672">:</span> [<span style="color:#e6db74">&#39;**/__tests__/**/*.js&#39;</span>, <span style="color:#e6db74">&#39;**/*.test.js&#39;</span>],
-</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">env</span><span style="color:#f92672">:</span> {
-</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">jest</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>
-</span></span><span style="display:flex;"><span>      },
-</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">rules</span><span style="color:#f92672">:</span> {
-</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#39;no-console&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;off&#39;</span>
-</span></span><span style="display:flex;"><span>      }
-</span></span><span style="display:flex;"><span>    }
-</span></span><span style="display:flex;"><span>  ]
-</span></span><span style="display:flex;"><span>};
-</span></span></code></pre></div><h3 id="prettier-configuration">Prettier Configuration</h3>
-<p><code>.prettierrc</code>:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;semi&#34;</span>: <span style="color:#66d9ef">true</span>,
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;trailingComma&#34;</span>: <span style="color:#e6db74">&#34;es5&#34;</span>,
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;singleQuote&#34;</span>: <span style="color:#66d9ef">true</span>,
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;printWidth&#34;</span>: <span style="color:#ae81ff">100</span>,
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;tabWidth&#34;</span>: <span style="color:#ae81ff">2</span>,
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;useTabs&#34;</span>: <span style="color:#66d9ef">false</span>
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><h3 id="git-hooks-with-husky">Git Hooks with Husky</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Install husky</span>
-</span></span><span style="display:flex;"><span>npm install --save-dev husky lint-staged
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Initialize husky</span>
-</span></span><span style="display:flex;"><span>npx husky install
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Add pre-commit hook</span>
-</span></span><span style="display:flex;"><span>npx husky add .husky/pre-commit <span style="color:#e6db74">&#34;npx lint-staged&#34;</span>
-</span></span></code></pre></div><p><code>package.json</code> configuration:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;lint-staged&#34;</span>: {
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;*.js&#34;</span>: [
-</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#34;eslint --fix&#34;</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#34;prettier --write&#34;</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#34;git add&#34;</span>
-</span></span><span style="display:flex;"><span>    ],
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;*.{json,md,yml,yaml}&#34;</span>: [
-</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#34;prettier --write&#34;</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#34;git add&#34;</span>
-</span></span><span style="display:flex;"><span>    ]
-</span></span><span style="display:flex;"><span>  }
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><h2 id="development-workflow">Development Workflow</h2>
-<h3 id="feature-development">Feature Development</h3>
-<ol>
-<li>
-<p><strong>Create Feature Branch</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git checkout -b feature/new-terminal-features
-</span></span></code></pre></div></li>
-<li>
-<p><strong>Make Changes</strong></p>
-<ul>
-<li>Write code following established patterns</li>
-<li>Add tests for new functionality</li>
-<li>Update documentation as needed</li>
-</ul>
-</li>
-<li>
-<p><strong>Test Changes</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>npm test
-</span></span><span style="display:flex;"><span>npm run lint
-</span></span><span style="display:flex;"><span>npm run type-check
-</span></span></code></pre></div></li>
-<li>
-<p><strong>Commit Changes</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git add .
-</span></span><span style="display:flex;"><span>git commit -m <span style="color:#e6db74">&#34;feat: add new terminal features&#34;</span>
-</span></span></code></pre></div></li>
-<li>
-<p><strong>Push and Create PR</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git push origin feature/new-terminal-features
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Create pull request on GitHub</span>
-</span></span></code></pre></div></li>
-</ol>
-<h3 id="local-testing">Local Testing</h3>
-<h4 id="manual-testing">Manual Testing</h4>
-<ol>
-<li>
-<p><strong>Start Development Server</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>npm run dev
-</span></span></code></pre></div></li>
-<li>
-<p><strong>Access Application</strong></p>
-<ul>
-<li>Open http://localhost:3014</li>
-<li>Login with GitHub</li>
-<li>Test terminal functionality</li>
-<li>Test workspace management</li>
-</ul>
-</li>
-<li>
-<p><strong>API Testing with curl</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Test health endpoint</span>
-</span></span><span style="display:flex;"><span>curl http://localhost:3014/health
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Test authenticated endpoint (after login)</span>
-</span></span><span style="display:flex;"><span>curl -H <span style="color:#e6db74">&#34;Authorization: Bearer YOUR_JWT_TOKEN&#34;</span> <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>     http://localhost:3014/api/workspaces
-</span></span></code></pre></div></li>
-</ol>
-<h4 id="automated-testing">Automated Testing</h4>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Run all tests</span>
-</span></span><span style="display:flex;"><span>npm test
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Run specific test suite</span>
-</span></span><span style="display:flex;"><span>npm test -- --testPathPattern<span style="color:#f92672">=</span>workspace
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Run tests with coverage</span>
-</span></span><span style="display:flex;"><span>npm run test:coverage
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Watch mode for development</span>
-</span></span><span style="display:flex;"><span>npm run test:watch
-</span></span></code></pre></div><h2 id="environment-management">Environment Management</h2>
-<h3 id="multiple-environments">Multiple Environments</h3>
-<p>Create different environment files:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Development</span>
-</span></span><span style="display:flex;"><span>.env.development
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Testing</span>
-</span></span><span style="display:flex;"><span>.env.test
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Local production testing</span>
-</span></span><span style="display:flex;"><span>.env.local
-</span></span></code></pre></div><h3 id="environment-loading">Environment Loading</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// src/config/environment.js
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">dotenv</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;dotenv&#39;</span>);
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">path</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;path&#39;</span>);
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">loadEnvironment</span> <span style="color:#f92672">=</span> () =&gt; {
-</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">env</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">NODE_ENV</span> <span style="color:#f92672">||</span> <span style="color:#e6db74">&#39;development&#39;</span>;
-</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">envPath</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">path</span>.<span style="color:#a6e22e">resolve</span>(<span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">cwd</span>(), <span style="color:#e6db74">`.env.</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">env</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>);
-</span></span><span style="display:flex;"><span>  
-</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Load environment-specific file if it exists
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;fs&#39;</span>).<span style="color:#a6e22e">existsSync</span>(<span style="color:#a6e22e">envPath</span>)) {
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">dotenv</span>.<span style="color:#a6e22e">config</span>({ <span style="color:#a6e22e">path</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">envPath</span> });
-</span></span><span style="display:flex;"><span>  } <span style="color:#66d9ef">else</span> {
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Fallback to .env
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">dotenv</span>.<span style="color:#a6e22e">config</span>();
-</span></span><span style="display:flex;"><span>  }
-</span></span><span style="display:flex;"><span>  
-</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Validate required environment variables
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#a6e22e">validateEnvironment</span>();
-</span></span><span style="display:flex;"><span>};
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">validateEnvironment</span> <span style="color:#f92672">=</span> () =&gt; {
-</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">required</span> <span style="color:#f92672">=</span> [
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;JWT_SECRET&#39;</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;GITHUB_CLIENT_ID&#39;</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;GITHUB_CLIENT_SECRET&#39;</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;TENANT_GITHUB_USERNAME&#39;</span>
-</span></span><span style="display:flex;"><span>  ];
-</span></span><span style="display:flex;"><span>  
-</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">missing</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">required</span>.<span style="color:#a6e22e">filter</span>(<span style="color:#a6e22e">key</span> =&gt; <span style="color:#f92672">!</span><span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>[<span style="color:#a6e22e">key</span>]);
-</span></span><span style="display:flex;"><span>  
-</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">missing</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span>) {
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> Error(<span style="color:#e6db74">`Missing required environment variables: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">missing</span>.<span style="color:#a6e22e">join</span>(<span style="color:#e6db74">&#39;, &#39;</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>);
-</span></span><span style="display:flex;"><span>  }
-</span></span><span style="display:flex;"><span>  
-</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Validate JWT secret length
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">JWT_SECRET</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">32</span>) {
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> Error(<span style="color:#e6db74">&#39;JWT_SECRET must be at least 32 characters long&#39;</span>);
-</span></span><span style="display:flex;"><span>  }
-</span></span><span style="display:flex;"><span>};
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">module</span>.<span style="color:#a6e22e">exports</span> <span style="color:#f92672">=</span> { <span style="color:#a6e22e">loadEnvironment</span> };
-</span></span></code></pre></div><h2 id="debugging">Debugging</h2>
-<h3 id="debug-configuration-1">Debug Configuration</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Enable debug logging
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">debug</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;debug&#39;</span>);
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// Create debug namespaces
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">debugAuth</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">debug</span>(<span style="color:#e6db74">&#39;ai-code-terminal:auth&#39;</span>);
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">debugWorkspace</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">debug</span>(<span style="color:#e6db74">&#39;ai-code-terminal:workspace&#39;</span>);
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">debugTerminal</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">debug</span>(<span style="color:#e6db74">&#39;ai-code-terminal:terminal&#39;</span>);
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// Usage
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">debugAuth</span>(<span style="color:#e6db74">&#39;User authenticated: %s&#39;</span>, <span style="color:#a6e22e">username</span>);
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">debugWorkspace</span>(<span style="color:#e6db74">&#39;Creating workspace: %s&#39;</span>, <span style="color:#a6e22e">workspaceName</span>);
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">debugTerminal</span>(<span style="color:#e6db74">&#39;Terminal session started: %s&#39;</span>, <span style="color:#a6e22e">sessionId</span>);
-</span></span></code></pre></div><h3 id="running-with-debug">Running with Debug</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Enable all debug output</span>
-</span></span><span style="display:flex;"><span>DEBUG<span style="color:#f92672">=</span>* npm run dev
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Enable specific modules</span>
-</span></span><span style="display:flex;"><span>DEBUG<span style="color:#f92672">=</span>ai-code-terminal:* npm run dev
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Enable only auth debugging</span>
-</span></span><span style="display:flex;"><span>DEBUG<span style="color:#f92672">=</span>ai-code-terminal:auth npm run dev
-</span></span></code></pre></div><h3 id="chrome-devtools">Chrome DevTools</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Start with inspector</span>
-</span></span><span style="display:flex;"><span>node --inspect server.js
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Start with inspector and break on first line</span>
-</span></span><span style="display:flex;"><span>node --inspect-brk server.js
-</span></span></code></pre></div><p>Then open Chrome and navigate to <code>chrome://inspect</code></p>
-<h2 id="performance-monitoring">Performance Monitoring</h2>
-<h3 id="development-metrics">Development Metrics</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// src/utils/metrics.js
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">performanceMetrics</span> <span style="color:#f92672">=</span> {
-</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">trackApiCall</span><span style="color:#f92672">:</span> (<span style="color:#a6e22e">endpoint</span>, <span style="color:#a6e22e">duration</span>) =&gt; {
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">NODE_ENV</span> <span style="color:#f92672">===</span> <span style="color:#e6db74">&#39;development&#39;</span>) {
-</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">log</span>(<span style="color:#e6db74">`API Call: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">endpoint</span><span style="color:#e6db74">}</span><span style="color:#e6db74"> took </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">duration</span><span style="color:#e6db74">}</span><span style="color:#e6db74">ms`</span>);
-</span></span><span style="display:flex;"><span>    }
-</span></span><span style="display:flex;"><span>  },
-</span></span><span style="display:flex;"><span>  
-</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">trackDatabaseQuery</span><span style="color:#f92672">:</span> (<span style="color:#a6e22e">query</span>, <span style="color:#a6e22e">duration</span>) =&gt; {
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">NODE_ENV</span> <span style="color:#f92672">===</span> <span style="color:#e6db74">&#39;development&#39;</span>) {
-</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">log</span>(<span style="color:#e6db74">`DB Query: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">query</span><span style="color:#e6db74">}</span><span style="color:#e6db74"> took </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">duration</span><span style="color:#e6db74">}</span><span style="color:#e6db74">ms`</span>);
-</span></span><span style="display:flex;"><span>    }
-</span></span><span style="display:flex;"><span>  },
-</span></span><span style="display:flex;"><span>  
-</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">trackMemoryUsage</span><span style="color:#f92672">:</span> () =&gt; {
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">usage</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">memoryUsage</span>();
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">log</span>(<span style="color:#e6db74">&#39;Memory Usage:&#39;</span>, {
-</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">rss</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`</span><span style="color:#e6db74">${</span>Math.<span style="color:#a6e22e">round</span>(<span style="color:#a6e22e">usage</span>.<span style="color:#a6e22e">rss</span> <span style="color:#f92672">/</span> <span style="color:#ae81ff">1024</span> <span style="color:#f92672">/</span> <span style="color:#ae81ff">1024</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74"> MB`</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">heapTotal</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`</span><span style="color:#e6db74">${</span>Math.<span style="color:#a6e22e">round</span>(<span style="color:#a6e22e">usage</span>.<span style="color:#a6e22e">heapTotal</span> <span style="color:#f92672">/</span> <span style="color:#ae81ff">1024</span> <span style="color:#f92672">/</span> <span style="color:#ae81ff">1024</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74"> MB`</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">heapUsed</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`</span><span style="color:#e6db74">${</span>Math.<span style="color:#a6e22e">round</span>(<span style="color:#a6e22e">usage</span>.<span style="color:#a6e22e">heapUsed</span> <span style="color:#f92672">/</span> <span style="color:#ae81ff">1024</span> <span style="color:#f92672">/</span> <span style="color:#ae81ff">1024</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74"> MB`</span>
-</span></span><span style="display:flex;"><span>    });
-</span></span><span style="display:flex;"><span>  }
-</span></span><span style="display:flex;"><span>};
-</span></span></code></pre></div><h3 id="profiling">Profiling</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Profile CPU usage</span>
-</span></span><span style="display:flex;"><span>node --prof server.js
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Generate profile report</span>
-</span></span><span style="display:flex;"><span>node --prof-process isolate-0xnnnnnnnnnnnn-v8.log &gt; profile.txt
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Profile memory</span>
-</span></span><span style="display:flex;"><span>node --inspect --max-old-space-size<span style="color:#f92672">=</span><span style="color:#ae81ff">4096</span> server.js
-</span></span></code></pre></div><h2 id="common-development-tasks">Common Development Tasks</h2>
-<h3 id="database-operations">Database Operations</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Reset and reseed database</span>
-</span></span><span style="display:flex;"><span>npm run db:reset
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># View database contents</span>
-</span></span><span style="display:flex;"><span>npx prisma studio
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Generate new migration</span>
-</span></span><span style="display:flex;"><span>npx prisma migrate dev --name descriptive_name
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Apply pending migrations</span>
-</span></span><span style="display:flex;"><span>npx prisma migrate deploy
-</span></span></code></pre></div><h3 id="code-generation">Code Generation</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Generate Prisma client after schema changes</span>
-</span></span><span style="display:flex;"><span>npx prisma generate
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Generate API documentation</span>
-</span></span><span style="display:flex;"><span>npm run docs:generate
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Generate TypeScript types</span>
-</span></span><span style="display:flex;"><span>npm run types:generate
-</span></span></code></pre></div><h3 id="testing-specific-features">Testing Specific Features</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Test authentication flow</span>
-</span></span><span style="display:flex;"><span>npm run test:auth
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Test workspace management</span>
-</span></span><span style="display:flex;"><span>npm run test:workspace
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Test terminal functionality</span>
-</span></span><span style="display:flex;"><span>npm run test:terminal
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Test WebSocket communication</span>
-</span></span><span style="display:flex;"><span>npm run test:socket
-</span></span></code></pre></div><h2 id="troubleshooting-development-issues">Troubleshooting Development Issues</h2>
-<h3 id="common-problems">Common Problems</h3>
-<p><strong>Port Already in Use</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Kill process using port 3014</span>
-</span></span><span style="display:flex;"><span>lsof -ti:3014 | xargs kill -9
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Use different port</span>
-</span></span><span style="display:flex;"><span>PORT<span style="color:#f92672">=</span><span style="color:#ae81ff">3015</span> npm run dev
-</span></span></code></pre></div><p><strong>Database Connection Issues</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Reset database</span>
-</span></span><span style="display:flex;"><span>npx prisma migrate reset
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Recreate database file</span>
-</span></span><span style="display:flex;"><span>rm data/database.db
-</span></span><span style="display:flex;"><span>npx prisma db push
-</span></span></code></pre></div><p><strong>Node Module Issues</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Clear npm cache</span>
-</span></span><span style="display:flex;"><span>npm cache clean --force
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Remove and reinstall modules</span>
-</span></span><span style="display:flex;"><span>rm -rf node_modules package-lock.json
-</span></span><span style="display:flex;"><span>npm install
-</span></span></code></pre></div><p><strong>Environment Variable Issues</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Verify environment variables are loaded</span>
-</span></span><span style="display:flex;"><span>node -e <span style="color:#e6db74">&#34;console.log(process.env.JWT_SECRET ? &#39;JWT_SECRET loaded&#39; : &#39;JWT_SECRET missing&#39;)&#34;</span>
-</span></span></code></pre></div><h3 id="debugging-tips">Debugging Tips</h3>
-<ol>
-<li>
-<p><strong>Use Console Debugging Strategically</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">log</span>(<span style="color:#e6db74">&#39;DEBUG: Variable value:&#39;</span>, { <span style="color:#a6e22e">variable</span> });
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">trace</span>(<span style="color:#e6db74">&#39;DEBUG: Function call stack&#39;</span>);
-</span></span></code></pre></div></li>
-<li>
-<p><strong>Inspect WebSocket Messages</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Client-side debugging
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">socket</span>.<span style="color:#a6e22e">onAny</span>((<span style="color:#a6e22e">event</span>, ...<span style="color:#a6e22e">args</span>) =&gt; {
-</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">log</span>(<span style="color:#e6db74">&#39;Socket event:&#39;</span>, <span style="color:#a6e22e">event</span>, <span style="color:#a6e22e">args</span>);
-</span></span><span style="display:flex;"><span>});
-</span></span></code></pre></div></li>
-<li>
-<p><strong>Monitor File Changes</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># Watch for file changes</span>
-</span></span><span style="display:flex;"><span>npx nodemon --watch src --exec <span style="color:#e6db74">&#34;npm test&#34;</span>
-</span></span></code></pre></div></li>
-<li>
-<p><strong>Database Query Debugging</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Enable Prisma query logging
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">prisma</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">PrismaClient</span>({
-</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">log</span><span style="color:#f92672">:</span> [<span style="color:#e6db74">&#39;query&#39;</span>, <span style="color:#e6db74">&#39;info&#39;</span>, <span style="color:#e6db74">&#39;warn&#39;</span>, <span style="color:#e6db74">&#39;error&#39;</span>],
-</span></span><span style="display:flex;"><span>});
-</span></span></code></pre></div></li>
-</ol>
-<h2 id="next-steps">Next Steps</h2>
-<ul>
-<li><strong><a href="/docs/development/testing/">Testing</a>:</strong> Comprehensive testing strategies</li>
-<li><strong><a href="/docs/deployment/production/">Production Setup</a>:</strong> Production deployment</li>
-<li><strong><a href="/docs/troubleshooting/common-issues/">Troubleshooting</a>:</strong> Common issues and solutions</li>
-</ul>
-
-          </div>
-
-          
-          <nav class="flex justify-between items-center mt-16 pt-8 border-t border-[rgba(67,79,138,0.2)]">
-            <div>
-              
-              <a href="http://localhost:1313/docs/development/testing/" class="inline-flex flex-col items-start px-6 py-4 bg-[rgba(10,12,26,0.5)] border border-[rgba(67,79,138,0.2)] rounded-lg hover:bg-[rgba(130,170,255,0.05)] hover:border-[#82aaff] transition-all transform hover:-translate-y-1">
-                <span class="text-xs text-[#8b9cc2] uppercase tracking-wider mb-1">Previous</span>
-                <span class="text-[#d4dff3] font-medium">Testing</span>
-              </a>
-              
-            </div>
-            <div>
-              
-            </div>
-          </nav>
-        </article>
-
-        
-        <aside class="hidden xl:block w-80 p-8 sticky top-32 self-start max-h-[calc(100vh-8rem)] overflow-y-auto">
-          <div class="bg-[rgba(10,12,26,0.3)] border border-[rgba(67,79,138,0.2)] rounded-lg p-6">
-            <h3 class="flex items-center text-[#82aaff] font-medium mb-4">
-              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path>
-              </svg>
-              On This Page
-            </h3>
-            <div id="table-of-contents" class="space-y-1">
-              
-            </div>
-          </div>
-        </aside>
-
-      </div>
-    </main>
-  </div>
-</div>
-
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  
-  const mobileSidebarToggle = document.getElementById('mobile-sidebar-toggle');
-  const mobileOverlay = document.getElementById('mobile-overlay');
-  const sidebar = document.getElementById('docs-sidebar');
-
-  function toggleMobileSidebar() {
-    sidebar.classList.toggle('-translate-x-full');
-    mobileOverlay.classList.toggle('hidden');
-    document.body.classList.toggle('overflow-hidden');
-  }
-
-  mobileSidebarToggle.addEventListener('click', toggleMobileSidebar);
-  mobileOverlay.addEventListener('click', toggleMobileSidebar);
-
-  
-  const navSectionToggles = document.querySelectorAll('.nav-section-toggle');
-  
-  navSectionToggles.forEach(toggle => {
-    toggle.addEventListener('click', function() {
-      const section = this.closest('.nav-section');
-      const content = section.querySelector('.nav-section-content');
-      const chevron = this.querySelector('.chevron');
-      
-      if (content.style.maxHeight === '0px' || content.style.maxHeight === '') {
-        content.style.maxHeight = content.scrollHeight + 'px';
-        chevron.style.transform = 'rotate(90deg)';
-      } else {
-        content.style.maxHeight = '0px';
-        chevron.style.transform = 'rotate(0deg)';
-      }
-    });
-  });
-
-  
-  const activeLink = document.querySelector('.nav-link.active');
-  if (activeLink) {
-    const section = activeLink.closest('.nav-section');
-    if (section) {
-      const content = section.querySelector('.nav-section-content');
-      const chevron = section.querySelector('.chevron');
-      content.style.maxHeight = content.scrollHeight + 'px';
-      chevron.style.transform = 'rotate(90deg)';
-    }
-  }
-
-  
-  function generateTableOfContents() {
-    const headings = document.querySelectorAll('article h2, article h3, article h4, article h5, article h6');
-    const toc = document.getElementById('table-of-contents');
-    
-    if (headings.length === 0 || !toc) return;
-
-    headings.forEach((heading, index) => {
-      
-      if (!heading.id) {
-        heading.id = heading.textContent.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-      }
-
-      const link = document.createElement('a');
-      link.href = '#' + heading.id;
-      link.textContent = heading.textContent;
-      link.className = 'block py-1.5 px-3 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded transition-colors';
-      
-      
-      const level = parseInt(heading.tagName.charAt(1));
-      if (level > 2) {
-        link.style.paddingLeft = `${(level - 2) * 16 + 12}px`;
-        link.style.borderLeft = '1px solid rgba(67,79,138,0.2)';
-      }
-
-      toc.appendChild(link);
-    });
-
-    
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        const id = entry.target.id;
-        const link = toc.querySelector(`a[href="#${id}"]`);
-        if (link) {
-          if (entry.isIntersecting) {
-            toc.querySelectorAll('a').forEach(l => l.classList.remove('!text-[#82aaff]', 'bg-[rgba(130,170,255,0.1)]', 'font-medium'));
-            link.classList.add('!text-[#82aaff]', 'bg-[rgba(130,170,255,0.1)]', 'font-medium');
-          }
-        }
-      });
-    }, { rootMargin: '-100px 0px -80% 0px' });
-
-    headings.forEach((heading) => {
-      observer.observe(heading);
-    });
-  }
-
-  generateTableOfContents();
-
-  
-  document.addEventListener('click', function(e) {
-    if (e.target.matches('a[href^="#"]')) {
-      e.preventDefault();
-      const target = document.querySelector(e.target.getAttribute('href'));
-      if (target) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }
-  });
-});
-</script>
-
-    </main>
-
-    <footer class="fade-in-section">
-    <div class="container">
-        <p>&copy; 2025 AI Code Terminal. A statement on developer sovereignty.</p>
-    </div>
-</footer>
-    
-<script>
-    feather.replace();
-</script>
-
-    <script src="/js/docs.js"></script>
-
-</body>
-</html>
+</code></pre><h2 id=ide-configuration>IDE Configuration</h2><h3 id=vs-code-setup>VS Code Setup</h3><p>Create <code>.vscode/settings.json</code>:</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#f92672>&#34;typescript.preferences.importModuleSpecifier&#34;</span>: <span style=color:#e6db74>&#34;relative&#34;</span>,
+</span></span><span style=display:flex><span>  <span style=color:#f92672>&#34;editor.formatOnSave&#34;</span>: <span style=color:#66d9ef>true</span>,
+</span></span><span style=display:flex><span>  <span style=color:#f92672>&#34;editor.codeActionsOnSave&#34;</span>: {
+</span></span><span style=display:flex><span>    <span style=color:#f92672>&#34;source.fixAll.eslint&#34;</span>: <span style=color:#66d9ef>true</span>
+</span></span><span style=display:flex><span>  },
+</span></span><span style=display:flex><span>  <span style=color:#f92672>&#34;files.associations&#34;</span>: {
+</span></span><span style=display:flex><span>    <span style=color:#f92672>&#34;*.ejs&#34;</span>: <span style=color:#e6db74>&#34;html&#34;</span>
+</span></span><span style=display:flex><span>  },
+</span></span><span style=display:flex><span>  <span style=color:#f92672>&#34;emmet.includeLanguages&#34;</span>: {
+</span></span><span style=display:flex><span>    <span style=color:#f92672>&#34;ejs&#34;</span>: <span style=color:#e6db74>&#34;html&#34;</span>
+</span></span><span style=display:flex><span>  },
+</span></span><span style=display:flex><span>  <span style=color:#f92672>&#34;sqltools.connections&#34;</span>: [
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      <span style=color:#f92672>&#34;name&#34;</span>: <span style=color:#e6db74>&#34;AI Code Terminal DB&#34;</span>,
+</span></span><span style=display:flex><span>      <span style=color:#f92672>&#34;driver&#34;</span>: <span style=color:#e6db74>&#34;SQLite&#34;</span>,
+</span></span><span style=display:flex><span>      <span style=color:#f92672>&#34;database&#34;</span>: <span style=color:#e6db74>&#34;./data/database.db&#34;</span>
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  ]
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h3 id=recommended-vs-code-extensions>Recommended VS Code Extensions</h3><p>Create <code>.vscode/extensions.json</code>:</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#f92672>&#34;recommendations&#34;</span>: [
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#34;esbenp.prettier-vscode&#34;</span>,
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#34;dbaeumer.vscode-eslint&#34;</span>,
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#34;bradlc.vscode-tailwindcss&#34;</span>,
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#34;prisma.prisma&#34;</span>,
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#34;ms-vscode.vscode-json&#34;</span>,
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#34;redhat.vscode-yaml&#34;</span>,
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#34;ms-vscode.vscode-typescript-next&#34;</span>,
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#34;formulahendry.auto-rename-tag&#34;</span>,
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#34;christian-kohler.path-intellisense&#34;</span>,
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#34;ms-vscode.vscode-node-azure-pack&#34;</span>
+</span></span><span style=display:flex><span>  ]
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h3 id=debug-configuration>Debug Configuration</h3><p>Create <code>.vscode/launch.json</code>:</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#f92672>&#34;version&#34;</span>: <span style=color:#e6db74>&#34;0.2.0&#34;</span>,
+</span></span><span style=display:flex><span>  <span style=color:#f92672>&#34;configurations&#34;</span>: [
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      <span style=color:#f92672>&#34;name&#34;</span>: <span style=color:#e6db74>&#34;Start Development Server&#34;</span>,
+</span></span><span style=display:flex><span>      <span style=color:#f92672>&#34;type&#34;</span>: <span style=color:#e6db74>&#34;node&#34;</span>,
+</span></span><span style=display:flex><span>      <span style=color:#f92672>&#34;request&#34;</span>: <span style=color:#e6db74>&#34;launch&#34;</span>,
+</span></span><span style=display:flex><span>      <span style=color:#f92672>&#34;program&#34;</span>: <span style=color:#e6db74>&#34;${workspaceFolder}/server.js&#34;</span>,
+</span></span><span style=display:flex><span>      <span style=color:#f92672>&#34;env&#34;</span>: {
+</span></span><span style=display:flex><span>        <span style=color:#f92672>&#34;NODE_ENV&#34;</span>: <span style=color:#e6db74>&#34;development&#34;</span>,
+</span></span><span style=display:flex><span>        <span style=color:#f92672>&#34;DEBUG&#34;</span>: <span style=color:#e6db74>&#34;ai-code-terminal:*&#34;</span>
+</span></span><span style=display:flex><span>      },
+</span></span><span style=display:flex><span>      <span style=color:#f92672>&#34;console&#34;</span>: <span style=color:#e6db74>&#34;integratedTerminal&#34;</span>,
+</span></span><span style=display:flex><span>      <span style=color:#f92672>&#34;restart&#34;</span>: <span style=color:#66d9ef>true</span>,
+</span></span><span style=display:flex><span>      <span style=color:#f92672>&#34;runtimeArgs&#34;</span>: [<span style=color:#e6db74>&#34;--inspect&#34;</span>]
+</span></span><span style=display:flex><span>    },
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      <span style=color:#f92672>&#34;name&#34;</span>: <span style=color:#e6db74>&#34;Run Tests&#34;</span>,
+</span></span><span style=display:flex><span>      <span style=color:#f92672>&#34;type&#34;</span>: <span style=color:#e6db74>&#34;node&#34;</span>,
+</span></span><span style=display:flex><span>      <span style=color:#f92672>&#34;request&#34;</span>: <span style=color:#e6db74>&#34;launch&#34;</span>,
+</span></span><span style=display:flex><span>      <span style=color:#f92672>&#34;program&#34;</span>: <span style=color:#e6db74>&#34;${workspaceFolder}/node_modules/.bin/jest&#34;</span>,
+</span></span><span style=display:flex><span>      <span style=color:#f92672>&#34;args&#34;</span>: [<span style=color:#e6db74>&#34;--runInBand&#34;</span>],
+</span></span><span style=display:flex><span>      <span style=color:#f92672>&#34;console&#34;</span>: <span style=color:#e6db74>&#34;integratedTerminal&#34;</span>,
+</span></span><span style=display:flex><span>      <span style=color:#f92672>&#34;env&#34;</span>: {
+</span></span><span style=display:flex><span>        <span style=color:#f92672>&#34;NODE_ENV&#34;</span>: <span style=color:#e6db74>&#34;test&#34;</span>
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    },
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      <span style=color:#f92672>&#34;name&#34;</span>: <span style=color:#e6db74>&#34;Attach to Process&#34;</span>,
+</span></span><span style=display:flex><span>      <span style=color:#f92672>&#34;type&#34;</span>: <span style=color:#e6db74>&#34;node&#34;</span>,
+</span></span><span style=display:flex><span>      <span style=color:#f92672>&#34;request&#34;</span>: <span style=color:#e6db74>&#34;attach&#34;</span>,
+</span></span><span style=display:flex><span>      <span style=color:#f92672>&#34;port&#34;</span>: <span style=color:#ae81ff>9229</span>
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  ]
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h2 id=code-quality-tools>Code Quality Tools</h2><h3 id=eslint-configuration>ESLint Configuration</h3><p><code>.eslintrc.js</code>:</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=display:flex><span><span style=color:#a6e22e>module</span>.<span style=color:#a6e22e>exports</span> <span style=color:#f92672>=</span> {
+</span></span><span style=display:flex><span>  <span style=color:#a6e22e>env</span><span style=color:#f92672>:</span> {
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>node</span><span style=color:#f92672>:</span> <span style=color:#66d9ef>true</span>,
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>es2022</span><span style=color:#f92672>:</span> <span style=color:#66d9ef>true</span>,
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>jest</span><span style=color:#f92672>:</span> <span style=color:#66d9ef>true</span>
+</span></span><span style=display:flex><span>  },
+</span></span><span style=display:flex><span>  <span style=color:#66d9ef>extends</span><span style=color:#f92672>:</span> [
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#39;eslint:recommended&#39;</span>,
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#39;prettier&#39;</span>
+</span></span><span style=display:flex><span>  ],
+</span></span><span style=display:flex><span>  <span style=color:#a6e22e>parserOptions</span><span style=color:#f92672>:</span> {
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>ecmaVersion</span><span style=color:#f92672>:</span> <span style=color:#ae81ff>2022</span>,
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>sourceType</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#39;module&#39;</span>
+</span></span><span style=display:flex><span>  },
+</span></span><span style=display:flex><span>  <span style=color:#a6e22e>rules</span><span style=color:#f92672>:</span> {
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#39;no-console&#39;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#39;warn&#39;</span>,
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#39;no-unused-vars&#39;</span><span style=color:#f92672>:</span> [<span style=color:#e6db74>&#39;error&#39;</span>, { <span style=color:#e6db74>&#39;argsIgnorePattern&#39;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#39;^_&#39;</span> }],
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#39;prefer-const&#39;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#39;error&#39;</span>,
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#39;no-var&#39;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#39;error&#39;</span>,
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#39;object-shorthand&#39;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#39;error&#39;</span>,
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#39;prefer-template&#39;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#39;error&#39;</span>
+</span></span><span style=display:flex><span>  },
+</span></span><span style=display:flex><span>  <span style=color:#a6e22e>overrides</span><span style=color:#f92672>:</span> [
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      <span style=color:#a6e22e>files</span><span style=color:#f92672>:</span> [<span style=color:#e6db74>&#39;**/__tests__/**/*.js&#39;</span>, <span style=color:#e6db74>&#39;**/*.test.js&#39;</span>],
+</span></span><span style=display:flex><span>      <span style=color:#a6e22e>env</span><span style=color:#f92672>:</span> {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>jest</span><span style=color:#f92672>:</span> <span style=color:#66d9ef>true</span>
+</span></span><span style=display:flex><span>      },
+</span></span><span style=display:flex><span>      <span style=color:#a6e22e>rules</span><span style=color:#f92672>:</span> {
+</span></span><span style=display:flex><span>        <span style=color:#e6db74>&#39;no-console&#39;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#39;off&#39;</span>
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  ]
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><h3 id=prettier-configuration>Prettier Configuration</h3><p><code>.prettierrc</code>:</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#f92672>&#34;semi&#34;</span>: <span style=color:#66d9ef>true</span>,
+</span></span><span style=display:flex><span>  <span style=color:#f92672>&#34;trailingComma&#34;</span>: <span style=color:#e6db74>&#34;es5&#34;</span>,
+</span></span><span style=display:flex><span>  <span style=color:#f92672>&#34;singleQuote&#34;</span>: <span style=color:#66d9ef>true</span>,
+</span></span><span style=display:flex><span>  <span style=color:#f92672>&#34;printWidth&#34;</span>: <span style=color:#ae81ff>100</span>,
+</span></span><span style=display:flex><span>  <span style=color:#f92672>&#34;tabWidth&#34;</span>: <span style=color:#ae81ff>2</span>,
+</span></span><span style=display:flex><span>  <span style=color:#f92672>&#34;useTabs&#34;</span>: <span style=color:#66d9ef>false</span>
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h3 id=git-hooks-with-husky>Git Hooks with Husky</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Install husky</span>
+</span></span><span style=display:flex><span>npm install --save-dev husky lint-staged
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Initialize husky</span>
+</span></span><span style=display:flex><span>npx husky install
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Add pre-commit hook</span>
+</span></span><span style=display:flex><span>npx husky add .husky/pre-commit <span style=color:#e6db74>&#34;npx lint-staged&#34;</span>
+</span></span></code></pre></div><p><code>package.json</code> configuration:</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#f92672>&#34;lint-staged&#34;</span>: {
+</span></span><span style=display:flex><span>    <span style=color:#f92672>&#34;*.js&#34;</span>: [
+</span></span><span style=display:flex><span>      <span style=color:#e6db74>&#34;eslint --fix&#34;</span>,
+</span></span><span style=display:flex><span>      <span style=color:#e6db74>&#34;prettier --write&#34;</span>,
+</span></span><span style=display:flex><span>      <span style=color:#e6db74>&#34;git add&#34;</span>
+</span></span><span style=display:flex><span>    ],
+</span></span><span style=display:flex><span>    <span style=color:#f92672>&#34;*.{json,md,yml,yaml}&#34;</span>: [
+</span></span><span style=display:flex><span>      <span style=color:#e6db74>&#34;prettier --write&#34;</span>,
+</span></span><span style=display:flex><span>      <span style=color:#e6db74>&#34;git add&#34;</span>
+</span></span><span style=display:flex><span>    ]
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h2 id=development-workflow>Development Workflow</h2><h3 id=feature-development>Feature Development</h3><ol><li><p><strong>Create Feature Branch</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span>git checkout -b feature/new-terminal-features
+</span></span></code></pre></div></li><li><p><strong>Make Changes</strong></p><ul><li>Write code following established patterns</li><li>Add tests for new functionality</li><li>Update documentation as needed</li></ul></li><li><p><strong>Test Changes</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span>npm test
+</span></span><span style=display:flex><span>npm run lint
+</span></span><span style=display:flex><span>npm run type-check
+</span></span></code></pre></div></li><li><p><strong>Commit Changes</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span>git add .
+</span></span><span style=display:flex><span>git commit -m <span style=color:#e6db74>&#34;feat: add new terminal features&#34;</span>
+</span></span></code></pre></div></li><li><p><strong>Push and Create PR</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span>git push origin feature/new-terminal-features
+</span></span><span style=display:flex><span><span style=color:#75715e># Create pull request on GitHub</span>
+</span></span></code></pre></div></li></ol><h3 id=local-testing>Local Testing</h3><h4 id=manual-testing>Manual Testing</h4><ol><li><p><strong>Start Development Server</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span>npm run dev
+</span></span></code></pre></div></li><li><p><strong>Access Application</strong></p><ul><li>Open http://localhost:3014</li><li>Login with GitHub</li><li>Test terminal functionality</li><li>Test workspace management</li></ul></li><li><p><strong>API Testing with curl</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Test health endpoint</span>
+</span></span><span style=display:flex><span>curl http://localhost:3014/health
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Test authenticated endpoint (after login)</span>
+</span></span><span style=display:flex><span>curl -H <span style=color:#e6db74>&#34;Authorization: Bearer YOUR_JWT_TOKEN&#34;</span> <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>     http://localhost:3014/api/workspaces
+</span></span></code></pre></div></li></ol><h4 id=automated-testing>Automated Testing</h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Run all tests</span>
+</span></span><span style=display:flex><span>npm test
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Run specific test suite</span>
+</span></span><span style=display:flex><span>npm test -- --testPathPattern<span style=color:#f92672>=</span>workspace
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Run tests with coverage</span>
+</span></span><span style=display:flex><span>npm run test:coverage
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Watch mode for development</span>
+</span></span><span style=display:flex><span>npm run test:watch
+</span></span></code></pre></div><h2 id=environment-management>Environment Management</h2><h3 id=multiple-environments>Multiple Environments</h3><p>Create different environment files:</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Development</span>
+</span></span><span style=display:flex><span>.env.development
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Testing</span>
+</span></span><span style=display:flex><span>.env.test
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Local production testing</span>
+</span></span><span style=display:flex><span>.env.local
+</span></span></code></pre></div><h3 id=environment-loading>Environment Loading</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=display:flex><span><span style=color:#75715e>// src/config/environment.js
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>const</span> <span style=color:#a6e22e>dotenv</span> <span style=color:#f92672>=</span> <span style=color:#a6e22e>require</span>(<span style=color:#e6db74>&#39;dotenv&#39;</span>);
+</span></span><span style=display:flex><span><span style=color:#66d9ef>const</span> <span style=color:#a6e22e>path</span> <span style=color:#f92672>=</span> <span style=color:#a6e22e>require</span>(<span style=color:#e6db74>&#39;path&#39;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>const</span> <span style=color:#a6e22e>loadEnvironment</span> <span style=color:#f92672>=</span> () =&gt; {
+</span></span><span style=display:flex><span>  <span style=color:#66d9ef>const</span> <span style=color:#a6e22e>env</span> <span style=color:#f92672>=</span> <span style=color:#a6e22e>process</span>.<span style=color:#a6e22e>env</span>.<span style=color:#a6e22e>NODE_ENV</span> <span style=color:#f92672>||</span> <span style=color:#e6db74>&#39;development&#39;</span>;
+</span></span><span style=display:flex><span>  <span style=color:#66d9ef>const</span> <span style=color:#a6e22e>envPath</span> <span style=color:#f92672>=</span> <span style=color:#a6e22e>path</span>.<span style=color:#a6e22e>resolve</span>(<span style=color:#a6e22e>process</span>.<span style=color:#a6e22e>cwd</span>(), <span style=color:#e6db74>`.env.</span><span style=color:#e6db74>${</span><span style=color:#a6e22e>env</span><span style=color:#e6db74>}</span><span style=color:#e6db74>`</span>);
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>  <span style=color:#75715e>// Load environment-specific file if it exists
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>  <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>require</span>(<span style=color:#e6db74>&#39;fs&#39;</span>).<span style=color:#a6e22e>existsSync</span>(<span style=color:#a6e22e>envPath</span>)) {
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>dotenv</span>.<span style=color:#a6e22e>config</span>({ <span style=color:#a6e22e>path</span><span style=color:#f92672>:</span> <span style=color:#a6e22e>envPath</span> });
+</span></span><span style=display:flex><span>  } <span style=color:#66d9ef>else</span> {
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// Fallback to .env
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>dotenv</span>.<span style=color:#a6e22e>config</span>();
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>  <span style=color:#75715e>// Validate required environment variables
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>  <span style=color:#a6e22e>validateEnvironment</span>();
+</span></span><span style=display:flex><span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>const</span> <span style=color:#a6e22e>validateEnvironment</span> <span style=color:#f92672>=</span> () =&gt; {
+</span></span><span style=display:flex><span>  <span style=color:#66d9ef>const</span> <span style=color:#a6e22e>required</span> <span style=color:#f92672>=</span> [
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#39;JWT_SECRET&#39;</span>,
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#39;GITHUB_CLIENT_ID&#39;</span>,
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#39;GITHUB_CLIENT_SECRET&#39;</span>,
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#39;TENANT_GITHUB_USERNAME&#39;</span>
+</span></span><span style=display:flex><span>  ];
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>  <span style=color:#66d9ef>const</span> <span style=color:#a6e22e>missing</span> <span style=color:#f92672>=</span> <span style=color:#a6e22e>required</span>.<span style=color:#a6e22e>filter</span>(<span style=color:#a6e22e>key</span> =&gt; <span style=color:#f92672>!</span><span style=color:#a6e22e>process</span>.<span style=color:#a6e22e>env</span>[<span style=color:#a6e22e>key</span>]);
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>  <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>missing</span>.<span style=color:#a6e22e>length</span> <span style=color:#f92672>&gt;</span> <span style=color:#ae81ff>0</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>throw</span> <span style=color:#66d9ef>new</span> Error(<span style=color:#e6db74>`Missing required environment variables: </span><span style=color:#e6db74>${</span><span style=color:#a6e22e>missing</span>.<span style=color:#a6e22e>join</span>(<span style=color:#e6db74>&#39;, &#39;</span>)<span style=color:#e6db74>}</span><span style=color:#e6db74>`</span>);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>  <span style=color:#75715e>// Validate JWT secret length
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>  <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>process</span>.<span style=color:#a6e22e>env</span>.<span style=color:#a6e22e>JWT_SECRET</span>.<span style=color:#a6e22e>length</span> <span style=color:#f92672>&lt;</span> <span style=color:#ae81ff>32</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>throw</span> <span style=color:#66d9ef>new</span> Error(<span style=color:#e6db74>&#39;JWT_SECRET must be at least 32 characters long&#39;</span>);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>module</span>.<span style=color:#a6e22e>exports</span> <span style=color:#f92672>=</span> { <span style=color:#a6e22e>loadEnvironment</span> };
+</span></span></code></pre></div><h2 id=debugging>Debugging</h2><h3 id=debug-configuration-1>Debug Configuration</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=display:flex><span><span style=color:#75715e>// Enable debug logging
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>const</span> <span style=color:#a6e22e>debug</span> <span style=color:#f92672>=</span> <span style=color:#a6e22e>require</span>(<span style=color:#e6db74>&#39;debug&#39;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// Create debug namespaces
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>const</span> <span style=color:#a6e22e>debugAuth</span> <span style=color:#f92672>=</span> <span style=color:#a6e22e>debug</span>(<span style=color:#e6db74>&#39;ai-code-terminal:auth&#39;</span>);
+</span></span><span style=display:flex><span><span style=color:#66d9ef>const</span> <span style=color:#a6e22e>debugWorkspace</span> <span style=color:#f92672>=</span> <span style=color:#a6e22e>debug</span>(<span style=color:#e6db74>&#39;ai-code-terminal:workspace&#39;</span>);
+</span></span><span style=display:flex><span><span style=color:#66d9ef>const</span> <span style=color:#a6e22e>debugTerminal</span> <span style=color:#f92672>=</span> <span style=color:#a6e22e>debug</span>(<span style=color:#e6db74>&#39;ai-code-terminal:terminal&#39;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// Usage
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>debugAuth</span>(<span style=color:#e6db74>&#39;User authenticated: %s&#39;</span>, <span style=color:#a6e22e>username</span>);
+</span></span><span style=display:flex><span><span style=color:#a6e22e>debugWorkspace</span>(<span style=color:#e6db74>&#39;Creating workspace: %s&#39;</span>, <span style=color:#a6e22e>workspaceName</span>);
+</span></span><span style=display:flex><span><span style=color:#a6e22e>debugTerminal</span>(<span style=color:#e6db74>&#39;Terminal session started: %s&#39;</span>, <span style=color:#a6e22e>sessionId</span>);
+</span></span></code></pre></div><h3 id=running-with-debug>Running with Debug</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Enable all debug output</span>
+</span></span><span style=display:flex><span>DEBUG<span style=color:#f92672>=</span>* npm run dev
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Enable specific modules</span>
+</span></span><span style=display:flex><span>DEBUG<span style=color:#f92672>=</span>ai-code-terminal:* npm run dev
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Enable only auth debugging</span>
+</span></span><span style=display:flex><span>DEBUG<span style=color:#f92672>=</span>ai-code-terminal:auth npm run dev
+</span></span></code></pre></div><h3 id=chrome-devtools>Chrome DevTools</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Start with inspector</span>
+</span></span><span style=display:flex><span>node --inspect server.js
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Start with inspector and break on first line</span>
+</span></span><span style=display:flex><span>node --inspect-brk server.js
+</span></span></code></pre></div><p>Then open Chrome and navigate to <code>chrome://inspect</code></p><h2 id=performance-monitoring>Performance Monitoring</h2><h3 id=development-metrics>Development Metrics</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=display:flex><span><span style=color:#75715e>// src/utils/metrics.js
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>const</span> <span style=color:#a6e22e>performanceMetrics</span> <span style=color:#f92672>=</span> {
+</span></span><span style=display:flex><span>  <span style=color:#a6e22e>trackApiCall</span><span style=color:#f92672>:</span> (<span style=color:#a6e22e>endpoint</span>, <span style=color:#a6e22e>duration</span>) =&gt; {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>process</span>.<span style=color:#a6e22e>env</span>.<span style=color:#a6e22e>NODE_ENV</span> <span style=color:#f92672>===</span> <span style=color:#e6db74>&#39;development&#39;</span>) {
+</span></span><span style=display:flex><span>      <span style=color:#a6e22e>console</span>.<span style=color:#a6e22e>log</span>(<span style=color:#e6db74>`API Call: </span><span style=color:#e6db74>${</span><span style=color:#a6e22e>endpoint</span><span style=color:#e6db74>}</span><span style=color:#e6db74> took </span><span style=color:#e6db74>${</span><span style=color:#a6e22e>duration</span><span style=color:#e6db74>}</span><span style=color:#e6db74>ms`</span>);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  },
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>  <span style=color:#a6e22e>trackDatabaseQuery</span><span style=color:#f92672>:</span> (<span style=color:#a6e22e>query</span>, <span style=color:#a6e22e>duration</span>) =&gt; {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>process</span>.<span style=color:#a6e22e>env</span>.<span style=color:#a6e22e>NODE_ENV</span> <span style=color:#f92672>===</span> <span style=color:#e6db74>&#39;development&#39;</span>) {
+</span></span><span style=display:flex><span>      <span style=color:#a6e22e>console</span>.<span style=color:#a6e22e>log</span>(<span style=color:#e6db74>`DB Query: </span><span style=color:#e6db74>${</span><span style=color:#a6e22e>query</span><span style=color:#e6db74>}</span><span style=color:#e6db74> took </span><span style=color:#e6db74>${</span><span style=color:#a6e22e>duration</span><span style=color:#e6db74>}</span><span style=color:#e6db74>ms`</span>);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  },
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>  <span style=color:#a6e22e>trackMemoryUsage</span><span style=color:#f92672>:</span> () =&gt; {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>const</span> <span style=color:#a6e22e>usage</span> <span style=color:#f92672>=</span> <span style=color:#a6e22e>process</span>.<span style=color:#a6e22e>memoryUsage</span>();
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>console</span>.<span style=color:#a6e22e>log</span>(<span style=color:#e6db74>&#39;Memory Usage:&#39;</span>, {
+</span></span><span style=display:flex><span>      <span style=color:#a6e22e>rss</span><span style=color:#f92672>:</span> <span style=color:#e6db74>`</span><span style=color:#e6db74>${</span>Math.<span style=color:#a6e22e>round</span>(<span style=color:#a6e22e>usage</span>.<span style=color:#a6e22e>rss</span> <span style=color:#f92672>/</span> <span style=color:#ae81ff>1024</span> <span style=color:#f92672>/</span> <span style=color:#ae81ff>1024</span>)<span style=color:#e6db74>}</span><span style=color:#e6db74> MB`</span>,
+</span></span><span style=display:flex><span>      <span style=color:#a6e22e>heapTotal</span><span style=color:#f92672>:</span> <span style=color:#e6db74>`</span><span style=color:#e6db74>${</span>Math.<span style=color:#a6e22e>round</span>(<span style=color:#a6e22e>usage</span>.<span style=color:#a6e22e>heapTotal</span> <span style=color:#f92672>/</span> <span style=color:#ae81ff>1024</span> <span style=color:#f92672>/</span> <span style=color:#ae81ff>1024</span>)<span style=color:#e6db74>}</span><span style=color:#e6db74> MB`</span>,
+</span></span><span style=display:flex><span>      <span style=color:#a6e22e>heapUsed</span><span style=color:#f92672>:</span> <span style=color:#e6db74>`</span><span style=color:#e6db74>${</span>Math.<span style=color:#a6e22e>round</span>(<span style=color:#a6e22e>usage</span>.<span style=color:#a6e22e>heapUsed</span> <span style=color:#f92672>/</span> <span style=color:#ae81ff>1024</span> <span style=color:#f92672>/</span> <span style=color:#ae81ff>1024</span>)<span style=color:#e6db74>}</span><span style=color:#e6db74> MB`</span>
+</span></span><span style=display:flex><span>    });
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><h3 id=profiling>Profiling</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Profile CPU usage</span>
+</span></span><span style=display:flex><span>node --prof server.js
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Generate profile report</span>
+</span></span><span style=display:flex><span>node --prof-process isolate-0xnnnnnnnnnnnn-v8.log &gt; profile.txt
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Profile memory</span>
+</span></span><span style=display:flex><span>node --inspect --max-old-space-size<span style=color:#f92672>=</span><span style=color:#ae81ff>4096</span> server.js
+</span></span></code></pre></div><h2 id=common-development-tasks>Common Development Tasks</h2><h3 id=database-operations>Database Operations</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Reset and reseed database</span>
+</span></span><span style=display:flex><span>npm run db:reset
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># View database contents</span>
+</span></span><span style=display:flex><span>npx prisma studio
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Generate new migration</span>
+</span></span><span style=display:flex><span>npx prisma migrate dev --name descriptive_name
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Apply pending migrations</span>
+</span></span><span style=display:flex><span>npx prisma migrate deploy
+</span></span></code></pre></div><h3 id=code-generation>Code Generation</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Generate Prisma client after schema changes</span>
+</span></span><span style=display:flex><span>npx prisma generate
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Generate API documentation</span>
+</span></span><span style=display:flex><span>npm run docs:generate
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Generate TypeScript types</span>
+</span></span><span style=display:flex><span>npm run types:generate
+</span></span></code></pre></div><h3 id=testing-specific-features>Testing Specific Features</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Test authentication flow</span>
+</span></span><span style=display:flex><span>npm run test:auth
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Test workspace management</span>
+</span></span><span style=display:flex><span>npm run test:workspace
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Test terminal functionality</span>
+</span></span><span style=display:flex><span>npm run test:terminal
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Test WebSocket communication</span>
+</span></span><span style=display:flex><span>npm run test:socket
+</span></span></code></pre></div><h2 id=troubleshooting-development-issues>Troubleshooting Development Issues</h2><h3 id=common-problems>Common Problems</h3><p><strong>Port Already in Use</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Kill process using port 3014</span>
+</span></span><span style=display:flex><span>lsof -ti:3014 | xargs kill -9
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Use different port</span>
+</span></span><span style=display:flex><span>PORT<span style=color:#f92672>=</span><span style=color:#ae81ff>3015</span> npm run dev
+</span></span></code></pre></div><p><strong>Database Connection Issues</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Reset database</span>
+</span></span><span style=display:flex><span>npx prisma migrate reset
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Recreate database file</span>
+</span></span><span style=display:flex><span>rm data/database.db
+</span></span><span style=display:flex><span>npx prisma db push
+</span></span></code></pre></div><p><strong>Node Module Issues</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Clear npm cache</span>
+</span></span><span style=display:flex><span>npm cache clean --force
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># Remove and reinstall modules</span>
+</span></span><span style=display:flex><span>rm -rf node_modules package-lock.json
+</span></span><span style=display:flex><span>npm install
+</span></span></code></pre></div><p><strong>Environment Variable Issues</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Verify environment variables are loaded</span>
+</span></span><span style=display:flex><span>node -e <span style=color:#e6db74>&#34;console.log(process.env.JWT_SECRET ? &#39;JWT_SECRET loaded&#39; : &#39;JWT_SECRET missing&#39;)&#34;</span>
+</span></span></code></pre></div><h3 id=debugging-tips>Debugging Tips</h3><ol><li><p><strong>Use Console Debugging Strategically</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=display:flex><span><span style=color:#a6e22e>console</span>.<span style=color:#a6e22e>log</span>(<span style=color:#e6db74>&#39;DEBUG: Variable value:&#39;</span>, { <span style=color:#a6e22e>variable</span> });
+</span></span><span style=display:flex><span><span style=color:#a6e22e>console</span>.<span style=color:#a6e22e>trace</span>(<span style=color:#e6db74>&#39;DEBUG: Function call stack&#39;</span>);
+</span></span></code></pre></div></li><li><p><strong>Inspect WebSocket Messages</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=display:flex><span><span style=color:#75715e>// Client-side debugging
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>socket</span>.<span style=color:#a6e22e>onAny</span>((<span style=color:#a6e22e>event</span>, ...<span style=color:#a6e22e>args</span>) =&gt; {
+</span></span><span style=display:flex><span>  <span style=color:#a6e22e>console</span>.<span style=color:#a6e22e>log</span>(<span style=color:#e6db74>&#39;Socket event:&#39;</span>, <span style=color:#a6e22e>event</span>, <span style=color:#a6e22e>args</span>);
+</span></span><span style=display:flex><span>});
+</span></span></code></pre></div></li><li><p><strong>Monitor File Changes</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># Watch for file changes</span>
+</span></span><span style=display:flex><span>npx nodemon --watch src --exec <span style=color:#e6db74>&#34;npm test&#34;</span>
+</span></span></code></pre></div></li><li><p><strong>Database Query Debugging</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=display:flex><span><span style=color:#75715e>// Enable Prisma query logging
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>const</span> <span style=color:#a6e22e>prisma</span> <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> <span style=color:#a6e22e>PrismaClient</span>({
+</span></span><span style=display:flex><span>  <span style=color:#a6e22e>log</span><span style=color:#f92672>:</span> [<span style=color:#e6db74>&#39;query&#39;</span>, <span style=color:#e6db74>&#39;info&#39;</span>, <span style=color:#e6db74>&#39;warn&#39;</span>, <span style=color:#e6db74>&#39;error&#39;</span>],
+</span></span><span style=display:flex><span>});
+</span></span></code></pre></div></li></ol><h2 id=next-steps>Next Steps</h2><ul><li><strong><a href=/docs/development/testing/>Testing</a>:</strong> Comprehensive testing strategies</li><li><strong><a href=/docs/deployment/production/>Production Setup</a>:</strong> Production deployment</li><li><strong><a href=/docs/troubleshooting/common-issues/>Troubleshooting</a>:</strong> Common issues and solutions</li></ul></div></article></div><div class=docs-nav><div><a href=https://act.drmhse.com/docs/development/testing/ class="inline-flex flex-col items-start px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg hover:bg-blue-600/5 hover:border-blue-400 transition-all"><span class="text-xs text-gray-400 uppercase tracking-wider mb-1">prev page</span>
+<span class="text-gray-100 font-medium text-sm">Testing</span></a></div><div><div class="text-gray-500 text-sm">next page</div></div></div></main><aside class=docs-toc><div class="sticky top-6"><h3 class="text-sm font-semibold text-gray-100 mb-4 text-center">table<br>of<br>content</h3><div id=table-of-contents class=space-y-1></div></div></aside></div><script>document.addEventListener("DOMContentLoaded",function(){const t=document.querySelectorAll(".nav-section-toggle");t.forEach(e=>{e.addEventListener("click",function(){const n=this.closest(".nav-section"),e=n.querySelector(".nav-section-content"),t=this.querySelector(".chevron");e.style.maxHeight==="0px"||e.style.maxHeight===""?(e.style.maxHeight=e.scrollHeight+"px",t.style.transform="rotate(90deg)"):(e.style.maxHeight="0px",t.style.transform="rotate(0deg)")})});const e=document.querySelector(".nav-link.active");if(e){const t=e.closest(".nav-section");if(t){const e=t.querySelector(".nav-section-content"),n=t.querySelector(".chevron");e.style.maxHeight=e.scrollHeight+"px",n.style.transform="rotate(90deg)"}}function n(){const t=document.querySelectorAll("article h2, article h3, article h4, article h5, article h6"),e=document.getElementById("table-of-contents");if(t.length===0||!e)return;t.forEach((t)=>{t.id||(t.id=t.textContent.toLowerCase().replace(/[^a-z0-9]/g,"-").replace(/-+/g,"-").replace(/^-|-$/g,""));const s=document.createElement("a");s.href="#"+t.id,s.textContent=t.textContent,s.className="block py-1.5 px-3 text-xs text-gray-400 hover:text-gray-100 hover:bg-blue-600/5 rounded transition-colors";const o=parseInt(t.tagName.charAt(1));o>2&&(s.style.paddingLeft=`${(o-2)*12+12}px`,s.style.borderLeft="1px solid rgb(75 85 99)"),e.appendChild(s)});const n=new IntersectionObserver(t=>{t.forEach(t=>{const s=t.target.id,n=e.querySelector(`a[href="#${s}"]`);n&&t.isIntersecting&&(e.querySelectorAll("a").forEach(e=>e.classList.remove("!text-blue-400","bg-blue-600/10","font-medium")),n.classList.add("!text-blue-400","bg-blue-600/10","font-medium"))})},{rootMargin:"-100px 0px -80% 0px"});t.forEach(e=>{n.observe(e)})}n(),document.addEventListener("click",function(e){if(e.target.matches('a[href^="#"]')){e.preventDefault();const t=document.querySelector(e.target.getAttribute("href"));t&&t.scrollIntoView({behavior:"smooth",block:"start"})}})})</script></main><script>feather.replace()</script><script src=/js/docs.js></script></body></html>

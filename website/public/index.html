@@ -71,19 +71,18 @@
 </script>
 
 
-<link rel="stylesheet" href="/css/shared.css">
-
-    <link rel="stylesheet" href="/css/main.css">
-
+<link rel="stylesheet" href="/css/main.min.css" integrity="" crossorigin="anonymous">
 </head>
 <body class="main-site">
     
         <canvas id="starfield-canvas"></canvas>
     
-    
-    <header>
+
+    <main>
+        
+<header class="main-header">
     <div class="container">
-        <nav>
+        <nav class="main-nav">
             <a href="http://localhost:1313/" class="logo">
                 <span class="prompt-char">&gt;</span> AI Code Terminal
             </a>
@@ -105,8 +104,6 @@
     </div>
 </header>
 
-    <main>
-        
 <section class="hero">
     <h1 data-text="The Command Line is Your IDE.">The Command Line is Your IDE.</h1>
     <p class="subtitle">Code from any device. Full power, minimal footprint. A self-hosted shell for the new era of AI-native development.</p>
@@ -227,11 +224,13 @@ cd ai-code-terminal &amp;&amp; cp env.example .env
 
     </main>
 
-    <footer class="fade-in-section">
+    
+        <footer class="fade-in-section">
     <div class="container">
         <p>&copy; 2025 AI Code Terminal. A statement on developer sovereignty.</p>
     </div>
 </footer>
+    
     
 <script>
     feather.replace();

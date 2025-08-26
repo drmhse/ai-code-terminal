@@ -70,17 +70,266 @@
 </script>
 
 
-<link rel="stylesheet" href="/css/shared.css">
-
-    <link rel="stylesheet" href="/css/docs.css">
-
+<link rel="stylesheet" href="/css/docs.min.css" integrity="" crossorigin="anonymous">
 </head>
 <body class="docs-site">
     
+
+    <main>
+        
+
+<div class="docs-grid bg-gray-900 text-gray-100 min-h-screen">
+  
+  
+  <aside class="docs-sidebar">
     
-    <header>
+    <div class="logo-section">
+      <div class="flex items-center space-x-3">
+        <div class="logo-box">
+          <img src="/android-chrome-512x512.png" alt="AI Code Terminal" class="w-10 h-10 rounded-lg">
+        </div>
+        <h2 class="text-lg font-semibold text-gray-100">sections<br>& Links</h2>
+      </div>
+    </div>
+    
+    
+    <nav class="p-4 space-y-2 overflow-y-auto">
+      
+      
+      <div class="nav-section">
+        <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section="getting-started">
+          <span class="uppercase tracking-wider">Getting Started</span>
+          <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+        </button>
+        <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+          
+          
+          <li>
+            <a href="http://localhost:1313/docs/getting-started/introduction/" class="nav-link ">
+              Introduction
+            </a>
+          </li>
+          
+          <li>
+            <a href="http://localhost:1313/docs/getting-started/quick-start/" class="nav-link active">
+              Quick Start
+            </a>
+          </li>
+          
+          <li>
+            <a href="http://localhost:1313/docs/getting-started/installation/" class="nav-link ">
+              Installation
+            </a>
+          </li>
+          
+          <li>
+            <a href="http://localhost:1313/docs/getting-started/github-oauth/" class="nav-link ">
+              GitHub OAuth Setup
+            </a>
+          </li>
+          
+          <li>
+            <a href="http://localhost:1313/docs/getting-started/configuration/" class="nav-link ">
+              Configuration
+            </a>
+          </li>
+          
+          
+        </ul>
+      </div>
+
+      
+      <div class="nav-section">
+        <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section="core-features">
+          <span class="uppercase tracking-wider">Core Features</span>
+          <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+        </button>
+        <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+          
+          
+          <li>
+            <a href="http://localhost:1313/docs/core-features/terminal-access/" class="nav-link ">
+              Terminal Access
+            </a>
+          </li>
+          
+          <li>
+            <a href="http://localhost:1313/docs/core-features/workspace-management/" class="nav-link ">
+              Workspace Management
+            </a>
+          </li>
+          
+          <li>
+            <a href="http://localhost:1313/docs/core-features/github-integration/" class="nav-link ">
+              GitHub Integration
+            </a>
+          </li>
+          
+          <li>
+            <a href="http://localhost:1313/docs/core-features/claude-integration/" class="nav-link ">
+              Claude Integration
+            </a>
+          </li>
+          
+          <li>
+            <a href="http://localhost:1313/docs/core-features/real-time-features/" class="nav-link ">
+              Real-time Features
+            </a>
+          </li>
+          
+          
+        </ul>
+      </div>
+
+      
+      <div class="nav-section">
+        <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section="authentication">
+          <span class="uppercase tracking-wider">Authentication</span>
+          <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+        </button>
+        <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+          
+          
+          <li>
+            <a href="http://localhost:1313/docs/authentication/auth-flow/" class="nav-link ">
+              Authentication Flow
+            </a>
+          </li>
+          
+          <li>
+            <a href="http://localhost:1313/docs/authentication/security-features/" class="nav-link ">
+              Security Features
+            </a>
+          </li>
+          
+          <li>
+            <a href="http://localhost:1313/docs/authentication/token-management/" class="nav-link ">
+              Token Management
+            </a>
+          </li>
+          
+          
+        </ul>
+      </div>
+
+      
+      <div class="nav-section">
+        <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section="api">
+          <span class="uppercase tracking-wider">API & WebSocket</span>
+          <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+        </button>
+        <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+          
+          
+          <li>
+            <a href="http://localhost:1313/docs/api/endpoints/" class="nav-link ">
+              API Endpoints
+            </a>
+          </li>
+          
+          <li>
+            <a href="http://localhost:1313/docs/api/websocket/" class="nav-link ">
+              WebSocket Events
+            </a>
+          </li>
+          
+          
+        </ul>
+      </div>
+
+      
+      <div class="nav-section">
+        <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section="database">
+          <span class="uppercase tracking-wider">Database</span>
+          <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+        </button>
+        <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+          
+          
+          <li>
+            <a href="http://localhost:1313/docs/database/schema/" class="nav-link ">
+              Database Schema
+            </a>
+          </li>
+          
+          <li>
+            <a href="http://localhost:1313/docs/database/models/" class="nav-link ">
+              Data Models
+            </a>
+          </li>
+          
+          
+        </ul>
+      </div>
+
+      
+      <div class="nav-section">
+        <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section="development">
+          <span class="uppercase tracking-wider">Development</span>
+          <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+        </button>
+        <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+          
+          
+          <li>
+            <a href="http://localhost:1313/docs/development/setup/" class="nav-link ">
+              Development Setup
+            </a>
+          </li>
+          
+          <li>
+            <a href="http://localhost:1313/docs/development/testing/" class="nav-link ">
+              Testing
+            </a>
+          </li>
+          
+          
+        </ul>
+      </div>
+
+      
+      <div class="nav-section">
+        <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section="deployment">
+          <span class="uppercase tracking-wider">Deployment</span>
+          <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+        </button>
+        <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+          
+          
+          <li>
+            <a href="http://localhost:1313/docs/deployment/docker/" class="nav-link ">
+              Docker Deployment
+            </a>
+          </li>
+          
+          
+        </ul>
+      </div>
+
+    </nav>
+  </aside>
+
+  
+  <main class="docs-main">
+    
+    
+    <header class="main-header">
     <div class="container">
-        <nav>
+        <nav class="main-nav">
             <a href="http://localhost:1313/" class="logo">
                 <span class="prompt-char">&gt;</span> AI Code Terminal
             </a>
@@ -101,334 +350,60 @@
         </nav>
     </div>
 </header>
-
-    <main>
-        
-
-<div class="min-h-screen bg-[#010411] text-[#d4dff3]">
-  
-  
-  <button id="mobile-sidebar-toggle" class="lg:hidden fixed top-4 left-4 z-50 p-3 bg-[#0a0c1a] border border-[rgba(67,79,138,0.2)] rounded-lg">
-    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-    </svg>
-  </button>
-
-  
-  <div id="mobile-overlay" class="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30 hidden"></div>
-
-  <div class="flex pt-20"> 
     
     
-    <aside id="docs-sidebar" class="fixed lg:relative w-80 bg-[rgba(1,4,17,0.95)] border-r border-[rgba(67,79,138,0.2)] h-screen lg:h-[calc(100vh-5rem)] overflow-y-auto backdrop-blur-xl z-40 -translate-x-full lg:translate-x-0 transition-transform duration-300">
-      
-      
-      <div class="sticky top-0 bg-[rgba(1,4,17,0.9)] backdrop-blur-sm border-b border-[rgba(67,79,138,0.2)] p-6">
-        <div class="flex items-center space-x-3 mb-6">
-          <div class="w-8 h-8 bg-[#82aaff] rounded-lg flex items-center justify-center">
-            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-            </svg>
-          </div>
-          <h3 class="text-lg font-semibold text-[#d4dff3]">Documentation</h3>
-        </div>
+    <div class="docs-breadcrumbs">
+      <nav class="flex items-center space-x-2 text-sm">
+        <a href="/" class="text-gray-400 hover:text-gray-100 transition-colors">Home</a>
+        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+        </svg>
+        <a href="/docs" class="text-gray-400 hover:text-gray-100 transition-colors">Documentation</a>
         
+        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+        </svg>
+        <a href="http://localhost:1313/docs/getting-started/" class="text-gray-400 hover:text-gray-100 transition-colors">Getting Started</a>
         
-        <div class="relative">
-          <svg class="absolute left-3 top-3.5 w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-          </svg>
-          <input type="text" placeholder="Search docs..." class="w-full pl-10 pr-4 py-3 bg-[rgba(10,12,26,0.6)] border border-[rgba(67,79,138,0.2)] rounded-lg text-[#d4dff3] placeholder-[#8b9cc2] focus:outline-none focus:border-[#82aaff] focus:ring-1 focus:ring-[#82aaff] transition-colors">
-        </div>
-      </div>
-
-      
-      <nav class="p-4 space-y-2">
-        
-        
-        <div class="nav-section">
-          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="getting-started">
-            <span class="uppercase tracking-wider">Getting Started</span>
-            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </button>
-          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-            
-            
-            <li>
-              <a href="http://localhost:1313/docs/getting-started/introduction/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Introduction
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/getting-started/quick-start/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors active bg-[rgba(130,170,255,0.1)] !text-[#82aaff] font-medium">
-                Quick Start
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/getting-started/installation/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Installation
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/getting-started/github-oauth/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                GitHub OAuth Setup
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/getting-started/configuration/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Configuration
-              </a>
-            </li>
-            
-            
-          </ul>
-        </div>
-
-        
-        <div class="nav-section">
-          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="core-features">
-            <span class="uppercase tracking-wider">Core Features</span>
-            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </button>
-          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-            
-            
-            <li>
-              <a href="http://localhost:1313/docs/core-features/terminal-access/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Terminal Access
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/core-features/workspace-management/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Workspace Management
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/core-features/github-integration/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                GitHub Integration
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/core-features/claude-integration/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Claude Integration
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/core-features/real-time-features/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Real-time Features
-              </a>
-            </li>
-            
-            
-          </ul>
-        </div>
-
-        
-        <div class="nav-section">
-          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="authentication">
-            <span class="uppercase tracking-wider">Authentication</span>
-            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </button>
-          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-            
-            
-            <li>
-              <a href="http://localhost:1313/docs/authentication/auth-flow/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Authentication Flow
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/authentication/security-features/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Security Features
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/authentication/token-management/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Token Management
-              </a>
-            </li>
-            
-            
-          </ul>
-        </div>
-
-        
-        <div class="nav-section">
-          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="api">
-            <span class="uppercase tracking-wider">API & WebSocket</span>
-            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </button>
-          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-            
-            
-            <li>
-              <a href="http://localhost:1313/docs/api/endpoints/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                API Endpoints
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/api/websocket/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                WebSocket Events
-              </a>
-            </li>
-            
-            
-          </ul>
-        </div>
-
-        
-        <div class="nav-section">
-          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="database">
-            <span class="uppercase tracking-wider">Database</span>
-            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </button>
-          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-            
-            
-            <li>
-              <a href="http://localhost:1313/docs/database/schema/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Database Schema
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/database/models/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Data Models
-              </a>
-            </li>
-            
-            
-          </ul>
-        </div>
-
-        
-        <div class="nav-section">
-          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="development">
-            <span class="uppercase tracking-wider">Development</span>
-            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </button>
-          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-            
-            
-            <li>
-              <a href="http://localhost:1313/docs/development/setup/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Development Setup
-              </a>
-            </li>
-            
-            <li>
-              <a href="http://localhost:1313/docs/development/testing/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Testing
-              </a>
-            </li>
-            
-            
-          </ul>
-        </div>
-
-        
-        <div class="nav-section">
-          <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-[#82aaff] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors" data-section="deployment">
-            <span class="uppercase tracking-wider">Deployment</span>
-            <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </button>
-          <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-            
-            
-            <li>
-              <a href="http://localhost:1313/docs/deployment/docker/" class="nav-link block py-2 px-6 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded-lg transition-colors ">
-                Docker Deployment
-              </a>
-            </li>
-            
-            
-          </ul>
-        </div>
-
+        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+        </svg>
+        <span class="text-blue-400 font-medium">Quick Start</span>
       </nav>
-    </aside>
+    </div>
 
     
-    <main class="flex-1 lg:ml-80">
-      
-      
-      <div class="sticky top-20 bg-[rgba(1,4,17,0.9)] backdrop-blur-sm border-b border-[rgba(67,79,138,0.2)] px-8 py-4 z-10">
-        <nav class="flex items-center space-x-2 text-sm">
-          <a href="/" class="text-[#8b9cc2] hover:text-[#d4dff3] transition-colors">Home</a>
-          <svg class="w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-          </svg>
-          <a href="/docs" class="text-[#8b9cc2] hover:text-[#d4dff3] transition-colors">Documentation</a>
-          
-          <svg class="w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-          </svg>
-          <a href="http://localhost:1313/docs/getting-started/" class="text-[#8b9cc2] hover:text-[#d4dff3] transition-colors">Getting Started</a>
-          
-          <svg class="w-4 h-4 text-[#8b9cc2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-          </svg>
-          <span class="text-[#82aaff] font-medium">Quick Start</span>
-        </nav>
-      </div>
-
-      <div class="flex">
+    <div class="docs-content">
+      <article class="max-w-4xl mx-auto">
         
-        <article class="flex-1 px-8 py-12 max-w-4xl">
+        
+        <header class="mb-8">
           
           
-          <header class="mb-12">
+          <h1 class="text-3xl lg:text-4xl font-bold text-gray-100 mb-4 leading-tight">Quick Start</h1>
+          
+          
+          <p class="text-lg text-gray-300 leading-relaxed mb-6">Get AI Code Terminal running in minutes</p>
+          
+          
+          
+          <div class="flex items-center space-x-6 text-sm text-gray-400">
             
             
-            <h1 class="text-4xl lg:text-5xl font-bold text-[#d4dff3] mb-6 leading-tight">Quick Start</h1>
-            
-            
-            <p class="text-xl text-[#8b9cc2] leading-relaxed mb-8">Get AI Code Terminal running in minutes</p>
-            
-            
-            
-            <div class="flex items-center space-x-6 text-sm text-[#8b9cc2]">
-              
-              
-              <div class="flex items-center space-x-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <span>1 min read</span>
-              </div>
-              
+            <div class="flex items-center space-x-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <span>1 min read</span>
             </div>
             
-          </header>
-
+          </div>
           
-          <div class="prose prose-invert prose-lg max-w-none">
-            <h1 id="quick-start">Quick Start</h1>
+        </header>
+
+        
+        <div class="prose prose-invert prose-lg max-w-none">
+          <h1 id="quick-start">Quick Start</h1>
 <p>Get AI Code Terminal up and running in just a few minutes with Docker.</p>
 <h2 id="prerequisites">Prerequisites</h2>
 <p>Before starting, ensure you have:</p>
@@ -481,66 +456,48 @@
 <li><strong><a href="/docs/core-features/terminal-access/">Terminal Access</a>:</strong> Using the terminal interface</li>
 </ul>
 
-          </div>
+        </div>
+      </article>
+    </div>
 
-          
-          <nav class="flex justify-between items-center mt-16 pt-8 border-t border-[rgba(67,79,138,0.2)]">
-            <div>
-              
-              <a href="http://localhost:1313/docs/getting-started/installation/" class="inline-flex flex-col items-start px-6 py-4 bg-[rgba(10,12,26,0.5)] border border-[rgba(67,79,138,0.2)] rounded-lg hover:bg-[rgba(130,170,255,0.05)] hover:border-[#82aaff] transition-all transform hover:-translate-y-1">
-                <span class="text-xs text-[#8b9cc2] uppercase tracking-wider mb-1">Previous</span>
-                <span class="text-[#d4dff3] font-medium">Installation</span>
-              </a>
-              
-            </div>
-            <div>
-              
-              <a href="http://localhost:1313/docs/getting-started/introduction/" class="inline-flex flex-col items-end px-6 py-4 bg-[rgba(10,12,26,0.5)] border border-[rgba(67,79,138,0.2)] rounded-lg hover:bg-[rgba(130,170,255,0.05)] hover:border-[#82aaff] transition-all transform hover:-translate-y-1">
-                <span class="text-xs text-[#8b9cc2] uppercase tracking-wider mb-1">Next</span>
-                <span class="text-[#d4dff3] font-medium">Introduction</span>
-              </a>
-              
-            </div>
-          </nav>
-        </article>
-
+    
+    <div class="docs-nav">
+      <div>
         
-        <aside class="hidden xl:block w-80 p-8 sticky top-32 self-start max-h-[calc(100vh-8rem)] overflow-y-auto">
-          <div class="bg-[rgba(10,12,26,0.3)] border border-[rgba(67,79,138,0.2)] rounded-lg p-6">
-            <h3 class="flex items-center text-[#82aaff] font-medium mb-4">
-              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path>
-              </svg>
-              On This Page
-            </h3>
-            <div id="table-of-contents" class="space-y-1">
-              
-            </div>
-          </div>
-        </aside>
-
+        <a href="http://localhost:1313/docs/getting-started/installation/" class="inline-flex flex-col items-start px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg hover:bg-blue-600/5 hover:border-blue-400 transition-all">
+          <span class="text-xs text-gray-400 uppercase tracking-wider mb-1">prev page</span>
+          <span class="text-gray-100 font-medium text-sm">Installation</span>
+        </a>
+        
       </div>
-    </main>
-  </div>
+      <div>
+        
+        <a href="http://localhost:1313/docs/getting-started/introduction/" class="inline-flex flex-col items-end px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg hover:bg-blue-600/5 hover:border-blue-400 transition-all">
+          <span class="text-xs text-gray-400 uppercase tracking-wider mb-1">next page</span>
+          <span class="text-gray-100 font-medium text-sm">Introduction</span>
+        </a>
+        
+      </div>
+    </div>
+  </main>
+
+  
+  <aside class="docs-toc">
+    <div class="sticky top-6">
+      <h3 class="text-sm font-semibold text-gray-100 mb-4 text-center">
+        table<br>of<br>content
+      </h3>
+      <div id="table-of-contents" class="space-y-1">
+        
+      </div>
+    </div>
+  </aside>
+
 </div>
 
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  
-  const mobileSidebarToggle = document.getElementById('mobile-sidebar-toggle');
-  const mobileOverlay = document.getElementById('mobile-overlay');
-  const sidebar = document.getElementById('docs-sidebar');
-
-  function toggleMobileSidebar() {
-    sidebar.classList.toggle('-translate-x-full');
-    mobileOverlay.classList.toggle('hidden');
-    document.body.classList.toggle('overflow-hidden');
-  }
-
-  mobileSidebarToggle.addEventListener('click', toggleMobileSidebar);
-  mobileOverlay.addEventListener('click', toggleMobileSidebar);
-
   
   const navSectionToggles = document.querySelectorAll('.nav-section-toggle');
   
@@ -580,7 +537,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (headings.length === 0 || !toc) return;
 
     headings.forEach((heading, index) => {
-      
       if (!heading.id) {
         heading.id = heading.textContent.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
       }
@@ -588,13 +544,12 @@ document.addEventListener('DOMContentLoaded', function() {
       const link = document.createElement('a');
       link.href = '#' + heading.id;
       link.textContent = heading.textContent;
-      link.className = 'block py-1.5 px-3 text-sm text-[#8b9cc2] hover:text-[#d4dff3] hover:bg-[rgba(130,170,255,0.05)] rounded transition-colors';
-      
+      link.className = 'block py-1.5 px-3 text-xs text-gray-400 hover:text-gray-100 hover:bg-blue-600/5 rounded transition-colors';
       
       const level = parseInt(heading.tagName.charAt(1));
       if (level > 2) {
-        link.style.paddingLeft = `${(level - 2) * 16 + 12}px`;
-        link.style.borderLeft = '1px solid rgba(67,79,138,0.2)';
+        link.style.paddingLeft = `${(level - 2) * 12 + 12}px`;
+        link.style.borderLeft = '1px solid rgb(75 85 99)';
       }
 
       toc.appendChild(link);
@@ -607,8 +562,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const link = toc.querySelector(`a[href="#${id}"]`);
         if (link) {
           if (entry.isIntersecting) {
-            toc.querySelectorAll('a').forEach(l => l.classList.remove('!text-[#82aaff]', 'bg-[rgba(130,170,255,0.1)]', 'font-medium'));
-            link.classList.add('!text-[#82aaff]', 'bg-[rgba(130,170,255,0.1)]', 'font-medium');
+            toc.querySelectorAll('a').forEach(l => l.classList.remove('!text-blue-400', 'bg-blue-600/10', 'font-medium'));
+            link.classList.add('!text-blue-400', 'bg-blue-600/10', 'font-medium');
           }
         }
       });
@@ -636,11 +591,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     </main>
 
-    <footer class="fade-in-section">
-    <div class="container">
-        <p>&copy; 2025 AI Code Terminal. A statement on developer sovereignty.</p>
-    </div>
-</footer>
+    
     
 <script>
     feather.replace();
