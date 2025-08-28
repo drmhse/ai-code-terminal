@@ -1,21 +1,21 @@
 module.exports = {
-  JWT_SECRET: process.env.JWT_SECRET || 'fallback-secret-change-in-production',
-  NODE_ENV: process.env.NODE_ENV || 'development',
-  PORT: parseInt(process.env.PORT) || 3014,
-  DATABASE_URL: process.env.DATABASE_URL || 'file:./data/database.db',
-  GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID,
-  GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,
-  GITHUB_CALLBACK_URL: process.env.GITHUB_CALLBACK_URL,
-  TENANT_GITHUB_USERNAME: process.env.TENANT_GITHUB_USERNAME,
-  WORKSPACE_CLEANUP_DAYS: parseInt(process.env.WORKSPACE_CLEANUP_DAYS) || 30,
-  FRONTEND_URL: process.env.FRONTEND_URL,
-  ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS,
+  get JWT_SECRET() { return process.env.JWT_SECRET || 'fallback-secret-change-in-production'; },
+  get NODE_ENV() { return process.env.NODE_ENV || 'development'; },
+  get PORT() { return parseInt(process.env.PORT) || 3014; },
+  get DATABASE_URL() { return process.env.DATABASE_URL || 'file:./data/database.db'; },
+  get GITHUB_CLIENT_ID() { return process.env.GITHUB_CLIENT_ID; },
+  get GITHUB_CLIENT_SECRET() { return process.env.GITHUB_CLIENT_SECRET; },
+  get GITHUB_CALLBACK_URL() { return process.env.GITHUB_CALLBACK_URL; },
+  get TENANT_GITHUB_USERNAME() { return process.env.TENANT_GITHUB_USERNAME; },
+  get WORKSPACE_CLEANUP_DAYS() { return parseInt(process.env.WORKSPACE_CLEANUP_DAYS) || 30; },
+  get FRONTEND_URL() { return process.env.FRONTEND_URL; },
+  get ALLOWED_ORIGINS() { return process.env.ALLOWED_ORIGINS; },
   
   // Logging Configuration
-  LOG_LEVEL: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'info' : 'debug'),
-  LOG_MAX_SIZE: process.env.LOG_MAX_SIZE || '20m',
-  LOG_MAX_FILES: process.env.LOG_MAX_FILES || '30d',
-  LOG_COMPRESS: process.env.LOG_COMPRESS === 'true' || true,
+  get LOG_LEVEL() { return process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'info' : 'debug'); },
+  get LOG_MAX_SIZE() { return process.env.LOG_MAX_SIZE || '20m'; },
+  get LOG_MAX_FILES() { return process.env.LOG_MAX_FILES || '30d'; },
+  get LOG_COMPRESS() { return process.env.LOG_COMPRESS === 'false' ? false : true; },
   
   validate() {
     if (this.NODE_ENV === 'production' && this.JWT_SECRET === 'fallback-secret-change-in-production') {

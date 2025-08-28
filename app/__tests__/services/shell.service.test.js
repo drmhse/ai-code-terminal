@@ -10,12 +10,33 @@ jest.mock('../../src/services/workspace.service');
 jest.mock('../../src/config/database');
 jest.mock('../../src/utils/logger');
 jest.mock('../../src/utils/RingBuffer');
+jest.mock('../../src/services/session-manager.service');
+jest.mock('fs', () => ({
+  promises: {
+    mkdir: jest.fn().mockResolvedValue(),
+    readFile: jest.fn().mockResolvedValue(''),
+    writeFile: jest.fn().mockResolvedValue(),
+    appendFile: jest.fn().mockResolvedValue()
+  },
+  existsSync: jest.fn().mockReturnValue(true),
+  mkdirSync: jest.fn()
+}));
+jest.mock('winston-daily-rotate-file', () => {
+  return jest.fn().mockImplementation(() => ({
+    on: jest.fn(),
+    log: jest.fn(),
+    filename: 'test.log',
+    level: 'info',
+    format: null
+  }));
+});
 
 const pty = require('node-pty');
 const workspaceService = require('../../src/services/workspace.service');
 const { prisma } = require('../../src/config/database');
 const logger = require('../../src/utils/logger');
 const RingBuffer = require('../../src/utils/RingBuffer');
+const sessionManager = require('../../src/services/session-manager.service');
 
 // Mock PTY process
 const mockPtyProcess = {
@@ -55,6 +76,16 @@ const mockRingBuffer = {
   clear: jest.fn()
 };
 
+// Mock session manager
+const mockSession = {
+  id: 'session-123',
+  workspaceId: 'workspace-1',
+  shellPid: 12345,
+  socketId: 'socket-123',
+  status: 'active',
+  recoveryToken: 'recovery-token-123'
+};
+
 describe('ShellService', () => {
   let ShellService;
   let shellService;
@@ -92,16 +123,24 @@ describe('ShellService', () => {
     workspaceService.getWorkspace.mockResolvedValue(mockWorkspace);
     workspaceService.listWorkspaces.mockResolvedValue([mockWorkspace]);
     
+    // Setup session manager mocks
+    sessionManager.createSession = jest.fn().mockResolvedValue(mockSession);
+    sessionManager.findRecoverableSession = jest.fn().mockResolvedValue(null);
+    sessionManager.updateSessionState = jest.fn().mockResolvedValue(mockSession);
+    sessionManager.terminateSession = jest.fn().mockResolvedValue(mockSession);
+    sessionManager.attachSocketToSession = jest.fn().mockResolvedValue(mockSession);
+    sessionManager.detachSocketFromSession = jest.fn().mockResolvedValue(mockSession);
+    
     // Require the service fresh for each test
     delete require.cache[require.resolve('../../src/services/shell.service')];
     ShellService = require('../../src/services/shell.service');
     shellService = ShellService;
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     // Clean up any intervals
     if (shellService && shellService.cleanup) {
-      shellService.cleanup();
+      await shellService.cleanup();
     }
     jest.useRealTimers();
   });
@@ -661,9 +700,9 @@ describe('ShellService', () => {
   });
 
   describe('cleanup', () => {
-    it('should clear interval and terminate all sessions', () => {
-      const session1 = { ptyProcess: { ...mockPtyProcess, killed: false } };
-      const session2 = { ptyProcess: { ...mockPtyProcess, killed: false } };
+    it('should clear interval and terminate all sessions', async () => {
+      const session1 = { ptyProcess: { ...mockPtyProcess, killed: false }, sessionManagerId: 'session-1' };
+      const session2 = { ptyProcess: { ...mockPtyProcess, killed: false }, sessionManagerId: 'session-2' };
       
       shellService.activeSessions.set('workspace-1', session1);
       shellService.activeSessions.set('workspace-2', session2);
@@ -673,7 +712,7 @@ describe('ShellService', () => {
       shellService.cleanupInterval = setInterval(() => {}, 1000);
       const clearIntervalSpy = jest.spyOn(global, 'clearInterval');
 
-      shellService.cleanup();
+      await shellService.cleanup();
 
       expect(clearIntervalSpy).toHaveBeenCalled();
       expect(session1.ptyProcess.kill).toHaveBeenCalled();
@@ -685,14 +724,14 @@ describe('ShellService', () => {
       clearIntervalSpy.mockRestore();
     });
 
-    it('should handle already killed processes', () => {
+    it('should handle already killed processes', async () => {
       const session = { ptyProcess: { ...mockPtyProcess, killed: true } };
       shellService.activeSessions.set('workspace-1', session);
 
-      expect(() => shellService.cleanup()).not.toThrow();
+      await expect(shellService.cleanup()).resolves.not.toThrow();
     });
 
-    it('should handle kill errors gracefully', () => {
+    it('should handle kill errors gracefully', async () => {
       const session = { 
         ptyProcess: { 
           ...mockPtyProcess, 
@@ -702,7 +741,7 @@ describe('ShellService', () => {
       };
       shellService.activeSessions.set('workspace-1', session);
 
-      expect(() => shellService.cleanup()).not.toThrow();
+      await expect(shellService.cleanup()).resolves.not.toThrow();
       expect(logger.warn).toHaveBeenCalledWith('Failed to kill process for workspace workspace-1:', expect.any(Error));
     });
   });

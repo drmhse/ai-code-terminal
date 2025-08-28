@@ -12,9 +12,20 @@ jest.mock('fs', () => ({
     access: jest.fn(),
     writeFile: jest.fn(),
     rm: jest.fn()
-  }
+  },
+  existsSync: jest.fn().mockReturnValue(true),
+  mkdirSync: jest.fn()
 }));
 jest.mock('child_process');
+jest.mock('winston-daily-rotate-file', () => {
+  return jest.fn().mockImplementation(() => ({
+    on: jest.fn(),
+    log: jest.fn(),
+    filename: 'test.log',
+    level: 'info',
+    format: null
+  }));
+});
 
 const { prisma } = require('../../src/config/database');
 const logger = require('../../src/utils/logger');
@@ -452,7 +463,11 @@ describe('WorkspaceService', () => {
       const originalEnv = process.env.TENANT_GITHUB_USERNAME;
       process.env.TENANT_GITHUB_USERNAME = 'tenant-user';
 
-      const result = await WorkspaceService.getUserName('user-1');
+      // Reset modules to reload the environment config with new values
+      jest.resetModules();
+      const WorkspaceServiceReloaded = require('../../src/services/workspace.service');
+
+      const result = await WorkspaceServiceReloaded.getUserName('user-1');
 
       expect(result).toBe('tenant-user');
 
@@ -463,7 +478,11 @@ describe('WorkspaceService', () => {
       const originalEnv = process.env.TENANT_GITHUB_USERNAME;
       delete process.env.TENANT_GITHUB_USERNAME;
 
-      const result = await WorkspaceService.getUserName('user-1');
+      // Reset modules to reload the environment config with new values
+      jest.resetModules();
+      const WorkspaceServiceReloaded = require('../../src/services/workspace.service');
+
+      const result = await WorkspaceServiceReloaded.getUserName('user-1');
 
       expect(result).toBe('single-user');
 

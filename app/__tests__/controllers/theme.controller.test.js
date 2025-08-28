@@ -300,7 +300,11 @@ describe('ThemeController', () => {
       const originalEnv = process.env.NODE_ENV;
       process.env.NODE_ENV = 'production';
 
-      await ThemeController.reloadThemes(req, res);
+      // Reset modules to reload the environment config with new values
+      jest.resetModules();
+      const ThemeControllerReloaded = require('../../src/controllers/theme.controller');
+
+      await ThemeControllerReloaded.reloadThemes(req, res);
 
       expect(res.status).toHaveBeenCalledWith(403);
       expect(res.json).toHaveBeenCalledWith({

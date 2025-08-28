@@ -1,6 +1,6 @@
 const environment = require('./environment');
 
-// Helper function to get allowed origins
+// Helper function to get allowed origins (computed dynamically)
 function getAllowedOrigins() {
   const origins = [];
 
@@ -18,13 +18,12 @@ function getAllowedOrigins() {
   return origins;
 }
 
-const allowedOrigins = getAllowedOrigins();
-
 const corsConfig = {
   origin: function (origin, callback) {
     // Allow requests with no origin (mobile apps, postman, etc.)
     if (!origin) return callback(null, true);
 
+    const allowedOrigins = getAllowedOrigins();
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -43,6 +42,7 @@ const socketCorsConfig = {
     // Allow requests with no origin
     if (!origin) return callback(null, true);
 
+    const allowedOrigins = getAllowedOrigins();
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -57,5 +57,7 @@ const socketCorsConfig = {
 module.exports = {
   corsConfig,
   socketCorsConfig,
-  allowedOrigins
+  get allowedOrigins() {
+    return getAllowedOrigins();
+  }
 };

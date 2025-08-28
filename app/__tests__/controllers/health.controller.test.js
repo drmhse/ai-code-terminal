@@ -1,4 +1,13 @@
 // Mock services before requiring them
+jest.mock('winston-daily-rotate-file', () => {
+  return jest.fn().mockImplementation(() => ({
+    on: jest.fn(),
+    log: jest.fn(),
+    filename: 'test.log',
+    level: 'info',
+    format: null
+  }));
+});
 jest.mock('../../src/services/shell.service', () => ({
   activeSessions: new Map(),
   socketToWorkspace: new Map(),
@@ -32,7 +41,9 @@ jest.mock('fs', () => ({
   },
   constants: {
     W_OK: 2
-  }
+  },
+  existsSync: jest.fn().mockReturnValue(true),
+  mkdirSync: jest.fn()
 }));
 jest.mock('../../src/config/database', () => ({
   prisma: {

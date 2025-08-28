@@ -2,7 +2,20 @@ const fs = require('fs');
 const path = require('path');
 
 // Mock dependencies before requiring the service
-jest.mock('fs');
+jest.mock('fs', () => ({
+  readFileSync: jest.fn(),
+  existsSync: jest.fn().mockReturnValue(true),
+  mkdirSync: jest.fn()
+}));
+jest.mock('winston-daily-rotate-file', () => {
+  return jest.fn().mockImplementation(() => ({
+    on: jest.fn(),
+    log: jest.fn(),
+    filename: 'test.log',
+    level: 'info',
+    format: null
+  }));
+});
 jest.mock('../../src/utils/logger');
 
 const logger = require('../../src/utils/logger');

@@ -1,3 +1,25 @@
+// Mock crypto
+jest.mock('crypto');
+
+// Mock Prisma - must be before requiring the middleware
+const mockPrismaInstance = {
+  rateLimit: {
+    deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    count: jest.fn().mockResolvedValue(0),
+    create: jest.fn().mockResolvedValue({})
+  },
+  csrfToken: {
+    create: jest.fn().mockResolvedValue({}),
+    findFirst: jest.fn().mockResolvedValue(null),
+    delete: jest.fn().mockResolvedValue({}),
+    deleteMany: jest.fn().mockResolvedValue({ count: 0 })
+  }
+};
+
+jest.mock('@prisma/client', () => ({
+  PrismaClient: jest.fn().mockImplementation(() => mockPrismaInstance)
+}));
+
 const crypto = require('crypto');
 const {
   createRateLimiter,
@@ -12,11 +34,8 @@ const {
   validateCSRFToken
 } = require('../../src/middleware/security.middleware');
 
-// Mock crypto
-jest.mock('crypto');
-
 describe('Security Middleware', () => {
-  let req, res, next, app;
+  let req, res, next, app, mockPrisma;
 
   beforeEach(() => {
     req = {
@@ -39,7 +58,18 @@ describe('Security Middleware', () => {
       set: jest.fn()
     };
     
+    mockPrisma = mockPrismaInstance;
+    
     jest.clearAllMocks();
+    
+    // Reset Prisma mocks to default values after clearing other mocks
+    mockPrisma.rateLimit.deleteMany.mockResolvedValue({ count: 0 });
+    mockPrisma.rateLimit.count.mockResolvedValue(0);
+    mockPrisma.rateLimit.create.mockResolvedValue({});
+    mockPrisma.csrfToken.create.mockResolvedValue({});
+    mockPrisma.csrfToken.findFirst.mockResolvedValue(null);
+    mockPrisma.csrfToken.delete.mockResolvedValue({});
+    mockPrisma.csrfToken.deleteMany.mockResolvedValue({ count: 0 });
     
     // Mock crypto.randomBytes
     crypto.randomBytes.mockReturnValue({
@@ -48,10 +78,10 @@ describe('Security Middleware', () => {
   });
 
   describe('createRateLimiter', () => {
-    it('should allow requests within rate limit', () => {
+    it('should allow requests within rate limit', async () => {
       const rateLimiter = createRateLimiter(60000, 5, 'test');
       
-      rateLimiter(req, res, next);
+      await rateLimiter(req, res, next);
       
       expect(next).toHaveBeenCalled();
       expect(res.setHeader).toHaveBeenCalledWith('X-RateLimit-Limit', 5);
@@ -59,18 +89,13 @@ describe('Security Middleware', () => {
       expect(res.setHeader).toHaveBeenCalledWith('X-RateLimit-Reset', expect.any(Number));
     });
 
-    it('should block requests when rate limit exceeded', () => {
+    it('should block requests when rate limit exceeded', async () => {
       const rateLimiter = createRateLimiter(60000, 1, 'test-limit');
       
-      // First request should pass
-      rateLimiter(req, res, next);
-      expect(next).toHaveBeenCalledTimes(1);
+      // Mock count to return 1 (at limit)
+      mockPrisma.rateLimit.count.mockResolvedValue(1);
       
-      // Reset mocks
-      jest.clearAllMocks();
-      
-      // Second request should be blocked
-      rateLimiter(req, res, next);
+      await rateLimiter(req, res, next);
       
       expect(res.status).toHaveBeenCalledWith(429);
       expect(res.json).toHaveBeenCalledWith({
@@ -114,8 +139,15 @@ describe('Security Middleware', () => {
       const originalEnv = process.env.NODE_ENV;
       process.env.NODE_ENV = 'production';
       
-      securityHeaders(req, res, next);
+      // Reset modules to reload the environment config with new values
+      jest.resetModules();
+      const { securityHeaders: securityHeadersReloaded } = require('../../src/middleware/security.middleware');
       
+      securityHeadersReloaded(req, res, next);
+      
+      expect(res.setHeader).toHaveBeenCalledWith('X-Content-Type-Options', 'nosniff');
+      expect(res.setHeader).toHaveBeenCalledWith('X-Frame-Options', 'DENY');
+      expect(res.setHeader).toHaveBeenCalledWith('X-XSS-Protection', '1; mode=block');
       expect(res.setHeader).toHaveBeenCalledWith('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
       expect(next).toHaveBeenCalled();
       
@@ -190,7 +222,11 @@ describe('Security Middleware', () => {
       const originalEnv = process.env.NODE_ENV;
       process.env.NODE_ENV = 'production';
       
-      setupTrustProxy(app);
+      // Reset modules to reload the environment config with new values
+      jest.resetModules();
+      const { setupTrustProxy: setupTrustProxyReloaded } = require('../../src/middleware/security.middleware');
+      
+      setupTrustProxyReloaded(app);
       
       expect(app.set).toHaveBeenCalledWith('trust proxy', 1);
       
@@ -223,8 +259,8 @@ describe('Security Middleware', () => {
       expect(res.setHeader).not.toHaveBeenCalledWith('X-CSRF-Token', expect.any(String));
     });
 
-    it('should generate CSRF token for authenticated users', () => {
-      createCSRFToken(req, res, next);
+    it('should generate CSRF token for authenticated users', async () => {
+      await createCSRFToken(req, res, next);
       
       expect(crypto.randomBytes).toHaveBeenCalledWith(32);
       expect(res.setHeader).toHaveBeenCalledWith('X-CSRF-Token', 'mock-csrf-token-hex');
@@ -290,10 +326,13 @@ describe('Security Middleware', () => {
       expect(next).not.toHaveBeenCalled();
     });
 
-    it('should return 403 when CSRF token is invalid', () => {
+    it('should return 403 when CSRF token is invalid', async () => {
       req.headers['x-csrf-token'] = 'invalid-token';
       
-      validateCSRFToken(req, res, next);
+      // Mock the findFirst to return null (invalid token)
+      mockPrisma.csrfToken.findFirst.mockResolvedValue(null);
+      
+      await validateCSRFToken(req, res, next);
       
       expect(res.status).toHaveBeenCalledWith(403);
       expect(res.json).toHaveBeenCalledWith({ error: 'Invalid CSRF token' });

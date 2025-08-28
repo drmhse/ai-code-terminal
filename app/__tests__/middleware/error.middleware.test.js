@@ -1,4 +1,13 @@
+// Mock logger before requiring error middleware
+jest.mock('../../src/utils/logger', () => ({
+  error: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  debug: jest.fn()
+}));
+
 const { errorHandler, notFoundHandler, asyncHandler } = require('../../src/middleware/error.middleware');
+const logger = require('../../src/utils/logger');
 
 describe('Error Middleware', () => {
   let req, res, next;
@@ -6,7 +15,13 @@ describe('Error Middleware', () => {
   beforeEach(() => {
     req = {
       path: '/test-path',
-      method: 'GET'
+      method: 'GET',
+      url: '/test-path',
+      get: jest.fn((header) => {
+        if (header === 'User-Agent') return 'test-user-agent';
+        return null;
+      }),
+      ip: '127.0.0.1'
     };
     res = {
       status: jest.fn().mockReturnThis(),
@@ -15,13 +30,6 @@ describe('Error Middleware', () => {
     next = jest.fn();
     
     jest.clearAllMocks();
-    
-    // Mock console.error to avoid test output noise
-    jest.spyOn(console, 'error').mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    console.error.mockRestore();
   });
 
   describe('errorHandler', () => {
@@ -30,7 +38,7 @@ describe('Error Middleware', () => {
 
       errorHandler(error, req, res, next);
 
-      expect(console.error).toHaveBeenCalledWith('Unhandled error:', error);
+      expect(logger.error).toHaveBeenCalledWith('Unhandled HTTP error', error, expect.any(Object));
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith({
         error: 'Internal server error',
@@ -94,9 +102,13 @@ describe('Error Middleware', () => {
       const originalEnv = process.env.NODE_ENV;
       process.env.NODE_ENV = 'production';
       
+      // Reset modules to reload the environment config with new values
+      jest.resetModules();
+      const { errorHandler: errorHandlerReloaded } = require('../../src/middleware/error.middleware');
+      
       const error = new Error('Generic error');
 
-      errorHandler(error, req, res, next);
+      errorHandlerReloaded(error, req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith({
@@ -110,10 +122,14 @@ describe('Error Middleware', () => {
       const originalEnv = process.env.NODE_ENV;
       process.env.NODE_ENV = 'production';
       
+      // Reset modules to reload the environment config with new values
+      jest.resetModules();
+      const { errorHandler: errorHandlerReloaded } = require('../../src/middleware/error.middleware');
+      
       const error = new Error('Validation failed');
       error.name = 'ValidationError';
 
-      errorHandler(error, req, res, next);
+      errorHandlerReloaded(error, req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({

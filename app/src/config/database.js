@@ -13,36 +13,41 @@ const prisma = new PrismaClient({
 });
 
 // Set up logging for Prisma events
-prisma.$on('query', (e) => {
-  logger.debug('Prisma Query', {
-    query: e.query,
-    params: e.params,
-    duration: e.duration,
-    timestamp: e.timestamp
+function setupEventListeners(prismaClient) {
+  prismaClient.$on('query', (e) => {
+    logger.debug('Prisma Query', {
+      query: e.query,
+      params: e.params,
+      duration: e.duration,
+      timestamp: e.timestamp
+    });
   });
-});
 
-prisma.$on('error', (e) => {
-  logger.error('Prisma Error', {
-    message: e.message,
-    target: e.target,
-    timestamp: e.timestamp
+  prismaClient.$on('error', (e) => {
+    logger.error('Prisma Error', {
+      message: e.message,
+      target: e.target,
+      timestamp: e.timestamp
+    });
   });
-});
 
-prisma.$on('info', (e) => {
-  logger.info('Prisma Info', {
-    message: e.message,
-    timestamp: e.timestamp
+  prismaClient.$on('info', (e) => {
+    logger.info('Prisma Info', {
+      message: e.message,
+      timestamp: e.timestamp
+    });
   });
-});
 
-prisma.$on('warn', (e) => {
-  logger.warn('Prisma Warning', {
-    message: e.message,
-    timestamp: e.timestamp
+  prismaClient.$on('warn', (e) => {
+    logger.warn('Prisma Warning', {
+      message: e.message,
+      timestamp: e.timestamp
+    });
   });
-});
+}
+
+// Initialize event listeners
+setupEventListeners(prisma);
 
 // Test database connection
 async function testConnection() {
@@ -69,5 +74,6 @@ async function disconnect() {
 module.exports = {
   prisma,
   testConnection,
-  disconnect
+  disconnect,
+  setupEventListeners
 };
