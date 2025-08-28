@@ -22,16 +22,17 @@ class ConfigManager {
         suffix: '\n### END CONTEXT ###\n\n### PROMPT ###\n'
       },
       golden_paths: {
-        commit: `Analyze the following git diff and write a concise conventional commit message.
+        commit: `Write a conventional commit message for the following git diff.
 
-Guidelines:
-- Use conventional commit format: type(scope): description
-- Types: feat, fix, docs, style, refactor, test, chore
-- Keep under 50 characters for the first line
-- Be specific about what changed, not just that it changed
-- Focus on the "why" and "what" impact, not just the "what"
+Format: type(scope): description
 
-Output only the commit message itself, nothing else.`,
+IMPORTANT: Output ONLY the commit message. No explanations, no code blocks, no additional text.
+
+Example output:
+feat(auth): add user authentication system
+
+Types: feat, fix, docs, style, refactor, test, chore
+Keep first line under 50 characters.`,
 
         review: `Perform a comprehensive code review of the following changes.
 
@@ -153,7 +154,18 @@ Focus on actionable solutions with clear implementation steps.`
       target = target[key];
     }
     
-    target[lastKey] = value;
+    // Try to parse as JSON if it looks like JSON (starts with [ or {)
+    let parsedValue = value;
+    if (typeof value === 'string' && (value.trim().startsWith('[') || value.trim().startsWith('{'))) {
+      try {
+        parsedValue = JSON.parse(value);
+      } catch (error) {
+        // If JSON parsing fails, use the original string value
+        parsedValue = value;
+      }
+    }
+    
+    target[lastKey] = parsedValue;
     await this.saveConfig(config);
   }
 

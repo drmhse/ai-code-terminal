@@ -282,6 +282,62 @@ describe('ConfigManager', () => {
         { spaces: 2 }
       );
     });
+
+    test('should parse JSON strings for array/object values', async () => {
+      fs.pathExists.mockResolvedValue(false);
+      fs.ensureDir.mockResolvedValue();
+      fs.writeJson.mockResolvedValue();
+      
+      // Test setting array as JSON string
+      await configManager.set('ai_backend.args', '["--print", "--verbose"]');
+      
+      expect(fs.writeJson).toHaveBeenCalledWith(
+        '/mock/home/.act/config.json',
+        expect.objectContaining({
+          ai_backend: expect.objectContaining({
+            args: ['--print', '--verbose']
+          })
+        }),
+        { spaces: 2 }
+      );
+    });
+
+    test('should parse JSON strings for object values', async () => {
+      fs.pathExists.mockResolvedValue(false);
+      fs.ensureDir.mockResolvedValue();
+      fs.writeJson.mockResolvedValue();
+      
+      // Test setting object as JSON string
+      await configManager.set('custom_setting', '{"key": "value", "number": 42}');
+      
+      expect(fs.writeJson).toHaveBeenCalledWith(
+        '/mock/home/.act/config.json',
+        expect.objectContaining({
+          custom_setting: {
+            key: 'value',
+            number: 42
+          }
+        }),
+        { spaces: 2 }
+      );
+    });
+
+    test('should handle invalid JSON gracefully', async () => {
+      fs.pathExists.mockResolvedValue(false);
+      fs.ensureDir.mockResolvedValue();
+      fs.writeJson.mockResolvedValue();
+      
+      // Test setting invalid JSON string (should be stored as string)
+      await configManager.set('test_key', '["invalid json}');
+      
+      expect(fs.writeJson).toHaveBeenCalledWith(
+        '/mock/home/.act/config.json',
+        expect.objectContaining({
+          test_key: '["invalid json}'
+        }),
+        { spaces: 2 }
+      );
+    });
   });
 
   describe('getAll', () => {
