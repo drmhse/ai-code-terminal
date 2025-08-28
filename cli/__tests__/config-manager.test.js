@@ -40,7 +40,7 @@ describe('ConfigManager', () => {
       expect(config).toBeDefined();
       expect(config.version).toBe(1);
       expect(config.ai_backend.command).toBe('claude');
-      expect(config.ai_backend.args).toEqual(['--no-user-config']);
+      expect(config.ai_backend.args).toEqual(['--print']);
       expect(config.golden_paths).toBeDefined();
       
       // Should have tried to save default config
@@ -48,7 +48,7 @@ describe('ConfigManager', () => {
         '/mock/home/.act/config.json',
         expect.objectContaining({
           version: 1,
-          ai_backend: { command: 'claude', args: ['--no-user-config'] }
+          ai_backend: { command: 'claude', args: ['--print'] }
         }),
         { spaces: 2 }
       );
@@ -156,7 +156,7 @@ describe('ConfigManager', () => {
     test('should load from custom config', async () => {
       const mockConfig = {
         version: 1,
-        ai_backend: { command: 'claude', args: ['--no-user-config'] },
+        ai_backend: { command: 'claude', args: ['--print'] },
         golden_paths: {
           commit: 'Custom commit message generator',
           review: 'Custom review',
@@ -185,7 +185,7 @@ describe('ConfigManager', () => {
       
       expect(backend).toBeDefined();
       expect(backend.command).toBe('claude');
-      expect(backend.args).toEqual(['--no-user-config']);
+      expect(backend.args).toEqual(['--print']);
     });
 
     test('should return custom AI backend configuration', async () => {

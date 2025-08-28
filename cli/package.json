@@ -1,6 +1,6 @@
 {
   "name": "@drmhse/act-cli",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "AI-aware context management CLI for terminal-based development",
   "main": "src/index.js",
   "bin": {

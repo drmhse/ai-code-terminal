@@ -109,7 +109,7 @@ Each context item is stored as a JSON file containing:
 ### Backend Configuration
 ```bash
 act config set ai_backend.command "claude"
-act config set ai_backend.args '["--no-user-config"]'
+act config set ai_backend.args '["--print"]'
 ```
 
 ### Custom Prompt Templates

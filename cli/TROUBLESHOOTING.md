@@ -83,7 +83,7 @@ act config get ai_backend
 **Solution**:
 ```bash
 # Update backend arguments
-act config set ai_backend.args '["--no-user-config"]'
+act config set ai_backend.args '["--print"]'
 
 # Or reset to default configuration
 rm ~/.act/config.json

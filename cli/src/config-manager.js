@@ -14,7 +14,7 @@ class ConfigManager {
       version: 1,
       ai_backend: {
         command: 'claude',
-        args: ['--no-user-config']
+        args: ['--print']
       },
       prompt_template: {
         prefix: '### CONTEXT ###\n',

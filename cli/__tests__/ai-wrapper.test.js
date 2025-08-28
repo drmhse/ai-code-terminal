@@ -14,7 +14,7 @@ describe('AIWrapper', () => {
     const ConfigManager = require('../src/config-manager');
     jest.spyOn(ConfigManager.prototype, 'getAIBackend').mockResolvedValue({
       command: 'claude',
-      args: ['--no-user-config']
+      args: ['--print']
     });
     
     aiWrapper = new AIWrapper();
@@ -45,7 +45,7 @@ describe('AIWrapper', () => {
       
       await queryPromise;
       
-      expect(spawn).toHaveBeenCalledWith('claude', ['--no-user-config'], {
+      expect(spawn).toHaveBeenCalledWith('claude', ['--print'], {
         stdio: ['pipe', 'inherit', 'inherit']
       });
     });

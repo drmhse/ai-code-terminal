@@ -75,7 +75,7 @@ Reduce the cognitive overhead of AI-assisted development by transforming the eph
   "version": 1,
   "ai_backend": {
     "command": "claude",
-    "args": ["--no-user-config"]
+    "args": ["--print"]
   },
   "prompt_template": {
     "prefix": "### CONTEXT ###\n",
