@@ -21,11 +21,11 @@ class ContextManager {
   getContextDir() {
     const workspaceRoot = this.getWorkspaceRoot();
     const workspaceHash = crypto.createHash('md5').update(workspaceRoot).digest('hex');
-    
+
     // Use container-specific path if we're in the AI coding terminal
     const homeDir = process.env.HOME || '/home/user';
     const actDir = path.join(homeDir, '.act');
-    
+
     return path.join(actDir, 'context', workspaceHash);
   }
 
@@ -56,7 +56,7 @@ class ContextManager {
   async getNextId() {
     await this.ensureContextDir();
     const counterFile = path.join(this.contextDir, '.counter');
-    
+
     let counter = 1;
     if (await fs.pathExists(counterFile)) {
       try {
@@ -66,7 +66,7 @@ class ContextManager {
         counter = 1;
       }
     }
-    
+
     const nextId = counter;
     await fs.writeFile(counterFile, (counter + 1).toString());
     return nextId;
@@ -77,26 +77,26 @@ class ContextManager {
    */
   async addFile(filePath) {
     const fullPath = path.resolve(filePath);
-    
+
     if (!await fs.pathExists(fullPath)) {
       throw new Error(`File not found: ${filePath}`);
     }
-    
+
     const stats = await fs.stat(fullPath);
-    
+
     // File size protection - 5MB limit
     const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
     if (stats.size > MAX_FILE_SIZE) {
       throw new Error(`File too large: ${Math.round(stats.size/1024/1024)}MB. Max: 5MB`);
     }
-    
+
     if (stats.isDirectory()) {
       throw new Error(`Path is a directory. Use specific files or --exec "find ${filePath}" to list directory contents`);
     }
-    
+
     const content = await fs.readFile(fullPath, 'utf8');
     const id = await this.getNextId();
-    
+
     const contextItem = {
       metadata: {
         type: 'file',
@@ -106,7 +106,7 @@ class ContextManager {
       },
       content
     };
-    
+
     const filename = `${id}_file.json`;
     await this.ensureContextDir();
     await fs.writeFile(path.join(this.contextDir, filename), JSON.stringify(contextItem, null, 2));
@@ -123,16 +123,16 @@ class ContextManager {
       } else {
         diffCommand = 'git diff --cached';
       }
-      
+
       const { stdout: diff } = await execAsync(diffCommand, { maxBuffer: 10 * 1024 * 1024 });
-      
+
       if (!diff.trim()) {
         throw new Error(baseBranch ? `No changes found between ${baseBranch} and HEAD` : 'No staged changes found');
       }
-      
+
       const id = await this.getNextId();
       const source = baseBranch ? `git diff ${baseBranch}...HEAD` : 'git diff --cached';
-      
+
       const contextItem = {
         metadata: {
           type: 'diff',
@@ -142,7 +142,7 @@ class ContextManager {
         },
         content: diff
       };
-      
+
       const filename = `${id}_diff.json`;
       await this.ensureContextDir();
       await fs.writeFile(path.join(this.contextDir, filename), JSON.stringify(contextItem, null, 2));
@@ -162,17 +162,17 @@ class ContextManager {
     if (/[;&|`$<>]/.test(command)) {
       throw new Error('Command contains unsafe characters. Use simple commands only.');
     }
-    
+
     try {
       const { stdout, stderr } = await execAsync(command, { maxBuffer: 10 * 1024 * 1024 });
       const output = stdout + (stderr ? `\n--- STDERR ---\n${stderr}` : '');
-      
+
       if (!output.trim()) {
         throw new Error(`Command '${command}' produced no output`);
       }
-      
+
       const id = await this.getNextId();
-      
+
       const contextItem = {
         metadata: {
           type: 'exec',
@@ -182,7 +182,7 @@ class ContextManager {
         },
         content: output
       };
-      
+
       const filename = `${id}_exec.json`;
       await this.ensureContextDir();
       await fs.writeFile(path.join(this.contextDir, filename), JSON.stringify(contextItem, null, 2));
@@ -204,23 +204,23 @@ class ContextManager {
         const bId = parseInt(b.split('_')[0]);
         return aId - bId;
       });
-    
+
     const items = [];
     const seenSources = new Set();
     const corruptedFiles = [];
-    
+
     for (const file of contextFiles) {
       const filePath = path.join(this.contextDir, file);
       try {
         const content = await fs.readFile(filePath, 'utf8');
         const item = JSON.parse(content);
-        
+
         // Validate required fields
         if (!item.metadata || !item.metadata.source || !item.content) {
           corruptedFiles.push(file);
           continue;
         }
-        
+
         // Check for duplicates based on source + content hash
         const itemKey = `${item.metadata.source}:${crypto.createHash('md5').update(item.content).digest('hex')}`;
         if (seenSources.has(itemKey)) {
@@ -228,14 +228,14 @@ class ContextManager {
           await fs.remove(filePath);
           continue;
         }
-        
+
         seenSources.add(itemKey);
         items.push(item);
       } catch (error) {
         corruptedFiles.push(file);
       }
     }
-    
+
     // Clean up corrupted files silently in production
     for (const file of corruptedFiles) {
       try {
@@ -244,7 +244,7 @@ class ContextManager {
         // Ignore cleanup failures
       }
     }
-    
+
     return items;
   }
 
@@ -269,17 +269,17 @@ class ContextManager {
         const bId = parseInt(b.split('_')[0]);
         return aId - bId;
       });
-    
+
     // Validate indices and collect files to remove
     const sortedIndices = [...new Set(indices)].sort((a, b) => b - a);
     const filesToRemove = [];
-    
+
     for (const index of sortedIndices) {
       if (index >= 0 && index < contextFiles.length) {
         filesToRemove.push(path.join(this.contextDir, contextFiles[index]));
       }
     }
-    
+
     // Atomic removal - if any fail, none are removed
     const backups = [];
     try {
@@ -289,12 +289,12 @@ class ContextManager {
         await fs.move(filePath, backupPath);
         backups.push({ original: filePath, backup: backupPath });
       }
-      
+
       // If we reach here, all moves succeeded
       for (const { backup } of backups) {
         await fs.remove(backup);
       }
-      
+
       return filesToRemove.length;
     } catch (error) {
       // Restore from backups on any failure
@@ -311,13 +311,13 @@ class ContextManager {
    * Remove items by auto-detecting indices vs patterns
    */
   async removeItems(items) {
-    const minimatch = require('minimatch');
+    const { minimatch } = require('minimatch');
     await this.ensureContextDir();
-    
+
     // Get all current items first
     const contextItems = await this.list();
     const indicesToRemove = new Set();
-    
+
     // Process each item to determine what to remove
     for (const item of items) {
       const asNumber = parseInt(item);
@@ -332,7 +332,7 @@ class ContextManager {
         for (let i = 0; i < contextItems.length; i++) {
           const contextItem = contextItems[i];
           const basename = path.basename(contextItem.metadata.source);
-          
+
           // Try exact basename match first, then glob pattern
           if (basename === item || minimatch(basename, item)) {
             indicesToRemove.add(i);
@@ -340,20 +340,20 @@ class ContextManager {
         }
       }
     }
-    
+
     if (indicesToRemove.size === 0) {
       // Check if any patterns were provided that didn't match
       const patterns = items.filter(item => {
         const asNumber = parseInt(item);
         return isNaN(asNumber) || asNumber <= 0 || item !== asNumber.toString();
       });
-      
+
       if (patterns.length > 0) {
         throw new Error(`No items found matching patterns: ${patterns.join(', ')}`);
       }
       return 0;
     }
-    
+
     // Convert set to sorted array for removal
     const sortedIndices = Array.from(indicesToRemove).sort((a, b) => a - b);
     return await this.remove(sortedIndices);
@@ -366,7 +366,7 @@ class ContextManager {
     await this.ensureContextDir();
     const files = await fs.readdir(this.contextDir);
     const contextFiles = files.filter(f => f.match(/^\d+_.*\.json$/));
-    
+
     for (const file of contextFiles) {
       await fs.remove(path.join(this.contextDir, file));
     }
@@ -377,18 +377,18 @@ class ContextManager {
    */
   async getFormattedContext() {
     const items = await this.list();
-    
+
     if (items.length === 0) {
       return '';
     }
-    
+
     let formatted = '### CONTEXT ###\n';
-    
+
     for (const item of items) {
       formatted += `--- ${item.metadata.type}: ${item.metadata.source} ---\n`;
       formatted += `${item.content}\n\n`;
     }
-    
+
     formatted += '### END CONTEXT ###\n\n';
     return formatted;
   }
