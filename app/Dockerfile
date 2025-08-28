@@ -23,8 +23,8 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 # Create a non-root user with consistent UID (using 1001 to avoid conflict)
 RUN addgroup -g 1001 claude && adduser -u 1001 -G claude -h /home/claude -s /bin/bash -D claude
 
-# Install Claude Code globally (requires root)
-RUN npm install -g @anthropic-ai/claude-code
+# Install Claude Code and act CLI globally (requires root)
+RUN npm install -g @anthropic-ai/claude-code @drmhse/act-cli
 
 # Build application in /app
 WORKDIR /app
@@ -36,14 +36,6 @@ RUN npm install --omit=dev && npm cache clean --force
 # Copy application code
 COPY . .
 
-# Copy and install act CLI
-COPY ../cli /tmp/act-cli
-WORKDIR /tmp/act-cli
-RUN npm install --omit=dev
-RUN chmod +x bin/act.js
-RUN mkdir -p /usr/local/bin
-RUN cp bin/act.js /usr/local/bin/act
-WORKDIR /app
 
 # Make startup script executable
 RUN chmod +x start.sh
@@ -52,7 +44,7 @@ RUN chmod +x start.sh
 RUN npx prisma generate
 
 # Create necessary directories and set permissions
-RUN mkdir -p workspaces prisma/data data && \
+RUN mkdir -p workspaces prisma/data data logs && \
     chown -R claude:claude /home/claude && \
     chown -R claude:claude /app
 

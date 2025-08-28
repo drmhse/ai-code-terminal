@@ -33,4 +33,156 @@
             </button>
         </div>
     </div>
+
+    <!-- File Explorer Section -->
+    <div v-if="selectedWorkspace && fileExplorerEnabled" class="file-explorer-section">
+        <div class="sidebar-header">
+            <h2>Files</h2>
+            <div class="file-explorer-actions">
+                <button @click="toggleFileExplorer" 
+                        class="btn btn-small btn-icon"
+                        :title="fileExplorerCollapsed ? 'Expand Files' : 'Collapse Files'">
+                    <i :data-feather="fileExplorerCollapsed ? 'chevron-right' : 'chevron-down'"></i>
+                </button>
+                <button @click="refreshFiles(true)" 
+                        class="btn btn-small btn-icon" 
+                        :disabled="loadingFiles"
+                        title="Refresh Files">
+                    <i data-feather="refresh-cw" :class="{ spinning: loadingFiles }"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div v-if="!fileExplorerCollapsed" class="file-tree-container">
+            <!-- Breadcrumb navigation -->
+            <div v-if="currentPath !== '.'" class="breadcrumb-container">
+                <nav class="breadcrumb-nav">
+                    <div class="breadcrumb-item" @click="navigateToRoot">
+                        <i data-feather="home" class="breadcrumb-icon"></i>
+                        <span>{{ selectedWorkspace?.name }}</span>
+                    </div>
+                    <div v-for="(segment, index) in pathSegments" 
+                         :key="index" 
+                         class="breadcrumb-item"
+                         :class="{ 'active': index === pathSegments.length - 1 }"
+                         @click="navigateToSegment(index)">
+                        <i data-feather="chevron-right" class="breadcrumb-separator"></i>
+                        <span>{{ segment }}</span>
+                    </div>
+                </nav>
+            </div>
+            
+            <!-- File search -->
+            <div class="file-search-container">
+                <div class="file-search-input-wrapper">
+                    <i data-feather="search" class="search-icon"></i>
+                    <input 
+                        type="text" 
+                        v-model="fileSearchTerm" 
+                        @input="handleFileSearch"
+                        @keydown.escape="clearFileSearch"
+                        placeholder="Search files..."
+                        class="file-search-input"
+                        :disabled="loadingFiles"
+                    />
+                    <button 
+                        v-if="fileSearchTerm"
+                        @click="clearFileSearch"
+                        class="clear-search-btn"
+                        type="button"
+                        title="Clear search"
+                    >
+                        <i data-feather="x"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div v-if="loadingFiles" class="file-loading">
+                <i data-feather="loader" class="spinning"></i>
+                <span>Loading files...</span>
+            </div>
+            
+            <div v-else-if="fileError" class="file-error">
+                <i data-feather="alert-triangle"></i>
+                <span>{{ fileError }}</span>
+                <button @click="refreshFiles" class="btn btn-small">Retry</button>
+            </div>
+            
+            <div v-else class="file-tree">
+                <div v-if="currentPath !== '.'" class="file-item file-nav-up" @click="navigateToParent">
+                    <i data-feather="arrow-up" class="file-icon"></i>
+                    <span class="file-name">..</span>
+                </div>
+                
+                <div v-for="(item, index) in filteredFiles" 
+                     :key="item.path" 
+                     class="file-item"
+                     :class="{ 
+                       'file-directory': item.type === 'directory',
+                       'file-hidden': item.isHidden && !showHiddenFiles,
+                       'selected': selectedFile?.path === item.path,
+                       'keyboard-selected': selectedFileIndex === index
+                     }"
+                     @click="handleFileClick(item, index)"
+                     @dblclick="handleFileDoubleClick(item)"
+                     @contextmenu="handleFileContextMenu($event, item)">
+                    
+                    <i :data-feather="getFileIcon(item)" class="file-icon"></i>
+                    <span class="file-name" :title="item.name">{{ item.name }}</span>
+                    <span v-if="item.type === 'file' && item.size" class="file-size">
+                        {{ formatFileSize(item.size) }}
+                    </span>
+                </div>
+                
+                <div v-if="filteredFiles.length === 0 && !fileSearchTerm" class="file-empty">
+                    <i data-feather="folder"></i>
+                    <span>Empty directory</span>
+                </div>
+                
+                <div v-if="filteredFiles.length === 0 && fileSearchTerm" class="file-empty">
+                    <i data-feather="search"></i>
+                    <span>No files match "{{ fileSearchTerm }}"</span>
+                </div>
+            </div>
+            
+            <div class="file-explorer-footer">
+                <label class="file-toggle">
+                    <input type="checkbox" v-model="showHiddenFiles" @change="refreshFiles">
+                    <span>Show hidden files</span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- File Context Menu -->
+    <div v-if="showContextMenu" 
+         class="context-menu" 
+         :style="{ left: contextMenuX + 'px', top: contextMenuY + 'px' }"
+         @click.stop>
+        <div class="context-menu-item" @click="copyFilePath">
+            <i data-feather="copy" class="context-menu-icon"></i>
+            <span>Copy Path</span>
+        </div>
+        <div class="context-menu-item" @click="copyFileName">
+            <i data-feather="file-text" class="context-menu-icon"></i>
+            <span>Copy Name</span>
+        </div>
+        <div v-if="contextMenuFile?.type === 'file'" class="context-menu-item" @click="previewFile">
+            <i data-feather="eye" class="context-menu-icon"></i>
+            <span>Preview</span>
+        </div>
+        <div v-if="contextMenuFile?.type === 'file'" class="context-menu-item" @click="openInTerminal">
+            <i data-feather="terminal" class="context-menu-icon"></i>
+            <span>Open in Terminal</span>
+        </div>
+        <div v-if="contextMenuFile?.type === 'directory'" class="context-menu-item" @click="openDirectory">
+            <i data-feather="folder-open" class="context-menu-icon"></i>
+            <span>Open Folder</span>
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" @click="refreshFiles(true)">
+            <i data-feather="refresh-cw" class="context-menu-icon"></i>
+            <span>Refresh</span>
+        </div>
+    </div>
 </div>

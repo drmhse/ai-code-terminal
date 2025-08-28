@@ -167,8 +167,8 @@ Focus on actionable solutions with clear implementation steps.`
   /**
    * Get a golden path prompt
    */
-  getGoldenPath(name) {
-    const config = this.defaultConfig; // For now, use defaults
+  async getGoldenPath(name) {
+    const config = await this.loadConfig();
     return config.golden_paths[name] || `Please help with ${name}`;
   }
 

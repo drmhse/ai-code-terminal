@@ -37,7 +37,32 @@
                     workspaceToDelete: null,
                     deleteFiles: false,
                     deletingWorkspace: false,
-                    connectionError: null
+                    connectionError: null,
+                    // File Explorer
+                    fileExplorerEnabled: true,
+                    fileExplorerCollapsed: false,
+                    currentFiles: [],
+                    currentPath: '.',
+                    selectedFile: null,
+                    loadingFiles: false,
+                    fileError: null,
+                    showHiddenFiles: false,
+                    directoryCache: new Map(),
+                    cacheTimeout: 5 * 60 * 1000, // 5 minutes
+                    fileSearchTerm: '',
+                    fileSearchTimeout: null,
+                    selectedFileIndex: -1,
+                    // Context Menu
+                    showContextMenu: false,
+                    contextMenuX: 0,
+                    contextMenuY: 0,
+                    contextMenuFile: null,
+                    // File Preview Modal
+                    showFilePreviewModal: false,
+                    previewFile: null,
+                    previewData: null,
+                    previewLoading: false,
+                    previewError: null
                 };
             },
             
@@ -75,14 +100,68 @@
                     feather.replace();
                 });
 
-                // Handle escape key to close modals
+                // Handle escape key to close modals and file navigation
                 document.addEventListener('keydown', (e) => {
                     if (e.key === 'Escape') {
                         this.showThemeModal = false;
                         this.showRepositoriesModal = false;
                         this.showDeleteModal = false;
+                        this.showFilePreviewModal = false;
+                        this.showContextMenu = false;
+                    }
+                    
+                    // File explorer keyboard navigation
+                    if (this.selectedWorkspace && !this.fileExplorerCollapsed && 
+                        !this.showRepositoriesModal && !this.showThemeModal && 
+                        !this.showDeleteModal && !this.showFilePreviewModal &&
+                        !document.querySelector('input:focus') &&
+                        !this.isTerminalFocused()) {
+                        
+                        this.handleFileNavigationKeys(e);
                     }
                 });
+            },
+            
+            computed: {
+                filteredFiles() {
+                    if (!this.fileSearchTerm || this.fileSearchTerm.trim() === '') {
+                        return this.currentFiles.filter(file => 
+                            this.showHiddenFiles || !file.isHidden
+                        );
+                    }
+                    
+                    const searchTerm = this.fileSearchTerm.toLowerCase().trim();
+                    return this.currentFiles.filter(file => {
+                        const matchesSearch = file.name.toLowerCase().includes(searchTerm);
+                        const matchesHidden = this.showHiddenFiles || !file.isHidden;
+                        return matchesSearch && matchesHidden;
+                    });
+                },
+
+                highlightedContent() {
+                    if (!this.previewData?.content || !this.previewFile) {
+                        return '';
+                    }
+
+                    const language = this.getPrismLanguage(this.previewFile);
+                    if (language && window.Prism && window.Prism.languages[language]) {
+                        try {
+                            return window.Prism.highlight(this.previewData.content, window.Prism.languages[language], language);
+                        } catch (error) {
+                            console.warn('Syntax highlighting failed:', error);
+                            return this.escapeHtml(this.previewData.content);
+                        }
+                    }
+                    
+                    return this.escapeHtml(this.previewData.content);
+                },
+
+                pathSegments() {
+                    if (!this.currentPath || this.currentPath === '.') {
+                        return [];
+                    }
+                    return this.currentPath.split('/').filter(segment => segment.length > 0);
+                }
             },
             
             methods: {
@@ -531,8 +610,20 @@
                     if (this.isMobile) {
                         this.sidebarOpen = false;
                     }
+                    
+                    // Reset file explorer state for new workspace
+                    this.currentPath = '.';
+                    this.currentFiles = [];
+                    this.selectedFile = null;
+                    this.fileError = null;
+                    this.directoryCache.clear(); // Clear cache for new workspace
+                    this.clearFileSearch(); // Clear any active search
+                    this.selectedFileIndex = -1; // Reset keyboard selection
+                    
                     this.$nextTick(() => {
                         this.setupTerminal();
+                        // Load files for the selected workspace
+                        this.refreshFiles();
                     });
                 },
                 
@@ -793,6 +884,502 @@
                             deleteFiles: this.deleteFiles
                         });
                     }
+                },
+
+                // File Explorer Methods
+                async refreshFiles(forceRefresh = false) {
+                    if (!this.selectedWorkspace) return;
+                    
+                    const cacheKey = `${this.selectedWorkspace.id}:${this.currentPath}:${this.showHiddenFiles}`;
+                    
+                    // Check cache first (unless forced refresh)
+                    if (!forceRefresh && this.directoryCache.has(cacheKey)) {
+                        const cached = this.directoryCache.get(cacheKey);
+                        const now = Date.now();
+                        
+                        if (now - cached.timestamp < this.cacheTimeout) {
+                            this.currentFiles = cached.contents;
+                            this.currentPath = cached.path;
+                            return;
+                        } else {
+                            // Remove expired cache entry
+                            this.directoryCache.delete(cacheKey);
+                        }
+                    }
+                    
+                    this.loadingFiles = true;
+                    this.fileError = null;
+                    
+                    try {
+                        const token = localStorage.getItem('authToken');
+                        const response = await fetch(`/api/workspaces/${this.selectedWorkspace.id}/files?path=${encodeURIComponent(this.currentPath)}`, {
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            }
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.currentFiles = data.contents || [];
+                            this.currentPath = data.path || '.';
+                            
+                            // Cache the results
+                            this.directoryCache.set(cacheKey, {
+                                contents: data.contents || [],
+                                path: data.path || '.',
+                                timestamp: Date.now()
+                            });
+                        } else {
+                            const errorData = await response.json();
+                            this.fileError = errorData.error || 'Failed to load files';
+                        }
+                    } catch (error) {
+                        this.fileError = 'Failed to connect to server';
+                        console.error('Error loading files:', error);
+                    } finally {
+                        this.loadingFiles = false;
+                    }
+                },
+
+                toggleFileExplorer() {
+                    this.fileExplorerCollapsed = !this.fileExplorerCollapsed;
+                },
+
+                handleFileClick(file, index = -1) {
+                    this.selectedFile = file;
+                    this.selectedFileIndex = index;
+                },
+
+                handleFileDoubleClick(file) {
+                    if (file.type === 'directory') {
+                        // Navigate to directory
+                        this.currentPath = file.path === '.' ? file.name : file.path;
+                        this.selectedFileIndex = -1; // Reset keyboard selection
+                        this.refreshFiles();
+                    } else {
+                        // For files, show preview or run cat command
+                        this.showFilePreview(file);
+                    }
+                },
+
+                navigateToParent() {
+                    if (this.currentPath === '.') return;
+                    
+                    const pathParts = this.currentPath.split('/');
+                    pathParts.pop();
+                    this.currentPath = pathParts.length > 0 ? pathParts.join('/') : '.';
+                    this.selectedFileIndex = -1; // Reset keyboard selection
+                    this.refreshFiles();
+                },
+
+                navigateToRoot() {
+                    this.currentPath = '.';
+                    this.selectedFileIndex = -1; // Reset keyboard selection
+                    this.refreshFiles();
+                },
+
+                navigateToSegment(index) {
+                    const segments = this.pathSegments.slice(0, index + 1);
+                    this.currentPath = segments.length > 0 ? segments.join('/') : '.';
+                    this.selectedFileIndex = -1; // Reset keyboard selection
+                    this.refreshFiles();
+                },
+
+                async showFilePreview(file) {
+                    if (!this.selectedWorkspace) return;
+                    
+                    // Set modal state
+                    this.previewFile = file;
+                    this.previewData = null;
+                    this.previewError = null;
+                    this.previewLoading = true;
+                    this.showFilePreviewModal = true;
+                    
+                    try {
+                        const token = localStorage.getItem('authToken');
+                        const response = await fetch(`/api/workspaces/${this.selectedWorkspace.id}/file-content?path=${encodeURIComponent(file.path)}`, {
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            }
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.previewData = data;
+                        } else {
+                            const errorData = await response.json();
+                            this.previewError = errorData.error || 'Failed to load file content';
+                        }
+                    } catch (error) {
+                        console.error('Error previewing file:', error);
+                        this.previewError = 'Failed to connect to server';
+                    } finally {
+                        this.previewLoading = false;
+                    }
+                },
+
+                runCatCommand(filePath) {
+                    if (this.socket && this.terminal) {
+                        const command = `cat "${filePath}"\r`;
+                        this.socket.emit('shell-input', { data: command });
+                        
+                        // Focus on terminal
+                        this.terminal.focus();
+                    }
+                },
+
+                async refreshFilePreview() {
+                    if (!this.previewFile) return;
+                    await this.showFilePreview(this.previewFile);
+                },
+
+                getFileIcon(file) {
+                    if (file.type === 'directory') {
+                        return 'folder';
+                    }
+                    
+                    // Basic file type icons
+                    const ext = file.extension?.toLowerCase();
+                    switch (ext) {
+                        case 'js': case 'jsx': case 'ts': case 'tsx':
+                            return 'file-text';
+                        case 'json':
+                            return 'code';
+                        case 'md': case 'txt':
+                            return 'file-text';
+                        case 'html': case 'css': case 'scss': case 'sass':
+                            return 'code';
+                        case 'py':
+                            return 'file-text';
+                        case 'jpg': case 'jpeg': case 'png': case 'gif': case 'svg':
+                            return 'image';
+                        case 'pdf':
+                            return 'file-text';
+                        case 'zip': case 'tar': case 'gz':
+                            return 'archive';
+                        default:
+                            return 'file';
+                    }
+                },
+
+                formatFileSize(bytes) {
+                    if (bytes === 0) return '0 B';
+                    const k = 1024;
+                    const sizes = ['B', 'KB', 'MB', 'GB'];
+                    const i = Math.floor(Math.log(bytes) / Math.log(k));
+                    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+                },
+
+                getPrismLanguage(file) {
+                    if (!file || !file.extension) return null;
+                    
+                    const ext = file.extension.toLowerCase();
+                    const languageMap = {
+                        'js': 'javascript',
+                        'jsx': 'jsx',
+                        'ts': 'typescript',
+                        'tsx': 'tsx',
+                        'json': 'json',
+                        'html': 'html',
+                        'htm': 'html',
+                        'css': 'css',
+                        'scss': 'scss',
+                        'sass': 'sass',
+                        'less': 'less',
+                        'py': 'python',
+                        'rb': 'ruby',
+                        'php': 'php',
+                        'java': 'java',
+                        'c': 'c',
+                        'cpp': 'cpp',
+                        'cc': 'cpp',
+                        'cxx': 'cpp',
+                        'h': 'c',
+                        'hpp': 'cpp',
+                        'cs': 'csharp',
+                        'go': 'go',
+                        'rs': 'rust',
+                        'sh': 'bash',
+                        'bash': 'bash',
+                        'zsh': 'bash',
+                        'fish': 'bash',
+                        'ps1': 'powershell',
+                        'sql': 'sql',
+                        'xml': 'xml',
+                        'yaml': 'yaml',
+                        'yml': 'yaml',
+                        'toml': 'toml',
+                        'ini': 'ini',
+                        'conf': 'ini',
+                        'config': 'ini',
+                        'md': 'markdown',
+                        'markdown': 'markdown',
+                        'tex': 'latex',
+                        'r': 'r',
+                        'matlab': 'matlab',
+                        'm': 'matlab',
+                        'swift': 'swift',
+                        'kt': 'kotlin',
+                        'scala': 'scala',
+                        'clj': 'clojure',
+                        'hs': 'haskell',
+                        'elm': 'elm',
+                        'dart': 'dart',
+                        'lua': 'lua',
+                        'perl': 'perl',
+                        'pl': 'perl',
+                        'dockerfile': 'dockerfile',
+                        'makefile': 'makefile',
+                        'cmake': 'cmake',
+                        'gradle': 'gradle',
+                        'groovy': 'groovy',
+                        'vim': 'vim',
+                        'asm': 'nasm',
+                        's': 'nasm'
+                    };
+                    
+                    return languageMap[ext] || null;
+                },
+
+                getLanguageClass(file) {
+                    const language = this.getPrismLanguage(file);
+                    return language ? `language-${language}` : '';
+                },
+
+                escapeHtml(text) {
+                    const div = document.createElement('div');
+                    div.textContent = text;
+                    return div.innerHTML;
+                },
+
+                handleFileContextMenu(event, file) {
+                    event.preventDefault();
+                    this.contextMenuFile = file;
+                    this.contextMenuX = event.clientX;
+                    this.contextMenuY = event.clientY;
+                    this.showContextMenu = true;
+
+                    // Close context menu when clicking elsewhere
+                    const closeContextMenu = (e) => {
+                        if (!e.target.closest('.context-menu')) {
+                            this.showContextMenu = false;
+                            document.removeEventListener('click', closeContextMenu);
+                        }
+                    };
+                    
+                    this.$nextTick(() => {
+                        document.addEventListener('click', closeContextMenu);
+                    });
+                },
+
+                copyFilePath() {
+                    if (!this.contextMenuFile) return;
+                    
+                    const fullPath = this.contextMenuFile.path;
+                    this.copyToClipboard(fullPath);
+                    this.showContextMenu = false;
+                },
+
+                copyFileName() {
+                    if (!this.contextMenuFile) return;
+                    
+                    this.copyToClipboard(this.contextMenuFile.name);
+                    this.showContextMenu = false;
+                },
+
+                previewFile() {
+                    if (!this.contextMenuFile) return;
+                    
+                    this.showFilePreview(this.contextMenuFile);
+                    this.showContextMenu = false;
+                },
+
+                openInTerminal() {
+                    if (!this.contextMenuFile) return;
+                    
+                    this.runCatCommand(this.contextMenuFile.path);
+                    this.showContextMenu = false;
+                },
+
+                openDirectory() {
+                    if (!this.contextMenuFile) return;
+                    
+                    this.handleFileDoubleClick(this.contextMenuFile);
+                    this.showContextMenu = false;
+                },
+
+                copyToClipboard(text) {
+                    if (navigator.clipboard && window.isSecureContext) {
+                        navigator.clipboard.writeText(text).then(() => {
+                            this.showNotification('Copied to clipboard', 'success');
+                        }).catch(() => {
+                            this.fallbackCopyToClipboard(text);
+                        });
+                    } else {
+                        this.fallbackCopyToClipboard(text);
+                    }
+                },
+
+                fallbackCopyToClipboard(text) {
+                    const textArea = document.createElement('textarea');
+                    textArea.value = text;
+                    textArea.style.position = 'fixed';
+                    textArea.style.left = '-999999px';
+                    textArea.style.top = '-999999px';
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    
+                    try {
+                        document.execCommand('copy');
+                        this.showNotification('Copied to clipboard', 'success');
+                    } catch (err) {
+                        console.error('Failed to copy text: ', err);
+                        this.showNotification('Failed to copy to clipboard', 'error');
+                    } finally {
+                        document.body.removeChild(textArea);
+                    }
+                },
+
+                showNotification(message, type = 'info') {
+                    // Simple notification - could be enhanced with a proper toast system
+                    console.log(`[${type.toUpperCase()}] ${message}`);
+                    
+                    // Create a simple toast notification
+                    const toast = document.createElement('div');
+                    toast.className = `toast toast-${type}`;
+                    toast.textContent = message;
+                    toast.style.cssText = `
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        background: var(--accent-green);
+                        color: white;
+                        padding: 12px 16px;
+                        border-radius: 6px;
+                        z-index: 10000;
+                        font-size: 13px;
+                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                        animation: slideInRight 0.3s ease-out;
+                    `;
+                    
+                    if (type === 'error') {
+                        toast.style.background = 'var(--accent-red)';
+                    } else if (type === 'warning') {
+                        toast.style.background = 'var(--accent-orange)';
+                    }
+                    
+                    document.body.appendChild(toast);
+                    
+                    setTimeout(() => {
+                        toast.style.animation = 'slideOutRight 0.3s ease-in';
+                        setTimeout(() => {
+                            if (document.body.contains(toast)) {
+                                document.body.removeChild(toast);
+                            }
+                        }, 300);
+                    }, 3000);
+                },
+
+                isTerminalFocused() {
+                    // Check if the terminal has focus
+                    const activeElement = document.activeElement;
+                    
+                    // Check if the active element is the terminal or within the terminal container
+                    if (activeElement && (
+                        activeElement.classList?.contains('xterm-helper-textarea') ||
+                        activeElement.closest('.terminal-container') ||
+                        activeElement.closest('.xterm') ||
+                        activeElement.closest('.xterm-screen')
+                    )) {
+                        return true;
+                    }
+                    
+                    // Also check if the terminal object exists and has focus
+                    if (this.terminal && this.terminal.textarea) {
+                        return document.activeElement === this.terminal.textarea;
+                    }
+                    
+                    return false;
+                },
+
+                handleFileSearch() {
+                    // Debounce search input
+                    if (this.fileSearchTimeout) {
+                        clearTimeout(this.fileSearchTimeout);
+                    }
+                    
+                    this.fileSearchTimeout = setTimeout(() => {
+                        // Search is handled by computed property filteredFiles
+                        // This timeout just prevents excessive reactivity updates
+                    }, 150);
+                },
+
+                clearFileSearch() {
+                    this.fileSearchTerm = '';
+                    this.selectedFileIndex = -1; // Reset keyboard selection
+                    if (this.fileSearchTimeout) {
+                        clearTimeout(this.fileSearchTimeout);
+                        this.fileSearchTimeout = null;
+                    }
+                },
+
+                handleFileNavigationKeys(e) {
+                    const files = this.filteredFiles;
+                    if (files.length === 0) return;
+
+                    switch (e.key) {
+                        case 'ArrowDown':
+                            e.preventDefault();
+                            this.selectedFileIndex = Math.min(this.selectedFileIndex + 1, files.length - 1);
+                            this.scrollToSelectedFile();
+                            break;
+                        case 'ArrowUp':
+                            e.preventDefault();
+                            this.selectedFileIndex = Math.max(this.selectedFileIndex - 1, -1);
+                            this.scrollToSelectedFile();
+                            break;
+                        case 'Enter':
+                            e.preventDefault();
+                            if (this.selectedFileIndex >= 0 && this.selectedFileIndex < files.length) {
+                                const selectedFile = files[this.selectedFileIndex];
+                                this.handleFileDoubleClick(selectedFile);
+                            }
+                            break;
+                        case ' ': // Space
+                            e.preventDefault();
+                            if (this.selectedFileIndex >= 0 && this.selectedFileIndex < files.length) {
+                                const selectedFile = files[this.selectedFileIndex];
+                                this.handleFileClick(selectedFile, this.selectedFileIndex);
+                            }
+                            break;
+                        case '/':
+                            e.preventDefault();
+                            // Focus on search input
+                            this.$nextTick(() => {
+                                const searchInput = document.querySelector('.file-search-input');
+                                if (searchInput) {
+                                    searchInput.focus();
+                                }
+                            });
+                            break;
+                    }
+                },
+
+                scrollToSelectedFile() {
+                    if (this.selectedFileIndex < 0) return;
+                    
+                    this.$nextTick(() => {
+                        const fileItems = document.querySelectorAll('.file-item');
+                        const selectedElement = fileItems[this.selectedFileIndex + (this.currentPath !== '.' ? 1 : 0)]; // +1 for parent nav
+                        
+                        if (selectedElement) {
+                            selectedElement.scrollIntoView({
+                                behavior: 'smooth',
+                                block: 'nearest'
+                            });
+                        }
+                    });
                 },
                 
                 handleRepositoryScroll(event) {

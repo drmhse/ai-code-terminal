@@ -14,6 +14,7 @@ const githubController = require('./controllers/github.controller');
 const workspaceController = require('./controllers/workspace.controller');
 const themeController = require('./controllers/theme.controller');
 const processController = require('./controllers/process.controller');
+const filesystemController = require('./controllers/filesystem.controller');
 
 // Middleware
 const { authenticateToken } = require('./middleware/auth.middleware');
@@ -71,6 +72,30 @@ const io = socketIo(server, {
 
 // Trust proxy settings for production
 setupTrustProxy(app);
+
+// HTTP request logging middleware
+app.use((req, res, next) => {
+  const startTime = Date.now();
+  
+  // Log request start
+  logger.debug(`HTTP Request: ${req.method} ${req.url}`, {
+    eventType: 'http_request_start',
+    method: req.method,
+    url: req.url,
+    userAgent: req.get('User-Agent'),
+    ip: req.ip || req.connection?.remoteAddress
+  });
+  
+  // Override res.end to log response
+  const originalEnd = res.end;
+  res.end = function(chunk, encoding) {
+    const duration = Date.now() - startTime;
+    logger.httpRequest(req, res, duration);
+    originalEnd.call(res, chunk, encoding);
+  };
+  
+  next();
+});
 
 // Basic security middleware (keep headers, remove rate limiting for single user)
 app.use(securityHeaders);
@@ -217,6 +242,25 @@ app.delete('/api/processes/:processId',
   asyncHandler(processController.stopProcess.bind(processController))
 );
 
+// File system endpoints (auth required)
+app.get('/api/workspaces/:workspaceId/files',
+  authenticateToken,
+  validateWorkspaceId,
+  asyncHandler(filesystemController.getDirectoryContents.bind(filesystemController))
+);
+
+app.get('/api/workspaces/:workspaceId/file-content',
+  authenticateToken,
+  validateWorkspaceId,
+  asyncHandler(filesystemController.getFileContents.bind(filesystemController))
+);
+
+app.get('/api/workspaces/:workspaceId/file-info',
+  authenticateToken,
+  validateWorkspaceId,
+  asyncHandler(filesystemController.getFileInfo.bind(filesystemController))
+);
+
 app.post('/api/processes/:processId/restart',
   authenticateToken,
   asyncHandler(processController.restartProcess.bind(processController))
@@ -282,8 +326,18 @@ async function gracefulShutdown() {
     
     await disconnect();
     logger.info('Database connection closed');
+    
+    // Flush logger before completing shutdown
+    logger.info('Flushing log files...');
+    await logger.shutdown();
   } catch (error) {
     logger.error('Error during graceful shutdown:', error);
+    // Ensure logger is still flushed even if there's an error
+    try {
+      await logger.shutdown();
+    } catch (loggerError) {
+      console.error('Failed to shutdown logger:', loggerError);
+    }
   }
 }
 

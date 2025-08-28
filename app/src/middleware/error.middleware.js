@@ -1,7 +1,17 @@
 // Global error handling middleware
 
+const logger = require('../utils/logger');
+const environment = require('../config/environment');
+
 function errorHandler(err, req, res, next) {
-  console.error('Unhandled error:', err);
+  // Log error with proper structured logging
+  logger.error('Unhandled HTTP error', err, {
+    url: req.url,
+    method: req.method,
+    userAgent: req.get('User-Agent'),
+    ip: req.ip || req.connection?.remoteAddress,
+    timestamp: new Date().toISOString()
+  });
   
   // Default error response
   let status = 500;
@@ -23,9 +33,9 @@ function errorHandler(err, req, res, next) {
   }
   
   // Don't expose internal errors in production
-  if (process.env.NODE_ENV === 'production' && status === 500) {
+  if (environment.NODE_ENV === 'production' && status === 500) {
     message = 'Internal server error';
-  } else if (process.env.NODE_ENV !== 'production') {
+  } else if (environment.NODE_ENV !== 'production') {
     // Include stack trace in development
     res.status(status).json({
       error: message,

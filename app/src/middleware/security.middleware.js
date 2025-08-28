@@ -3,13 +3,14 @@
 
 const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
+const environment = require('../config/environment');
 
 const prisma = new PrismaClient();
 
 function createRateLimiter(windowMs = 15 * 60 * 1000, maxRequests = 100, keyPrefix = 'general') {
   return async function rateLimitMiddleware(req, res, next) {
     // Skip rate limiting in test environment if disabled
-    if (process.env.NODE_ENV === 'test' && process.env.DISABLE_RATE_LIMITING === 'true') {
+    if (environment.NODE_ENV === 'test' && process.env.DISABLE_RATE_LIMITING === 'true') {
       return next();
     }
 
@@ -81,7 +82,7 @@ function securityHeaders(req, res, next) {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   
-  if (process.env.NODE_ENV === 'production') {
+  if (environment.NODE_ENV === 'production') {
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   }
   
@@ -120,7 +121,7 @@ function sanitizeInput(req, res, next) {
 
 // Trust proxy settings for production
 function setupTrustProxy(app) {
-  if (process.env.NODE_ENV === 'production') {
+  if (environment.NODE_ENV === 'production') {
     app.set('trust proxy', 1);
   }
 }
@@ -183,7 +184,7 @@ async function validateCSRFToken(req, res, next) {
   }
 
   // Skip CSRF in test environment if disabled
-  if (process.env.NODE_ENV === 'test' && process.env.DISABLE_CSRF === 'true') {
+  if (environment.NODE_ENV === 'test' && process.env.DISABLE_CSRF === 'true') {
     return next();
   }
 

@@ -14,10 +14,15 @@ services:
       - TENANT_GITHUB_USERNAME=${TENANT_GITHUB_USERNAME}
       - FRONTEND_URL=${FRONTEND_URL}
       - WORKSPACE_CLEANUP_DAYS=${WORKSPACE_CLEANUP_DAYS:-30}
+      - LOG_LEVEL=${LOG_LEVEL}
+      - LOG_MAX_SIZE=${LOG_MAX_SIZE}
+      - LOG_MAX_FILES=${LOG_MAX_FILES}
+      - LOG_COMPRESS=${LOG_COMPRESS}
     volumes:
       - claude_home:/home/claude
       - claude_data:/app/prisma/data
       - claude_workspaces:/app/workspaces
+      - claude_logs:/app/logs
     restart: unless-stopped
     deploy:
       resources:
@@ -40,4 +45,6 @@ volumes:
   claude_data:
     driver: local
   claude_workspaces:
+    driver: local
+  claude_logs:
     driver: local

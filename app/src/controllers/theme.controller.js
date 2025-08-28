@@ -1,5 +1,6 @@
 const ThemeService = require('../services/theme.service');
 const logger = require('../utils/logger');
+const environment = require('../config/environment');
 
 class ThemeController {
   /**
@@ -125,7 +126,7 @@ class ThemeController {
    */
   async reloadThemes(req, res) {
     try {
-      if (process.env.NODE_ENV === 'production') {
+      if (environment.NODE_ENV === 'production') {
         return res.status(403).json({
           success: false,
           error: 'Theme reloading is not available in production'

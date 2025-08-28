@@ -4,6 +4,7 @@ const { exec } = require('child_process');
 const { promisify } = require('util');
 const { prisma } = require('../config/database');
 const logger = require('../utils/logger');
+const environment = require('../config/environment');
 const GitHubService = require('./github.service');
 
 const execAsync = promisify(exec);
@@ -592,7 +593,7 @@ You can customize it with project-specific information to help Claude Code work 
    */
   async getUserName(userId) {
     logger.warn('getUserName is deprecated in single-user system');
-    return process.env.TENANT_GITHUB_USERNAME || 'single-user';
+    return environment.TENANT_GITHUB_USERNAME || 'single-user';
   }
 
   /**

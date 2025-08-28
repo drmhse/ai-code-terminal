@@ -337,3 +337,103 @@
         </div>
     </div>
 </div>
+
+<!-- File Preview Modal -->
+<div v-if="showFilePreviewModal" class="modal-overlay" @click.self="showFilePreviewModal = false">
+    <div class="file-preview-modal">
+        <!-- Modal Header -->
+        <div class="modal-header">
+            <div class="modal-title">
+                <div class="title-icon">
+                    <i :data-feather="getFileIcon(previewFile || {})" ></i>
+                </div>
+                <div class="file-header-info">
+                    <h3>{{ previewFile?.name || 'File Preview' }}</h3>
+                    <div class="file-meta">
+                        <span v-if="previewData?.size">{{ formatFileSize(previewData.size) }}</span>
+                        <span v-if="previewData?.modified">Modified: {{ formatDate(previewData.modified) }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-header-actions">
+                <button @click="runCatCommand(previewFile?.path)" 
+                        class="btn btn-small btn-icon" 
+                        title="Open in Terminal"
+                        v-if="previewFile && !previewData?.binary">
+                    <i data-feather="terminal"></i>
+                </button>
+                <button @click="showFilePreviewModal = false" class="close-btn">
+                    <i data-feather="x"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="modal-body">
+            <!-- Loading state -->
+            <div v-if="previewLoading" class="loading">
+                <div class="loading-spinner"></div>
+                <p>Loading file...</p>
+            </div>
+
+            <!-- Error state -->
+            <div v-else-if="previewError" class="error-message">
+                <i data-feather="alert-triangle"></i>
+                <span>{{ previewError }}</span>
+                <button @click="refreshFilePreview" class="btn btn-small">Retry</button>
+            </div>
+
+            <!-- Binary file message -->
+            <div v-else-if="previewData?.binary" class="file-message binary-message">
+                <i data-feather="file"></i>
+                <div class="message-content">
+                    <h4>Binary File</h4>
+                    <p>This is a binary file and cannot be previewed.</p>
+                    <button @click="runCatCommand(previewFile?.path)" class="btn btn-small">
+                        View in Terminal
+                    </button>
+                </div>
+            </div>
+
+            <!-- Large file message -->
+            <div v-else-if="previewData?.truncated && !previewData?.content" class="file-message large-file-message">
+                <i data-feather="file-text"></i>
+                <div class="message-content">
+                    <h4>File Too Large</h4>
+                    <p>{{ previewData.message || 'This file is too large to preview in the browser.' }}</p>
+                    <button @click="runCatCommand(previewFile?.path)" class="btn btn-small">
+                        View in Terminal
+                    </button>
+                </div>
+            </div>
+
+            <!-- File content -->
+            <div v-else-if="previewData?.content" class="file-content">
+                <div v-if="previewData.truncated" class="truncation-notice">
+                    <i data-feather="info"></i>
+                    <span>Showing first {{ previewData.content.split('\n').length }} lines of {{ previewData.totalLines }} total</span>
+                    <button @click="runCatCommand(previewFile?.path)" class="btn btn-small">
+                        View Full File
+                    </button>
+                </div>
+                <pre class="file-preview-content"><code :class="getLanguageClass(previewFile)" v-html="highlightedContent"></code></pre>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer">
+            <div class="file-path" v-if="previewFile">{{ previewFile.path }}</div>
+            <div class="modal-footer-actions">
+                <button @click="refreshFilePreview" 
+                        class="btn-secondary" 
+                        :disabled="previewLoading">
+                    <i data-feather="refresh-cw"></i>
+                    Refresh
+                </button>
+                <button @click="showFilePreviewModal = false" class="btn-secondary">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

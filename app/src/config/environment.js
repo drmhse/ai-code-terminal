@@ -11,6 +11,12 @@ module.exports = {
   FRONTEND_URL: process.env.FRONTEND_URL,
   ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS,
   
+  // Logging Configuration
+  LOG_LEVEL: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'info' : 'debug'),
+  LOG_MAX_SIZE: process.env.LOG_MAX_SIZE || '20m',
+  LOG_MAX_FILES: process.env.LOG_MAX_FILES || '30d',
+  LOG_COMPRESS: process.env.LOG_COMPRESS === 'true' || true,
+  
   validate() {
     if (this.NODE_ENV === 'production' && this.JWT_SECRET === 'fallback-secret-change-in-production') {
       console.error('WARNING: Using fallback JWT secret in production! Set JWT_SECRET environment variable.');

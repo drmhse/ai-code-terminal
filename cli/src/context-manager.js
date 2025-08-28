@@ -55,15 +55,21 @@ class ContextManager {
    */
   async getNextId() {
     await this.ensureContextDir();
-    const files = await fs.readdir(this.contextDir);
-    const contextFiles = files.filter(f => f.match(/^\d+_.*\.json$/));
+    const counterFile = path.join(this.contextDir, '.counter');
     
-    if (contextFiles.length === 0) {
-      return 1;
+    let counter = 1;
+    if (await fs.pathExists(counterFile)) {
+      try {
+        counter = parseInt(await fs.readFile(counterFile, 'utf8'));
+      } catch (error) {
+        // If counter file is corrupted, start from 1
+        counter = 1;
+      }
     }
     
-    const ids = contextFiles.map(f => parseInt(f.split('_')[0]));
-    return Math.max(...ids) + 1;
+    const nextId = counter;
+    await fs.writeFile(counterFile, (counter + 1).toString());
+    return nextId;
   }
 
   /**
@@ -77,6 +83,13 @@ class ContextManager {
     }
     
     const stats = await fs.stat(fullPath);
+    
+    // File size protection - 5MB limit
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    if (stats.size > MAX_FILE_SIZE) {
+      throw new Error(`File too large: ${Math.round(stats.size/1024/1024)}MB. Max: 5MB`);
+    }
+    
     if (stats.isDirectory()) {
       throw new Error(`Path is a directory. Use specific files or --exec "find ${filePath}" to list directory contents`);
     }
@@ -145,6 +158,11 @@ class ContextManager {
    * Add command output to the context buffer
    */
   async addCommandOutput(command) {
+    // Simple validation - reject dangerous chars
+    if (/[;&|`$<>]/.test(command)) {
+      throw new Error('Command contains unsafe characters. Use simple commands only.');
+    }
+    
     try {
       const { stdout, stderr } = await execAsync(command, { maxBuffer: 10 * 1024 * 1024 });
       const output = stdout + (stderr ? `\n--- STDERR ---\n${stderr}` : '');

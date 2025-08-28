@@ -240,7 +240,7 @@ program
         process.exit(1);
       }
       
-      const prompt = configManager.getGoldenPath('commit');
+      const prompt = await configManager.getGoldenPath('commit');
       await aiWrapper.query(prompt, contextItems);
     } catch (error) {
       console.error('Error generating commit message:', error.message);
@@ -263,7 +263,7 @@ program
         process.exit(1);
       }
       
-      const prompt = configManager.getGoldenPath('review');
+      const prompt = await configManager.getGoldenPath('review');
       await aiWrapper.query(prompt, contextItems);
     } catch (error) {
       console.error('Error reviewing code:', error.message);
@@ -292,7 +292,7 @@ program
         process.exit(1);
       }
       
-      const prompt = configManager.getGoldenPath('test');
+      const prompt = await configManager.getGoldenPath('test');
       await aiWrapper.query(prompt, contextItems);
     } catch (error) {
       console.error('Error generating tests:', error.message);
@@ -321,7 +321,7 @@ program
         process.exit(1);
       }
       
-      const prompt = configManager.getGoldenPath('explain');
+      const prompt = await configManager.getGoldenPath('explain');
       await aiWrapper.query(prompt, contextItems);
     } catch (error) {
       console.error('Error explaining context:', error.message);
@@ -350,7 +350,7 @@ program
         process.exit(1);
       }
       
-      const prompt = configManager.getGoldenPath('fix');
+      const prompt = await configManager.getGoldenPath('fix');
       await aiWrapper.query(prompt, contextItems);
     } catch (error) {
       console.error('Error analyzing for fixes:', error.message);
@@ -431,7 +431,7 @@ program
     try {
       const { execSync } = require('child_process');
       execSync('git add -A');
-      console.log('✓ Staged all changes');
+      console.log('Staged all changes');
       
       await contextManager.clear();
       await contextManager.addGitDiff();
@@ -442,8 +442,8 @@ program
         process.exit(1);
       }
       
-      console.log('🤖 Generating commit message...');
-      const prompt = configManager.getGoldenPath('commit');
+      console.log('Generating commit message...');
+      const prompt = await configManager.getGoldenPath('commit');
       await aiWrapper.query(prompt, contextItems);
     } catch (error) {
       console.error('Error with quick commit:', error.message);
@@ -457,7 +457,7 @@ program
   .argument('<command>', 'Command to run and debug')
   .action(async (command) => {
     try {
-      console.log(`🔍 Running: ${command}`);
+      console.log(`Running: ${command}`);
       await contextManager.clear();
       
       // Try to run the command and capture output (including errors)
@@ -465,7 +465,7 @@ program
         await contextManager.addCommandOutput(command);
       } catch (execError) {
         // Command failed, but that's what we want to debug
-        console.log('💥 Command failed (as expected for debugging)');
+        console.log('Command failed (as expected for debugging)');
       }
       
       const contextItems = await contextManager.list();
@@ -475,8 +475,8 @@ program
         process.exit(1);
       }
       
-      console.log('🤖 Analyzing error output...');
-      const prompt = configManager.getGoldenPath('fix');
+      console.log('Analyzing error output...');
+      const prompt = await configManager.getGoldenPath('fix');
       await aiWrapper.query(prompt, contextItems);
     } catch (error) {
       console.error('Error debugging command:', error.message);
@@ -489,31 +489,31 @@ program
   .description('Show common act-cli workflows and examples')
   .action(() => {
     console.log(`
-🚀 Act CLI Workflows
+Act CLI Workflows
 
-📝 COMMIT WORKFLOW:
+COMMIT WORKFLOW:
   git add .                    # Stage changes  
   act commit                   # Generate commit message
   act quick-commit             # Stage all + generate commit (shortcut)
 
-🔍 CODE REVIEW:
+CODE REVIEW:
   act review                   # Review current branch vs main
   act review -b develop        # Review vs different base branch
 
-🧪 TESTING WORKFLOW:
+TESTING WORKFLOW:
   act test                     # Generate tests for staged changes
   act test -a                  # Stage all + generate tests
 
-🐛 DEBUGGING WORKFLOW:
+DEBUGGING WORKFLOW:
   act debug "npm test"         # Run failing command + get AI help
   npm test 2>&1 | act pipe     # Pipe error output + explain
   act context add error.log    # Add error file + fix
 
-💡 EXPLANATION WORKFLOW:
+EXPLANATION WORKFLOW:
   act context add complex.js   # Add complex code
   act explain                  # Get detailed explanation
   
-🔧 GENERAL PATTERNS:
+GENERAL PATTERNS:
   act context add file.js      # Add files to context
   act context add --diff       # Add git diff  
   act context add --exec "cmd" # Add command output
