@@ -114,14 +114,13 @@ contextCmd
   });
 
 contextCmd
-  .command('remove <indices...>')
+  .command('remove <items...>')
   .alias('rm')
-  .description('Remove items from the context buffer by index')
-  .action(async (indices) => {
+  .description('Remove items from the context buffer by index or filename pattern')
+  .action(async (items) => {
     try {
-      const indexes = indices.map(i => parseInt(i) - 1);
-      await contextManager.remove(indexes);
-      console.log(`Removed ${indices.length} item(s) from context`);
+      const removedCount = await contextManager.removeItems(items);
+      console.log(`Removed ${removedCount} item(s) from context`);
     } catch (error) {
       console.error('Error removing from context:', error.message);
       process.exit(1);

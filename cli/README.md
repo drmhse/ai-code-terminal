@@ -54,7 +54,7 @@ act context show [index]            # Display specific item
 
 #### Modify Context
 ```bash
-act context remove <indices...>     # Remove specific items
+act context remove <items...>      # Remove by index or pattern
 act context clear                   # Clear all context
 ```
 

@@ -192,7 +192,7 @@ class ContextManager {
   }
 
   /**
-   * List all context items
+   * List all context items with integrity checking
    */
   async list() {
     await this.ensureContextDir();
@@ -206,10 +206,43 @@ class ContextManager {
       });
     
     const items = [];
+    const seenSources = new Set();
+    const corruptedFiles = [];
+    
     for (const file of contextFiles) {
       const filePath = path.join(this.contextDir, file);
-      const content = await fs.readFile(filePath, 'utf8');
-      items.push(JSON.parse(content));
+      try {
+        const content = await fs.readFile(filePath, 'utf8');
+        const item = JSON.parse(content);
+        
+        // Validate required fields
+        if (!item.metadata || !item.metadata.source || !item.content) {
+          corruptedFiles.push(file);
+          continue;
+        }
+        
+        // Check for duplicates based on source + content hash
+        const itemKey = `${item.metadata.source}:${crypto.createHash('md5').update(item.content).digest('hex')}`;
+        if (seenSources.has(itemKey)) {
+          // Remove duplicate file silently
+          await fs.remove(filePath);
+          continue;
+        }
+        
+        seenSources.add(itemKey);
+        items.push(item);
+      } catch (error) {
+        corruptedFiles.push(file);
+      }
+    }
+    
+    // Clean up corrupted files silently in production
+    for (const file of corruptedFiles) {
+      try {
+        await fs.remove(path.join(this.contextDir, file));
+      } catch (error) {
+        // Ignore cleanup failures
+      }
     }
     
     return items;
@@ -224,7 +257,7 @@ class ContextManager {
   }
 
   /**
-   * Remove context items by indices
+   * Remove context items by indices (internal method)
    */
   async remove(indices) {
     await this.ensureContextDir();
@@ -237,15 +270,93 @@ class ContextManager {
         return aId - bId;
       });
     
-    // Remove files for specified indices (in reverse order to maintain indices)
+    // Validate indices and collect files to remove
     const sortedIndices = [...new Set(indices)].sort((a, b) => b - a);
+    const filesToRemove = [];
     
     for (const index of sortedIndices) {
       if (index >= 0 && index < contextFiles.length) {
-        const filePath = path.join(this.contextDir, contextFiles[index]);
-        await fs.remove(filePath);
+        filesToRemove.push(path.join(this.contextDir, contextFiles[index]));
       }
     }
+    
+    // Atomic removal - if any fail, none are removed
+    const backups = [];
+    try {
+      // Create backup of files to remove
+      for (const filePath of filesToRemove) {
+        const backupPath = `${filePath}.backup.${Date.now()}`;
+        await fs.move(filePath, backupPath);
+        backups.push({ original: filePath, backup: backupPath });
+      }
+      
+      // If we reach here, all moves succeeded
+      for (const { backup } of backups) {
+        await fs.remove(backup);
+      }
+      
+      return filesToRemove.length;
+    } catch (error) {
+      // Restore from backups on any failure
+      for (const { original, backup } of backups) {
+        if (await fs.pathExists(backup)) {
+          await fs.move(backup, original);
+        }
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Remove items by auto-detecting indices vs patterns
+   */
+  async removeItems(items) {
+    const minimatch = require('minimatch');
+    await this.ensureContextDir();
+    
+    // Get all current items first
+    const contextItems = await this.list();
+    const indicesToRemove = new Set();
+    
+    // Process each item to determine what to remove
+    for (const item of items) {
+      const asNumber = parseInt(item);
+      if (!isNaN(asNumber) && asNumber > 0 && item === asNumber.toString()) {
+        // Pure numeric string like "1", "2", "3" (convert to 0-based)
+        const index = asNumber - 1;
+        if (index >= 0 && index < contextItems.length) {
+          indicesToRemove.add(index);
+        }
+      } else {
+        // Pattern like "*.yml", "docker-compose.yml", or invalid numbers
+        for (let i = 0; i < contextItems.length; i++) {
+          const contextItem = contextItems[i];
+          const basename = path.basename(contextItem.metadata.source);
+          
+          // Try exact basename match first, then glob pattern
+          if (basename === item || minimatch(basename, item)) {
+            indicesToRemove.add(i);
+          }
+        }
+      }
+    }
+    
+    if (indicesToRemove.size === 0) {
+      // Check if any patterns were provided that didn't match
+      const patterns = items.filter(item => {
+        const asNumber = parseInt(item);
+        return isNaN(asNumber) || asNumber <= 0 || item !== asNumber.toString();
+      });
+      
+      if (patterns.length > 0) {
+        throw new Error(`No items found matching patterns: ${patterns.join(', ')}`);
+      }
+      return 0;
+    }
+    
+    // Convert set to sorted array for removal
+    const sortedIndices = Array.from(indicesToRemove).sort((a, b) => a - b);
+    return await this.remove(sortedIndices);
   }
 
   /**

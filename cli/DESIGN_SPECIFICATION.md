@@ -99,7 +99,7 @@ act context add --diff             # Add git diff output
 act context add --exec "command"   # Add command output
 act context list                   # List context items
 act context show [index]           # Show specific item
-act context remove <indices>       # Remove items
+act context remove <items...>      # Remove by index or pattern
 act context clear                  # Clear all context
 ```
 

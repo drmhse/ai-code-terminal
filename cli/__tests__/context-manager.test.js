@@ -167,7 +167,8 @@ describe('ContextManager', () => {
       await contextManager.addFile('file2.js');
       await contextManager.addFile('file3.js');
       
-      await contextManager.remove([1]); // Remove middle item
+      const removedCount = await contextManager.remove([1]); // Remove middle item
+      expect(removedCount).toBe(1);
       
       const items = await contextManager.list();
       expect(items).toHaveLength(2);
@@ -179,10 +180,113 @@ describe('ContextManager', () => {
       await fs.writeFile('test.js', 'content');
       await contextManager.addFile('test.js');
       
-      await contextManager.remove([999]); // Invalid index
+      const removedCount = await contextManager.remove([999]); // Invalid index
+      expect(removedCount).toBe(0);
       
       const items = await contextManager.list();
       expect(items).toHaveLength(1); // Item should still be there
+    });
+  });
+
+  describe('removeItems', () => {
+    test('should auto-detect numeric indices', async () => {
+      await fs.writeFile('file1.js', 'content1');
+      await fs.writeFile('file2.js', 'content2');
+      
+      await contextManager.addFile('file1.js');
+      await contextManager.addFile('file2.js');
+      
+      const removedCount = await contextManager.removeItems(['1']);
+      expect(removedCount).toBe(1);
+      const items = await contextManager.list();
+      expect(items).toHaveLength(1);
+      expect(items[0].metadata.source).toBe('file2.js');
+    });
+    
+    test('should handle exact filename patterns', async () => {
+      await fs.writeFile('test1.txt', 'content1');
+      await fs.writeFile('test2.txt', 'content2');
+      
+      await contextManager.addFile('test1.txt');
+      await contextManager.addFile('test2.txt');
+      
+      const removedCount = await contextManager.removeItems(['test1.txt']);
+      expect(removedCount).toBe(1);
+      const items = await contextManager.list();
+      expect(items).toHaveLength(1);
+      expect(items[0].metadata.source).toBe('test2.txt');
+    });
+    
+    test('should handle glob patterns', async () => {
+      await fs.writeFile('test1.txt', 'content1');
+      await fs.writeFile('test2.txt', 'content2');
+      
+      await contextManager.addFile('test1.txt');
+      await contextManager.addFile('test2.txt');
+      
+      const removedCount = await contextManager.removeItems(['*.txt']);
+      expect(removedCount).toBe(2);
+      const items = await contextManager.list();
+      expect(items).toHaveLength(0);
+    });
+    
+    test('should handle mixed indices and patterns', async () => {
+      await fs.writeFile('test1.txt', 'content1');
+      await fs.writeFile('test2.txt', 'content2');
+      await fs.writeFile('test.yml', 'yaml: content');
+      
+      await contextManager.addFile('test1.txt');
+      await contextManager.addFile('test2.txt');
+      await contextManager.addFile('test.yml');
+      
+      // Remove index 1 (test1.txt - 1-indexed) and *.yml (test.yml)
+      // Should leave test2.txt
+      const removedCount = await contextManager.removeItems(['1', '*.yml']);
+      expect(removedCount).toBe(2);
+      const items = await contextManager.list();
+      expect(items).toHaveLength(1);
+      expect(items[0].metadata.source).toBe('test2.txt');
+    });
+    
+    test('should throw error for non-matching patterns', async () => {
+      await fs.writeFile('test.txt', 'content');
+      await contextManager.addFile('test.txt');
+      
+      await expect(contextManager.removeItems(['nonexistent.file']))
+        .rejects.toThrow('No items found matching patterns: nonexistent.file');
+    });
+  });
+
+  describe('deduplication and integrity', () => {
+    test('should automatically deduplicate identical items', async () => {
+      await fs.writeFile('test.txt', 'content');
+      
+      // Add same file twice
+      await contextManager.addFile('test.txt');
+      await contextManager.addFile('test.txt');
+      
+      const items = await contextManager.list();
+      expect(items).toHaveLength(1);
+    });
+    
+    test('should clean up corrupted files', async () => {
+      await fs.writeFile('test.txt', 'content');
+      await contextManager.addFile('test.txt');
+      
+      // Manually corrupt a file
+      const contextDir = contextManager.contextDir;
+      const files = await fs.readdir(contextDir);
+      const contextFiles = files.filter(f => f.match(/^\d+_.*\.json$/));
+      const corruptFile = path.join(contextDir, contextFiles[0]);
+      await fs.writeFile(corruptFile, 'invalid json{');
+      
+      const items = await contextManager.list();
+      expect(items).toHaveLength(0);
+      
+      // Verify corrupted file was cleaned up
+      const filesAfter = await fs.readdir(contextDir);
+      const contextFilesAfter = filesAfter.filter(f => f.match(/^\d+_.*\.json$/));
+      expect(contextFilesAfter).toHaveLength(0);
     });
   });
 
