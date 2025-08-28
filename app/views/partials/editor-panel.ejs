@@ -12,14 +12,31 @@
     
     <template v-else>
         <div class="tab-bar">
-            <div class="tab">
+            <div v-for="tab in terminalTabs" 
+                 :key="tab.sessionId"
+                 :class="{ 'tab': true, 'active': activeTabId === tab.sessionId }"
+                 @click="switchToTab(tab.sessionId)">
                 <i data-feather="terminal" class="icon"></i>
-                {{ selectedWorkspace.name }}
+                <span class="tab-name">{{ tab.sessionName }}</span>
+                <button v-if="terminalTabs.length > 1" 
+                        class="tab-close" 
+                        @click.stop="closeTab(tab.sessionId)"
+                        title="Close tab">
+                    <i data-feather="x" class="icon-small"></i>
+                </button>
             </div>
+            <button class="tab-add" @click="createNewTab" title="New terminal tab">
+                <i data-feather="plus" class="icon-small"></i>
+            </button>
         </div>
         
         <div class="terminal-container">
-            <div id="terminal" class="terminal-wrapper"></div>
+            <div v-for="tab in terminalTabs" 
+                 :key="`terminal-${tab.sessionId}`"
+                 :id="`terminal-${tab.sessionId}`" 
+                 :class="{ 'terminal-wrapper': true, 'active': activeTabId === tab.sessionId }"
+                 :style="{ display: activeTabId === tab.sessionId ? 'block' : 'none' }">
+            </div>
         </div>
     </template>
 </div>

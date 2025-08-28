@@ -9,7 +9,12 @@
                     errorMessage: null,
                     socket: null,
                     terminal: null,
+                    terminals: new Map(), // Map of sessionId -> terminal instance
                     fitAddon: null,
+                    fitAddons: new Map(), // Map of sessionId -> fitAddon
+                    terminalTabs: [], // Array of tab objects { sessionId, sessionName, pid, isDefault }
+                    activeTabId: null,
+                    pendingOutput: new Map(), // Buffer output until terminals are ready
                     workspaces: [],
                     selectedWorkspace: null,
                     repositories: [],
@@ -455,8 +460,31 @@
                     
                     // Terminal event handlers
                     this.socket.on('terminal-output', (data) => {
-                        if (this.terminal) {
-                            this.terminal.write(data);
+                        // Handle session-specific output
+                        if (data && typeof data === 'object' && data.sessionId) {
+                            const terminal = this.terminals.get(data.sessionId);
+                            if (terminal) {
+                                console.log('Writing to terminal for session:', data.sessionId, 'data length:', data.data?.length);
+                                terminal.write(data.data);
+                            } else {
+                                console.warn('No terminal found for session:', data.sessionId, '- buffering output');
+                                // Buffer the output until terminal is ready
+                                if (!this.pendingOutput.has(data.sessionId)) {
+                                    this.pendingOutput.set(data.sessionId, []);
+                                }
+                                this.pendingOutput.get(data.sessionId).push(data.data);
+                            }
+                        } else {
+                            // Backward compatibility - write to active terminal
+                            console.log('Writing to legacy terminal, data length:', typeof data === 'string' ? data.length : 'object');
+                            if (this.terminal) {
+                                this.terminal.write(data);
+                            } else if (this.activeTabId) {
+                                const activeTerminal = this.terminals.get(this.activeTabId);
+                                if (activeTerminal) {
+                                    activeTerminal.write(data);
+                                }
+                            }
                         }
                     });
                     
@@ -466,7 +494,68 @@
                     
                     this.socket.on('terminal-resumed', (data) => {
                         console.log('Session resumed:', data);
-                        // You could add a toast notification here
+                        // Update tab information if available
+                        if (data.sessionId && data.sessionName) {
+                            this.updateTabInfo(data.sessionId, data.sessionName);
+                        }
+                    });
+
+                    // Terminal multiplexing event handlers
+                    this.socket.on('terminal-sessions-updated', (data) => {
+                        if (data.workspaceId === this.selectedWorkspace?.id) {
+                            this.updateTerminalTabs(data.sessions);
+                        }
+                    });
+
+                    this.socket.on('workspace-sessions', (data) => {
+                        if (data.workspaceId === this.selectedWorkspace?.id) {
+                            this.updateTerminalTabs(data.sessions);
+                        }
+                    });
+
+                    this.socket.on('terminal-tab-created', (data) => {
+                        if (data.workspaceId === this.selectedWorkspace?.id) {
+                            this.updateTerminalTabs(data.sessions);
+                            // Switch to the new tab
+                            if (data.tab?.sessionId) {
+                                this.switchToTab(data.tab.sessionId);
+                            }
+                        }
+                    });
+
+                    this.socket.on('terminal-session-switched', (data) => {
+                        console.log('Terminal session switched:', data);
+                        if (data.success && data.sessionId) {
+                            this.activeTabId = data.sessionId;
+                            
+                            // Update legacy terminal reference for active tab
+                            const terminal = this.terminals.get(data.sessionId);
+                            const fitAddon = this.fitAddons.get(data.sessionId);
+                            if (terminal && fitAddon) {
+                                this.terminal = terminal;
+                                this.fitAddon = fitAddon;
+                                
+                                // Focus the terminal
+                                setTimeout(() => {
+                                    terminal.focus();
+                                }, 100);
+                            }
+                        }
+                    });
+
+                    this.socket.on('terminal-killed', (data) => {
+                        if (data.sessionId) {
+                            this.closeTabLocally(data.sessionId);
+                        }
+                    });
+
+                    this.socket.on('terminal-created', (data) => {
+                        console.log('Terminal created:', data);
+                        if (data.sessionId && data.sessionName) {
+                            this.addTab(data.sessionId, data.sessionName, data.pid || 0, data.isDefault || false);
+                            this.activeTabId = data.sessionId;
+                            this.initializeTerminalForSession(data.sessionId);
+                        }
                     });
                     
                     // Workspace event handlers
@@ -628,38 +717,85 @@
                 },
                 
                 setupTerminal() {
-                    // Clear the terminal display area first
-                    const terminalElement = document.getElementById('terminal');
+                    // Initialize terminal multiplexing for the selected workspace
+                    if (!this.selectedWorkspace) return;
                     
-                    // Safely dispose of existing terminal
+                    // Clear existing terminals
+                    this.clearAllTerminals();
+                    
+                    // Initialize tabs array
+                    this.terminalTabs = [];
+                    this.activeTabId = null;
+                    
+                    // Request existing sessions for this workspace or create new one
+                    if (this.socket) {
+                        this.socket.emit('get-workspace-sessions', { 
+                            workspaceId: this.selectedWorkspace.id 
+                        });
+                        
+                        // If no existing sessions, create a default one
+                        setTimeout(() => {
+                            if (this.terminalTabs.length === 0) {
+                                this.socket.emit('create-terminal', { 
+                                    workspaceId: this.selectedWorkspace.id 
+                                });
+                            }
+                        }, 100);
+                    }
+                    
+                    // Setup global window resize handler for all terminals
+                    this.setupGlobalResizeHandler();
+                },
+
+                clearAllTerminals() {
+                    // Dispose of all terminal instances
+                    this.terminals.forEach((terminal, sessionId) => {
+                        try {
+                            terminal.dispose();
+                        } catch (error) {
+                            console.warn('Error disposing terminal:', sessionId, error);
+                        }
+                    });
+                    
+                    this.terminals.clear();
+                    this.fitAddons.clear();
+                    this.pendingOutput.clear(); // Clear any pending output
+                    
+                    // Legacy cleanup
                     if (this.terminal) {
                         try {
                             this.terminal.dispose();
                         } catch (error) {
-                            // Silently handle addon disposal errors - they're expected during switching
-                            if (!error.message?.includes('Could not dispose an addon')) {
-                                console.warn('Unexpected terminal disposal error:', error);
-                            }
+                            console.warn('Error disposing legacy terminal:', error);
                         }
                         this.terminal = null;
                     }
                     
-                    // Cleanup previous resize handlers
+                    if (this.fitAddon) {
+                        this.fitAddon = null;
+                    }
+                    
+                    // Cleanup resize handlers
                     if (this.cleanupResize) {
                         this.cleanupResize();
                         this.cleanupResize = null;
                     }
+                },
+
+                initializeTerminalForSession(sessionId) {
+                    console.log('Initializing terminal for session:', sessionId);
                     
-                    // Clear addon references
-                    this.fitAddon = null;
-                    
-                    // Clear the terminal element content
-                    if (terminalElement) {
-                        terminalElement.innerHTML = '';
+                    const terminalElement = document.getElementById(`terminal-${sessionId}`);
+                    if (!terminalElement) {
+                        console.error('Terminal element not found for session:', sessionId);
+                        return;
                     }
+
+                    // Clear the element
+                    terminalElement.innerHTML = '';
                     
-                    // Initialize xterm.js with current theme
-                    this.terminal = new Terminal({
+                    // Create new terminal instance
+                    const terminal = new Terminal({
                         cursorBlink: true,
                         theme: this.currentTheme.terminal,
                         fontFamily: '"Cascadia Code", "Fira Code", "Monaco", "Menlo", "Ubuntu Mono", monospace',
@@ -667,69 +803,259 @@
                         lineHeight: 1.2
                     });
                     
-                    this.fitAddon = new FitAddon.FitAddon();
-                    this.terminal.loadAddon(this.fitAddon);
+                    const fitAddon = new FitAddon.FitAddon();
+                    terminal.loadAddon(fitAddon);
                     
-                    this.terminal.open(terminalElement);
+                    terminal.open(terminalElement);
                     
-                    // Fit terminal to container (extra delay for mobile)
+                    // Store terminal and addon
+                    this.terminals.set(sessionId, terminal);
+                    this.fitAddons.set(sessionId, fitAddon);
+                    
+                    // Legacy support - if this is the first/active terminal, set as main
+                    if (!this.terminal && sessionId === this.activeTabId) {
+                        this.terminal = terminal;
+                        this.fitAddon = fitAddon;
+                    }
+                    
+                    // Fit terminal to container
                     const delay = this.isMobile ? 200 : 100;
                     setTimeout(() => {
-                        this.fitAddon.fit();
+                        fitAddon.fit();
+                        
+                        // Write any buffered output now that terminal is ready
+                        this.flushPendingOutput(sessionId, terminal);
                     }, delay);
                     
                     // Handle user input
-                    this.terminal.onData(data => {
+                    terminal.onData(data => {
                         if (this.socket) {
-                            this.socket.emit('terminal-input', data);
+                            this.socket.emit('terminal-input', {
+                                input: data,
+                                sessionId: sessionId
+                            });
                         }
                     });
                     
                     // Handle terminal resize
-                    this.terminal.onResize(({ cols, rows }) => {
+                    terminal.onResize(({ cols, rows }) => {
                         if (this.socket) {
-                            this.socket.emit('terminal-resize', { cols, rows });
+                            this.socket.emit('terminal-resize', { 
+                                cols, 
+                                rows, 
+                                sessionId: sessionId 
+                            });
                         }
                     });
-                    
-                    // Create terminal session for the selected workspace
-                    if (this.socket && this.selectedWorkspace) {
-                        this.socket.emit('create-terminal', { 
-                            workspaceId: this.selectedWorkspace.id 
+                },
+
+                flushPendingOutput(sessionId, terminal) {
+                    const pendingData = this.pendingOutput.get(sessionId);
+                    if (pendingData && pendingData.length > 0) {
+                        console.log(`Flushing ${pendingData.length} pending output chunks for session ${sessionId}`);
+                        pendingData.forEach(data => {
+                            terminal.write(data);
                         });
+                        this.pendingOutput.delete(sessionId);
                     }
-                    
-                    // Handle window resize with proper debouncing (remove previous listener first to avoid duplicates)
-                    window.removeEventListener('resize', this.handleWindowResize);
-                    this.cleanupResize && this.cleanupResize();
+                },
+
+                setupGlobalResizeHandler() {
+                    // Remove existing handler
+                    if (this.cleanupResize) {
+                        this.cleanupResize();
+                    }
                     
                     let resizeTimeout;
                     this.handleWindowResize = () => {
                         clearTimeout(resizeTimeout);
                         resizeTimeout = setTimeout(() => {
-                            try {
-                                if (this.fitAddon && this.terminal) {
-                                    this.fitAddon.fit();
-                                    if (this.socket?.connected) {
-                                        this.socket.emit('terminal-resize', {
-                                            cols: this.terminal.cols,
-                                            rows: this.terminal.rows
-                                        });
+                            // Resize all terminals
+                            this.terminals.forEach((terminal, sessionId) => {
+                                const fitAddon = this.fitAddons.get(sessionId);
+                                if (fitAddon) {
+                                    try {
+                                        fitAddon.fit();
+                                        if (this.socket?.connected) {
+                                            this.socket.emit('terminal-resize', {
+                                                cols: terminal.cols,
+                                                rows: terminal.rows,
+                                                sessionId: sessionId
+                                            });
+                                        }
+                                    } catch (err) {
+                                        console.warn('Terminal resize failed for session:', sessionId, err);
                                     }
                                 }
-                            } catch (err) {
-                                console.warn('Terminal resize failed:', err);
-                            }
-                        }, 100); // Debounce resize events
+                            });
+                        }, 100);
                     };
                     
-                    // Store cleanup function
                     this.cleanupResize = () => {
                         clearTimeout(resizeTimeout);
                         window.removeEventListener('resize', this.handleWindowResize);
                     };
                     
                     window.addEventListener('resize', this.handleWindowResize);
+                },
+
+                // Terminal tab management methods
+                updateTerminalTabs(sessions) {
+                    console.log('Updating terminal tabs with sessions:', sessions);
+                    
+                    // Update tabs from server session data
+                    this.terminalTabs = sessions.map(session => ({
+                        sessionId: session.sessionId,
+                        sessionName: session.sessionName || 'Terminal',
+                        pid: session.pid,
+                        isDefault: session.isDefault || false,
+                        status: session.status || 'active'
+                    }));
+
+                    // Set active tab if none selected
+                    if (!this.activeTabId && this.terminalTabs.length > 0) {
+                        // Prefer default session, otherwise use first
+                        const defaultTab = this.terminalTabs.find(tab => tab.isDefault);
+                        this.activeTabId = defaultTab ? defaultTab.sessionId : this.terminalTabs[0].sessionId;
+                    }
+
+                    // Initialize terminals for new tabs only
+                    this.$nextTick(() => {
+                        this.terminalTabs.forEach(tab => {
+                            if (!this.terminals.has(tab.sessionId)) {
+                                console.log('Initializing terminal for new session:', tab.sessionId);
+                                this.initializeTerminalForSession(tab.sessionId);
+                            }
+                        });
+
+                        // Clean up terminals for sessions that no longer exist
+                        const currentSessionIds = new Set(this.terminalTabs.map(tab => tab.sessionId));
+                        this.terminals.forEach((terminal, sessionId) => {
+                            if (!currentSessionIds.has(sessionId)) {
+                                console.log('Disposing terminal for removed session:', sessionId);
+                                try {
+                                    terminal.dispose();
+                                } catch (error) {
+                                    console.warn('Error disposing terminal:', error);
+                                }
+                                this.terminals.delete(sessionId);
+                                this.fitAddons.delete(sessionId);
+                            }
+                        });
+                    });
+                },
+
+                addTab(sessionId, sessionName, pid = 0, isDefault = false) {
+                    // Check if tab already exists
+                    if (this.terminalTabs.find(tab => tab.sessionId === sessionId)) {
+                        return;
+                    }
+
+                    const newTab = {
+                        sessionId,
+                        sessionName,
+                        pid,
+                        isDefault,
+                        status: 'active'
+                    };
+
+                    this.terminalTabs.push(newTab);
+
+                    // Initialize terminal for new tab
+                    this.$nextTick(() => {
+                        this.initializeTerminalForSession(sessionId);
+                    });
+                },
+
+                switchToTab(sessionId) {
+                    console.log('Switching to tab:', sessionId, 'current active:', this.activeTabId);
+                    
+                    if (this.activeTabId === sessionId) return;
+
+                    this.activeTabId = sessionId;
+
+                    // Update legacy terminal reference
+                    const terminal = this.terminals.get(sessionId);
+                    const fitAddon = this.fitAddons.get(sessionId);
+                    if (terminal && fitAddon) {
+                        this.terminal = terminal;
+                        this.fitAddon = fitAddon;
+
+                        // Fit terminal when switching
+                        setTimeout(() => {
+                            fitAddon.fit();
+                        }, 50);
+                    }
+
+                    // Emit switch event to server (this is tab switching within workspace - no history replay)
+                    if (this.socket && this.selectedWorkspace) {
+                        this.socket.emit('switch-terminal-session', {
+                            workspaceId: this.selectedWorkspace.id,
+                            sessionId: sessionId
+                        });
+                    }
+
+                    // Update icon refresh
+                    this.$nextTick(() => {
+                        feather.replace();
+                    });
+                },
+
+                closeTab(sessionId) {
+                    // Don't close if it's the last tab
+                    if (this.terminalTabs.length <= 1) {
+                        return;
+                    }
+
+                    // Emit close event to server
+                    if (this.socket && this.selectedWorkspace) {
+                        this.socket.emit('kill-terminal', {
+                            workspaceId: this.selectedWorkspace.id,
+                            sessionId: sessionId
+                        });
+                    }
+                },
+
+                closeTabLocally(sessionId) {
+                    // Remove from tabs array
+                    const tabIndex = this.terminalTabs.findIndex(tab => tab.sessionId === sessionId);
+                    if (tabIndex !== -1) {
+                        this.terminalTabs.splice(tabIndex, 1);
+                    }
+
+                    // Dispose of terminal
+                    const terminal = this.terminals.get(sessionId);
+                    if (terminal) {
+                        try {
+                            terminal.dispose();
+                        } catch (error) {
+                            console.warn('Error disposing terminal:', error);
+                        }
+                        this.terminals.delete(sessionId);
+                        this.fitAddons.delete(sessionId);
+                    }
+
+                    // Switch to another tab if this was active
+                    if (this.activeTabId === sessionId && this.terminalTabs.length > 0) {
+                        this.switchToTab(this.terminalTabs[0].sessionId);
+                    }
+                },
+
+                createNewTab() {
+                    if (!this.socket || !this.selectedWorkspace) return;
+
+                    const tabName = `Terminal ${this.terminalTabs.length + 1}`;
+                    this.socket.emit('create-terminal-tab', {
+                        workspaceId: this.selectedWorkspace.id,
+                        tabName: tabName
+                    });
+                },
+
+                updateTabInfo(sessionId, sessionName) {
+                    const tab = this.terminalTabs.find(tab => tab.sessionId === sessionId);
+                    if (tab) {
+                        tab.sessionName = sessionName;
+                    }
                 },
                 
                 async loadRepositories(reset = true) {

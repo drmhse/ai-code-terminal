@@ -37,6 +37,7 @@ model Workspace {
   // Relations
   sessions      Session[]
   processes     UserProcess[]
+  terminalLayouts TerminalLayout[]
 
   @@map("workspaces")
 }
@@ -49,6 +50,11 @@ model Session {
   lastActivityAt   DateTime  @default(now())
   createdAt        DateTime  @default(now())
   endedAt          DateTime?
+  
+  // Session identification and multiplexing
+  sessionName      String    @default("Terminal") // Display name for the session/tab
+  sessionType      String    @default("terminal") // terminal, split, tmux
+  isDefaultSession Boolean   @default(false) // Whether this is the default session for the workspace
   
   // Session state persistence
   currentWorkingDir String?   // Current working directory of the shell
@@ -64,6 +70,10 @@ model Session {
   maxIdleTime      Int       @default(1440)  // Max idle time in minutes (24 hours)
   autoCleanup      Boolean   @default(true)  // Whether to auto-cleanup on timeout
 
+  // Layout positioning
+  layoutId         String?   // Reference to terminal layout
+  layout           TerminalLayout? @relation(fields: [layoutId], references: [id], onDelete: SetNull)
+
   // Foreign keys
   workspaceId      String?
   workspace        Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
@@ -75,6 +85,27 @@ model Session {
   @@index([recoveryToken])
   @@index([status])
   @@index([lastActivityAt])
+  @@index([workspaceId, isDefaultSession])
+}
+
+model TerminalLayout {
+  id            String   @id @default(cuid())
+  name          String   // Layout name (e.g., "Development", "Debugging")
+  layoutType    String   @default("tabs") // tabs, horizontal-split, vertical-split, grid
+  configuration String   // JSON configuration for layout structure
+  isDefault     Boolean  @default(false) // Whether this is the default layout
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Foreign keys
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  
+  // Relations
+  sessions      Session[]
+  
+  @@map("terminal_layouts")
+  @@index([workspaceId, isDefault])
 }
 
 model RateLimit {

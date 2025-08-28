@@ -53,11 +53,12 @@ class SessionManager {
     }
 
     /**
-     * Create a new session with enhanced state tracking
+     * Create a new session with enhanced state tracking and multiplexing support
      */
-    async createSession(workspaceId, shellPid, socketId, terminalSize = { cols: 80, rows: 30 }, options = {}) {
+    async createSession(workspaceId, shellPid, socketId, terminalSize = { cols: 80, rows: 30 }, sessionName = 'Terminal', isDefaultSession = false, providedSessionId = null, options = {}) {
         try {
             const recoveryToken = uuidv4();
+            const sessionId = providedSessionId || uuidv4();
             
             // Default session configuration
             const sessionConfig = {
@@ -67,20 +68,30 @@ class SessionManager {
                 canRecover: options.canRecover !== false // default true
             };
             
+            const sessionData = {
+                workspaceId,
+                shellPid,
+                socketId,
+                status: 'active',
+                recoveryToken,
+                sessionName,
+                sessionType: 'terminal',
+                isDefaultSession,
+                terminalSize: JSON.stringify(terminalSize),
+                lastActivityAt: new Date(),
+                sessionTimeout: sessionConfig.sessionTimeout,
+                canRecover: sessionConfig.canRecover,
+                maxIdleTime: sessionConfig.maxIdleTime,
+                autoCleanup: sessionConfig.autoCleanup
+            };
+
+            // If a specific session ID was provided, include it
+            if (providedSessionId) {
+                sessionData.id = providedSessionId;
+            }
+            
             const session = await prisma.session.create({
-                data: {
-                    workspaceId,
-                    shellPid,
-                    socketId,
-                    status: 'active',
-                    recoveryToken,
-                    terminalSize: JSON.stringify(terminalSize),
-                    lastActivityAt: new Date(),
-                    sessionTimeout: sessionConfig.sessionTimeout,
-                    canRecover: sessionConfig.canRecover,
-                    maxIdleTime: sessionConfig.maxIdleTime,
-                    autoCleanup: sessionConfig.autoCleanup
-                },
+                data: sessionData,
                 include: {
                     workspace: true
                 }

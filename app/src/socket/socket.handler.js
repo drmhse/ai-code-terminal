@@ -1,5 +1,6 @@
 const { socketAuthMiddleware } = require('./auth.socket');
-const shellService = require('../services/shell.service');
+const shellService = require('../services/multiplex-shell.service');
+const terminalLayoutService = require('../services/terminal-layout.service');
 const workspaceService = require('../services/workspace.service');
 const githubService = require('../services/github.service');
 const settingsService = require('../services/settings.service');
@@ -36,32 +37,42 @@ class SocketHandler {
   }
 
   registerTerminalHandlers(socket) {
-    // Create terminal session
+    // Create terminal session (with optional sessionId for multiplexing)
     socket.on('create-terminal', async (data) => {
       try {
-        const { workspaceId, recoveryToken } = data || {};
-        await shellService.createPtyForSocket(socket, workspaceId, recoveryToken);
+        const { workspaceId, sessionId, recoveryToken } = data || {};
+        const result = await shellService.createPtyForSocket(socket, workspaceId, sessionId, recoveryToken);
+        
+        // Emit session layout information
+        if (result) {
+          const workspaceSessions = shellService.getWorkspaceSessions(workspaceId);
+          socket.emit('terminal-sessions-updated', { 
+            workspaceId, 
+            sessions: workspaceSessions 
+          });
+        }
       } catch (error) {
         logger.error('Error creating terminal:', error);
         socket.emit('terminal-error', { error: error.message });
       }
     });
 
-    // Handle terminal input
+    // Handle terminal input (with optional sessionId)
     socket.on('terminal-input', async (data) => {
       try {
-        await shellService.writeToPty(socket.id, data);
+        const { input, sessionId } = data;
+        await shellService.writeToPty(socket.id, input || data, sessionId);
       } catch (error) {
         logger.error('Error handling terminal input:', error);
         socket.emit('terminal-error', { error: error.message });
       }
     });
 
-    // Handle terminal resize
+    // Handle terminal resize (with optional sessionId)
     socket.on('terminal-resize', async (data) => {
       try {
-        const { cols, rows } = data;
-        await shellService.resizePty(socket.id, cols, rows);
+        const { cols, rows, sessionId } = data;
+        await shellService.resizePty(socket.id, cols, rows, sessionId);
       } catch (error) {
         logger.error('Error resizing terminal:', error);
         socket.emit('terminal-error', { error: error.message });
@@ -79,16 +90,118 @@ class SocketHandler {
       }
     });
 
-    // Kill terminal session explicitly
-    socket.on('kill-terminal', async (data) => {
+    // Get all sessions for a workspace
+    socket.on('get-workspace-sessions', async (data) => {
       try {
         const { workspaceId } = data || {};
         if (workspaceId) {
-          await shellService.killSession(workspaceId);
-          socket.emit('terminal-killed', { workspaceId });
+          const sessions = shellService.getWorkspaceSessions(workspaceId);
+          
+          // If there are existing sessions, connect to the default one (or first one) with history replay for workspace switching
+          if (sessions.length > 0) {
+            const defaultSession = sessions.find(s => s.isDefault) || sessions[0];
+            const success = await shellService.switchSocketToSession(socket, workspaceId, defaultSession.sessionId, true); // true = replay history for workspace switching
+            
+            if (success) {
+              socket.emit('terminal-session-switched', { 
+                workspaceId, 
+                sessionId: defaultSession.sessionId,
+                success: true 
+              });
+            }
+          }
+          
+          socket.emit('workspace-sessions', { workspaceId, sessions });
+        }
+      } catch (error) {
+        logger.error('Error getting workspace sessions:', error);
+        socket.emit('terminal-error', { error: error.message });
+      }
+    });
+
+    // Create new terminal tab
+    socket.on('create-terminal-tab', async (data) => {
+      try {
+        const { workspaceId, tabName } = data || {};
+        if (workspaceId) {
+          const tabInfo = await shellService.createNewTab(workspaceId, tabName);
+          
+          // Update session list
+          const sessions = shellService.getWorkspaceSessions(workspaceId);
+          socket.emit('terminal-tab-created', { 
+            workspaceId, 
+            tab: tabInfo,
+            sessions 
+          });
+        }
+      } catch (error) {
+        logger.error('Error creating terminal tab:', error);
+        socket.emit('terminal-error', { error: error.message });
+      }
+    });
+
+    // Switch to a specific session (no history replay)
+    socket.on('switch-terminal-session', async (data) => {
+      try {
+        const { workspaceId, sessionId } = data || {};
+        if (workspaceId && sessionId) {
+          const success = await shellService.switchSocketToSession(socket, workspaceId, sessionId);
+          socket.emit('terminal-session-switched', { 
+            workspaceId, 
+            sessionId,
+            success 
+          });
+        }
+      } catch (error) {
+        logger.error('Error switching terminal session:', error);
+        socket.emit('terminal-error', { error: error.message });
+      }
+    });
+
+    // Kill terminal session explicitly (with optional sessionId)
+    socket.on('kill-terminal', async (data) => {
+      try {
+        const { workspaceId, sessionId } = data || {};
+        if (workspaceId) {
+          await shellService.killSession(workspaceId, sessionId);
+          
+          // Update session list
+          const sessions = shellService.getWorkspaceSessions(workspaceId);
+          socket.emit('terminal-killed', { workspaceId, sessionId });
+          socket.emit('terminal-sessions-updated', { 
+            workspaceId, 
+            sessions 
+          });
         }
       } catch (error) {
         logger.error('Error killing terminal:', error);
+        socket.emit('terminal-error', { error: error.message });
+      }
+    });
+
+    // Terminal layout management
+    socket.on('get-terminal-layout', async (data) => {
+      try {
+        const { workspaceId } = data || {};
+        if (workspaceId) {
+          const layout = await terminalLayoutService.getDefaultLayout(workspaceId);
+          socket.emit('terminal-layout', { workspaceId, layout });
+        }
+      } catch (error) {
+        logger.error('Error getting terminal layout:', error);
+        socket.emit('terminal-error', { error: error.message });
+      }
+    });
+
+    socket.on('update-terminal-layout', async (data) => {
+      try {
+        const { layoutId, configuration } = data || {};
+        if (layoutId && configuration) {
+          const layout = await terminalLayoutService.updateLayoutConfiguration(layoutId, configuration);
+          socket.emit('terminal-layout-updated', { layout });
+        }
+      } catch (error) {
+        logger.error('Error updating terminal layout:', error);
         socket.emit('terminal-error', { error: error.message });
       }
     });
