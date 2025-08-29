@@ -161,11 +161,12 @@
                     }
 
                     const language = this.getPrismLanguage(this.previewFile);
-                    if (language && window.Prism && window.Prism.languages[language]) {
+                    
+                    if (language && window.Prism && window.Prism.languages && window.Prism.languages[language]) {
                         try {
                             return window.Prism.highlight(this.previewData.content, window.Prism.languages[language], language);
                         } catch (error) {
-                            console.warn('Syntax highlighting failed:', error);
+                            console.warn('Syntax highlighting failed for', language, ':', error);
                             return this.escapeHtml(this.previewData.content);
                         }
                     }
