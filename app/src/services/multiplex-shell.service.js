@@ -18,14 +18,14 @@ class SessionHistory {
         this.workspaceId = workspaceId;
         this.historyDir = '/home/claude/.terminal_history';
         this.historyFile = path.join(this.historyDir, `${workspaceId}_${sessionId}.log`);
-        
+
         // Keep in-memory buffer for fast access
         this.memoryBuffer = new RingBuffer(2000);
-        
+
         // Initialize and restore previous session - expose promise for awaiting
         this.initializationPromise = this.initialize();
     }
-    
+
     async initialize() {
         try {
             await this.ensureHistoryDir();
@@ -34,7 +34,7 @@ class SessionHistory {
             logger.warn(`Failed to initialize history for session ${this.sessionId}:`, error);
         }
     }
-    
+
     async ensureHistoryDir() {
         try {
             await fs.mkdir(this.historyDir, { recursive: true });
@@ -44,41 +44,41 @@ class SessionHistory {
             }
         }
     }
-    
+
     async write(data) {
         this.memoryBuffer.push(data);
-        
-        // Debug logging for history writes  
+
+        // Debug logging for history writes
         if (data.trim()) {
             logger.debug(`SessionHistory: Writing ${data.length} chars to session ${this.sessionId} (buffer entries: ${this.memoryBuffer.getAll().length})`);
         }
-        
+
         // Append to disk asynchronously
         this.writeToDisk(data).catch(error => {
             logger.warn(`SessionHistory: Failed to write history to disk for session ${this.sessionId}:`, error);
         });
     }
-    
+
     async writeToDisk(data) {
         const timestamp = Date.now();
         const encodedData = Buffer.from(data).toString('base64');
         const logLine = `${timestamp}|${encodedData}\n`;
-        
+
         await fs.appendFile(this.historyFile, logLine);
     }
-    
+
     async restoreFromDisk() {
         try {
             const content = await fs.readFile(this.historyFile, 'utf8');
             const lines = content.split('\n').filter(line => line.trim()).slice(-2000);
-            
+
             for (const line of lines) {
                 const pipeIndex = line.indexOf('|');
                 if (pipeIndex === -1) continue;
-                
+
                 const timestamp = line.substring(0, pipeIndex);
                 const data = line.substring(pipeIndex + 1);
-                
+
                 if (data && !isNaN(timestamp)) {
                     try {
                         const decodedData = Buffer.from(data, 'base64').toString();
@@ -88,7 +88,7 @@ class SessionHistory {
                     }
                 }
             }
-            
+
             logger.info(`SessionHistory: Restored ${lines.length} history entries for session ${this.sessionId} from ${this.historyFile}`);
         } catch (error) {
             if (error.code !== 'ENOENT') {
@@ -98,11 +98,11 @@ class SessionHistory {
             }
         }
     }
-    
+
     getRecent() {
         return this.memoryBuffer.getAll();
     }
-    
+
     clear() {
         this.memoryBuffer.clear();
         fs.unlink(this.historyFile).catch(() => {
@@ -113,7 +113,7 @@ class SessionHistory {
 
 /**
  * Extended Shell Service with terminal multiplexing support
- * Supports multiple terminal sessions per workspace with tabs and splits
+ * Supports multiple terminal sessions per workspace with unified pane structure
  */
 class MultiplexShellService {
     constructor() {
@@ -159,7 +159,7 @@ class MultiplexShellService {
 
             // Join the workspace-specific room
             socket.join(`workspace:${workspace.id}`);
-            
+
             // Get or create workspace session container
             let workspaceContainer = this.workspaceSessions.get(workspace.id);
             if (!workspaceContainer) {
@@ -172,10 +172,10 @@ class MultiplexShellService {
             }
 
             let targetSessionId = sessionId;
-            
+
             // If no specific session requested, use default or create one
             if (!targetSessionId) {
-                if (workspaceContainer.defaultSessionId && 
+                if (workspaceContainer.defaultSessionId &&
                     workspaceContainer.sessions.has(workspaceContainer.defaultSessionId)) {
                     targetSessionId = workspaceContainer.defaultSessionId;
                 } else {
@@ -218,7 +218,7 @@ class MultiplexShellService {
             if (!workspaceContainer.defaultSessionId) {
                 workspaceContainer.defaultSessionId = newSessionId;
             }
-            
+
             return { sessionId: newSessionId, created: true };
 
         } catch (error) {
@@ -296,7 +296,7 @@ class MultiplexShellService {
     async createPtyProcess(workspace, sessionName, isDefault, providedSessionId = null) {
         const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
         const shellArgs = os.platform() === 'win32' ? [] : ['--login'];
-        
+
         const ptyProcess = pty.spawn(shell, shellArgs, {
             name: 'xterm-256color',
             cols: 80,
@@ -349,14 +349,14 @@ class MultiplexShellService {
      */
     async resumeSession(socket, sessionData, sessionId, replayHistory = true) {
         logger.info(`Resuming session ${sessionId} for workspace ${sessionData.workspace.id}`);
-        
+
         // Check if this is the first socket connecting to this session
         const isFirstConnection = sessionData.sockets.size === 0;
-        
+
         sessionData.sockets.add(socket.id);
-        this.socketToSession.set(socket.id, { 
-            workspaceId: sessionData.workspace.id, 
-            sessionId 
+        this.socketToSession.set(socket.id, {
+            workspaceId: sessionData.workspace.id,
+            sessionId
         });
 
         // Update session manager
@@ -369,11 +369,11 @@ class MultiplexShellService {
             this.replayHistory(socket, sessionData);
         }
 
-        socket.emit('terminal-resumed', { 
+        socket.emit('terminal-resumed', {
             workspaceId: sessionData.workspace.id,
             sessionId: sessionId,
             sessionName: sessionData.sessionName,
-            recoveryToken: sessionData.recoveryToken 
+            recoveryToken: sessionData.recoveryToken
         });
     }
 
@@ -412,7 +412,7 @@ class MultiplexShellService {
 
             // Send recovery notification
             socket.emit('terminal-output', '\r\n\x1b[32m--- Session recovered ---\x1b[0m\r\n');
-            
+
             socket.emit('terminal-recovered', {
                 workspaceId: workspace.id,
                 sessionId: targetSessionId,
@@ -458,15 +458,15 @@ class MultiplexShellService {
         // Handle pty exit
         sessionData.ptyProcess.onExit(async ({ exitCode, signal }) => {
             logger.info(`PTY process exited for session ${sessionId}: code=${exitCode}, signal=${signal}`);
-            
+
             const message = `\r\nShell exited.\r\n`;
-            
+
             if (this.io) {
                 this.io.to(`workspace:${workspace.id}`).emit('terminal-output', {
                     sessionId: sessionId,
                     data: message
                 });
-                this.io.to(`workspace:${workspace.id}`).emit('terminal-killed', { 
+                this.io.to(`workspace:${workspace.id}`).emit('terminal-killed', {
                     workspaceId: workspace.id,
                     sessionId: sessionId
                 });
@@ -487,32 +487,32 @@ class MultiplexShellService {
      */
     async handleSocketSessionChange(socket, newWorkspaceId, newSessionId) {
         const currentMapping = this.socketToSession.get(socket.id);
-        
+
         if (currentMapping) {
             const { workspaceId: currentWorkspaceId, sessionId: currentSessionId } = currentMapping;
-            
+
             // If switching workspaces or sessions
-            if (currentWorkspaceId !== newWorkspaceId || 
+            if (currentWorkspaceId !== newWorkspaceId ||
                 (newSessionId && currentSessionId !== newSessionId)) {
-                
+
                 // Leave previous workspace room
                 socket.leave(`workspace:${currentWorkspaceId}`);
-                
+
                 // Remove socket from previous session
                 const workspaceContainer = this.workspaceSessions.get(currentWorkspaceId);
                 if (workspaceContainer && workspaceContainer.sessions.has(currentSessionId)) {
                     const sessionData = workspaceContainer.sessions.get(currentSessionId);
                     sessionData.sockets.delete(socket.id);
-                    
+
                     // Update session manager
                     if (sessionData.sessionManagerId && sessionData.sockets.size === 0) {
                         await sessionManager.detachSocketFromSession(sessionData.sessionManagerId);
                     }
                 }
-                
+
                 // Clear socket mapping (but keep session history tracking - it gets reset in switchSocketToSession)
                 this.socketToSession.delete(socket.id);
-                
+
                 logger.info(`Socket ${socket.id} switched from ${currentWorkspaceId}:${currentSessionId} to ${newWorkspaceId}:${newSessionId || 'default'}`);
             }
         }
@@ -536,11 +536,11 @@ class MultiplexShellService {
             // Handle previous session cleanup
             const currentMapping = this.socketToSession.get(socket.id);
             const isWorkspaceSwitch = !currentMapping || currentMapping.workspaceId !== workspaceId;
-            
+
             // Check if this is the first time this socket connects to this session in this workspace session
             const socketSessions = this.socketSessionHistory.get(socket.id) || new Set();
             const isFirstSessionConnection = isWorkspaceSwitch || !socketSessions.has(sessionId);
-            
+
             await this.handleSocketSessionChange(socket, workspaceId, sessionId);
 
             // Join the workspace room
@@ -548,7 +548,7 @@ class MultiplexShellService {
 
             // Get the target session
             const sessionData = workspaceContainer.sessions.get(sessionId);
-            
+
             // Add socket to the session
             sessionData.sockets.add(socket.id);
             this.socketToSession.set(socket.id, { workspaceId, sessionId });
@@ -598,7 +598,7 @@ class MultiplexShellService {
 
         const targetSessionId = sessionId || mapping.sessionId;
         const workspaceContainer = this.workspaceSessions.get(mapping.workspaceId);
-        
+
         if (!workspaceContainer || !workspaceContainer.sessions.has(targetSessionId)) {
             logger.warn(`Session ${targetSessionId} not found for socket ${socketId}`);
             return;
@@ -635,7 +635,7 @@ class MultiplexShellService {
 
         const targetSessionId = sessionId || mapping.sessionId;
         const workspaceContainer = this.workspaceSessions.get(mapping.workspaceId);
-        
+
         if (!workspaceContainer || !workspaceContainer.sessions.has(targetSessionId)) {
             return;
         }
@@ -643,7 +643,7 @@ class MultiplexShellService {
         const sessionData = workspaceContainer.sessions.get(targetSessionId);
         if (sessionData && sessionData.ptyProcess) {
             sessionData.ptyProcess.resize(cols, rows);
-            
+
             // Update session state
             if (sessionData.sessionManagerId) {
                 try {
@@ -654,7 +654,7 @@ class MultiplexShellService {
                     logger.debug(`Failed to update terminal size: ${error.message}`);
                 }
             }
-            
+
             logger.debug(`PTY resized for session ${targetSessionId}: ${cols}x${rows}`);
         }
     }
@@ -722,17 +722,17 @@ class MultiplexShellService {
             // Create new session without socket initially
             const sessionData = await this.createPtyProcess(workspace, tabName, false);
             const sessionId = sessionData.sessionId;
-            
+
             workspaceContainer.sessions.set(sessionId, sessionData);
 
             // Set up PTY handlers
             this.setupPtyHandlers(sessionData, workspace, sessionId);
 
-            // Add tab to layout
-            await terminalLayoutService.addTabToLayout(workspaceContainer.layout.id, tabName);
+            // Add session to layout
+            await terminalLayoutService.addSessionToLayout(workspaceContainer.layout.id, sessionId, tabName);
 
             logger.info(`Created new tab ${sessionId} for workspace ${workspaceId}`);
-            
+
             return {
                 sessionId,
                 sessionName: tabName,
@@ -772,53 +772,25 @@ class MultiplexShellService {
             // Get current session IDs
             const existingSessionIds = Array.from(workspaceContainer.sessions.keys());
             const requiredPanes = terminalLayoutService.getRequiredPanesCount(layoutType);
-            
+
             // Create additional sessions if needed
             const sessionIds = [...existingSessionIds];
             for (let i = existingSessionIds.length; i < requiredPanes; i++) {
                 const sessionName = `Terminal ${i + 1}`;
                 const sessionData = await this.createPtyProcess(workspace, sessionName, false);
                 const sessionId = sessionData.sessionId;
-                
+
                 workspaceContainer.sessions.set(sessionId, sessionData);
                 this.setupPtyHandlers(sessionData, workspace, sessionId);
                 sessionIds.push(sessionId);
-                
+
                 logger.info(`Created additional session ${sessionId} for split layout`);
             }
 
             // Convert layout
-            const updatedLayout = await terminalLayoutService.convertToSplit(workspaceId, layoutType);
+            const updatedLayout = await terminalLayoutService.convertToSplit(workspaceId, layoutType, sessionIds);
             workspaceContainer.layout = updatedLayout;
-
-            // Update layout configuration with actual session IDs
             const config = JSON.parse(updatedLayout.configuration);
-            if (config.panes && sessionIds.length > 0) {
-                // Distribute all sessions across panes
-                sessionIds.forEach((sessionId, index) => {
-                    const paneIndex = index % config.panes.length;
-                    const pane = config.panes[paneIndex];
-                    
-                    // Initialize tabs array if not exists
-                    if (!pane.tabs) {
-                        pane.tabs = [];
-                    }
-                    
-                    // Add session to pane's tabs
-                    pane.tabs.push({
-                        sessionId: sessionId,
-                        isActive: pane.tabs.length === 0 // First tab is active
-                    });
-                    
-                    // Set active tab and session ID for pane
-                    if (pane.tabs.length === 1) {
-                        pane.activeTabId = sessionId;
-                        pane.sessionId = sessionId; // For backward compatibility
-                    }
-                });
-                
-                await terminalLayoutService.updateLayoutConfiguration(updatedLayout.id, config);
-            }
 
             logger.info(`Converted workspace ${workspaceId} to ${layoutType} layout`);
 
@@ -836,31 +808,34 @@ class MultiplexShellService {
     }
 
     /**
-     * Convert split layout back to tabs
+     * Convert multi-pane layout back to single pane
      * @param {string} workspaceId - Workspace ID
      * @returns {Object} Updated layout information
      */
-    async convertToTabsLayout(workspaceId) {
+    async convertToSingleLayout(workspaceId) {
         try {
             let workspaceContainer = this.workspaceSessions.get(workspaceId);
             if (!workspaceContainer) {
                 throw new Error('No active workspace container found');
             }
 
-            // Convert layout back to tabs
-            const updatedLayout = await terminalLayoutService.convertToTabs(workspaceId);
+            // Collect all existing session IDs before changing the layout
+            const allSessionIds = Array.from(workspaceContainer.sessions.keys());
+
+            // Convert layout back to single pane, passing all sessions to be consolidated
+            const updatedLayout = await terminalLayoutService.convertToSingle(workspaceId, allSessionIds);
             workspaceContainer.layout = updatedLayout;
 
-            logger.info(`Converted workspace ${workspaceId} back to tabs layout`);
+            logger.info(`Converted workspace ${workspaceId} back to single pane layout`);
 
             return {
                 layout: updatedLayout,
                 sessions: this.getWorkspaceSessions(workspaceId),
-                layoutType: 'tabs'
+                layoutType: 'single'
             };
 
         } catch (error) {
-            logger.error(`Error converting to tabs layout:`, error);
+            logger.error(`Error converting to single pane layout:`, error);
             throw error;
         }
     }
@@ -874,7 +849,7 @@ class MultiplexShellService {
         try {
             const layout = await terminalLayoutService.getDefaultLayout(workspaceId);
             const config = JSON.parse(layout.configuration);
-            
+
             return {
                 layoutId: layout.id,
                 layoutType: layout.layoutType,
@@ -889,7 +864,7 @@ class MultiplexShellService {
 
     /**
      * Switch active pane in split layout
-     * @param {string} workspaceId - Workspace ID 
+     * @param {string} workspaceId - Workspace ID
      * @param {string} paneId - Pane ID to activate
      * @returns {Object} Updated pane information
      */
@@ -902,7 +877,7 @@ class MultiplexShellService {
 
             const layout = workspaceContainer.layout;
             const config = JSON.parse(layout.configuration);
-            
+
             if (config.panes) {
                 // Find the pane and its session
                 const pane = config.panes.find(p => p.id === paneId);
@@ -911,7 +886,7 @@ class MultiplexShellService {
                 }
 
                 logger.info(`Switching to pane ${paneId} with session ${pane.sessionId}`);
-                
+
                 return {
                     paneId,
                     sessionId: pane.sessionId,
@@ -936,7 +911,7 @@ class MultiplexShellService {
         }
 
         const sessionData = workspaceContainer.sessions.get(sessionId);
-        
+
         // Kill PTY process
         if (sessionData.ptyProcess && !sessionData.ptyProcess.killed) {
             sessionData.ptyProcess.kill();
@@ -999,12 +974,12 @@ class MultiplexShellService {
 
         const bufferedChunks = sessionData.history.getRecent();
         const totalChars = bufferedChunks.reduce((sum, chunk) => sum + chunk.length, 0);
-        
+
         logger.info(`HISTORY REPLAY: Session ${sessionData.sessionId} - ${bufferedChunks.length} chunks, ${totalChars} total characters`);
-        
+
         if (bufferedChunks.length > 0) {
             const replayOutput = bufferedChunks.join('');
-            
+
             // Send history replay messages with session ID
             socket.emit('terminal-output', {
                 sessionId: sessionData.sessionId,
@@ -1018,7 +993,7 @@ class MultiplexShellService {
                 sessionId: sessionData.sessionId,
                 data: '\r\n\x1b[2m--- End of history ---\x1b[0m\r\n'
             });
-            
+
             logger.info(`HISTORY REPLAY COMPLETED: Session ${sessionData.sessionId} - sent ${replayOutput.length} characters to frontend`);
         } else {
             logger.info(`HISTORY REPLAY: No history chunks to replay for session ${sessionData.sessionId}`);
@@ -1030,11 +1005,11 @@ class MultiplexShellService {
         if (mapping) {
             const { workspaceId, sessionId } = mapping;
             const workspaceContainer = this.workspaceSessions.get(workspaceId);
-            
+
             if (workspaceContainer && workspaceContainer.sessions.has(sessionId)) {
                 const sessionData = workspaceContainer.sessions.get(sessionId);
                 sessionData.sockets.delete(socketId);
-                
+
                 logger.info(`Socket ${socketId} detached from session ${sessionId}. Remaining sockets: ${sessionData.sockets.size}`);
 
                 // Update session manager if no more sockets
@@ -1042,7 +1017,7 @@ class MultiplexShellService {
                     await sessionManager.detachSocketFromSession(sessionData.sessionManagerId);
                 }
             }
-            
+
             this.socketToSession.delete(socketId);
             this.socketSessionHistory.delete(socketId); // Clean up session history tracking
         }
@@ -1084,7 +1059,7 @@ class MultiplexShellService {
                     isDefault: sessionData.isDefault
                 }))
             };
-            
+
             stats.workspaces.push(workspaceStats);
             stats.totalSessions += container.sessions.size;
         }
@@ -1094,7 +1069,7 @@ class MultiplexShellService {
 
     async performPeriodicCleanup() {
         let cleanedCount = 0;
-        
+
         for (const [workspaceId, container] of this.workspaceSessions) {
             for (const [sessionId, sessionData] of container.sessions) {
                 if (!this.isProcessAlive(sessionData.ptyProcess.pid)) {
@@ -1104,7 +1079,7 @@ class MultiplexShellService {
                 }
             }
         }
-        
+
         if (cleanedCount > 0) {
             logger.info(`Periodic cleanup removed ${cleanedCount} stale sessions.`);
         }
@@ -1139,7 +1114,7 @@ class MultiplexShellService {
             clearInterval(this.cleanupInterval);
             this.cleanupInterval = null;
         }
-        
+
         // Terminate all active sessions
         for (const [workspaceId, container] of this.workspaceSessions) {
             for (const [sessionId, sessionData] of container.sessions) {
@@ -1155,7 +1130,7 @@ class MultiplexShellService {
                 }
             }
         }
-        
+
         this.workspaceSessions.clear();
         this.socketToSession.clear();
         sessionManager.cleanup();

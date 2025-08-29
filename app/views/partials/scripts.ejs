@@ -1,29 +1,29 @@
 <script>
         const { createApp } = Vue;
-        
+
         createApp({
+            components: {
+                'terminal-pane': window.TerminalComponents.TerminalPane
+            },
+
             data() {
                 return {
                     isAuthenticated: false,
                     username: null,
                     errorMessage: null,
                     socket: null,
-                    terminal: null,
-                    terminals: new Map(), // Map of sessionId -> terminal instance
-                    fitAddon: null,
-                    fitAddons: new Map(), // Map of sessionId -> fitAddon
+                    // NOTE: Terminal management is now handled by TerminalManager service
                     terminalTabs: [], // Array of tab objects { sessionId, sessionName, pid, isDefault }
                     activeTabId: null,
-                    pendingOutput: new Map(), // Buffer output until terminals are ready
                     // Split pane layout properties
-                    currentLayout: 'tabs', // tabs, horizontal-split, vertical-split, grid-2x2, three-pane
-                    panes: [], // Array of pane containers with their tabs
+                    currentLayout: 'single', // single, horizontal-split, vertical-split, grid-2x2, three-pane
+                    panes: [], // Array of panes, each with one terminal session
                     activePaneId: null,
                     // Tab drag and drop state
                     draggedTab: null,
                     dragOverPane: null,
                     viewportWidth: window.innerWidth,
-                    layoutRecommendations: { supported: [], recommended: 'tabs' },
+                    layoutRecommendations: { supported: [], recommended: 'single' },
                     workspaces: [],
                     selectedWorkspace: null,
                     repositories: [],
@@ -79,12 +79,12 @@
                     previewError: null
                 };
             },
-            
+
             async mounted() {
                 // Check if mobile
                 this.checkMobile();
                 window.addEventListener('resize', this.checkMobile);
-                
+
                 // Track viewport width changes for layout recommendations
                 window.addEventListener('resize', this.updateViewportWidth);
 
@@ -92,18 +92,18 @@
                 const urlParams = new URLSearchParams(window.location.search);
                 const token = urlParams.get('token');
                 const error = urlParams.get('error');
-                
+
                 if (error) {
                     this.errorMessage = decodeURIComponent(error);
                     window.history.replaceState({}, document.title, '/');
                     return;
                 }
-                
+
                 if (token) {
                     localStorage.setItem('authToken', token);
                     window.history.replaceState({}, document.title, '/');
                 }
-                
+
                 // Check existing token
                 const existingToken = localStorage.getItem('authToken');
                 if (existingToken) {
@@ -126,27 +126,27 @@
                         this.showFilePreviewModal = false;
                         this.showContextMenu = false;
                     }
-                    
+
                     // File explorer keyboard navigation
-                    if (this.selectedWorkspace && !this.fileExplorerCollapsed && 
-                        !this.showRepositoriesModal && !this.showThemeModal && 
+                    if (this.selectedWorkspace && !this.fileExplorerCollapsed &&
+                        !this.showRepositoriesModal && !this.showThemeModal &&
                         !this.showDeleteModal && !this.showFilePreviewModal &&
                         !document.querySelector('input:focus') &&
                         !this.isTerminalFocused()) {
-                        
+
                         this.handleFileNavigationKeys(e);
                     }
                 });
             },
-            
+
             computed: {
                 filteredFiles() {
                     if (!this.fileSearchTerm || this.fileSearchTerm.trim() === '') {
-                        return this.currentFiles.filter(file => 
+                        return this.currentFiles.filter(file =>
                             this.showHiddenFiles || !file.isHidden
                         );
                     }
-                    
+
                     const searchTerm = this.fileSearchTerm.toLowerCase().trim();
                     return this.currentFiles.filter(file => {
                         const matchesSearch = file.name.toLowerCase().includes(searchTerm);
@@ -169,7 +169,7 @@
                             return this.escapeHtml(this.previewData.content);
                         }
                     }
-                    
+
                     return this.escapeHtml(this.previewData.content);
                 },
 
@@ -178,9 +178,48 @@
                         return [];
                     }
                     return this.currentPath.split('/').filter(segment => segment.length > 0);
+                },
+
+                // Grid layout computed properties
+                gridTemplateColumns() {
+                    switch (this.currentLayout) {
+                        case 'single':
+                            return '1fr';
+                        case 'horizontal-split':
+                            return '1fr 1fr';
+                        case 'vertical-split':
+                            return '1fr';
+                        case 'three-pane':
+                            return '2fr 1fr';
+                        case 'grid-2x2':
+                            return '1fr 1fr';
+                        default:
+                            return '1fr';
+                    }
+                },
+
+                gridTemplateRows() {
+                    switch (this.currentLayout) {
+                        case 'single':
+                        case 'horizontal-split':
+                            return '1fr';
+                        case 'vertical-split':
+                            return '1fr 1fr';
+                        case 'three-pane':
+                        case 'grid-2x2':
+                            return '1fr 1fr';
+                        default:
+                            return '1fr';
+                    }
+                },
+
+                showEmptyPanePlaceholder() {
+                    // Show placeholder if we need more panes than we have active sessions
+                    const requiredPanes = this.getRequiredPanesCount(this.currentLayout);
+                    return this.panes.length < requiredPanes;
                 }
             },
-            
+
             methods: {
                 getDefaultTheme() {
                     return {
@@ -188,7 +227,7 @@
                         type: 'dark',
                         colors: {
                             primary: '#1e1e1e',
-                            secondary: '#252526', 
+                            secondary: '#252526',
                             tertiary: '#2d2d30',
                             sidebar: '#181818',
                             border: '#3c3c3c',
@@ -232,7 +271,7 @@
                                 'Authorization': `Bearer ${localStorage.getItem('authToken')}`
                             }
                         });
-                        
+
                         if (response.ok) {
                             const data = await response.json();
                             if (data.success && data.themes) {
@@ -298,7 +337,7 @@
                     this.showThemeModal = false;
                     this.applyTheme(theme);
                     await this.saveTheme(theme);
-                    
+
                     // Update terminal if active
                     if (this.terminal && this.selectedWorkspace) {
                         this.setupTerminal();
@@ -308,21 +347,21 @@
                 applyTheme(theme) {
                     const root = document.documentElement;
                     const colors = theme.colors;
-                    
+
                     // Background Colors
                     root.style.setProperty('--bg-primary', colors.primary);
                     root.style.setProperty('--bg-secondary', colors.secondary);
                     root.style.setProperty('--bg-tertiary', colors.tertiary);
                     root.style.setProperty('--bg-sidebar', colors.sidebar);
-                    
-                    // Text Colors  
+
+                    // Text Colors
                     root.style.setProperty('--text-primary', colors.textPrimary);
                     root.style.setProperty('--text-secondary', colors.textSecondary);
                     root.style.setProperty('--text-muted', colors.textMuted);
-                    
+
                     // Border & Divider Colors
                     root.style.setProperty('--border-color', colors.border || colors.textMuted);
-                    
+
                     // Accent Colors
                     root.style.setProperty('--accent-blue', colors.accentBlue);
                     root.style.setProperty('--accent-blue-hover', colors.accentBlueHover || colors.accentBlue);
@@ -332,7 +371,7 @@
                     root.style.setProperty('--accent-red-hover', colors.accentRedHover || colors.accentRed);
                     root.style.setProperty('--accent-orange', colors.accentOrange || colors.accentBlue);
                     root.style.setProperty('--accent-purple', colors.accentPurple || colors.accentBlue);
-                    
+
                     // Component-specific Variables
                     root.style.setProperty('--button-bg', colors.accentBlue);
                     root.style.setProperty('--button-hover', colors.accentBlueHover || colors.accentBlue);
@@ -340,12 +379,12 @@
                     root.style.setProperty('--button-secondary-hover', colors.secondary);
                     root.style.setProperty('--input-bg', colors.tertiary);
                     root.style.setProperty('--terminal-bg', colors.terminalBg || colors.primary);
-                    
+
                     // Interactive States
                     root.style.setProperty('--sidebar-item-hover-bg', colors.secondary);
                     root.style.setProperty('--sidebar-item-selected-bg', colors.accentBlue);
                     root.style.setProperty('--sidebar-item-bg', colors.secondary);
-                    
+
                     // Enhanced Variables for Comprehensive Theming
                     root.style.setProperty('--scrollbar-slider', colors.textMuted + '66');
                     root.style.setProperty('--scrollbar-slider-hover', colors.textSecondary + 'b3');
@@ -394,7 +433,7 @@
                         this.logout();
                     }
                 },
-                
+
                 initializeSocket() {
                     // Socket connection options with retry configuration
                     const socketOptions = {
@@ -405,13 +444,13 @@
                         reconnectionAttempts: Infinity,
                         timeout: 20000
                     };
-                    
+
                     this.socket = io('/', socketOptions);
-                    
+
                     this.socket.on('connect', () => {
                         console.log('Socket connected');
                         this.connectionError = null;
-                        
+
                         // Re-initialize application state
                         this.loadWorkspaces();
                         this.loadStats();
@@ -420,7 +459,7 @@
                         if (this.availableThemes.length === 0) {
                             this.loadAvailableThemes();
                         }
-                        
+
                         // Re-select workspace if one was selected
                         if (this.selectedWorkspace) {
                             this.$nextTick(() => {
@@ -428,82 +467,65 @@
                             });
                         }
                     });
-                    
+
                     this.socket.on('connect_error', (error) => {
                         console.error('Socket connection error:', error);
                         this.connectionError = 'Connection lost. Reconnecting...';
-                        
-                        if (error.message.includes('GitHub token not found') || 
+
+                        if (error.message.includes('GitHub token not found') ||
                             error.message.includes('Authentication failed')) {
                             this.logout();
                         }
                     });
-                    
+
                     this.socket.on('disconnect', (reason) => {
                         console.log('Socket disconnected:', reason);
                         this.connectionError = 'Connection lost. Reconnecting...';
                         this.stopStatsInterval();
-                        
+
                         if (reason === 'io server disconnect') {
                             // Server disconnected us, try to reconnect
                             this.socket.connect();
                         }
                     });
-                    
+
                     this.socket.on('reconnect', (attemptNumber) => {
                         console.log('Socket reconnected after', attemptNumber, 'attempts');
                         this.connectionError = null;
                     });
-                    
+
                     this.socket.on('reconnect_attempt', (attemptNumber) => {
                         console.log('Socket reconnection attempt:', attemptNumber);
                         this.connectionError = `Reconnecting... (attempt ${attemptNumber})`;
                     });
-                    
+
                     this.socket.on('reconnect_error', (error) => {
                         console.error('Socket reconnection error:', error);
                         this.connectionError = 'Reconnection failed. Retrying...';
                     });
-                    
+
                     this.socket.on('reconnect_failed', () => {
                         console.error('Socket reconnection failed permanently');
                         this.connectionError = 'Connection failed. Please refresh the page.';
                     });
-                    
-                    // Terminal event handlers
+
+                    // Terminal event handlers - now handled by TerminalManager service
                     this.socket.on('terminal-output', (data) => {
-                        // Handle session-specific output
+                        // Handle session-specific output via TerminalManager
                         if (data && typeof data === 'object' && data.sessionId) {
-                            const terminal = this.terminals.get(data.sessionId);
-                            if (terminal) {
-                                console.log('Writing to terminal for session:', data.sessionId, 'data length:', data.data?.length);
-                                terminal.write(data.data);
-                            } else {
-                                console.warn('No terminal found for session:', data.sessionId, '- buffering output');
-                                // Buffer the output until terminal is ready
-                                if (!this.pendingOutput.has(data.sessionId)) {
-                                    this.pendingOutput.set(data.sessionId, []);
-                                }
-                                this.pendingOutput.get(data.sessionId).push(data.data);
-                            }
+                            window.TerminalComponents.TerminalManager.write(data.sessionId, data.data);
                         } else {
                             // Backward compatibility - write to active terminal
-                            console.log('Writing to legacy terminal, data length:', typeof data === 'string' ? data.length : 'object');
-                            if (this.terminal) {
-                                this.terminal.write(data);
-                            } else if (this.activeTabId) {
-                                const activeTerminal = this.terminals.get(this.activeTabId);
-                                if (activeTerminal) {
-                                    activeTerminal.write(data);
-                                }
+                            if (this.activeTabId) {
+                                window.TerminalComponents.TerminalManager.write(this.activeTabId, data);
                             }
                         }
                     });
-                    
+
                     this.socket.on('terminal-error', (data) => {
                         console.error('Terminal error:', data.error);
                     });
-                    
+
                     this.socket.on('terminal-resumed', (data) => {
                         console.log('Session resumed:', data);
                         // Update tab information if available
@@ -539,19 +561,11 @@
                         console.log('Terminal session switched:', data);
                         if (data.success && data.sessionId) {
                             this.activeTabId = data.sessionId;
-                            
-                            // Update legacy terminal reference for active tab
-                            const terminal = this.terminals.get(data.sessionId);
-                            const fitAddon = this.fitAddons.get(data.sessionId);
-                            if (terminal && fitAddon) {
-                                this.terminal = terminal;
-                                this.fitAddon = fitAddon;
-                                
-                                // Focus the terminal
-                                setTimeout(() => {
-                                    terminal.focus();
-                                }, 100);
-                            }
+
+                            // Focus the terminal via TerminalManager
+                            setTimeout(() => {
+                                window.TerminalComponents.TerminalManager.focus(data.sessionId);
+                            }, 100);
                         }
                     });
 
@@ -566,7 +580,7 @@
                         if (data.sessionId && data.sessionName) {
                             this.addTab(data.sessionId, data.sessionName, data.pid || 0, data.isDefault || false);
                             this.activeTabId = data.sessionId;
-                            this.initializeTerminalForSession(data.sessionId);
+                            // Note: Terminal initialization is now handled by TerminalInstance component
                         }
                     });
 
@@ -600,7 +614,7 @@
                         if (data.workspaceId === this.selectedWorkspace?.id) {
                             this.layoutRecommendations = {
                                 supported: data.supported || [],
-                                recommended: data.recommended || 'tabs'
+                                recommended: data.recommended || 'single'
                             };
                             console.log('Layout recommendations updated:', this.layoutRecommendations);
                         }
@@ -610,7 +624,7 @@
                     this.socket.on('tab-moved', (data) => {
                         if (data.workspaceId === this.selectedWorkspace?.id) {
                             console.log('Tab moved:', data);
-                            
+
                             // Update local pane structure from server layout
                             if (data.layout && data.layout.configuration) {
                                 const config = JSON.parse(data.layout.configuration);
@@ -618,7 +632,7 @@
                                     this.panes = this.processPaneConfiguration(config.panes);
                                 }
                             }
-                            
+
                             // Rearrange terminals for new layout
                             this.rearrangeTerminalsForLayoutChange();
                         }
@@ -627,7 +641,7 @@
                     this.socket.on('pane-tab-activated', (data) => {
                         if (data.workspaceId === this.selectedWorkspace?.id) {
                             console.log('Pane tab activated:', data);
-                            
+
                             // Update local state
                             const pane = this.panes.find(p => p.id === data.paneId);
                             if (pane) {
@@ -641,10 +655,10 @@
                     this.socket.on('tab-added-to-pane', (data) => {
                         if (data.workspaceId === this.selectedWorkspace?.id) {
                             console.log('Tab added to pane:', data);
-                            
+
                             // Update terminal tabs list
                             this.updateTerminalTabs(data.sessions);
-                            
+
                             // Update pane structure from server layout
                             if (data.layout && data.layout.configuration) {
                                 const config = JSON.parse(data.layout.configuration);
@@ -652,10 +666,10 @@
                                     this.panes = this.processPaneConfiguration(config.panes);
                                 }
                             }
-                            
+
                             // Rearrange terminals to ensure new tab appears in correct pane
                             this.rearrangeTerminalsForLayoutChange();
-                            
+
                             // Set the new tab as active in its pane
                             if (data.paneId && data.tab && data.tab.sessionId) {
                                 const pane = this.panes.find(p => p.id === data.paneId);
@@ -671,10 +685,10 @@
                     this.socket.on('tab-removed-from-pane', (data) => {
                         if (data.workspaceId === this.selectedWorkspace?.id) {
                             console.log('Tab removed from pane:', data);
-                            
+
                             // Update terminal tabs list
                             this.updateTerminalTabs(data.sessions);
-                            
+
                             // Update pane structure
                             if (data.layout && data.layout.configuration) {
                                 const config = JSON.parse(data.layout.configuration);
@@ -682,7 +696,7 @@
                                     this.panes = this.processPaneConfiguration(config.panes);
                                 }
                             }
-                            
+
                             // Close the terminal locally
                             this.closeTabLocally(data.sessionId);
                         }
@@ -691,12 +705,12 @@
                     this.socket.on('pane-layout-updated', (data) => {
                         if (data.workspaceId === this.selectedWorkspace?.id) {
                             console.log('Pane layout updated:', data);
-                            
+
                             // Update sessions if provided
                             if (data.sessions) {
                                 this.updateTerminalTabs(data.sessions);
                             }
-                            
+
                             // Update pane structure
                             if (data.layout && data.layout.configuration) {
                                 const config = JSON.parse(data.layout.configuration);
@@ -706,17 +720,17 @@
                             }
                         }
                     });
-                    
+
                     // Workspace event handlers
                     this.socket.on('workspaces-list', (data) => {
                         this.workspaces = data.workspaces || [];
                     });
-                    
+
                     // Repository event handlers
                     this.socket.on('repositories-list', (data) => {
                         const newRepos = data.repositories || [];
                         const pagination = data.pagination || {};
-                        
+
                         if (pagination.page === 1 || pagination.search_applied) {
                             // First page, refresh, or new search - replace all repositories
                             this.repositories = newRepos;
@@ -724,7 +738,7 @@
                             // Subsequent pages - append to existing repositories
                             this.repositories = [...this.repositories, ...newRepos];
                         }
-                        
+
                         // Trust the backend Link header pagination
                         this.repositoryPage = pagination.page || 1;
                         this.repositoryHasMore = pagination.has_more || false;
@@ -732,26 +746,26 @@
                         this.repositoryLoadingMore = false;
                         this.repositoryError = null;
                     });
-                    
+
                     this.socket.on('repositories-error', (data) => {
                         this.repositoryError = data.error;
                         this.repositoriesLoading = false;
                         this.repositoryLoadingMore = false;
                     });
-                    
+
                     // Handle authentication required - auto-redirect to GitHub OAuth
                     this.socket.on('auth-required', (data) => {
                         console.log('🔑 AUTH-REQUIRED EVENT RECEIVED:', data);
                         console.log('📊 Event data:', JSON.stringify(data, null, 2));
                         this.repositoriesLoading = false;
                         this.repositoryLoadingMore = false;
-                        
+
                         // Auto-redirect to GitHub OAuth for re-authentication
                         if (data.action === 'redirect_to_auth') {
                             console.log('🔄 Initiating auto-redirect to GitHub OAuth...');
                             // Show brief message before redirect
                             this.repositoryError = 'Redirecting to GitHub for re-authentication...';
-                            
+
                             // Redirect to GitHub auth after short delay
                             setTimeout(() => {
                                 console.log('🚀 Redirecting to /api/github/auth');
@@ -759,7 +773,7 @@
                             }, 1500);
                         }
                     });
-                    
+
                     // Workspace operation event handlers
                     this.socket.on('workspace-progress', (data) => {
                         console.log('Received workspace-progress:', data);
@@ -768,9 +782,9 @@
 
                     this.socket.on('workspace-created', (data) => {
                         console.log('Received workspace-created:', data);
-                        this.cloneProgress = { 
-                            status: 'created', 
-                            message: 'Workspace created, starting clone...' 
+                        this.cloneProgress = {
+                            status: 'created',
+                            message: 'Workspace created, starting clone...'
                         };
                     });
 
@@ -780,20 +794,20 @@
                         this.loadWorkspaces();
                         this.showRepositoriesModal = false;
                     });
-                    
+
                     this.socket.on('workspace-error', (data) => {
                         console.log('Received workspace-error:', data);
                         this.cloneError = data.error;
                         this.cloneProgress = null;
                         this.cloningRepository = null;
                     });
-                    
+
                     this.socket.on('workspace-deleted', (data) => {
                         this.deletingWorkspace = false;
                         this.showDeleteModal = false;
                         this.workspaceToDelete = null;
                         this.deleteFiles = false;
-                        
+
                         // If deleted workspace was selected, clear selection
                         if (this.selectedWorkspace?.id === data.workspaceId) {
                             this.selectedWorkspace = null;
@@ -805,7 +819,7 @@
                         }
                     });
                 },
-                
+
                 loadWorkspaces() {
                     // Workspaces are loaded automatically on connect
                 },
@@ -837,25 +851,25 @@
                         this.statsInterval = null;
                     }
                 },
-                
+
                 selectWorkspace(workspace) {
                     // Check if we're actually switching to a different workspace
                     if (this.selectedWorkspace && this.selectedWorkspace.id === workspace.id) {
                         return; // No change needed
                     }
-                    
+
                     this.selectedWorkspace = workspace;
                     if (this.isMobile) {
                         this.sidebarOpen = false;
                     }
-                    
+
                     // Reset layout state for new workspace
-                    this.currentLayout = 'tabs';
+                    this.currentLayout = 'single';
                     this.panes = [];
                     this.activePaneId = null;
                     this.draggedTab = null;
                     this.dragOverPane = null;
-                    
+
                     // Request layout recommendations for new workspace
                     if (this.socket) {
                         this.socket.emit('get-layout-recommendations', {
@@ -864,7 +878,7 @@
                             sessionCount: 1 // Default to 1 for new workspace
                         });
                     }
-                    
+
                     // Reset file explorer state for new workspace
                     this.currentPath = '.';
                     this.currentFiles = [];
@@ -873,173 +887,51 @@
                     this.directoryCache.clear(); // Clear cache for new workspace
                     this.clearFileSearch(); // Clear any active search
                     this.selectedFileIndex = -1; // Reset keyboard selection
-                    
+
                     this.$nextTick(() => {
                         this.setupTerminal();
                         // Load files for the selected workspace
                         this.refreshFiles();
                     });
                 },
-                
+
                 setupTerminal() {
                     // Initialize terminal multiplexing for the selected workspace
                     if (!this.selectedWorkspace) return;
-                    
-                    // Clear existing terminals
-                    this.clearAllTerminals();
-                    
+
+                    // Clear existing terminals via TerminalManager
+                    window.TerminalComponents.TerminalManager.disposeAll();
+
                     // Initialize tabs array
                     this.terminalTabs = [];
                     this.activeTabId = null;
-                    
+
                     // Request existing sessions for this workspace or create new one
                     if (this.socket) {
-                        this.socket.emit('get-workspace-sessions', { 
-                            workspaceId: this.selectedWorkspace.id 
+                        this.socket.emit('get-workspace-sessions', {
+                            workspaceId: this.selectedWorkspace.id
                         });
-                        
+
                         // If no existing sessions, create a default one
                         setTimeout(() => {
                             if (this.terminalTabs.length === 0) {
-                                this.socket.emit('create-terminal', { 
-                                    workspaceId: this.selectedWorkspace.id 
+                                this.socket.emit('create-terminal', {
+                                    workspaceId: this.selectedWorkspace.id
                                 });
                             }
                         }, 100);
                     }
-                    
-                    // Setup global window resize handler for all terminals
-                    this.setupGlobalResizeHandler();
+
+                    // Global resize handling is now managed by individual terminal components
                 },
 
-
-                initializeTerminalForSession(sessionId) {
-                    console.log('Initializing terminal for session:', sessionId);
-                    
-                    const terminalElement = document.getElementById(`terminal-${sessionId}`);
-                    if (!terminalElement) {
-                        console.error('Terminal element not found for session:', sessionId);
-                        return;
-                    }
-
-                    // Clear the element
-                    terminalElement.innerHTML = '';
-                    
-                    // Create new terminal instance
-                    const terminal = new Terminal({
-                        cursorBlink: true,
-                        theme: this.currentTheme.terminal,
-                        fontFamily: '"Cascadia Code", "Fira Code", "Monaco", "Menlo", "Ubuntu Mono", monospace',
-                        fontSize: 13,
-                        lineHeight: 1.2
-                    });
-                    
-                    const fitAddon = new FitAddon.FitAddon();
-                    terminal.loadAddon(fitAddon);
-                    
-                    terminal.open(terminalElement);
-                    
-                    // Store terminal and addon
-                    this.terminals.set(sessionId, terminal);
-                    this.fitAddons.set(sessionId, fitAddon);
-                    
-                    // Legacy support - if this is the first/active terminal, set as main
-                    if (!this.terminal && sessionId === this.activeTabId) {
-                        this.terminal = terminal;
-                        this.fitAddon = fitAddon;
-                    }
-                    
-                    // Fit terminal to container
-                    const delay = this.isMobile ? 200 : 100;
-                    setTimeout(() => {
-                        fitAddon.fit();
-                        
-                        // Write any buffered output now that terminal is ready
-                        this.flushPendingOutput(sessionId, terminal);
-                    }, delay);
-                    
-                    // Handle user input
-                    terminal.onData(data => {
-                        if (this.socket) {
-                            this.socket.emit('terminal-input', {
-                                input: data,
-                                sessionId: sessionId
-                            });
-                        }
-                    });
-                    
-                    // Handle terminal resize
-                    terminal.onResize(({ cols, rows }) => {
-                        if (this.socket) {
-                            this.socket.emit('terminal-resize', { 
-                                cols, 
-                                rows, 
-                                sessionId: sessionId 
-                            });
-                        }
-                    });
-                },
-
-                flushPendingOutput(sessionId, terminal) {
-                    const pendingData = this.pendingOutput.get(sessionId);
-                    if (pendingData && pendingData.length > 0) {
-                        console.log(`Flushing ${pendingData.length} pending output chunks for session ${sessionId}`);
-                        pendingData.forEach(data => {
-                            terminal.write(data);
-                        });
-                        this.pendingOutput.delete(sessionId);
-                    }
-                },
-
-                setupGlobalResizeHandler() {
-                    // Remove existing handler
-                    if (this.cleanupResize) {
-                        this.cleanupResize();
-                    }
-                    
-                    let resizeTimeout;
-                    this.handleWindowResize = () => {
-                        clearTimeout(resizeTimeout);
-                        resizeTimeout = setTimeout(() => {
-                            // Resize all terminals
-                            this.terminals.forEach((terminal, sessionId) => {
-                                const fitAddon = this.fitAddons.get(sessionId);
-                                if (fitAddon) {
-                                    try {
-                                        fitAddon.fit();
-                                        if (this.socket?.connected) {
-                                            this.socket.emit('terminal-resize', {
-                                                cols: terminal.cols,
-                                                rows: terminal.rows,
-                                                sessionId: sessionId
-                                            });
-                                        }
-                                    } catch (err) {
-                                        console.warn('Terminal resize failed for session:', sessionId, err);
-                                    }
-                                }
-                            });
-                        }, 100);
-                    };
-                    
-                    this.cleanupResize = () => {
-                        clearTimeout(resizeTimeout);
-                        window.removeEventListener('resize', this.handleWindowResize);
-                    };
-                    
-                    window.addEventListener('resize', this.handleWindowResize);
-                },
-
-                // Terminal tab management methods
+                // Terminal tab management methods - simplified for component architecture
                 updateTerminalTabs(sessions) {
                     console.log('Updating terminal tabs with sessions:', sessions);
-                    
                     if (!sessions || !Array.isArray(sessions)) {
                         console.warn('Sessions data is invalid:', sessions);
                         return;
                     }
-                    
-                    // Update tabs from server session data
                     this.terminalTabs = sessions.map(session => ({
                         sessionId: session.sessionId,
                         sessionName: session.sessionName || 'Terminal',
@@ -1048,39 +940,37 @@
                         status: session.status || 'active'
                     }));
 
-                    // Set active tab if none selected
                     if (!this.activeTabId && this.terminalTabs.length > 0) {
-                        // Prefer default session, otherwise use first
                         const defaultTab = this.terminalTabs.find(tab => tab.isDefault);
                         this.activeTabId = defaultTab ? defaultTab.sessionId : this.terminalTabs[0].sessionId;
                     }
 
-                    // Initialize terminals for new tabs only
-                    this.$nextTick(() => {
-                        if (Array.isArray(this.terminalTabs)) {
-                            this.terminalTabs.forEach(tab => {
-                                if (tab && tab.sessionId && !this.terminals.has(tab.sessionId)) {
-                                    console.log('Initializing terminal for new session:', tab.sessionId);
-                                    this.initializeTerminalForSession(tab.sessionId);
-                                }
-                            });
+                    // Update panes data structure - Vue components will handle the rest
+                    if (this.currentLayout === 'single') {
+                        if (this.terminalTabs.length > 0) {
+                            const allSessionIds = this.terminalTabs.map(t => t.sessionId);
+                            this.panes = [{
+                                id: 'pane-main',
+                                position: 'main',
+                                gridArea: '1 / 1 / 2 / 2',
+                                tabs: allSessionIds, // Show ALL terminal tabs in single layout
+                                activeTabId: this.activeTabId || allSessionIds[0],
+                                sessionId: this.activeTabId || allSessionIds[0] // For backward compatibility
+                            }];
+                            this.activePaneId = 'pane-main';
+                        } else {
+                            this.panes = [];
                         }
+                    }
 
-                        // Clean up terminals for sessions that no longer exist
-                        const currentSessionIds = new Set(this.terminalTabs.map(tab => tab.sessionId));
-                        this.terminals.forEach((terminal, sessionId) => {
-                            if (!currentSessionIds.has(sessionId)) {
-                                console.log('Disposing terminal for removed session:', sessionId);
-                                try {
-                                    terminal.dispose();
-                                } catch (error) {
-                                    console.warn('Error disposing terminal:', error);
-                                }
-                                this.terminals.delete(sessionId);
-                                this.fitAddons.delete(sessionId);
-                            }
-                        });
-                    });
+                    // Terminal lifecycle is now managed by TerminalInstance components
+                    // Clean up any terminals that are no longer needed
+                    const currentSessionIds = new Set(this.terminalTabs.map(tab => tab.sessionId));
+                    for (const sessionId of window.TerminalComponents.TerminalManager.terminals.keys()) {
+                        if (!currentSessionIds.has(sessionId)) {
+                            window.TerminalComponents.TerminalManager.dispose(sessionId);
+                        }
+                    }
                 },
 
                 addTab(sessionId, sessionName, pid = 0, isDefault = false) {
@@ -1098,32 +988,15 @@
                     };
 
                     this.terminalTabs.push(newTab);
-
-                    // Initialize terminal for new tab
-                    this.$nextTick(() => {
-                        this.initializeTerminalForSession(sessionId);
-                    });
+                    // Note: Terminal initialization is now handled by TerminalInstance components
                 },
 
                 switchToTab(sessionId) {
                     console.log('Switching to tab:', sessionId, 'current active:', this.activeTabId);
-                    
+
                     if (this.activeTabId === sessionId) return;
 
                     this.activeTabId = sessionId;
-
-                    // Update legacy terminal reference
-                    const terminal = this.terminals.get(sessionId);
-                    const fitAddon = this.fitAddons.get(sessionId);
-                    if (terminal && fitAddon) {
-                        this.terminal = terminal;
-                        this.fitAddon = fitAddon;
-
-                        // Fit terminal when switching
-                        setTimeout(() => {
-                            fitAddon.fit();
-                        }, 50);
-                    }
 
                     // Emit switch event to server (this is tab switching within workspace - no history replay)
                     if (this.socket && this.selectedWorkspace) {
@@ -1133,7 +1006,7 @@
                         });
                     }
 
-                    // Update icon refresh
+                    // Focus handling is now done by TerminalInstance components via reactive props
                     this.$nextTick(() => {
                         feather.replace();
                     });
@@ -1161,17 +1034,8 @@
                         this.terminalTabs.splice(tabIndex, 1);
                     }
 
-                    // Dispose of terminal
-                    const terminal = this.terminals.get(sessionId);
-                    if (terminal) {
-                        try {
-                            terminal.dispose();
-                        } catch (error) {
-                            console.warn('Error disposing terminal:', error);
-                        }
-                        this.terminals.delete(sessionId);
-                        this.fitAddons.delete(sessionId);
-                    }
+                    // Dispose of terminal via TerminalManager
+                    window.TerminalComponents.TerminalManager.dispose(sessionId);
 
                     // Switch to another tab if this was active
                     if (this.activeTabId === sessionId && this.terminalTabs.length > 0) {
@@ -1199,16 +1063,15 @@
                 // Utility method to process pane configuration from server
                 processPaneConfiguration(panes) {
                     return panes.map(pane => {
-                        // Use pane.sessionId if tabs have null sessionIds
-                        const validTabs = pane.tabs.map(tab => tab.sessionId).filter(id => id);
-                        const tabIds = validTabs.length > 0 ? validTabs : (pane.sessionId ? [pane.sessionId] : []);
-                        
+                        const tabIds = pane.tabs || (pane.sessionId ? [pane.sessionId] : []);
+
                         return {
                             id: pane.id,
                             position: pane.position,
                             gridArea: pane.gridArea,
                             tabs: tabIds,
-                            activeTabId: pane.activeTabId || pane.sessionId || tabIds[0] || null
+                            activeTabId: pane.activeTabId || tabIds[0] || null,
+                            sessionId: pane.sessionId || null // For backward compat
                         };
                     });
                 },
@@ -1216,16 +1079,16 @@
                 // Split Pane Layout Methods
                 async convertLayout(layoutType) {
                     if (!this.socket || !this.selectedWorkspace) return;
-                    
+
                     // Check if layout is supported for current viewport
                     if (!this.layoutRecommendations.supported.includes(layoutType)) {
                         console.warn(`Layout ${layoutType} not supported for current viewport`);
                         return;
                     }
 
-                    if (layoutType === 'tabs') {
-                        // Convert back to tabs
-                        this.socket.emit('convert-to-tabs', {
+                    if (layoutType === 'single') {
+                        // Convert back to single pane
+                        this.socket.emit('convert-to-single', {
                             workspaceId: this.selectedWorkspace.id
                         });
                     } else {
@@ -1239,64 +1102,72 @@
                 },
 
                 generatePanesFromLayout(layoutType, sessions = []) {
+                    console.log(`[generatePanesFromLayout] Layout: ${layoutType}, Sessions:`, sessions.map(s => s.sessionId));
                     const panes = [];
-                    
+
                     // Helper to distribute sessions across panes
                     const distributeSessions = (paneCount) => {
                         const sessionIds = sessions.map(s => s.sessionId);
                         const distribution = [];
-                        
+
+                        console.log(`[distributeSessions] Distributing ${sessionIds.length} sessions across ${paneCount} panes`);
+
                         // Initialize empty arrays for each pane
                         for (let i = 0; i < paneCount; i++) {
                             distribution.push([]);
                         }
-                        
+
                         if (sessionIds.length === 0) {
                             // No sessions, ensure each pane has a placeholder for a new session
                             distribution.forEach(paneSessionIds => {
                                 paneSessionIds.push(null);
                             });
+                            console.log('[distributeSessions] No sessions, returning placeholders:', distribution);
                             return distribution;
                         }
-                        
+
                         // Distribute sessions as evenly as possible
                         // For example: 3 sessions, 2 panes -> [2, 1] sessions per pane
                         const baseSessionsPerPane = Math.floor(sessionIds.length / paneCount);
                         const extraSessions = sessionIds.length % paneCount;
-                        
+
+                        console.log(`[distributeSessions] Base: ${baseSessionsPerPane}, Extra: ${extraSessions}`);
+
                         let sessionIndex = 0;
                         for (let paneIndex = 0; paneIndex < paneCount; paneIndex++) {
                             const sessionsForThisPane = baseSessionsPerPane + (paneIndex < extraSessions ? 1 : 0);
-                            
+                            console.log(`[distributeSessions] Pane ${paneIndex} gets ${sessionsForThisPane} sessions`);
+
                             for (let j = 0; j < sessionsForThisPane; j++) {
                                 if (sessionIndex < sessionIds.length) {
                                     distribution[paneIndex].push(sessionIds[sessionIndex++]);
                                 }
                             }
-                            
+
                             // Ensure each pane has at least one session (create placeholder if empty)
                             if (distribution[paneIndex].length === 0) {
                                 distribution[paneIndex].push(null);
                             }
                         }
-                        
+
+                        console.log('[distributeSessions] Final distribution:', distribution);
                         return distribution;
                     };
-                    
+
                     switch (layoutType) {
                         case 'horizontal-split':
                             const hDist = distributeSessions(2);
                             panes.push(
-                                { 
-                                    id: 'pane-left', 
-                                    position: 'left', 
+                                {
+                                    id: 'pane-left',
+                                    position: 'left',
                                     gridArea: '1 / 1 / 2 / 2',
                                     tabs: hDist[0],
                                     activeTabId: hDist[0][0]
                                 },
-                                { 
-                                    id: 'pane-right', 
-                                    position: 'right', 
+                                {
+                                    id: 'pane-right',
+                                    position: 'right',
                                     gridArea: '1 / 2 / 2 / 3',
                                     tabs: hDist[1],
                                     activeTabId: hDist[1][0]
@@ -1306,16 +1177,16 @@
                         case 'vertical-split':
                             const vDist = distributeSessions(2);
                             panes.push(
-                                { 
-                                    id: 'pane-top', 
-                                    position: 'top', 
+                                {
+                                    id: 'pane-top',
+                                    position: 'top',
                                     gridArea: '1 / 1 / 2 / 2',
                                     tabs: vDist[0],
                                     activeTabId: vDist[0][0]
                                 },
-                                { 
-                                    id: 'pane-bottom', 
-                                    position: 'bottom', 
+                                {
+                                    id: 'pane-bottom',
+                                    position: 'bottom',
                                     gridArea: '2 / 1 / 3 / 2',
                                     tabs: vDist[1],
                                     activeTabId: vDist[1][0]
@@ -1340,37 +1211,19 @@
                             );
                             break;
                     }
-                    
+
                     return panes;
                 },
 
                 // IDE-Style Pane Management Methods
 
-                focusPane(paneId) {
-                    if (!paneId) return;
-                    
-                    console.log('Focusing pane:', paneId);
-                    this.activePaneId = paneId;
-                    
-                    // Focus the active terminal in this pane
-                    const pane = this.panes.find(p => p.id === paneId);
-                    if (pane && pane.activeTabId) {
-                        const terminal = this.terminals.get(pane.activeTabId);
-                        if (terminal) {
-                            try {
-                                terminal.focus();
-                            } catch (error) {
-                                console.warn('Failed to focus terminal:', error);
-                            }
-                        }
-                    }
-                },
+                // focusPane method moved to unified pane methods section
 
                 switchToPaneTab(paneId, sessionId) {
                     if (!this.socket || !this.selectedWorkspace) return;
-                    
+
                     console.log('Switching to pane tab:', paneId, sessionId);
-                    
+
                     // Update local state
                     const pane = this.panes.find(p => p.id === paneId);
                     if (pane) {
@@ -1378,24 +1231,17 @@
                         this.activeTabId = sessionId;
                         this.activePaneId = paneId;
                     }
-                    
+
                     // Switch to this session on the server
                     this.socket.emit('set-active-pane-tab', {
                         workspaceId: this.selectedWorkspace.id,
                         paneId: paneId,
                         sessionId: sessionId
                     });
-                    
-                    // Focus the terminal
-                    const terminal = this.terminals.get(sessionId);
-                    if (terminal) {
-                        try {
-                            terminal.focus();
-                        } catch (error) {
-                            console.warn('Failed to focus terminal:', error);
-                        }
-                    }
-                    
+
+                    // Focus the terminal via TerminalManager
+                    window.TerminalComponents.TerminalManager.focus(sessionId);
+
                     // Update icons
                     this.$nextTick(() => {
                         if (typeof feather !== 'undefined') {
@@ -1406,12 +1252,12 @@
 
                 addTabToPane(paneId) {
                     if (!this.socket || !this.selectedWorkspace) return;
-                    
+
                     const pane = this.panes.find(p => p.id === paneId);
                     if (!pane) return;
-                    
+
                     const tabName = `Terminal ${this.terminalTabs.length + 1}`;
-                    
+
                     this.socket.emit('add-tab-to-pane', {
                         workspaceId: this.selectedWorkspace.id,
                         paneId: paneId,
@@ -1421,12 +1267,27 @@
 
                 removeTabFromPane(paneId, sessionId) {
                     if (!this.socket || !this.selectedWorkspace) return;
-                    
+
                     this.socket.emit('remove-tab-from-pane', {
                         workspaceId: this.selectedWorkspace.id,
                         paneId: paneId,
                         sessionId: sessionId
                     });
+                },
+
+                closePane(paneId) {
+                    if (!this.socket || !this.selectedWorkspace) return;
+                    
+                    // Find the pane and close all its tabs
+                    const pane = this.panes.find(p => p.id === paneId);
+                    if (pane && pane.tabs) {
+                        // Close all tabs in this pane
+                        pane.tabs.forEach(sessionId => {
+                            if (sessionId) {
+                                this.closeTab(sessionId);
+                            }
+                        });
+                    }
                 },
 
                 getTabName(sessionId) {
@@ -1437,25 +1298,25 @@
                 // Drag and Drop Methods
                 startTabDrag(sessionId, sourcePaneId, event) {
                     console.log('Starting drag:', sessionId, 'from pane:', sourcePaneId);
-                    
+
                     this.draggedTab = {
                         sessionId: sessionId,
                         sourcePaneId: sourcePaneId
                     };
-                    
+
                     event.dataTransfer.effectAllowed = 'move';
                     event.dataTransfer.setData('text/plain', sessionId);
-                    
+
                     // Add dragging class
                     event.target.classList.add('dragging');
                 },
 
                 endTabDrag(event) {
                     console.log('Ending drag');
-                    
+
                     // Remove dragging class
                     event.target.classList.remove('dragging');
-                    
+
                     // Clear drag state
                     this.draggedTab = null;
                     this.dragOverPane = null;
@@ -1463,22 +1324,22 @@
 
                 handleTabDrop(targetPaneId, event) {
                     event.preventDefault();
-                    
+
                     if (!this.draggedTab || !this.socket || !this.selectedWorkspace) {
                         return;
                     }
-                    
+
                     const { sessionId, sourcePaneId } = this.draggedTab;
-                    
+
                     console.log('Dropping tab:', sessionId, 'from:', sourcePaneId, 'to:', targetPaneId);
-                    
+
                     // Don't move if dropping in same pane
                     if (sourcePaneId === targetPaneId) {
                         this.draggedTab = null;
                         this.dragOverPane = null;
                         return;
                     }
-                    
+
                     // Move tab via server
                     this.socket.emit('move-tab-between-panes', {
                         workspaceId: this.selectedWorkspace.id,
@@ -1486,7 +1347,7 @@
                         sourcePaneId: sourcePaneId,
                         targetPaneId: targetPaneId
                     });
-                    
+
                     // Clear drag state
                     this.draggedTab = null;
                     this.dragOverPane = null;
@@ -1494,7 +1355,7 @@
 
                 updateViewportWidth() {
                     this.viewportWidth = window.innerWidth;
-                    
+
                     // Request updated layout recommendations
                     if (this.socket && this.selectedWorkspace) {
                         this.socket.emit('get-layout-recommendations', {
@@ -1503,9 +1364,9 @@
                             sessionCount: this.terminalTabs.length
                         });
                     }
-                    
+
                     // Force layout recalculation if in split mode
-                    if (this.currentLayout !== 'tabs') {
+                    if (this.currentLayout !== 'single') {
                         this.$nextTick(() => {
                             this.fitAllVisibleTerminals();
                         });
@@ -1514,271 +1375,70 @@
 
                 handleLayoutConverted(data) {
                     console.log('Layout converted:', data);
-                    
                     this.currentLayout = data.layoutType;
-                    
-                    if (data.layoutType === 'tabs') {
-                        // Switch back to tab mode
-                        this.panes = [];
-                        this.activePaneId = null;
-                        
-                        // Ensure active tab is set
-                        if (!this.activeTabId && this.terminalTabs.length > 0) {
-                            this.activeTabId = this.terminalTabs[0].sessionId;
-                        }
+                    this.updateTerminalTabs(data.sessions);
+
+                    if (data.layoutType === 'single') {
+                        // In single layout, all terminal tabs are shown in one pane
+                        const allSessionIds = this.terminalTabs.map(t => t.sessionId);
+                        this.panes = [{
+                            id: 'pane-main',
+                            position: 'main',
+                            gridArea: '1 / 1 / 2 / 2',
+                            tabs: allSessionIds, // Show ALL terminal tabs
+                            activeTabId: this.activeTabId || (allSessionIds[0] || null),
+                            sessionId: this.activeTabId || (allSessionIds[0] || null) // For backward compatibility
+                        }];
+                        this.activePaneId = 'pane-main';
                     } else {
-                        // Switch to IDE-style pane mode
                         if (data.configuration && data.configuration.panes) {
-                            // Use server configuration if available
-                            this.panes = data.configuration.panes.map(pane => {
-                                // Use pane.sessionId if tabs have null sessionIds
-                                const validTabs = pane.tabs.map(tab => tab.sessionId).filter(id => id);
-                                const tabIds = validTabs.length > 0 ? validTabs : (pane.sessionId ? [pane.sessionId] : []);
-                                
-                                return {
-                                    id: pane.id,
-                                    position: pane.position,
-                                    gridArea: pane.gridArea,
-                                    tabs: tabIds,
-                                    activeTabId: pane.activeTabId || pane.sessionId || tabIds[0] || null
-                                };
-                            });
-                        } else {
-                            // Generate panes from current sessions
-                            this.panes = this.generatePanesFromLayout(data.layoutType, this.terminalTabs);
-                        }
-                        
-                        // Set active pane to first pane with tabs
-                        const paneWithTabs = this.panes.find(pane => pane.tabs.length > 0);
-                        if (paneWithTabs) {
-                            this.activePaneId = paneWithTabs.id;
-                            this.activeTabId = paneWithTabs.activeTabId;
-                        }
-                    }
-                    
-                    // Rearrange terminals for new layout
-                    this.rearrangeTerminalsForLayoutChange();
-                },
+                            console.log('Using server configuration for panes:', data.configuration.panes);
+                            this.panes = data.configuration.panes.map(pane => ({
+                                id: pane.id,
+                                position: pane.position,
+                                gridArea: pane.gridArea,
+                                sessionId: pane.sessionId || null,
+                                status: pane.status || (pane.sessionId ? 'active' : 'pending'),
+                                tabs: pane.tabs || (pane.sessionId ? [pane.sessionId] : []),
+                                activeTabId: pane.activeTabId || pane.sessionId || null
+                            }));
 
-                rearrangeTerminalsForLayoutChange() {
-                    console.log('Rearranging terminals for layout change to:', this.currentLayout);
-                    
-                    // Wait for DOM to update with new layout structure
-                    this.$nextTick(() => {
-                        // Get all sessions that should have terminals in the new layout
-                        let requiredSessions = [];
-                        
-                        if (this.currentLayout === 'tabs') {
-                            requiredSessions = this.terminalTabs.map(tab => tab.sessionId);
-                        } else {
-                            // In split mode, collect all session IDs from all panes
-                            requiredSessions = this.panes.flatMap(pane => pane.tabs);
-                        }
-                        
-                        console.log('Required sessions for new layout:', requiredSessions);
-                        
-                        // For each required session, ensure terminal exists and is in correct container
-                        requiredSessions.forEach(sessionId => {
-                            if (!sessionId) return;
-                            
-                            const existingTerminal = this.terminals.get(sessionId);
-                            const existingFitAddon = this.fitAddons.get(sessionId);
-                            const targetContainer = document.getElementById(`terminal-${sessionId}`);
-                            
-                            if (!targetContainer) {
-                                console.warn('Target container not found for session:', sessionId);
-                                return;
-                            }
-                            
-                            if (existingTerminal && existingFitAddon) {
-                                // Terminal exists, move it to correct container
-                                const currentContainer = existingTerminal.element?.parentElement;
-                                
-                                if (currentContainer === targetContainer) {
-                                    // Already in correct place, just resize
-                                    console.log('Terminal already in correct container:', sessionId);
-                                    setTimeout(() => existingFitAddon.fit(), 100);
-                                } else {
-                                    // Move to new container
-                                    console.log('Moving existing terminal to new container:', sessionId);
-                                    targetContainer.innerHTML = '';
-                                    
-                                    try {
-                                        existingTerminal.open(targetContainer);
-                                        setTimeout(() => {
-                                            existingFitAddon.fit();
-                                            console.log('Successfully moved terminal:', sessionId);
-                                        }, 100);
-                                    } catch (error) {
-                                        console.error('Error moving terminal, reinitializing:', sessionId, error);
-                                        // Clean up broken terminal
-                                        try { existingTerminal.dispose(); } catch {}
-                                        this.terminals.delete(sessionId);
-                                        this.fitAddons.delete(sessionId);
-                                        // Create new one
-                                        this.initializeTerminalForSession(sessionId);
-                                    }
-                                }
-                            } else {
-                                // Terminal doesn't exist, create it
-                                console.log('Creating new terminal for session:', sessionId);
-                                this.initializeTerminalForSession(sessionId);
-                            }
-                        });
-                        
-                        // Update visibility states based on current layout
-                        setTimeout(() => {
-                            this.updateTerminalVisibility();
-                        }, 150);
-                        
-                        // Focus the active terminal
-                        setTimeout(() => {
-                            this.focusActiveTerminal();
-                        }, 200);
-
-                        // Update icons
-                        setTimeout(() => {
-                            if (typeof feather !== 'undefined') {
-                                feather.replace();
-                            }
-                        }, 250);
-                    });
-                },
-                
-                updateTerminalVisibility() {
-                    console.log('Updating terminal visibility for layout:', this.currentLayout);
-                    
-                    if (this.currentLayout === 'tabs') {
-                        // In tabs mode, show only active tab
-                        if (Array.isArray(this.terminalTabs)) {
-                            this.terminalTabs.forEach(tab => {
-                                if (tab && tab.sessionId) {
-                                    const container = document.getElementById(`terminal-${tab.sessionId}`);
-                                    if (container) {
-                                        const isActive = tab.sessionId === this.activeTabId;
-                                        container.style.display = isActive ? 'block' : 'none';
-                                        container.classList.toggle('active', isActive);
-                                        console.log(`Tab ${tab.sessionId}: ${isActive ? 'visible' : 'hidden'}`);
-                                    }
-                                }
-                            });
-                        }
-                    } else {
-                        // In split mode, show active tab from each pane
-                        if (Array.isArray(this.panes)) {
+                            // Verify all sessions are distributed
+                            const allSessionIds = this.terminalTabs.map(t => t.sessionId);
+                            const distributedSessions = new Set();
                             this.panes.forEach(pane => {
-                                if (pane && Array.isArray(pane.tabs)) {
+                                if (pane.tabs) {
                                     pane.tabs.forEach(tabId => {
-                                        if (tabId) {
-                                            const container = document.getElementById(`terminal-${tabId}`);
-                                            if (container) {
-                                                const isActive = tabId === pane.activeTabId;
-                                                container.style.display = isActive ? 'block' : 'none';
-                                                container.classList.toggle('active', isActive);
-                                                console.log(`Pane ${pane.id}, Tab ${tabId}: ${isActive ? 'visible' : 'hidden'}`);
-                                            }
-                                        }
+                                        if (tabId) distributedSessions.add(tabId);
                                     });
                                 }
                             });
-                        }
-                    }
-                },
 
-                focusActiveTerminal() {
-                    let activeSessionId = null;
-                    
-                    if (this.currentLayout === 'tabs') {
-                        activeSessionId = this.activeTabId;
-                    } else {
-                        // In split mode, focus the active pane's active tab
-                        const activePane = this.panes.find(pane => pane.id === this.activePaneId);
-                        activeSessionId = activePane?.activeTabId;
-                        
-                        // If no active pane set, use the first pane with tabs
-                        if (!activeSessionId && this.panes.length > 0) {
-                            const paneWithTabs = this.panes.find(pane => pane.tabs.length > 0);
-                            if (paneWithTabs) {
-                                activeSessionId = paneWithTabs.activeTabId;
-                                this.activePaneId = paneWithTabs.id;
+                            const missingSessions = allSessionIds.filter(id => !distributedSessions.has(id));
+                            if (missingSessions.length > 0) {
+                                console.warn('Server config missing sessions, redistributing:', missingSessions);
+                                this.panes = this.generatePanesFromLayout(data.layoutType, this.terminalTabs);
                             }
-                        }
-                    }
-                    
-                    if (activeSessionId) {
-                        const terminal = this.terminals.get(activeSessionId);
-                        if (terminal) {
-                            try {
-                                terminal.focus();
-                                console.log('Focused terminal for session:', activeSessionId);
-                            } catch (error) {
-                                console.warn('Failed to focus terminal:', activeSessionId, error);
+
+                            if (this.panes.length > 0) {
+                                const firstValidPane = this.panes.find(p => p.activeTabId);
+                                if (firstValidPane) {
+                                    this.activePaneId = firstValidPane.id;
+                                    this.activeTabId = firstValidPane.activeTabId;
+                                }
                             }
+                        } else {
+                            console.log('Using client-side pane generation for layout:', data.layoutType);
+                            this.panes = this.generatePanesFromLayout(data.layoutType, this.terminalTabs);
                         }
                     }
+                    // FIX: Removed the direct call to rearrangeTerminalsForLayoutChange.
+                    // The watcher on `panes` will now handle this reliably.
                 },
 
-                fitAllVisibleTerminals() {
-                    let visibleSessions = [];
-                    
-                    if (this.currentLayout === 'tabs') {
-                        if (this.activeTabId) {
-                            visibleSessions = [this.activeTabId];
-                        }
-                    } else {
-                        // In split mode, fit active tab from each pane
-                        visibleSessions = this.panes
-                            .map(pane => pane.activeTabId)
-                            .filter(id => id);
-                    }
+                // Note: All terminal DOM manipulation methods removed - 
+                // now handled by Vue components reactively
 
-                    visibleSessions.forEach(sessionId => {
-                        const fitAddon = this.fitAddons.get(sessionId);
-                        if (fitAddon) {
-                            try {
-                                fitAddon.fit();
-                            } catch (error) {
-                                console.warn('Failed to fit terminal:', sessionId, error);
-                            }
-                        }
-                    });
-                },
-
-                clearAllTerminals() {
-                    console.log('Clearing all terminals');
-                    this.terminals.forEach((terminal, sessionId) => {
-                        try {
-                            terminal.dispose();
-                        } catch (error) {
-                            console.warn('Error disposing terminal:', sessionId, error);
-                        }
-                    });
-                    
-                    this.terminals.clear();
-                    this.fitAddons.clear();
-                    this.pendingOutput.clear();
-                    
-                    // Legacy cleanup
-                    if (this.terminal) {
-                        try {
-                            this.terminal.dispose();
-                        } catch (error) {
-                            console.warn('Error disposing legacy terminal:', error);
-                        }
-                        this.terminal = null;
-                    }
-                    
-                    if (this.fitAddon) {
-                        this.fitAddon = null;
-                    }
-                    
-                    // Cleanup resize handlers
-                    if (this.cleanupResize) {
-                        this.cleanupResize();
-                        this.cleanupResize = null;
-                    }
-                },
-                
                 async loadRepositories(reset = true) {
                     if (reset) {
                         this.repositoriesLoading = true;
@@ -1793,16 +1453,16 @@
                         }
                         this.repositoryLoadingMore = true;
                     }
-                    
+
                     if (this.socket) {
-                        this.socket.emit('get-repositories', { 
+                        this.socket.emit('get-repositories', {
                             page: reset ? 1 : this.repositoryPage + 1,
                             per_page: 100,
                             search: this.repositorySearchTerm || ''
                         });
                     }
                 },
-                
+
                 loadMoreRepositories() {
                     if (!this.repositoryHasMore || this.repositoryLoadingMore) {
                         return;
@@ -1815,7 +1475,7 @@
                     if (this.searchTimeout) {
                         clearTimeout(this.searchTimeout);
                     }
-                    
+
                     this.searchTimeout = setTimeout(() => {
                         // Reset pagination for new search
                         this.repositoryPage = 1;
@@ -1834,15 +1494,15 @@
                     this.repositoryHasMore = true;
                     this.loadRepositories(true);
                 },
-                
+
                 async cloneRepository(repo) {
                     console.log('Starting clone for repo:', repo);
                     if (this.socket) {
                         // Set loading state
                         this.cloningRepository = repo;
-                        this.cloneProgress = { 
-                            status: 'starting', 
-                            message: `Starting clone of ${repo.name}...` 
+                        this.cloneProgress = {
+                            status: 'starting',
+                            message: `Starting clone of ${repo.name}...`
                         };
                         this.cloneError = null;
 
@@ -1913,18 +1573,18 @@
                     }
                     return count.toString();
                 },
-                
+
                 confirmDeleteWorkspace(workspace) {
                     this.workspaceToDelete = workspace;
                     this.deleteFiles = false;
                     this.showDeleteModal = true;
                 },
-                
+
                 deleteWorkspace() {
                     if (!this.workspaceToDelete) return;
-                    
+
                     this.deletingWorkspace = true;
-                    
+
                     if (this.socket) {
                         this.socket.emit('delete-workspace', {
                             workspaceId: this.workspaceToDelete.id,
@@ -1936,14 +1596,14 @@
                 // File Explorer Methods
                 async refreshFiles(forceRefresh = false) {
                     if (!this.selectedWorkspace) return;
-                    
+
                     const cacheKey = `${this.selectedWorkspace.id}:${this.currentPath}:${this.showHiddenFiles}`;
-                    
+
                     // Check cache first (unless forced refresh)
                     if (!forceRefresh && this.directoryCache.has(cacheKey)) {
                         const cached = this.directoryCache.get(cacheKey);
                         const now = Date.now();
-                        
+
                         if (now - cached.timestamp < this.cacheTimeout) {
                             this.currentFiles = cached.contents;
                             this.currentPath = cached.path;
@@ -1953,10 +1613,10 @@
                             this.directoryCache.delete(cacheKey);
                         }
                     }
-                    
+
                     this.loadingFiles = true;
                     this.fileError = null;
-                    
+
                     try {
                         const token = localStorage.getItem('authToken');
                         const response = await fetch(`/api/workspaces/${this.selectedWorkspace.id}/files?path=${encodeURIComponent(this.currentPath)}`, {
@@ -1964,12 +1624,12 @@
                                 'Authorization': `Bearer ${token}`
                             }
                         });
-                        
+
                         if (response.ok) {
                             const data = await response.json();
                             this.currentFiles = data.contents || [];
                             this.currentPath = data.path || '.';
-                            
+
                             // Cache the results
                             this.directoryCache.set(cacheKey, {
                                 contents: data.contents || [],
@@ -2011,7 +1671,7 @@
 
                 navigateToParent() {
                     if (this.currentPath === '.') return;
-                    
+
                     const pathParts = this.currentPath.split('/');
                     pathParts.pop();
                     this.currentPath = pathParts.length > 0 ? pathParts.join('/') : '.';
@@ -2034,14 +1694,14 @@
 
                 async showFilePreview(file) {
                     if (!this.selectedWorkspace) return;
-                    
+
                     // Set modal state
                     this.previewFile = file;
                     this.previewData = null;
                     this.previewError = null;
                     this.previewLoading = true;
                     this.showFilePreviewModal = true;
-                    
+
                     try {
                         const token = localStorage.getItem('authToken');
                         const response = await fetch(`/api/workspaces/${this.selectedWorkspace.id}/file-content?path=${encodeURIComponent(file.path)}`, {
@@ -2049,7 +1709,7 @@
                                 'Authorization': `Bearer ${token}`
                             }
                         });
-                        
+
                         if (response.ok) {
                             const data = await response.json();
                             this.previewData = data;
@@ -2069,7 +1729,7 @@
                     if (this.socket && this.terminal) {
                         const command = `cat "${filePath}"\r`;
                         this.socket.emit('shell-input', { data: command });
-                        
+
                         // Focus on terminal
                         this.terminal.focus();
                     }
@@ -2084,7 +1744,7 @@
                     if (file.type === 'directory') {
                         return 'folder';
                     }
-                    
+
                     // Basic file type icons
                     const ext = file.extension?.toLowerCase();
                     switch (ext) {
@@ -2119,7 +1779,7 @@
 
                 getPrismLanguage(file) {
                     if (!file || !file.extension) return null;
-                    
+
                     const ext = file.extension.toLowerCase();
                     const languageMap = {
                         'js': 'javascript',
@@ -2184,7 +1844,7 @@
                         'asm': 'nasm',
                         's': 'nasm'
                     };
-                    
+
                     return languageMap[ext] || null;
                 },
 
@@ -2213,7 +1873,7 @@
                             document.removeEventListener('click', closeContextMenu);
                         }
                     };
-                    
+
                     this.$nextTick(() => {
                         document.addEventListener('click', closeContextMenu);
                     });
@@ -2221,7 +1881,7 @@
 
                 copyFilePath() {
                     if (!this.contextMenuFile) return;
-                    
+
                     const fullPath = this.contextMenuFile.path;
                     this.copyToClipboard(fullPath);
                     this.showContextMenu = false;
@@ -2229,28 +1889,28 @@
 
                 copyFileName() {
                     if (!this.contextMenuFile) return;
-                    
+
                     this.copyToClipboard(this.contextMenuFile.name);
                     this.showContextMenu = false;
                 },
 
-                previewFile() {
+                previewContextFile() {
                     if (!this.contextMenuFile) return;
-                    
+
                     this.showFilePreview(this.contextMenuFile);
                     this.showContextMenu = false;
                 },
 
                 openInTerminal() {
                     if (!this.contextMenuFile) return;
-                    
+
                     this.runCatCommand(this.contextMenuFile.path);
                     this.showContextMenu = false;
                 },
 
                 openDirectory() {
                     if (!this.contextMenuFile) return;
-                    
+
                     this.handleFileDoubleClick(this.contextMenuFile);
                     this.showContextMenu = false;
                 },
@@ -2276,7 +1936,7 @@
                     document.body.appendChild(textArea);
                     textArea.focus();
                     textArea.select();
-                    
+
                     try {
                         document.execCommand('copy');
                         this.showNotification('Copied to clipboard', 'success');
@@ -2291,7 +1951,7 @@
                 showNotification(message, type = 'info') {
                     // Simple notification - could be enhanced with a proper toast system
                     console.log(`[${type.toUpperCase()}] ${message}`);
-                    
+
                     // Create a simple toast notification
                     const toast = document.createElement('div');
                     toast.className = `toast toast-${type}`;
@@ -2309,15 +1969,15 @@
                         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
                         animation: slideInRight 0.3s ease-out;
                     `;
-                    
+
                     if (type === 'error') {
                         toast.style.background = 'var(--accent-red)';
                     } else if (type === 'warning') {
                         toast.style.background = 'var(--accent-orange)';
                     }
-                    
+
                     document.body.appendChild(toast);
-                    
+
                     setTimeout(() => {
                         toast.style.animation = 'slideOutRight 0.3s ease-in';
                         setTimeout(() => {
@@ -2331,7 +1991,7 @@
                 isTerminalFocused() {
                     // Check if the terminal has focus
                     const activeElement = document.activeElement;
-                    
+
                     // Check if the active element is the terminal or within the terminal container
                     if (activeElement && (
                         activeElement.classList?.contains('xterm-helper-textarea') ||
@@ -2341,12 +2001,12 @@
                     )) {
                         return true;
                     }
-                    
+
                     // Also check if the terminal object exists and has focus
                     if (this.terminal && this.terminal.textarea) {
                         return document.activeElement === this.terminal.textarea;
                     }
-                    
+
                     return false;
                 },
 
@@ -2355,7 +2015,7 @@
                     if (this.fileSearchTimeout) {
                         clearTimeout(this.fileSearchTimeout);
                     }
-                    
+
                     this.fileSearchTimeout = setTimeout(() => {
                         // Search is handled by computed property filteredFiles
                         // This timeout just prevents excessive reactivity updates
@@ -2415,11 +2075,11 @@
 
                 scrollToSelectedFile() {
                     if (this.selectedFileIndex < 0) return;
-                    
+
                     this.$nextTick(() => {
                         const fileItems = document.querySelectorAll('.file-item');
                         const selectedElement = fileItems[this.selectedFileIndex + (this.currentPath !== '.' ? 1 : 0)]; // +1 for parent nav
-                        
+
                         if (selectedElement) {
                             selectedElement.scrollIntoView({
                                 behavior: 'smooth',
@@ -2428,11 +2088,11 @@
                         }
                     });
                 },
-                
+
                 handleRepositoryScroll(event) {
                     const element = event.target;
                     const threshold = 100; // px from bottom
-                    
+
                     if (element.scrollTop + element.clientHeight >= element.scrollHeight - threshold) {
                         // Debounce scroll events to prevent rapid-fire requests
                         if (this.scrollTimeout) {
@@ -2443,13 +2103,13 @@
                         }, 100);
                     }
                 },
-                
+
                 async logout() {
                     // Add confirmation dialog for safety
                     if (!confirm('Are you sure you want to logout?')) {
                         return;
                     }
-                    
+
                     console.log('Logging out...');
                     try {
                         // Step 1: Tell the server to revoke tokens (best-effort)
@@ -2479,6 +2139,59 @@
                         this.isAuthenticated = false;
                         window.location.reload();
                     }
+                },
+
+                // New unified pane methods
+                getTerminalName(sessionId) {
+                    if (!sessionId) return 'Terminal'; // FIX: Add null check
+                    const session = this.terminalTabs.find(tab => tab.sessionId === sessionId);
+                    return session ? session.sessionName : `Terminal ${sessionId.split('-').pop()}`;
+                },
+
+                focusPane(paneId) {
+                    this.activePaneId = paneId;
+                    const pane = this.panes.find(p => p.id === paneId);
+                    if (pane && pane.activeTabId) {
+                        this.switchToTab(pane.activeTabId);
+                    }
+                },
+
+                closePane(paneId) {
+                    const pane = this.panes.find(p => p.id === paneId);
+                    if (pane && pane.activeTabId) {
+                        this.closeTab(pane.activeTabId);
+                    }
+                },
+
+                createNewTerminal() {
+                    if (!this.socket || !this.selectedWorkspace) return;
+                    if (this.currentLayout === 'single') {
+                        // For single layout, create a new tab
+                        this.createNewTab();
+                    } else {
+                        // For split layouts, add to the active pane or first available
+                        const targetPaneId = this.activePaneId || (this.panes.length > 0 ? this.panes[0].id : null);
+                        if (targetPaneId) {
+                            this.addTabToPane(targetPaneId);
+                        } else {
+                            console.warn("No active pane to add a new terminal to.");
+                        }
+                    }
+                },
+
+                getRequiredPanesCount(layoutType) {
+                    switch (layoutType) {
+                        case 'horizontal-split':
+                        case 'vertical-split':
+                            return 2;
+                        case 'three-pane':
+                            return 3;
+                        case 'grid-2x2':
+                            return 4;
+                        case 'single':
+                        default:
+                            return 1;
+                    }
                 }
             },
 
@@ -2487,7 +2200,7 @@
                     feather.replace();
                 });
             },
-            
+
             watch: {
                 showRepositoriesModal(newVal) {
                     if (newVal) {

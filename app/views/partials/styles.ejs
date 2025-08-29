@@ -6,16 +6,16 @@
             --bg-secondary: #252526;
             --bg-tertiary: #2d2d30;
             --bg-sidebar: #181818;
-            
+
             /* Text Colors */
             --text-primary: #cccccc;
             --text-secondary: #969696;
             --text-muted: #6a6a6a;
-            
+
             /* Border & Divider Colors */
             --border-color: #3c3c3c;
             --shadow: rgba(0, 0, 0, 0.3);
-            
+
             /* Accent Colors */
             --accent-blue: #007acc;
             --accent-blue-hover: #1177bb;
@@ -25,7 +25,7 @@
             --accent-red-hover: #e03e3e;
             --accent-orange: #ff8c00;
             --accent-purple: #c678dd;
-            
+
             /* Component-specific Variables */
             --button-bg: var(--accent-blue);
             --button-hover: var(--accent-blue-hover);
@@ -33,16 +33,21 @@
             --button-secondary-hover: var(--bg-secondary);
             --input-bg: var(--bg-tertiary);
             --terminal-bg: var(--bg-primary);
-            
+
             /* Interactive States */
             --sidebar-item-hover-bg: var(--bg-secondary);
             --sidebar-item-selected-bg: var(--accent-blue);
             --sidebar-item-bg: var(--bg-secondary);
-            
+
             /* Enhanced Variables for Comprehensive Theming */
             --scrollbar-slider: #79797966;
             --scrollbar-slider-hover: #646464b3;
             --modal-backdrop: rgba(0, 0, 0, 0.6);
+            
+            /* Component-specific Variables */
+            --tab-border: var(--border-color);
+            --tab-bg: var(--bg-tertiary);
+            --tab-active-bg: var(--accent-blue);
         }
 
         * {
@@ -636,354 +641,121 @@
             display: flex;
             flex-direction: column;
             background: var(--bg-primary);
+            overflow: hidden;
         }
 
-        .tab-bar {
+        /* NEW: Layout Controls */
+        .layout-controls {
             height: 35px;
             background: var(--bg-secondary);
             border-bottom: 1px solid var(--border-color);
             display: flex;
             align-items: center;
-            padding: 0;
-            overflow-x: auto;
-            overflow-y: hidden;
+            padding: 0 8px 0 16px;
+            flex-shrink: 0;
         }
 
-        .tab {
+        .layout-info {
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 0 12px;
-            height: 100%;
-            background: var(--bg-tertiary);
-            border-right: 1px solid var(--border-color);
-            font-size: 13px;
             color: var(--text-secondary);
-            cursor: pointer;
-            user-select: none;
-            white-space: nowrap;
-            min-width: 0;
-            transition: all 0.2s ease;
+            font-size: 12px;
         }
 
-        .tab:hover {
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-        }
-
-        .tab.active {
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            border-bottom: 2px solid var(--accent-blue);
-        }
-
-        .tab .icon {
-            width: 16px;
-            height: 16px;
-            flex-shrink: 0;
-        }
-
-        .tab .icon-small {
+        .layout-info .icon {
             width: 14px;
             height: 14px;
-            flex-shrink: 0;
         }
 
-        .tab-name {
-            flex: 1;
-            min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .tab-close {
-            display: none;
-            background: none;
-            border: none;
-            color: var(--text-secondary);
-            cursor: pointer;
-            padding: 2px;
-            border-radius: 3px;
-            margin-left: 4px;
-            flex-shrink: 0;
-        }
-
-        .tab:hover .tab-close {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .tab-close:hover {
-            background: var(--accent-red);
-            color: white;
-        }
-
-        .tab-add {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 35px;
-            height: 35px;
-            background: none;
-            border: none;
-            color: var(--text-secondary);
-            cursor: pointer;
-            border-right: 1px solid var(--border-color);
-            flex-shrink: 0;
-        }
-
-        .tab-add:hover {
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-        }
-
-        .terminal-container {
-            flex: 1;
-            padding: 16px;
-            overflow: hidden;
-            background: var(--terminal-bg, #1e1e1e);
-        }
-
-        .terminal-wrapper {
-            width: 100%;
-            height: 100%;
-            background: var(--terminal-bg, #1e1e1e);
-            border-radius: 4px;
-        }
-
-        /* IDE-Style Split Pane Layouts */
-        .terminal-container.split-mode {
-            padding: 4px;
-            display: grid;
-            gap: 4px;
-            height: 100%;
-        }
-
-        /* Pane Container (holds tab bar + content) */
-        .pane-container {
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            overflow: hidden;
-            background: var(--bg-secondary);
-            display: flex;
-            flex-direction: column;
-            position: relative;
-        }
-
-        .pane-container.active {
-            border-color: var(--accent-blue);
-            box-shadow: 0 0 0 1px var(--accent-blue);
-        }
-
-        /* Pane Tab Bar */
-        .pane-tab-bar {
-            height: 32px;
-            background: var(--bg-tertiary);
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            padding: 0 4px;
-            overflow-x: auto;
-            overflow-y: hidden;
-            gap: 2px;
-            position: relative;
-        }
-
-        /* Individual Tab within Pane */
-        .pane-tab {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            padding: 4px 8px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 11px;
-            color: var(--text-secondary);
-            white-space: nowrap;
-            min-width: 0;
-            flex-shrink: 0;
-            transition: all 0.15s;
-            user-select: none;
-        }
-
-        .pane-tab:hover {
-            background: var(--bg-primary);
-            color: var(--text-primary);
-        }
-
-        .pane-tab.active {
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            border-color: var(--accent-blue);
-            box-shadow: 0 0 0 1px var(--accent-blue);
-        }
-
-        .pane-tab.dragging {
-            opacity: 0.5;
-            transform: scale(0.95);
-            z-index: 1000;
-        }
-
-        .pane-tab .tab-name {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 80px;
-        }
-
-        .pane-tab .icon {
-            width: 12px;
-            height: 12px;
-            flex-shrink: 0;
-        }
-
-        .pane-tab .tab-close {
-            background: none;
-            border: none;
-            color: inherit;
-            cursor: pointer;
-            padding: 1px;
-            border-radius: 2px;
-            opacity: 0.7;
-            transition: all 0.15s;
-            flex-shrink: 0;
-        }
-
-        .pane-tab .tab-close:hover {
-            background: var(--accent-red);
-            color: white;
-            opacity: 1;
-        }
-
-        .pane-tab .icon-small {
-            width: 10px;
-            height: 10px;
-        }
-
-        /* Add Tab Button within Pane */
-        .pane-tab-add {
-            background: none;
-            border: 1px solid var(--border-color);
-            color: var(--text-muted);
-            padding: 4px 6px;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 11px;
-            transition: all 0.15s;
-            flex-shrink: 0;
-            display: flex;
-            align-items: center;
-        }
-
-        .pane-tab-add:hover {
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            border-color: var(--accent-blue);
-        }
-
-        .pane-tab-add .icon-small {
-            width: 10px;
-            height: 10px;
-        }
-
-        /* Pane Controls */
-        .pane-controls {
+        .layout-actions {
             margin-left: auto;
             display: flex;
             align-items: center;
-            padding: 0 8px;
-            opacity: 0.6;
-            font-size: 10px;
-            text-transform: uppercase;
-            color: var(--text-muted);
         }
 
-        /* Pane Content Area */
-        .pane-content {
-            flex: 1;
-            position: relative;
-            background: var(--terminal-bg, #1e1e1e);
-            overflow: hidden;
-        }
-
-        .pane-content .terminal-wrapper {
-            width: 100%;
-            height: 100%;
-            background: var(--terminal-bg, #1e1e1e);
+        .action-btn {
+            background: none;
             border: none;
-        }
-
-        /* Drag and Drop */
-        .drop-zone-indicator {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(59, 130, 246, 0.1);
-            border: 2px dashed var(--accent-blue);
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-            color: var(--accent-blue);
-            font-size: 12px;
-            font-weight: 500;
-            z-index: 100;
+            transition: all 0.15s;
         }
 
-        .drop-zone-indicator .icon {
-            width: 24px;
-            height: 24px;
+        .action-btn:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
         }
 
-        /* Drag over states */
-        .pane-container.drag-over {
-            border-color: var(--accent-blue);
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        .layout-switcher {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            margin-left: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            padding: 2px;
         }
 
-        .pane-tab.drag-over {
+        .layout-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+
+        .layout-btn:hover {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        .layout-btn.active {
             background: var(--accent-blue);
             color: white;
         }
 
-        /* Layout-specific grid configurations */
-        .terminal-container.layout-horizontal-split {
-            grid-template-columns: 1fr 1fr;
-            grid-template-rows: 1fr;
+        .layout-btn .icon {
+            width: 14px;
+            height: 14px;
         }
 
-        .terminal-container.layout-vertical-split {
-            grid-template-columns: 1fr;
-            grid-template-rows: 1fr 1fr;
+        /* Pane Container */
+        .pane-container {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
         }
 
-        .terminal-container.layout-grid-2x2 {
-            grid-template-columns: 1fr 1fr;
-            grid-template-rows: 1fr 1fr;
+        /* Terminal Pane */
+        .terminal-pane {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+            transition: border-color 0.2s, box-shadow 0.2s;
         }
 
-        .terminal-container.layout-three-pane {
-            grid-template-columns: 2fr 1fr;
-            grid-template-rows: 1fr 1fr;
+        .terminal-pane.active-pane {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 1px var(--accent-blue);
         }
 
-        /* Pane positioning using grid-area */
-        .terminal-wrapper[data-grid-area] {
-            grid-area: var(--grid-area);
-        }
-
-        /* Pane focus indicator */
-        .terminal-wrapper .pane-header {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 20px;
+        .pane-header {
+            height: 24px;
             background: var(--bg-secondary);
             border-bottom: 1px solid var(--border-color);
             display: flex;
@@ -992,149 +764,81 @@
             padding: 0 8px;
             font-size: 11px;
             color: var(--text-muted);
-            z-index: 10;
-            opacity: 0;
-            transition: opacity 0.2s;
+            flex-shrink: 0;
         }
 
-        .terminal-wrapper:hover .pane-header,
-        .terminal-wrapper.active .pane-header {
-            opacity: 1;
-        }
-
-        .terminal-wrapper.active .pane-header {
-            background: var(--accent-blue);
-            color: white;
-        }
-
-        .terminal-wrapper .pane-header .pane-title {
-            font-weight: 500;
-        }
-
-        .terminal-wrapper .pane-header .pane-controls {
-            display: flex;
-            gap: 4px;
-        }
-
-        .terminal-wrapper .pane-header .pane-btn {
-            background: none;
-            border: none;
-            color: inherit;
-            cursor: pointer;
-            padding: 2px;
-            border-radius: 2px;
-            opacity: 0.7;
-            transition: opacity 0.2s;
-        }
-
-        .terminal-wrapper .pane-header .pane-btn:hover {
-            opacity: 1;
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        /* Split controls in tab bar */
-        .tab-bar .split-controls {
-            margin-left: auto;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            padding: 0 8px;
-        }
-
-        .split-btn {
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border-color);
-            color: var(--text-secondary);
-            padding: 4px 8px;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 11px;
-            transition: all 0.15s;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .split-btn:hover {
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            border-color: var(--accent-blue);
-        }
-
-        .split-btn.active {
-            background: var(--accent-blue);
-            color: white;
-            border-color: var(--accent-blue);
-        }
-
-        .split-btn .icon {
-            width: 12px;
-            height: 12px;
-        }
-
-        /* Split info display */
-        .split-info {
+        .pane-title {
             display: flex;
             align-items: center;
             gap: 6px;
-            padding: 0 12px;
-            color: var(--text-secondary);
-            font-size: 11px;
-            border-right: 1px solid var(--border-color);
-            margin-right: 8px;
         }
 
-        .split-info .icon {
+        .pane-actions {
+            display: flex;
+        }
+
+        .pane-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 2px;
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+
+        .pane-close:hover {
+            background: var(--accent-red);
+            color: white;
+        }
+
+        .icon-small {
             width: 12px;
             height: 12px;
         }
 
-        .pane-count {
-            opacity: 0.7;
-            font-size: 10px;
+        .pane-content {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+            padding: 8px;
         }
 
-        /* Responsive breakpoints for split layouts */
-        @media (max-width: 768px) {
-            /* Mobile: Force tabs mode only */
-            .terminal-container.split-mode {
-                display: block !important;
-                grid-template-columns: none !important;
-                grid-template-rows: none !important;
-                gap: 0 !important;
-                padding: 16px !important;
-            }
-            
-            .split-controls {
-                display: none !important;
-            }
-
-            .terminal-wrapper .pane-header {
-                display: none !important;
-            }
-
-            .terminal-wrapper {
-                border: none !important;
-                box-shadow: none !important;
-            }
+        .terminal-wrapper {
+            width: 100%;
+            height: 100%;
+            background: var(--terminal-bg);
         }
 
-        @media (max-width: 1024px) {
-            /* Tablet: Limit to simple splits */
-            .terminal-container.layout-grid-2x2,
-            .terminal-container.layout-three-pane {
-                grid-template-columns: 1fr 1fr !important;
-                grid-template-rows: 1fr !important;
-            }
-            
-            /* Hide complex layout buttons on tablet */
-            .split-btn[data-layout="grid-2x2"],
-            .split-btn[data-layout="three-pane"] {
-                display: none;
-            }
+        /* Empty Pane Placeholder */
+        .empty-pane {
+            background: var(--bg-secondary);
+            border: 1px dashed var(--border-color);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .empty-pane:hover {
+            background: var(--bg-tertiary);
+            border-color: var(--accent-blue);
+            color: var(--accent-blue);
+        }
+        .empty-pane-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            height: 100%;
+            color: var(--text-muted);
+        }
+        .empty-pane .icon.large {
+            width: 24px;
+            height: 24px;
         }
 
-        /* Welcome Screen */
         .welcome-screen {
             flex: 1;
             display: flex;
@@ -1612,9 +1316,9 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: linear-gradient(90deg, 
-                transparent 0%, 
-                rgba(0, 122, 204, 0.1) 50%, 
+            background: linear-gradient(90deg,
+                transparent 0%,
+                rgba(0, 122, 204, 0.1) 50%,
                 transparent 100%);
             animation: shimmer 1.5s infinite;
         }
@@ -2699,5 +2403,119 @@
 
         ::-webkit-scrollbar-thumb:hover {
             background: var(--text-muted);
+        }
+
+        /* New Terminal Component Styles */
+        .terminal-instance {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        .terminal-instance.active {
+            z-index: 1;
+        }
+
+        /* Pane Tabs Styling */
+        .pane-tabs {
+            display: flex;
+            align-items: center;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            min-height: 32px;
+            padding: 0 4px;
+            gap: 2px;
+            overflow-x: auto;
+        }
+
+        .tab-button {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border: none;
+            background: var(--tab-bg);
+            color: var(--text-secondary);
+            border-radius: 4px 4px 0 0;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 0;
+            white-space: nowrap;
+            font-size: 11px;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab-button:hover {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        .tab-button.active {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            border-bottom-color: var(--tab-active-bg);
+        }
+
+        .tab-close {
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            padding: 2px;
+            border-radius: 2px;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+
+        .tab-close:hover {
+            opacity: 1;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .tab-add {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 4px 6px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .tab-add:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .icon-tiny {
+            width: 12px;
+            height: 12px;
+        }
+
+        /* Update existing pane styles */
+        .terminal-pane .pane-content {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .terminal-pane .pane-content.has-header {
+            height: calc(100% - 32px);
+        }
+
+        /* Empty terminal state */
+        .empty-terminal {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-muted);
+            gap: 12px;
+        }
+
+        .empty-terminal .icon.large {
+            width: 48px;
+            height: 48px;
         }
     </style>

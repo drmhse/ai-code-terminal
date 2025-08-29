@@ -9,158 +9,94 @@
             Clone Your First Repository
         </button>
     </div>
-    
+
     <template v-else>
-        <!-- Tab bar for both modes, but content changes -->
-        <div class="tab-bar">
-            <!-- Show tabs in tab mode -->
-            <template v-if="currentLayout === 'tabs'">
-                <div v-for="tab in terminalTabs" 
-                     :key="tab.sessionId"
-                     :class="{ 'tab': true, 'active': activeTabId === tab.sessionId }"
-                     @click="switchToTab(tab.sessionId)">
-                    <i data-feather="terminal" class="icon"></i>
-                    <span class="tab-name">{{ tab.sessionName }}</span>
-                    <button v-if="terminalTabs.length > 1" 
-                            class="tab-close" 
-                            @click.stop="closeTab(tab.sessionId)"
-                            title="Close tab">
-                        <i data-feather="x" class="icon-small"></i>
-                    </button>
-                </div>
-                <button class="tab-add" @click="createNewTab" title="New terminal tab">
+
+        <!-- Unified Layout Controls -->
+        <div class="layout-controls">
+            <div class="layout-info">
+                <i data-feather="terminal" class="icon"></i>
+                <span v-if="panes.length <= 1">Single Terminal</span>
+                <span v-else>{{ currentLayout.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()) }} Layout ({{ panes.length }} panes)</span>
+            </div>
+
+            <div class="layout-actions">
+                <button class="action-btn" @click="createNewTerminal" title="New terminal session">
                     <i data-feather="plus" class="icon-small"></i>
                 </button>
-            </template>
-            
-            <!-- Show pane info in split mode -->
-            <template v-else>
-                <div class="split-info">
-                    <i data-feather="layout" class="icon"></i>
-                    <span>{{ currentLayout.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()) }} Layout</span>
-                    <span class="pane-count">({{ panes.length }} panes)</span>
-                </div>
-                <button class="tab-add" @click="createNewTab" title="Add terminal session">
-                    <i data-feather="plus" class="icon-small"></i>
+            </div>
+
+            <div class="layout-switcher">
+                <button class="layout-btn"
+                        :class="{ active: currentLayout === 'single' }"
+                        @click="convertLayout('single')"
+                        title="Single terminal">
+                    <i data-feather="square" class="icon"></i>
                 </button>
-            </template>
-            
-            <!-- Split Controls (always visible) -->
-            <div class="split-controls">
-                <button class="split-btn" 
-                        :class="{ active: currentLayout === 'tabs' }"
-                        @click="convertLayout('tabs')"
-                        title="Tabs layout">
-                    <i data-feather="layers" class="icon"></i>
-                </button>
-                <button class="split-btn" 
+                <button class="layout-btn"
                         :class="{ active: currentLayout === 'horizontal-split' }"
                         @click="convertLayout('horizontal-split')"
-                        data-layout="horizontal-split"
                         title="Split horizontally">
                     <i data-feather="columns" class="icon"></i>
                 </button>
-                <button class="split-btn" 
+                <button class="layout-btn"
                         :class="{ active: currentLayout === 'vertical-split' }"
                         @click="convertLayout('vertical-split')"
-                        data-layout="vertical-split"
                         title="Split vertically">
                     <i data-feather="minus" class="icon" style="transform: rotate(90deg)"></i>
                 </button>
-                <button class="split-btn" 
+                <button class="layout-btn"
                         :class="{ active: currentLayout === 'three-pane' }"
                         @click="convertLayout('three-pane')"
-                        data-layout="three-pane"
                         title="Three-pane layout">
                     <i data-feather="sidebar" class="icon"></i>
                 </button>
-                <button class="split-btn" 
+                <button class="layout-btn"
                         :class="{ active: currentLayout === 'grid-2x2' }"
                         @click="convertLayout('grid-2x2')"
-                        data-layout="grid-2x2"
                         title="Grid layout">
                     <i data-feather="grid" class="icon"></i>
                 </button>
             </div>
         </div>
-        
-        <div class="terminal-container" 
-             :class="{ 
-                'split-mode': currentLayout !== 'tabs',
-                [`layout-${currentLayout}`]: currentLayout !== 'tabs'
+
+        <!-- Unified Pane Container -->
+        <div class="pane-container"
+             :class="`layout-${currentLayout}`"
+             :style="{
+                display: 'grid',
+                gridTemplateColumns: gridTemplateColumns,
+                gridTemplateRows: gridTemplateRows,
+                gap: '4px',
+                padding: '8px'
              }">
-            <!-- Tab Mode: Traditional single tab bar -->
-            <template v-if="currentLayout === 'tabs'">
-                <div v-for="tab in terminalTabs" 
-                     :key="`terminal-${tab.sessionId}`"
-                     :id="`terminal-${tab.sessionId}`" 
-                     :class="{ 'terminal-wrapper': true, 'active': activeTabId === tab.sessionId }"
-                     :style="{ display: activeTabId === tab.sessionId ? 'block' : 'none' }">
+
+            <!-- Individual Panes using new component architecture -->
+            <terminal-pane
+                v-for="pane in panes"
+                :key="`pane-${pane.id}`"
+                :pane="pane"
+                :sessions="terminalTabs"
+                :current-theme="currentTheme"
+                :socket="socket"
+                :active="activePaneId === pane.id"
+                :show-tabs="panes.length > 1 || (panes.length === 1 && pane.tabs && pane.tabs.length > 1)"
+                @focus="focusPane"
+                @switch-tab="switchToPaneTab"
+                @close-tab="closeTab"
+                @add-tab="addTabToPane"
+                @close-pane="closePane"
+            />
+
+            <!-- Empty Pane Placeholder (for layouts requiring more panes) -->
+            <div v-if="showEmptyPanePlaceholder"
+                 class="terminal-pane empty-pane"
+                 @click="createNewTerminal">
+                <div class="empty-pane-content">
+                    <i data-feather="plus-circle" class="icon large"></i>
+                    <span>Add Terminal</span>
                 </div>
-            </template>
-            
-            <!-- Split Mode: IDE-style panes with individual tab bars -->
-            <template v-else>
-                <div v-for="pane in panes" 
-                     :key="`pane-${pane.id}`"
-                     :class="{ 'pane-container': true, 'active': activePaneId === pane.id }"
-                     :style="{ gridArea: pane.gridArea }"
-                     @click="focusPane(pane.id)">
-                    
-                    <!-- Pane Tab Bar -->
-                    <div class="pane-tab-bar">
-                        <!-- Tabs within this pane -->
-                        <div v-for="tabId in pane.tabs" 
-                             :key="`pane-tab-${pane.id}-${tabId}`"
-                             :class="{ 'pane-tab': true, 'active': pane.activeTabId === tabId }"
-                             :draggable="true"
-                             @click.stop="switchToPaneTab(pane.id, tabId)"
-                             @dragstart="startTabDrag(tabId, pane.id, $event)"
-                             @dragend="endTabDrag">
-                            <i data-feather="terminal" class="icon"></i>
-                            <span class="tab-name">{{ getTabName(tabId) }}</span>
-                            <button v-if="pane.tabs.length > 1" 
-                                    class="tab-close" 
-                                    @click.stop="removeTabFromPane(pane.id, tabId)"
-                                    title="Close tab">
-                                <i data-feather="x" class="icon-small"></i>
-                            </button>
-                        </div>
-                        
-                        <!-- Add tab button for this pane -->
-                        <button class="pane-tab-add" 
-                                @click.stop="addTabToPane(pane.id)" 
-                                title="New terminal in this pane">
-                            <i data-feather="plus" class="icon-small"></i>
-                        </button>
-                        
-                        <!-- Pane controls -->
-                        <div class="pane-controls">
-                            <span class="pane-title">{{ pane.position }}</span>
-                        </div>
-                    </div>
-                    
-                    <!-- Terminal Container for Active Tab -->
-                    <div class="pane-content"
-                         @dragover.prevent
-                         @dragenter.prevent  
-                         @drop="handleTabDrop(pane.id, $event)">
-                        <!-- Show only the active terminal for this pane -->
-                        <div v-for="tabId in pane.tabs"
-                             :key="`terminal-${tabId}`"
-                             :id="`terminal-${tabId}`"
-                             :class="{ 'terminal-wrapper': true, 'active': pane.activeTabId === tabId }"
-                             :style="{ display: pane.activeTabId === tabId ? 'block' : 'none' }">
-                        </div>
-                        
-                        <!-- Drop zone indicator -->
-                        <div v-if="dragOverPane === pane.id" class="drop-zone-indicator">
-                            <i data-feather="move" class="icon"></i>
-                            <span>Drop tab here</span>
-                        </div>
-                    </div>
-                </div>
-            </template>
+            </div>
         </div>
     </template>
 </div>

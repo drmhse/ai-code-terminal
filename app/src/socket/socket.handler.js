@@ -237,19 +237,19 @@ class SocketHandler {
       }
     });
 
-    // Convert back to tabs layout
-    socket.on('convert-to-tabs', async (data) => {
+    // Convert back to single pane layout
+    socket.on('convert-to-single', async (data) => {
       try {
         const { workspaceId } = data || {};
         if (!workspaceId) {
           return socket.emit('terminal-error', { error: 'Missing workspaceId' });
         }
 
-        const result = await shellService.convertToTabsLayout(workspaceId);
+        const result = await shellService.convertToSingleLayout(workspaceId);
         
         socket.emit('layout-converted', {
           workspaceId,
-          layoutType: 'tabs',
+          layoutType: 'single',
           layout: result.layout,
           sessions: result.sessions
         });
@@ -257,11 +257,11 @@ class SocketHandler {
         // Notify all clients in the workspace room
         socket.to(`workspace:${workspaceId}`).emit('layout-changed', {
           workspaceId,
-          layoutType: 'tabs'
+          layoutType: 'single'
         });
 
       } catch (error) {
-        logger.error('Error converting to tabs layout:', error);
+        logger.error('Error converting to single pane layout:', error);
         socket.emit('terminal-error', { error: error.message });
       }
     });
@@ -310,7 +310,7 @@ class SocketHandler {
         const recommendedLayout = terminalLayoutService.getRecommendedLayout(viewportWidth, actualSessionCount);
         
         // Check which layouts are supported for this viewport
-        const supportedLayouts = ['tabs', 'horizontal-split', 'vertical-split', 'three-pane', 'grid-2x2']
+        const supportedLayouts = ['single', 'horizontal-split', 'vertical-split', 'three-pane', 'grid-2x2']
           .filter(layout => terminalLayoutService.isSplitLayoutSupported(viewportWidth, layout));
 
         socket.emit('layout-recommendations', {
