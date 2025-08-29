@@ -16,14 +16,15 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: '22'
-    - name: Change directory
-      run: cd app
     - name: Install dependencies
       run: npm install
+      working-directory: app
     - name: Run tests and generate coverage
       run: npm run test:coverage
+      working-directory: app
     - name: Coveralls
       uses: coverallsapp/github-action@v2
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         coveralls-repo-token: ${{ secrets.COVERALLS_REPO_TOKEN }}
+        path-to-lcov: app/coverage/lcov.info
