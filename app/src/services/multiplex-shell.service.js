@@ -746,6 +746,72 @@ class MultiplexShellService {
     }
 
     /**
+     * Atomically create a new session and add it to a specific pane
+     * @param {string} workspaceId - Workspace ID
+     * @param {string} paneId - Target pane ID
+     * @param {string} tabName - Name for the new tab
+     * @returns {Object} Complete workspace state including session, layout, and all sessions
+     */
+    async createSessionInPane(workspaceId, paneId, tabName = 'Terminal') {
+        try {
+            const workspace = await workspaceService.getWorkspace(workspaceId);
+            if (!workspace) {
+                throw new Error('Workspace not found');
+            }
+
+            let workspaceContainer = this.workspaceSessions.get(workspaceId);
+            if (!workspaceContainer) {
+                workspaceContainer = {
+                    sessions: new Map(),
+                    defaultSessionId: null,
+                    layout: await terminalLayoutService.getDefaultLayout(workspaceId)
+                };
+                this.workspaceSessions.set(workspaceId, workspaceContainer);
+            }
+
+            // Create new PTY process and session
+            const sessionData = await this.createPtyProcess(workspace, tabName, false);
+            const sessionId = sessionData.sessionId;
+
+            // Add session to in-memory workspace container
+            workspaceContainer.sessions.set(sessionId, sessionData);
+
+            // Set up PTY handlers
+            this.setupPtyHandlers(sessionData, workspace, sessionId);
+
+            // Atomically add session to the specific pane in the layout
+            const updatedLayout = await terminalLayoutService.addTabToPane(
+                workspaceContainer.layout.id, 
+                paneId, 
+                sessionId, 
+                true  // set as active
+            );
+
+            // Update workspace container with new layout
+            workspaceContainer.layout = updatedLayout;
+
+            // Get all current sessions for this workspace
+            const allSessions = this.getWorkspaceSessions(workspaceId);
+
+            logger.info(`Atomically created session ${sessionId} in pane ${paneId} for workspace ${workspaceId}`);
+
+            return {
+                sessionId,
+                sessionName: tabName,
+                pid: sessionData.ptyProcess.pid,
+                paneId,
+                layout: updatedLayout,
+                allSessions,
+                workspaceId
+            };
+
+        } catch (error) {
+            logger.error(`Error creating session in pane for workspace ${workspaceId}:`, error);
+            throw error;
+        }
+    }
+
+    /**
      * Convert workspace layout to split panes
      * @param {string} workspaceId - Workspace ID
      * @param {string} layoutType - Target layout type

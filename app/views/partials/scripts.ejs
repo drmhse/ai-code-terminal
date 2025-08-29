@@ -633,8 +633,7 @@
                                 }
                             }
 
-                            // Rearrange terminals for new layout
-                            this.rearrangeTerminalsForLayoutChange();
+                            // Layout has been updated by server and applied to panes
                         }
                     });
 
@@ -667,9 +666,6 @@
                                 }
                             }
 
-                            // Rearrange terminals to ensure new tab appears in correct pane
-                            this.rearrangeTerminalsForLayoutChange();
-
                             // Set the new tab as active in its pane
                             if (data.paneId && data.tab && data.tab.sessionId) {
                                 const pane = this.panes.find(p => p.id === data.paneId);
@@ -699,6 +695,43 @@
 
                             // Close the terminal locally
                             this.closeTabLocally(data.sessionId);
+                        }
+                    });
+
+                    // Unified workspace state update handler
+                    this.socket.on('workspace-state-updated', (data) => {
+                        if (data.workspaceId === this.selectedWorkspace?.id) {
+                            console.log('Workspace state updated:', data);
+
+                            // Update all state atomically from server
+                            this.updateTerminalTabs(data.sessions);
+                            
+                            // Update layout and panes from server configuration
+                            if (data.layout && data.layout.configuration) {
+                                const config = JSON.parse(data.layout.configuration);
+                                this.currentLayout = data.layout.layoutType;
+                                if (config.panes) {
+                                    this.panes = this.processPaneConfiguration(config.panes);
+                                }
+                            }
+
+                            // Set active states if provided
+                            if (data.activeSessionId) {
+                                this.activeTabId = data.activeSessionId;
+                            }
+                            if (data.activePaneId) {
+                                this.activePaneId = data.activePaneId;
+                            }
+
+                            // Switch to the new session if needed
+                            if (data.activeSessionId && data.operation === 'session-created') {
+                                this.switchToTab(data.activeSessionId);
+                            }
+
+                            // Ensure UI is consistent
+                            this.$nextTick(() => {
+                                feather.replace();
+                            });
                         }
                     });
 
@@ -1255,6 +1288,9 @@
 
                     const pane = this.panes.find(p => p.id === paneId);
                     if (!pane) return;
+
+                    // Focus this pane first when user clicks add tab
+                    this.focusPane(paneId);
 
                     const tabName = `Terminal ${this.terminalTabs.length + 1}`;
 

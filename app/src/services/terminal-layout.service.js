@@ -45,19 +45,8 @@ class TerminalLayoutService {
      */
     async createDefaultLayout(workspaceId) {
         try {
-            const defaultConfig = {
-                type: 'single',
-                panes: [
-                    {
-                        id: 'pane-main',
-                        position: 'main',
-                        gridArea: '1 / 1 / 2 / 2',
-                        tabs: [], // Now an array of session IDs
-                        activeTabId: null,
-                        status: 'pending'
-                    }
-                ]
-            };
+            // Use the same configuration generation as multi-pane layouts
+            const defaultConfig = this.generateSplitConfiguration('single', []);
 
             const layout = await prisma.terminalLayout.create({
                 data: {
@@ -488,17 +477,8 @@ class TerminalLayoutService {
     async convertToSingle(workspaceId, allSessionIds = []) {
         try {
             const layout = await this.getDefaultLayout(workspaceId);
-            const singleConfig = {
-                type: 'single',
-                panes: [{
-                    id: 'pane-single',
-                    position: 'main',
-                    gridArea: '1 / 1 / 2 / 2',
-                    tabs: allSessionIds,
-                    activeTabId: allSessionIds[0] || null,
-                    status: allSessionIds.length > 0 ? 'active' : 'pending'
-                }]
-            };
+            // Use the same configuration generation as other layouts
+            const singleConfig = this.generateSplitConfiguration('single', allSessionIds);
 
             const updatedLayout = await prisma.terminalLayout.update({
                 where: { id: layout.id },

@@ -405,26 +405,27 @@ class SocketHandler {
           return socket.emit('terminal-error', { error: 'Missing workspaceId or paneId' });
         }
 
-        // Create new terminal session
-        const tabInfo = await shellService.createNewTab(workspaceId, tabName || 'Terminal');
-        
-        // Add the new session to the specified pane
-        const layout = await terminalLayoutService.getDefaultLayout(workspaceId);
-        const updatedLayout = await terminalLayoutService.addTabToPane(layout.id, paneId, tabInfo.sessionId, true);
+        // Atomically create session in the specified pane
+        const result = await shellService.createSessionInPane(workspaceId, paneId, tabName || 'Terminal');
 
-        socket.emit('tab-added-to-pane', {
-          workspaceId,
-          paneId,
-          tab: tabInfo,
-          layout: updatedLayout,
-          sessions: shellService.getWorkspaceSessions(workspaceId)
+        // Emit unified state update to the client
+        socket.emit('workspace-state-updated', {
+          workspaceId: result.workspaceId,
+          layout: result.layout,
+          sessions: result.allSessions,
+          activeSessionId: result.sessionId,
+          activePaneId: result.paneId,
+          operation: 'session-created'
         });
 
-        // Notify all clients in the workspace room
-        socket.to(`workspace:${workspaceId}`).emit('pane-layout-updated', {
-          workspaceId,
-          layout: updatedLayout,
-          sessions: shellService.getWorkspaceSessions(workspaceId)
+        // Notify other clients in the workspace room
+        socket.to(`workspace:${workspaceId}`).emit('workspace-state-updated', {
+          workspaceId: result.workspaceId,
+          layout: result.layout,
+          sessions: result.allSessions,
+          activeSessionId: result.sessionId,
+          activePaneId: result.paneId,
+          operation: 'session-created'
         });
 
       } catch (error) {

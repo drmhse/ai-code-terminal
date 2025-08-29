@@ -316,16 +316,18 @@ const TerminalPane = {
 
             <!-- Terminal Content -->
             <div class="pane-content" :class="{ 'has-header': showTabs }">
+                <!-- Render all terminal instances for this pane, show only the active one -->
                 <TerminalInstance
-                    v-if="pane.activeTabId"
-                    :key="pane.activeTabId"
-                    :session-id="pane.activeTabId"
+                    v-for="sessionId in (pane.tabs || [])"
+                    v-show="sessionId === pane.activeTabId"
+                    :key="sessionId"
+                    :session-id="sessionId"
                     :theme="currentTheme"
                     :socket="socket"
-                    :active="active && !!pane.activeTabId"
+                    :active="active && sessionId === pane.activeTabId"
                     @resize="handleResize"
                 />
-                <div v-else class="empty-terminal">
+                <div v-if="!pane.activeTabId && (!pane.tabs || pane.tabs.length === 0)" class="empty-terminal">
                     <i data-feather="plus-circle" class="icon large"></i>
                     <span>No active terminal</span>
                 </div>
