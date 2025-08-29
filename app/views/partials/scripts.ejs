@@ -15,6 +15,15 @@
                     terminalTabs: [], // Array of tab objects { sessionId, sessionName, pid, isDefault }
                     activeTabId: null,
                     pendingOutput: new Map(), // Buffer output until terminals are ready
+                    // Split pane layout properties
+                    currentLayout: 'tabs', // tabs, horizontal-split, vertical-split, grid-2x2, three-pane
+                    panes: [], // Array of pane containers with their tabs
+                    activePaneId: null,
+                    // Tab drag and drop state
+                    draggedTab: null,
+                    dragOverPane: null,
+                    viewportWidth: window.innerWidth,
+                    layoutRecommendations: { supported: [], recommended: 'tabs' },
                     workspaces: [],
                     selectedWorkspace: null,
                     repositories: [],
@@ -75,6 +84,9 @@
                 // Check if mobile
                 this.checkMobile();
                 window.addEventListener('resize', this.checkMobile);
+                
+                // Track viewport width changes for layout recommendations
+                window.addEventListener('resize', this.updateViewportWidth);
 
                 // Check for authentication token in URL
                 const urlParams = new URLSearchParams(window.location.search);
@@ -557,6 +569,143 @@
                             this.initializeTerminalForSession(data.sessionId);
                         }
                     });
+
+                    // Split Pane Layout Event Handlers
+                    this.socket.on('layout-converted', (data) => {
+                        this.handleLayoutConverted(data);
+                    });
+
+                    this.socket.on('layout-changed', (data) => {
+                        if (data.workspaceId === this.selectedWorkspace?.id) {
+                            this.currentLayout = data.layoutType;
+                            if (data.configuration) {
+                                if (data.layoutType === 'tabs') {
+                                    this.panes = [];
+                                    this.activePaneId = null;
+                                } else {
+                                    this.panes = this.generatePanesFromLayout(data.layoutType, this.terminalTabs);
+                                }
+                            }
+                        }
+                    });
+
+                    this.socket.on('pane-switched', (data) => {
+                        if (data.workspaceId === this.selectedWorkspace?.id) {
+                            this.activePaneId = data.paneId;
+                            console.log('Switched to pane:', data.paneId, 'with session:', data.sessionId);
+                        }
+                    });
+
+                    this.socket.on('layout-recommendations', (data) => {
+                        if (data.workspaceId === this.selectedWorkspace?.id) {
+                            this.layoutRecommendations = {
+                                supported: data.supported || [],
+                                recommended: data.recommended || 'tabs'
+                            };
+                            console.log('Layout recommendations updated:', this.layoutRecommendations);
+                        }
+                    });
+
+                    // IDE-Style Pane Event Handlers
+                    this.socket.on('tab-moved', (data) => {
+                        if (data.workspaceId === this.selectedWorkspace?.id) {
+                            console.log('Tab moved:', data);
+                            
+                            // Update local pane structure from server layout
+                            if (data.layout && data.layout.configuration) {
+                                const config = JSON.parse(data.layout.configuration);
+                                if (config.panes) {
+                                    this.panes = this.processPaneConfiguration(config.panes);
+                                }
+                            }
+                            
+                            // Rearrange terminals for new layout
+                            this.rearrangeTerminalsForLayoutChange();
+                        }
+                    });
+
+                    this.socket.on('pane-tab-activated', (data) => {
+                        if (data.workspaceId === this.selectedWorkspace?.id) {
+                            console.log('Pane tab activated:', data);
+                            
+                            // Update local state
+                            const pane = this.panes.find(p => p.id === data.paneId);
+                            if (pane) {
+                                pane.activeTabId = data.sessionId;
+                            }
+                            this.activeTabId = data.sessionId;
+                            this.activePaneId = data.paneId;
+                        }
+                    });
+
+                    this.socket.on('tab-added-to-pane', (data) => {
+                        if (data.workspaceId === this.selectedWorkspace?.id) {
+                            console.log('Tab added to pane:', data);
+                            
+                            // Update terminal tabs list
+                            this.updateTerminalTabs(data.sessions);
+                            
+                            // Update pane structure from server layout
+                            if (data.layout && data.layout.configuration) {
+                                const config = JSON.parse(data.layout.configuration);
+                                if (config.panes) {
+                                    this.panes = this.processPaneConfiguration(config.panes);
+                                }
+                            }
+                            
+                            // Rearrange terminals to ensure new tab appears in correct pane
+                            this.rearrangeTerminalsForLayoutChange();
+                            
+                            // Set the new tab as active in its pane
+                            if (data.paneId && data.tab && data.tab.sessionId) {
+                                const pane = this.panes.find(p => p.id === data.paneId);
+                                if (pane) {
+                                    pane.activeTabId = data.tab.sessionId;
+                                    this.activePaneId = data.paneId;
+                                    this.activeTabId = data.tab.sessionId;
+                                }
+                            }
+                        }
+                    });
+
+                    this.socket.on('tab-removed-from-pane', (data) => {
+                        if (data.workspaceId === this.selectedWorkspace?.id) {
+                            console.log('Tab removed from pane:', data);
+                            
+                            // Update terminal tabs list
+                            this.updateTerminalTabs(data.sessions);
+                            
+                            // Update pane structure
+                            if (data.layout && data.layout.configuration) {
+                                const config = JSON.parse(data.layout.configuration);
+                                if (config.panes) {
+                                    this.panes = this.processPaneConfiguration(config.panes);
+                                }
+                            }
+                            
+                            // Close the terminal locally
+                            this.closeTabLocally(data.sessionId);
+                        }
+                    });
+
+                    this.socket.on('pane-layout-updated', (data) => {
+                        if (data.workspaceId === this.selectedWorkspace?.id) {
+                            console.log('Pane layout updated:', data);
+                            
+                            // Update sessions if provided
+                            if (data.sessions) {
+                                this.updateTerminalTabs(data.sessions);
+                            }
+                            
+                            // Update pane structure
+                            if (data.layout && data.layout.configuration) {
+                                const config = JSON.parse(data.layout.configuration);
+                                if (config.panes) {
+                                    this.panes = this.processPaneConfiguration(config.panes);
+                                }
+                            }
+                        }
+                    });
                     
                     // Workspace event handlers
                     this.socket.on('workspaces-list', (data) => {
@@ -700,6 +849,22 @@
                         this.sidebarOpen = false;
                     }
                     
+                    // Reset layout state for new workspace
+                    this.currentLayout = 'tabs';
+                    this.panes = [];
+                    this.activePaneId = null;
+                    this.draggedTab = null;
+                    this.dragOverPane = null;
+                    
+                    // Request layout recommendations for new workspace
+                    if (this.socket) {
+                        this.socket.emit('get-layout-recommendations', {
+                            workspaceId: workspace.id,
+                            viewportWidth: this.viewportWidth,
+                            sessionCount: 1 // Default to 1 for new workspace
+                        });
+                    }
+                    
                     // Reset file explorer state for new workspace
                     this.currentPath = '.';
                     this.currentFiles = [];
@@ -747,40 +912,6 @@
                     this.setupGlobalResizeHandler();
                 },
 
-                clearAllTerminals() {
-                    // Dispose of all terminal instances
-                    this.terminals.forEach((terminal, sessionId) => {
-                        try {
-                            terminal.dispose();
-                        } catch (error) {
-                            console.warn('Error disposing terminal:', sessionId, error);
-                        }
-                    });
-                    
-                    this.terminals.clear();
-                    this.fitAddons.clear();
-                    this.pendingOutput.clear(); // Clear any pending output
-                    
-                    // Legacy cleanup
-                    if (this.terminal) {
-                        try {
-                            this.terminal.dispose();
-                        } catch (error) {
-                            console.warn('Error disposing legacy terminal:', error);
-                        }
-                        this.terminal = null;
-                    }
-                    
-                    if (this.fitAddon) {
-                        this.fitAddon = null;
-                    }
-                    
-                    // Cleanup resize handlers
-                    if (this.cleanupResize) {
-                        this.cleanupResize();
-                        this.cleanupResize = null;
-                    }
-                },
 
                 initializeTerminalForSession(sessionId) {
                     console.log('Initializing terminal for session:', sessionId);
@@ -903,6 +1034,11 @@
                 updateTerminalTabs(sessions) {
                     console.log('Updating terminal tabs with sessions:', sessions);
                     
+                    if (!sessions || !Array.isArray(sessions)) {
+                        console.warn('Sessions data is invalid:', sessions);
+                        return;
+                    }
+                    
                     // Update tabs from server session data
                     this.terminalTabs = sessions.map(session => ({
                         sessionId: session.sessionId,
@@ -921,12 +1057,14 @@
 
                     // Initialize terminals for new tabs only
                     this.$nextTick(() => {
-                        this.terminalTabs.forEach(tab => {
-                            if (!this.terminals.has(tab.sessionId)) {
-                                console.log('Initializing terminal for new session:', tab.sessionId);
-                                this.initializeTerminalForSession(tab.sessionId);
-                            }
-                        });
+                        if (Array.isArray(this.terminalTabs)) {
+                            this.terminalTabs.forEach(tab => {
+                                if (tab && tab.sessionId && !this.terminals.has(tab.sessionId)) {
+                                    console.log('Initializing terminal for new session:', tab.sessionId);
+                                    this.initializeTerminalForSession(tab.sessionId);
+                                }
+                            });
+                        }
 
                         // Clean up terminals for sessions that no longer exist
                         const currentSessionIds = new Set(this.terminalTabs.map(tab => tab.sessionId));
@@ -1055,6 +1193,589 @@
                     const tab = this.terminalTabs.find(tab => tab.sessionId === sessionId);
                     if (tab) {
                         tab.sessionName = sessionName;
+                    }
+                },
+
+                // Utility method to process pane configuration from server
+                processPaneConfiguration(panes) {
+                    return panes.map(pane => {
+                        // Use pane.sessionId if tabs have null sessionIds
+                        const validTabs = pane.tabs.map(tab => tab.sessionId).filter(id => id);
+                        const tabIds = validTabs.length > 0 ? validTabs : (pane.sessionId ? [pane.sessionId] : []);
+                        
+                        return {
+                            id: pane.id,
+                            position: pane.position,
+                            gridArea: pane.gridArea,
+                            tabs: tabIds,
+                            activeTabId: pane.activeTabId || pane.sessionId || tabIds[0] || null
+                        };
+                    });
+                },
+
+                // Split Pane Layout Methods
+                async convertLayout(layoutType) {
+                    if (!this.socket || !this.selectedWorkspace) return;
+                    
+                    // Check if layout is supported for current viewport
+                    if (!this.layoutRecommendations.supported.includes(layoutType)) {
+                        console.warn(`Layout ${layoutType} not supported for current viewport`);
+                        return;
+                    }
+
+                    if (layoutType === 'tabs') {
+                        // Convert back to tabs
+                        this.socket.emit('convert-to-tabs', {
+                            workspaceId: this.selectedWorkspace.id
+                        });
+                    } else {
+                        // Convert to split layout
+                        this.socket.emit('convert-to-split', {
+                            workspaceId: this.selectedWorkspace.id,
+                            layoutType: layoutType,
+                            viewportWidth: this.viewportWidth
+                        });
+                    }
+                },
+
+                generatePanesFromLayout(layoutType, sessions = []) {
+                    const panes = [];
+                    
+                    // Helper to distribute sessions across panes
+                    const distributeSessions = (paneCount) => {
+                        const sessionIds = sessions.map(s => s.sessionId);
+                        const distribution = [];
+                        
+                        // Initialize empty arrays for each pane
+                        for (let i = 0; i < paneCount; i++) {
+                            distribution.push([]);
+                        }
+                        
+                        if (sessionIds.length === 0) {
+                            // No sessions, ensure each pane has a placeholder for a new session
+                            distribution.forEach(paneSessionIds => {
+                                paneSessionIds.push(null);
+                            });
+                            return distribution;
+                        }
+                        
+                        // Distribute sessions as evenly as possible
+                        // For example: 3 sessions, 2 panes -> [2, 1] sessions per pane
+                        const baseSessionsPerPane = Math.floor(sessionIds.length / paneCount);
+                        const extraSessions = sessionIds.length % paneCount;
+                        
+                        let sessionIndex = 0;
+                        for (let paneIndex = 0; paneIndex < paneCount; paneIndex++) {
+                            const sessionsForThisPane = baseSessionsPerPane + (paneIndex < extraSessions ? 1 : 0);
+                            
+                            for (let j = 0; j < sessionsForThisPane; j++) {
+                                if (sessionIndex < sessionIds.length) {
+                                    distribution[paneIndex].push(sessionIds[sessionIndex++]);
+                                }
+                            }
+                            
+                            // Ensure each pane has at least one session (create placeholder if empty)
+                            if (distribution[paneIndex].length === 0) {
+                                distribution[paneIndex].push(null);
+                            }
+                        }
+                        
+                        return distribution;
+                    };
+                    
+                    switch (layoutType) {
+                        case 'horizontal-split':
+                            const hDist = distributeSessions(2);
+                            panes.push(
+                                { 
+                                    id: 'pane-left', 
+                                    position: 'left', 
+                                    gridArea: '1 / 1 / 2 / 2',
+                                    tabs: hDist[0],
+                                    activeTabId: hDist[0][0]
+                                },
+                                { 
+                                    id: 'pane-right', 
+                                    position: 'right', 
+                                    gridArea: '1 / 2 / 2 / 3',
+                                    tabs: hDist[1],
+                                    activeTabId: hDist[1][0]
+                                }
+                            );
+                            break;
+                        case 'vertical-split':
+                            const vDist = distributeSessions(2);
+                            panes.push(
+                                { 
+                                    id: 'pane-top', 
+                                    position: 'top', 
+                                    gridArea: '1 / 1 / 2 / 2',
+                                    tabs: vDist[0],
+                                    activeTabId: vDist[0][0]
+                                },
+                                { 
+                                    id: 'pane-bottom', 
+                                    position: 'bottom', 
+                                    gridArea: '2 / 1 / 3 / 2',
+                                    tabs: vDist[1],
+                                    activeTabId: vDist[1][0]
+                                }
+                            );
+                            break;
+                        case 'grid-2x2':
+                            const gridDist = distributeSessions(4);
+                            panes.push(
+                                { id: 'pane-tl', position: 'top-left', gridArea: '1 / 1 / 2 / 2', tabs: gridDist[0], activeTabId: gridDist[0][0] },
+                                { id: 'pane-tr', position: 'top-right', gridArea: '1 / 2 / 2 / 3', tabs: gridDist[1], activeTabId: gridDist[1][0] },
+                                { id: 'pane-bl', position: 'bottom-left', gridArea: '2 / 1 / 3 / 2', tabs: gridDist[2], activeTabId: gridDist[2][0] },
+                                { id: 'pane-br', position: 'bottom-right', gridArea: '2 / 2 / 3 / 3', tabs: gridDist[3], activeTabId: gridDist[3][0] }
+                            );
+                            break;
+                        case 'three-pane':
+                            const threeDist = distributeSessions(3);
+                            panes.push(
+                                { id: 'pane-main', position: 'main', gridArea: '1 / 1 / 3 / 2', tabs: threeDist[0], activeTabId: threeDist[0][0] },
+                                { id: 'pane-top-right', position: 'top-right', gridArea: '1 / 2 / 2 / 3', tabs: threeDist[1], activeTabId: threeDist[1][0] },
+                                { id: 'pane-bottom-right', position: 'bottom-right', gridArea: '2 / 2 / 3 / 3', tabs: threeDist[2], activeTabId: threeDist[2][0] }
+                            );
+                            break;
+                    }
+                    
+                    return panes;
+                },
+
+                // IDE-Style Pane Management Methods
+
+                focusPane(paneId) {
+                    if (!paneId) return;
+                    
+                    console.log('Focusing pane:', paneId);
+                    this.activePaneId = paneId;
+                    
+                    // Focus the active terminal in this pane
+                    const pane = this.panes.find(p => p.id === paneId);
+                    if (pane && pane.activeTabId) {
+                        const terminal = this.terminals.get(pane.activeTabId);
+                        if (terminal) {
+                            try {
+                                terminal.focus();
+                            } catch (error) {
+                                console.warn('Failed to focus terminal:', error);
+                            }
+                        }
+                    }
+                },
+
+                switchToPaneTab(paneId, sessionId) {
+                    if (!this.socket || !this.selectedWorkspace) return;
+                    
+                    console.log('Switching to pane tab:', paneId, sessionId);
+                    
+                    // Update local state
+                    const pane = this.panes.find(p => p.id === paneId);
+                    if (pane) {
+                        pane.activeTabId = sessionId;
+                        this.activeTabId = sessionId;
+                        this.activePaneId = paneId;
+                    }
+                    
+                    // Switch to this session on the server
+                    this.socket.emit('set-active-pane-tab', {
+                        workspaceId: this.selectedWorkspace.id,
+                        paneId: paneId,
+                        sessionId: sessionId
+                    });
+                    
+                    // Focus the terminal
+                    const terminal = this.terminals.get(sessionId);
+                    if (terminal) {
+                        try {
+                            terminal.focus();
+                        } catch (error) {
+                            console.warn('Failed to focus terminal:', error);
+                        }
+                    }
+                    
+                    // Update icons
+                    this.$nextTick(() => {
+                        if (typeof feather !== 'undefined') {
+                            feather.replace();
+                        }
+                    });
+                },
+
+                addTabToPane(paneId) {
+                    if (!this.socket || !this.selectedWorkspace) return;
+                    
+                    const pane = this.panes.find(p => p.id === paneId);
+                    if (!pane) return;
+                    
+                    const tabName = `Terminal ${this.terminalTabs.length + 1}`;
+                    
+                    this.socket.emit('add-tab-to-pane', {
+                        workspaceId: this.selectedWorkspace.id,
+                        paneId: paneId,
+                        tabName: tabName
+                    });
+                },
+
+                removeTabFromPane(paneId, sessionId) {
+                    if (!this.socket || !this.selectedWorkspace) return;
+                    
+                    this.socket.emit('remove-tab-from-pane', {
+                        workspaceId: this.selectedWorkspace.id,
+                        paneId: paneId,
+                        sessionId: sessionId
+                    });
+                },
+
+                getTabName(sessionId) {
+                    const tab = this.terminalTabs.find(t => t.sessionId === sessionId);
+                    return tab ? tab.sessionName : 'Terminal';
+                },
+
+                // Drag and Drop Methods
+                startTabDrag(sessionId, sourcePaneId, event) {
+                    console.log('Starting drag:', sessionId, 'from pane:', sourcePaneId);
+                    
+                    this.draggedTab = {
+                        sessionId: sessionId,
+                        sourcePaneId: sourcePaneId
+                    };
+                    
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', sessionId);
+                    
+                    // Add dragging class
+                    event.target.classList.add('dragging');
+                },
+
+                endTabDrag(event) {
+                    console.log('Ending drag');
+                    
+                    // Remove dragging class
+                    event.target.classList.remove('dragging');
+                    
+                    // Clear drag state
+                    this.draggedTab = null;
+                    this.dragOverPane = null;
+                },
+
+                handleTabDrop(targetPaneId, event) {
+                    event.preventDefault();
+                    
+                    if (!this.draggedTab || !this.socket || !this.selectedWorkspace) {
+                        return;
+                    }
+                    
+                    const { sessionId, sourcePaneId } = this.draggedTab;
+                    
+                    console.log('Dropping tab:', sessionId, 'from:', sourcePaneId, 'to:', targetPaneId);
+                    
+                    // Don't move if dropping in same pane
+                    if (sourcePaneId === targetPaneId) {
+                        this.draggedTab = null;
+                        this.dragOverPane = null;
+                        return;
+                    }
+                    
+                    // Move tab via server
+                    this.socket.emit('move-tab-between-panes', {
+                        workspaceId: this.selectedWorkspace.id,
+                        sessionId: sessionId,
+                        sourcePaneId: sourcePaneId,
+                        targetPaneId: targetPaneId
+                    });
+                    
+                    // Clear drag state
+                    this.draggedTab = null;
+                    this.dragOverPane = null;
+                },
+
+                updateViewportWidth() {
+                    this.viewportWidth = window.innerWidth;
+                    
+                    // Request updated layout recommendations
+                    if (this.socket && this.selectedWorkspace) {
+                        this.socket.emit('get-layout-recommendations', {
+                            workspaceId: this.selectedWorkspace.id,
+                            viewportWidth: this.viewportWidth,
+                            sessionCount: this.terminalTabs.length
+                        });
+                    }
+                    
+                    // Force layout recalculation if in split mode
+                    if (this.currentLayout !== 'tabs') {
+                        this.$nextTick(() => {
+                            this.fitAllVisibleTerminals();
+                        });
+                    }
+                },
+
+                handleLayoutConverted(data) {
+                    console.log('Layout converted:', data);
+                    
+                    this.currentLayout = data.layoutType;
+                    
+                    if (data.layoutType === 'tabs') {
+                        // Switch back to tab mode
+                        this.panes = [];
+                        this.activePaneId = null;
+                        
+                        // Ensure active tab is set
+                        if (!this.activeTabId && this.terminalTabs.length > 0) {
+                            this.activeTabId = this.terminalTabs[0].sessionId;
+                        }
+                    } else {
+                        // Switch to IDE-style pane mode
+                        if (data.configuration && data.configuration.panes) {
+                            // Use server configuration if available
+                            this.panes = data.configuration.panes.map(pane => {
+                                // Use pane.sessionId if tabs have null sessionIds
+                                const validTabs = pane.tabs.map(tab => tab.sessionId).filter(id => id);
+                                const tabIds = validTabs.length > 0 ? validTabs : (pane.sessionId ? [pane.sessionId] : []);
+                                
+                                return {
+                                    id: pane.id,
+                                    position: pane.position,
+                                    gridArea: pane.gridArea,
+                                    tabs: tabIds,
+                                    activeTabId: pane.activeTabId || pane.sessionId || tabIds[0] || null
+                                };
+                            });
+                        } else {
+                            // Generate panes from current sessions
+                            this.panes = this.generatePanesFromLayout(data.layoutType, this.terminalTabs);
+                        }
+                        
+                        // Set active pane to first pane with tabs
+                        const paneWithTabs = this.panes.find(pane => pane.tabs.length > 0);
+                        if (paneWithTabs) {
+                            this.activePaneId = paneWithTabs.id;
+                            this.activeTabId = paneWithTabs.activeTabId;
+                        }
+                    }
+                    
+                    // Rearrange terminals for new layout
+                    this.rearrangeTerminalsForLayoutChange();
+                },
+
+                rearrangeTerminalsForLayoutChange() {
+                    console.log('Rearranging terminals for layout change to:', this.currentLayout);
+                    
+                    // Wait for DOM to update with new layout structure
+                    this.$nextTick(() => {
+                        // Get all sessions that should have terminals in the new layout
+                        let requiredSessions = [];
+                        
+                        if (this.currentLayout === 'tabs') {
+                            requiredSessions = this.terminalTabs.map(tab => tab.sessionId);
+                        } else {
+                            // In split mode, collect all session IDs from all panes
+                            requiredSessions = this.panes.flatMap(pane => pane.tabs);
+                        }
+                        
+                        console.log('Required sessions for new layout:', requiredSessions);
+                        
+                        // For each required session, ensure terminal exists and is in correct container
+                        requiredSessions.forEach(sessionId => {
+                            if (!sessionId) return;
+                            
+                            const existingTerminal = this.terminals.get(sessionId);
+                            const existingFitAddon = this.fitAddons.get(sessionId);
+                            const targetContainer = document.getElementById(`terminal-${sessionId}`);
+                            
+                            if (!targetContainer) {
+                                console.warn('Target container not found for session:', sessionId);
+                                return;
+                            }
+                            
+                            if (existingTerminal && existingFitAddon) {
+                                // Terminal exists, move it to correct container
+                                const currentContainer = existingTerminal.element?.parentElement;
+                                
+                                if (currentContainer === targetContainer) {
+                                    // Already in correct place, just resize
+                                    console.log('Terminal already in correct container:', sessionId);
+                                    setTimeout(() => existingFitAddon.fit(), 100);
+                                } else {
+                                    // Move to new container
+                                    console.log('Moving existing terminal to new container:', sessionId);
+                                    targetContainer.innerHTML = '';
+                                    
+                                    try {
+                                        existingTerminal.open(targetContainer);
+                                        setTimeout(() => {
+                                            existingFitAddon.fit();
+                                            console.log('Successfully moved terminal:', sessionId);
+                                        }, 100);
+                                    } catch (error) {
+                                        console.error('Error moving terminal, reinitializing:', sessionId, error);
+                                        // Clean up broken terminal
+                                        try { existingTerminal.dispose(); } catch {}
+                                        this.terminals.delete(sessionId);
+                                        this.fitAddons.delete(sessionId);
+                                        // Create new one
+                                        this.initializeTerminalForSession(sessionId);
+                                    }
+                                }
+                            } else {
+                                // Terminal doesn't exist, create it
+                                console.log('Creating new terminal for session:', sessionId);
+                                this.initializeTerminalForSession(sessionId);
+                            }
+                        });
+                        
+                        // Update visibility states based on current layout
+                        setTimeout(() => {
+                            this.updateTerminalVisibility();
+                        }, 150);
+                        
+                        // Focus the active terminal
+                        setTimeout(() => {
+                            this.focusActiveTerminal();
+                        }, 200);
+
+                        // Update icons
+                        setTimeout(() => {
+                            if (typeof feather !== 'undefined') {
+                                feather.replace();
+                            }
+                        }, 250);
+                    });
+                },
+                
+                updateTerminalVisibility() {
+                    console.log('Updating terminal visibility for layout:', this.currentLayout);
+                    
+                    if (this.currentLayout === 'tabs') {
+                        // In tabs mode, show only active tab
+                        if (Array.isArray(this.terminalTabs)) {
+                            this.terminalTabs.forEach(tab => {
+                                if (tab && tab.sessionId) {
+                                    const container = document.getElementById(`terminal-${tab.sessionId}`);
+                                    if (container) {
+                                        const isActive = tab.sessionId === this.activeTabId;
+                                        container.style.display = isActive ? 'block' : 'none';
+                                        container.classList.toggle('active', isActive);
+                                        console.log(`Tab ${tab.sessionId}: ${isActive ? 'visible' : 'hidden'}`);
+                                    }
+                                }
+                            });
+                        }
+                    } else {
+                        // In split mode, show active tab from each pane
+                        if (Array.isArray(this.panes)) {
+                            this.panes.forEach(pane => {
+                                if (pane && Array.isArray(pane.tabs)) {
+                                    pane.tabs.forEach(tabId => {
+                                        if (tabId) {
+                                            const container = document.getElementById(`terminal-${tabId}`);
+                                            if (container) {
+                                                const isActive = tabId === pane.activeTabId;
+                                                container.style.display = isActive ? 'block' : 'none';
+                                                container.classList.toggle('active', isActive);
+                                                console.log(`Pane ${pane.id}, Tab ${tabId}: ${isActive ? 'visible' : 'hidden'}`);
+                                            }
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    }
+                },
+
+                focusActiveTerminal() {
+                    let activeSessionId = null;
+                    
+                    if (this.currentLayout === 'tabs') {
+                        activeSessionId = this.activeTabId;
+                    } else {
+                        // In split mode, focus the active pane's active tab
+                        const activePane = this.panes.find(pane => pane.id === this.activePaneId);
+                        activeSessionId = activePane?.activeTabId;
+                        
+                        // If no active pane set, use the first pane with tabs
+                        if (!activeSessionId && this.panes.length > 0) {
+                            const paneWithTabs = this.panes.find(pane => pane.tabs.length > 0);
+                            if (paneWithTabs) {
+                                activeSessionId = paneWithTabs.activeTabId;
+                                this.activePaneId = paneWithTabs.id;
+                            }
+                        }
+                    }
+                    
+                    if (activeSessionId) {
+                        const terminal = this.terminals.get(activeSessionId);
+                        if (terminal) {
+                            try {
+                                terminal.focus();
+                                console.log('Focused terminal for session:', activeSessionId);
+                            } catch (error) {
+                                console.warn('Failed to focus terminal:', activeSessionId, error);
+                            }
+                        }
+                    }
+                },
+
+                fitAllVisibleTerminals() {
+                    let visibleSessions = [];
+                    
+                    if (this.currentLayout === 'tabs') {
+                        if (this.activeTabId) {
+                            visibleSessions = [this.activeTabId];
+                        }
+                    } else {
+                        // In split mode, fit active tab from each pane
+                        visibleSessions = this.panes
+                            .map(pane => pane.activeTabId)
+                            .filter(id => id);
+                    }
+
+                    visibleSessions.forEach(sessionId => {
+                        const fitAddon = this.fitAddons.get(sessionId);
+                        if (fitAddon) {
+                            try {
+                                fitAddon.fit();
+                            } catch (error) {
+                                console.warn('Failed to fit terminal:', sessionId, error);
+                            }
+                        }
+                    });
+                },
+
+                clearAllTerminals() {
+                    console.log('Clearing all terminals');
+                    this.terminals.forEach((terminal, sessionId) => {
+                        try {
+                            terminal.dispose();
+                        } catch (error) {
+                            console.warn('Error disposing terminal:', sessionId, error);
+                        }
+                    });
+                    
+                    this.terminals.clear();
+                    this.fitAddons.clear();
+                    this.pendingOutput.clear();
+                    
+                    // Legacy cleanup
+                    if (this.terminal) {
+                        try {
+                            this.terminal.dispose();
+                        } catch (error) {
+                            console.warn('Error disposing legacy terminal:', error);
+                        }
+                        this.terminal = null;
+                    }
+                    
+                    if (this.fitAddon) {
+                        this.fitAddon = null;
+                    }
+                    
+                    // Cleanup resize handlers
+                    if (this.cleanupResize) {
+                        this.cleanupResize();
+                        this.cleanupResize = null;
                     }
                 },
                 

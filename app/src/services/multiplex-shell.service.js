@@ -746,6 +746,187 @@ class MultiplexShellService {
     }
 
     /**
+     * Convert workspace layout to split panes
+     * @param {string} workspaceId - Workspace ID
+     * @param {string} layoutType - Target layout type
+     * @param {number} viewportWidth - Current viewport width for validation
+     * @returns {Object} Layout and session information
+     */
+    async convertToSplitLayout(workspaceId, layoutType, viewportWidth = 1024) {
+        try {
+            // Validate layout is supported for viewport
+            if (!terminalLayoutService.isSplitLayoutSupported(viewportWidth, layoutType)) {
+                throw new Error(`Layout ${layoutType} not supported for viewport width ${viewportWidth}`);
+            }
+
+            const workspace = await workspaceService.getWorkspace(workspaceId);
+            if (!workspace) {
+                throw new Error('Workspace not found');
+            }
+
+            let workspaceContainer = this.workspaceSessions.get(workspaceId);
+            if (!workspaceContainer) {
+                throw new Error('No active workspace container found');
+            }
+
+            // Get current session IDs
+            const existingSessionIds = Array.from(workspaceContainer.sessions.keys());
+            const requiredPanes = terminalLayoutService.getRequiredPanesCount(layoutType);
+            
+            // Create additional sessions if needed
+            const sessionIds = [...existingSessionIds];
+            for (let i = existingSessionIds.length; i < requiredPanes; i++) {
+                const sessionName = `Terminal ${i + 1}`;
+                const sessionData = await this.createPtyProcess(workspace, sessionName, false);
+                const sessionId = sessionData.sessionId;
+                
+                workspaceContainer.sessions.set(sessionId, sessionData);
+                this.setupPtyHandlers(sessionData, workspace, sessionId);
+                sessionIds.push(sessionId);
+                
+                logger.info(`Created additional session ${sessionId} for split layout`);
+            }
+
+            // Convert layout
+            const updatedLayout = await terminalLayoutService.convertToSplit(workspaceId, layoutType);
+            workspaceContainer.layout = updatedLayout;
+
+            // Update layout configuration with actual session IDs
+            const config = JSON.parse(updatedLayout.configuration);
+            if (config.panes && sessionIds.length > 0) {
+                // Distribute all sessions across panes
+                sessionIds.forEach((sessionId, index) => {
+                    const paneIndex = index % config.panes.length;
+                    const pane = config.panes[paneIndex];
+                    
+                    // Initialize tabs array if not exists
+                    if (!pane.tabs) {
+                        pane.tabs = [];
+                    }
+                    
+                    // Add session to pane's tabs
+                    pane.tabs.push({
+                        sessionId: sessionId,
+                        isActive: pane.tabs.length === 0 // First tab is active
+                    });
+                    
+                    // Set active tab and session ID for pane
+                    if (pane.tabs.length === 1) {
+                        pane.activeTabId = sessionId;
+                        pane.sessionId = sessionId; // For backward compatibility
+                    }
+                });
+                
+                await terminalLayoutService.updateLayoutConfiguration(updatedLayout.id, config);
+            }
+
+            logger.info(`Converted workspace ${workspaceId} to ${layoutType} layout`);
+
+            return {
+                layout: updatedLayout,
+                sessions: this.getWorkspaceSessions(workspaceId),
+                layoutType,
+                configuration: config
+            };
+
+        } catch (error) {
+            logger.error(`Error converting to split layout:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Convert split layout back to tabs
+     * @param {string} workspaceId - Workspace ID
+     * @returns {Object} Updated layout information
+     */
+    async convertToTabsLayout(workspaceId) {
+        try {
+            let workspaceContainer = this.workspaceSessions.get(workspaceId);
+            if (!workspaceContainer) {
+                throw new Error('No active workspace container found');
+            }
+
+            // Convert layout back to tabs
+            const updatedLayout = await terminalLayoutService.convertToTabs(workspaceId);
+            workspaceContainer.layout = updatedLayout;
+
+            logger.info(`Converted workspace ${workspaceId} back to tabs layout`);
+
+            return {
+                layout: updatedLayout,
+                sessions: this.getWorkspaceSessions(workspaceId),
+                layoutType: 'tabs'
+            };
+
+        } catch (error) {
+            logger.error(`Error converting to tabs layout:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get workspace layout information
+     * @param {string} workspaceId - Workspace ID
+     * @returns {Object} Layout information
+     */
+    async getWorkspaceLayout(workspaceId) {
+        try {
+            const layout = await terminalLayoutService.getDefaultLayout(workspaceId);
+            const config = JSON.parse(layout.configuration);
+            
+            return {
+                layoutId: layout.id,
+                layoutType: layout.layoutType,
+                configuration: config,
+                sessions: this.getWorkspaceSessions(workspaceId)
+            };
+        } catch (error) {
+            logger.error(`Error getting workspace layout:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Switch active pane in split layout
+     * @param {string} workspaceId - Workspace ID 
+     * @param {string} paneId - Pane ID to activate
+     * @returns {Object} Updated pane information
+     */
+    async switchToPane(workspaceId, paneId) {
+        try {
+            let workspaceContainer = this.workspaceSessions.get(workspaceId);
+            if (!workspaceContainer) {
+                throw new Error('No active workspace container found');
+            }
+
+            const layout = workspaceContainer.layout;
+            const config = JSON.parse(layout.configuration);
+            
+            if (config.panes) {
+                // Find the pane and its session
+                const pane = config.panes.find(p => p.id === paneId);
+                if (!pane || !pane.sessionId) {
+                    throw new Error('Pane or session not found');
+                }
+
+                logger.info(`Switching to pane ${paneId} with session ${pane.sessionId}`);
+                
+                return {
+                    paneId,
+                    sessionId: pane.sessionId,
+                    position: pane.position
+                };
+            }
+
+            throw new Error('Layout does not support panes');
+        } catch (error) {
+            logger.error(`Error switching to pane:`, error);
+            throw error;
+        }
+    }
+
+    /**
      * Close a specific session
      */
     async closeSession(workspaceId, sessionId) {
@@ -762,9 +943,11 @@ class MultiplexShellService {
         }
 
         // Clean up socket mappings
-        sessionData.sockets.forEach(socketId => {
-            this.socketToSession.delete(socketId);
-        });
+        if (sessionData.sockets) {
+            sessionData.sockets.forEach(socketId => {
+                this.socketToSession.delete(socketId);
+            });
+        }
 
         // Terminate session in database
         if (sessionData.sessionManagerId) {

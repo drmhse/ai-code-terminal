@@ -424,10 +424,12 @@ class ShellService {
             } else {
                 // Fallback to old method if io not initialized (shouldn't happen)
                 logger.warn('[PTY-DATA] Socket.IO instance not available, falling back to socket iteration');
-                sessionData.sockets.forEach(socketId => {
-                    const liveSocket = this.io?.sockets?.sockets?.get(socketId);
-                    liveSocket?.emit('terminal-output', data);
-                });
+                if (sessionData.sockets) {
+                    sessionData.sockets.forEach(socketId => {
+                        const liveSocket = this.io?.sockets?.sockets?.get(socketId);
+                        liveSocket?.emit('terminal-output', data);
+                    });
+                }
             }
 
             // Update session activity in database
@@ -451,11 +453,13 @@ class ShellService {
                 this.io.to(`workspace:${workspace.id}`).emit('terminal-killed', { workspaceId: workspace.id });
             } else {
                 // Fallback to old method
-                sessionData.sockets.forEach(socketId => {
-                    const liveSocket = this.io?.sockets?.sockets?.get(socketId);
-                    liveSocket?.emit('terminal-output', message);
-                    liveSocket?.emit('terminal-killed', { workspaceId: workspace.id });
-                });
+                if (sessionData.sockets) {
+                    sessionData.sockets.forEach(socketId => {
+                        const liveSocket = this.io?.sockets?.sockets?.get(socketId);
+                        liveSocket?.emit('terminal-output', message);
+                        liveSocket?.emit('terminal-killed', { workspaceId: workspace.id });
+                    });
+                }
             }
 
             // Terminate session in database
@@ -576,9 +580,11 @@ class ShellService {
         const session = this.activeSessions.get(workspaceId);
         if (session) {
             session.ptyProcess.kill();
-            session.sockets.forEach(socketId => {
-                this.socketToWorkspace.delete(socketId);
-            });
+            if (session.sockets) {
+                session.sockets.forEach(socketId => {
+                    this.socketToWorkspace.delete(socketId);
+                });
+            }
 
             // Terminate session in database
             if (session.sessionManagerId) {

@@ -205,6 +205,269 @@ class SocketHandler {
         socket.emit('terminal-error', { error: error.message });
       }
     });
+
+    // Convert to split layout
+    socket.on('convert-to-split', async (data) => {
+      try {
+        const { workspaceId, layoutType, viewportWidth } = data || {};
+        if (!workspaceId || !layoutType) {
+          return socket.emit('terminal-error', { error: 'Missing workspaceId or layoutType' });
+        }
+
+        const result = await shellService.convertToSplitLayout(workspaceId, layoutType, viewportWidth || 1024);
+        
+        socket.emit('layout-converted', {
+          workspaceId,
+          layoutType,
+          layout: result.layout,
+          configuration: result.configuration,
+          sessions: result.sessions
+        });
+
+        // Notify all clients in the workspace room
+        socket.to(`workspace:${workspaceId}`).emit('layout-changed', {
+          workspaceId,
+          layoutType,
+          configuration: result.configuration
+        });
+
+      } catch (error) {
+        logger.error('Error converting to split layout:', error);
+        socket.emit('terminal-error', { error: error.message });
+      }
+    });
+
+    // Convert back to tabs layout
+    socket.on('convert-to-tabs', async (data) => {
+      try {
+        const { workspaceId } = data || {};
+        if (!workspaceId) {
+          return socket.emit('terminal-error', { error: 'Missing workspaceId' });
+        }
+
+        const result = await shellService.convertToTabsLayout(workspaceId);
+        
+        socket.emit('layout-converted', {
+          workspaceId,
+          layoutType: 'tabs',
+          layout: result.layout,
+          sessions: result.sessions
+        });
+
+        // Notify all clients in the workspace room
+        socket.to(`workspace:${workspaceId}`).emit('layout-changed', {
+          workspaceId,
+          layoutType: 'tabs'
+        });
+
+      } catch (error) {
+        logger.error('Error converting to tabs layout:', error);
+        socket.emit('terminal-error', { error: error.message });
+      }
+    });
+
+    // Switch to a specific pane in split layout
+    socket.on('switch-to-pane', async (data) => {
+      try {
+        const { workspaceId, paneId } = data || {};
+        if (!workspaceId || !paneId) {
+          return socket.emit('terminal-error', { error: 'Missing workspaceId or paneId' });
+        }
+
+        const paneInfo = await shellService.switchToPane(workspaceId, paneId);
+        
+        // Switch the socket to the pane's session
+        if (paneInfo.sessionId) {
+          const success = await shellService.switchSocketToSession(socket, workspaceId, paneInfo.sessionId, false);
+          
+          if (success) {
+            socket.emit('pane-switched', {
+              workspaceId,
+              paneId,
+              sessionId: paneInfo.sessionId,
+              position: paneInfo.position
+            });
+          }
+        }
+
+      } catch (error) {
+        logger.error('Error switching to pane:', error);
+        socket.emit('terminal-error', { error: error.message });
+      }
+    });
+
+    // Get layout recommendations based on viewport size
+    socket.on('get-layout-recommendations', async (data) => {
+      try {
+        const { workspaceId, viewportWidth, sessionCount } = data || {};
+        if (!workspaceId || !viewportWidth) {
+          return socket.emit('terminal-error', { error: 'Missing workspaceId or viewportWidth' });
+        }
+
+        const currentSessions = shellService.getWorkspaceSessions(workspaceId);
+        const actualSessionCount = sessionCount || currentSessions.length;
+        
+        const recommendedLayout = terminalLayoutService.getRecommendedLayout(viewportWidth, actualSessionCount);
+        
+        // Check which layouts are supported for this viewport
+        const supportedLayouts = ['tabs', 'horizontal-split', 'vertical-split', 'three-pane', 'grid-2x2']
+          .filter(layout => terminalLayoutService.isSplitLayoutSupported(viewportWidth, layout));
+
+        socket.emit('layout-recommendations', {
+          workspaceId,
+          viewportWidth,
+          sessionCount: actualSessionCount,
+          recommended: recommendedLayout,
+          supported: supportedLayouts
+        });
+
+      } catch (error) {
+        logger.error('Error getting layout recommendations:', error);
+        socket.emit('terminal-error', { error: error.message });
+      }
+    });
+
+    // IDE-Style Pane Tab Management
+
+    // Move tab between panes
+    socket.on('move-tab-between-panes', async (data) => {
+      try {
+        const { workspaceId, sessionId, sourcePaneId, targetPaneId, targetIndex } = data || {};
+        if (!workspaceId || !sessionId || !sourcePaneId || !targetPaneId) {
+          return socket.emit('terminal-error', { error: 'Missing required parameters for tab move' });
+        }
+
+        const layout = await terminalLayoutService.getDefaultLayout(workspaceId);
+        const updatedLayout = await terminalLayoutService.moveTabBetweenPanes(
+          layout.id, sessionId, sourcePaneId, targetPaneId, targetIndex
+        );
+
+        socket.emit('tab-moved', {
+          workspaceId,
+          sessionId,
+          sourcePaneId,
+          targetPaneId,
+          layout: updatedLayout
+        });
+
+        // Notify all clients in the workspace room
+        socket.to(`workspace:${workspaceId}`).emit('pane-layout-updated', {
+          workspaceId,
+          layout: updatedLayout
+        });
+
+      } catch (error) {
+        logger.error('Error moving tab between panes:', error);
+        socket.emit('terminal-error', { error: error.message });
+      }
+    });
+
+    // Set active tab within a pane
+    socket.on('set-active-pane-tab', async (data) => {
+      try {
+        const { workspaceId, paneId, sessionId } = data || {};
+        if (!workspaceId || !paneId || !sessionId) {
+          return socket.emit('terminal-error', { error: 'Missing workspaceId, paneId, or sessionId' });
+        }
+
+        const layout = await terminalLayoutService.getDefaultLayout(workspaceId);
+        const updatedLayout = await terminalLayoutService.setActivePaneTab(layout.id, paneId, sessionId);
+
+        // Switch the socket to the active tab's session
+        const success = await shellService.switchSocketToSession(socket, workspaceId, sessionId, false);
+        
+        if (success) {
+          socket.emit('pane-tab-activated', {
+            workspaceId,
+            paneId,
+            sessionId,
+            layout: updatedLayout
+          });
+
+          // Notify other clients about the layout change
+          socket.to(`workspace:${workspaceId}`).emit('pane-layout-updated', {
+            workspaceId,
+            layout: updatedLayout
+          });
+        }
+
+      } catch (error) {
+        logger.error('Error setting active pane tab:', error);
+        socket.emit('terminal-error', { error: error.message });
+      }
+    });
+
+    // Add new tab to specific pane
+    socket.on('add-tab-to-pane', async (data) => {
+      try {
+        const { workspaceId, paneId, tabName } = data || {};
+        if (!workspaceId || !paneId) {
+          return socket.emit('terminal-error', { error: 'Missing workspaceId or paneId' });
+        }
+
+        // Create new terminal session
+        const tabInfo = await shellService.createNewTab(workspaceId, tabName || 'Terminal');
+        
+        // Add the new session to the specified pane
+        const layout = await terminalLayoutService.getDefaultLayout(workspaceId);
+        const updatedLayout = await terminalLayoutService.addTabToPane(layout.id, paneId, tabInfo.sessionId, true);
+
+        socket.emit('tab-added-to-pane', {
+          workspaceId,
+          paneId,
+          tab: tabInfo,
+          layout: updatedLayout,
+          sessions: shellService.getWorkspaceSessions(workspaceId)
+        });
+
+        // Notify all clients in the workspace room
+        socket.to(`workspace:${workspaceId}`).emit('pane-layout-updated', {
+          workspaceId,
+          layout: updatedLayout,
+          sessions: shellService.getWorkspaceSessions(workspaceId)
+        });
+
+      } catch (error) {
+        logger.error('Error adding tab to pane:', error);
+        socket.emit('terminal-error', { error: error.message });
+      }
+    });
+
+    // Remove tab from pane
+    socket.on('remove-tab-from-pane', async (data) => {
+      try {
+        const { workspaceId, paneId, sessionId } = data || {};
+        if (!workspaceId || !paneId || !sessionId) {
+          return socket.emit('terminal-error', { error: 'Missing workspaceId, paneId, or sessionId' });
+        }
+
+        // Remove tab from layout first
+        const layout = await terminalLayoutService.getDefaultLayout(workspaceId);
+        const updatedLayout = await terminalLayoutService.removeTabFromPane(layout.id, paneId, sessionId);
+
+        // Kill the terminal session
+        await shellService.killSession(workspaceId, sessionId);
+
+        socket.emit('tab-removed-from-pane', {
+          workspaceId,
+          paneId,
+          sessionId,
+          layout: updatedLayout,
+          sessions: shellService.getWorkspaceSessions(workspaceId)
+        });
+
+        // Notify all clients in the workspace room
+        socket.to(`workspace:${workspaceId}`).emit('pane-layout-updated', {
+          workspaceId,
+          layout: updatedLayout,
+          sessions: shellService.getWorkspaceSessions(workspaceId)
+        });
+
+      } catch (error) {
+        logger.error('Error removing tab from pane:', error);
+        socket.emit('terminal-error', { error: error.message });
+      }
+    });
   }
 
   async loadWorkspaces(socket) {

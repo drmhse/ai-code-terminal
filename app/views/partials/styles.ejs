@@ -752,6 +752,388 @@
             border-radius: 4px;
         }
 
+        /* IDE-Style Split Pane Layouts */
+        .terminal-container.split-mode {
+            padding: 4px;
+            display: grid;
+            gap: 4px;
+            height: 100%;
+        }
+
+        /* Pane Container (holds tab bar + content) */
+        .pane-container {
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            overflow: hidden;
+            background: var(--bg-secondary);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .pane-container.active {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 1px var(--accent-blue);
+        }
+
+        /* Pane Tab Bar */
+        .pane-tab-bar {
+            height: 32px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 4px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            gap: 2px;
+            position: relative;
+        }
+
+        /* Individual Tab within Pane */
+        .pane-tab {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            min-width: 0;
+            flex-shrink: 0;
+            transition: all 0.15s;
+            user-select: none;
+        }
+
+        .pane-tab:hover {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .pane-tab.active {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 1px var(--accent-blue);
+        }
+
+        .pane-tab.dragging {
+            opacity: 0.5;
+            transform: scale(0.95);
+            z-index: 1000;
+        }
+
+        .pane-tab .tab-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 80px;
+        }
+
+        .pane-tab .icon {
+            width: 12px;
+            height: 12px;
+            flex-shrink: 0;
+        }
+
+        .pane-tab .tab-close {
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            padding: 1px;
+            border-radius: 2px;
+            opacity: 0.7;
+            transition: all 0.15s;
+            flex-shrink: 0;
+        }
+
+        .pane-tab .tab-close:hover {
+            background: var(--accent-red);
+            color: white;
+            opacity: 1;
+        }
+
+        .pane-tab .icon-small {
+            width: 10px;
+            height: 10px;
+        }
+
+        /* Add Tab Button within Pane */
+        .pane-tab-add {
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 4px 6px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.15s;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .pane-tab-add:hover {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            border-color: var(--accent-blue);
+        }
+
+        .pane-tab-add .icon-small {
+            width: 10px;
+            height: 10px;
+        }
+
+        /* Pane Controls */
+        .pane-controls {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            opacity: 0.6;
+            font-size: 10px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+
+        /* Pane Content Area */
+        .pane-content {
+            flex: 1;
+            position: relative;
+            background: var(--terminal-bg, #1e1e1e);
+            overflow: hidden;
+        }
+
+        .pane-content .terminal-wrapper {
+            width: 100%;
+            height: 100%;
+            background: var(--terminal-bg, #1e1e1e);
+            border: none;
+        }
+
+        /* Drag and Drop */
+        .drop-zone-indicator {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(59, 130, 246, 0.1);
+            border: 2px dashed var(--accent-blue);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: var(--accent-blue);
+            font-size: 12px;
+            font-weight: 500;
+            z-index: 100;
+        }
+
+        .drop-zone-indicator .icon {
+            width: 24px;
+            height: 24px;
+        }
+
+        /* Drag over states */
+        .pane-container.drag-over {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+
+        .pane-tab.drag-over {
+            background: var(--accent-blue);
+            color: white;
+        }
+
+        /* Layout-specific grid configurations */
+        .terminal-container.layout-horizontal-split {
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr;
+        }
+
+        .terminal-container.layout-vertical-split {
+            grid-template-columns: 1fr;
+            grid-template-rows: 1fr 1fr;
+        }
+
+        .terminal-container.layout-grid-2x2 {
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+        }
+
+        .terminal-container.layout-three-pane {
+            grid-template-columns: 2fr 1fr;
+            grid-template-rows: 1fr 1fr;
+        }
+
+        /* Pane positioning using grid-area */
+        .terminal-wrapper[data-grid-area] {
+            grid-area: var(--grid-area);
+        }
+
+        /* Pane focus indicator */
+        .terminal-wrapper .pane-header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 20px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 8px;
+            font-size: 11px;
+            color: var(--text-muted);
+            z-index: 10;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .terminal-wrapper:hover .pane-header,
+        .terminal-wrapper.active .pane-header {
+            opacity: 1;
+        }
+
+        .terminal-wrapper.active .pane-header {
+            background: var(--accent-blue);
+            color: white;
+        }
+
+        .terminal-wrapper .pane-header .pane-title {
+            font-weight: 500;
+        }
+
+        .terminal-wrapper .pane-header .pane-controls {
+            display: flex;
+            gap: 4px;
+        }
+
+        .terminal-wrapper .pane-header .pane-btn {
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            padding: 2px;
+            border-radius: 2px;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .terminal-wrapper .pane-header .pane-btn:hover {
+            opacity: 1;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Split controls in tab bar */
+        .tab-bar .split-controls {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 0 8px;
+        }
+
+        .split-btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .split-btn:hover {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            border-color: var(--accent-blue);
+        }
+
+        .split-btn.active {
+            background: var(--accent-blue);
+            color: white;
+            border-color: var(--accent-blue);
+        }
+
+        .split-btn .icon {
+            width: 12px;
+            height: 12px;
+        }
+
+        /* Split info display */
+        .split-info {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 12px;
+            color: var(--text-secondary);
+            font-size: 11px;
+            border-right: 1px solid var(--border-color);
+            margin-right: 8px;
+        }
+
+        .split-info .icon {
+            width: 12px;
+            height: 12px;
+        }
+
+        .pane-count {
+            opacity: 0.7;
+            font-size: 10px;
+        }
+
+        /* Responsive breakpoints for split layouts */
+        @media (max-width: 768px) {
+            /* Mobile: Force tabs mode only */
+            .terminal-container.split-mode {
+                display: block !important;
+                grid-template-columns: none !important;
+                grid-template-rows: none !important;
+                gap: 0 !important;
+                padding: 16px !important;
+            }
+            
+            .split-controls {
+                display: none !important;
+            }
+
+            .terminal-wrapper .pane-header {
+                display: none !important;
+            }
+
+            .terminal-wrapper {
+                border: none !important;
+                box-shadow: none !important;
+            }
+        }
+
+        @media (max-width: 1024px) {
+            /* Tablet: Limit to simple splits */
+            .terminal-container.layout-grid-2x2,
+            .terminal-container.layout-three-pane {
+                grid-template-columns: 1fr 1fr !important;
+                grid-template-rows: 1fr !important;
+            }
+            
+            /* Hide complex layout buttons on tablet */
+            .split-btn[data-layout="grid-2x2"],
+            .split-btn[data-layout="three-pane"] {
+                display: none;
+            }
+        }
+
         /* Welcome Screen */
         .welcome-screen {
             flex: 1;
