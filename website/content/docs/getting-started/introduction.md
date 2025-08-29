@@ -11,13 +11,15 @@ AI Code Terminal is a production-ready, single-tenant development environment th
 
 ## What Makes AI Code Terminal Special
 
-- **Browser-based terminal:** Full shell access without installing anything locally
-- **Single-tenant security:** Designed for one user with enterprise-grade security
-- **Claude Code integration:** Built-in support for AI-assisted coding
-- **GitHub-first workflow:** Direct repository cloning and management
-- **Real-time collaboration:** WebSocket-powered terminal sessions
-- **Container isolation:** Secure, resource-limited execution environment
-- **Persistent workspaces:** Your work is automatically saved and restored
+1. **Terminal Multiplexing (Tabs & Split Panes):** Work with multiple terminals side-by-side. Run your dev server in one pane, tests in another, and Git commands in a third—all in the same window.
+
+2. **Integrated File Explorer:** Built-in sidebar with file browser, preview capabilities, and context menus. Navigate your codebase without leaving the terminal interface.
+
+3. **Seamless GitHub Integration:** Clone repositories with one click. Our OAuth credential helper means you never worry about SSH keys or personal access tokens for `git push/pull`.
+
+4. **Secure, Private, Single-Tenant Design:** Your own isolated development environment. No shared resources, no data mixing, enterprise-grade security for one user.
+
+5. **Direct Claude Code Integration:** Run `claude login` directly in your terminal. Your API key stays on your machine—we never store or see it.
 
 ## Use Cases
 
@@ -38,22 +40,12 @@ Automated development workflows. Integrate with existing CI/CD pipelines for aut
 
 ## Technical Overview
 
-The application is built with modern web technologies:
-
-- **Backend:** Node.js with Express framework
-- **Real-time Communication:** Socket.IO for WebSocket connections
-- **Database:** SQLite with Prisma ORM for data persistence
-- **Authentication:** GitHub OAuth for secure single-tenant access
-- **Terminal:** xterm.js frontend with node-pty backend for full PTY support
-- **Containerization:** Docker for secure, isolated execution
-- **Frontend:** EJS templating with Vue.js for interactive components
+Built with modern web technologies for reliability and performance:
+- **Real-time terminals** powered by xterm.js and Socket.IO
+- **Docker containerization** for security and isolation
+- **GitHub OAuth** for seamless authentication and Git operations
+- **SQLite database** for lightweight data persistence
 
 ## Architecture Philosophy
 
-AI Code Terminal follows these core principles:
-
-1. **Security First:** Every component is designed with security in mind
-2. **Single Tenant:** Optimized for individual developer workflows
-3. **Minimal Dependencies:** Keep the system lightweight and maintainable
-4. **Cloud Native:** Designed for containerized deployment
-5. **Developer Experience:** Focus on making coding faster and more enjoyable
+**Security First, Developer Second:** Every feature prioritizes your data privacy and coding productivity.

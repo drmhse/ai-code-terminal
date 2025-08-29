@@ -74,12 +74,10 @@ DATABASE_URL=file:./data/database.db
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MAX_WORKSPACES_PER_USER` | `10` | Maximum concurrent workspaces |
 | `WORKSPACE_CLEANUP_DAYS` | `30` | Days before inactive workspace cleanup |
 
 ```bash
 # Workspace limits
-MAX_WORKSPACES_PER_USER=10
 WORKSPACE_CLEANUP_DAYS=30
 ```
 
@@ -96,17 +94,21 @@ FRONTEND_URL=http://localhost:3000
 ALLOWED_ORIGINS=http://localhost:3000,https://yourdomain.com
 ```
 
-### Session Configuration
+### Logging Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SESSION_TIMEOUT_MINUTES` | `1440` | Session timeout in minutes (24 hours) |
-| `JWT_EXPIRES_IN` | `7d` | JWT token expiration |
+| `LOG_LEVEL` | `info` | Logging level (error, warn, info, debug) |
+| `LOG_MAX_SIZE` | `20m` | Maximum size per log file |
+| `LOG_MAX_FILES` | `30d` | Maximum age of log files |
+| `LOG_COMPRESS` | `true` | Compress rotated log files |
 
 ```bash
-# Session settings
-SESSION_TIMEOUT_MINUTES=1440
-JWT_EXPIRES_IN=7d
+# Logging settings
+LOG_LEVEL=info
+LOG_MAX_SIZE=20m
+LOG_MAX_FILES=30d
+LOG_COMPRESS=true
 ```
 
 ## Complete Configuration Example
@@ -123,33 +125,29 @@ GITHUB_CLIENT_ID=your_github_client_id_here
 GITHUB_CLIENT_SECRET=your_github_client_secret_here
 GITHUB_CALLBACK_URL=http://localhost:3014/auth/github/callback
 
-# Required - Security
+# Required - Security & Single-Tenant
 JWT_SECRET=your-super-secure-jwt-secret-at-least-32-characters-long
 TENANT_GITHUB_USERNAME=your-github-username
 
 # Optional - Server
 PORT=3014
-NODE_ENV=development
-HOST=0.0.0.0
+NODE_ENV=production
 
 # Optional - Database
 DATABASE_URL=file:./data/database.db
 
 # Optional - Workspace Management
-MAX_WORKSPACES_PER_USER=10
 WORKSPACE_CLEANUP_DAYS=30
 
-# Optional - Session Management
-SESSION_TIMEOUT_MINUTES=1440
-JWT_EXPIRES_IN=7d
-
 # Optional - CORS
-FRONTEND_URL=http://localhost:3000
-ALLOWED_ORIGINS=http://localhost:3000,https://yourdomain.com
+FRONTEND_URL=http://localhost:8080
+ALLOWED_ORIGINS=https://deploy-preview-123--your-app.netlify.app
 
 # Optional - Logging
 LOG_LEVEL=info
-LOG_FORMAT=combined
+LOG_MAX_SIZE=20m
+LOG_MAX_FILES=30d
+LOG_COMPRESS=true
 ```
 
 ## Environment-Specific Configuration
@@ -259,6 +257,6 @@ The application provides detailed error messages for configuration issues. Check
 
 ## Next Steps
 
-- **[Terminal Access](/docs/core-features/terminal-access/):** Start using the terminal
-- **[Authentication Flow](/docs/authentication/auth-flow/):** Understand the login process
-- **[Production Setup](/docs/deployment/production/):** Deploy to production
+- **[Terminal Multiplexing](/docs/core-features/terminal-multiplexing/):** Start using the terminal interface
+- **[GitHub Integration](/docs/core-features/github-integration/):** Set up repository access
+- **[Docker Deployment](/docs/deployment/docker/):** Deploy to production

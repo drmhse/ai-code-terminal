@@ -1,407 +1,132 @@
 ---
 title: "Claude Integration"
-description: "Built-in Claude Code support for AI-assisted development workflows"
-weight: 40
+description: "Run Claude Code directly in your secure terminal environment"
+weight: 50
 layout: "docs"
 ---
 
 # Claude Integration
 
-AI Code Terminal includes built-in support for Claude Code, providing AI-assisted development directly in your terminal environment.
+AI Code Terminal comes with Claude Code pre-installed, so you can use AI assistance directly in your secure terminal environment. Your API key stays completely private—we never store it on our servers.
 
-## Claude Code Installation
+## How It Works
 
-### Automatic Installation
+**Pre-Installed Claude Code**
+Claude Code is already installed and ready to use in every workspace. No installation, configuration, or setup required.
 
-Claude Code is automatically installed in the Docker container:
-
-```dockerfile
-# Pre-installed in Docker image
-RUN npm install -g @anthropic/claude-code
-```
-
-### Manual Installation
-
-For local development setups:
+**Your API Key, Your Control**
+When you're ready to use Claude Code, simply run:
 
 ```bash
-# Install Claude Code globally
-npm install -g @anthropic/claude-code
-
-# Verify installation
-claude --version
-```
-
-## Getting Started with Claude Code
-
-### Initial Setup
-
-After accessing your terminal, set up Claude Code:
-
-```bash
-# Login to Claude Code (interactive)
 claude login
-
-# Verify authentication
-claude auth status
 ```
 
-### CLAUDE.md Auto-Generation
+This authenticates directly with Anthropic using your own API key. Crucially: your API key is stored locally in your terminal session and never touches our servers.
 
-Each workspace automatically generates a `CLAUDE.md` file with project context:
-
-```markdown
-# Project: my-react-app
-
-## Overview
-React application with TypeScript and modern tooling.
-
-## Technology Stack
-- React 18.x
-- TypeScript 5.x
-- Vite build system
-- Tailwind CSS
-- Jest testing framework
-
-## Development Setup
-npm install
-npm run dev
-
-## Key Files
-- `src/App.tsx` - Main application component
-- `src/main.tsx` - Application entry point
-- `vite.config.ts` - Build configuration
-
-## Common Commands
-npm run build    # Production build
-npm run test     # Run tests
-npm run lint     # Lint code
-```
-
-This context helps Claude understand your project structure and provide more relevant assistance.
-
-## Core Claude Code Features
-
-### Interactive Chat
-
-Start conversations with Claude directly in your terminal:
+**Ready to Use**
+Once authenticated, use Claude Code normally:
 
 ```bash
-# Start interactive chat session
+# Start a chat session
 claude chat
 
-# Ask specific questions
-claude chat "How do I optimize this React component?"
+# Ask specific questions about your code
+claude chat "How can I optimize this React component?"
 
-# Get help with code in current directory
-claude chat "Review my TypeScript configuration"
+# Get help with your project
+claude chat "Help me debug this API endpoint"
 ```
 
-### Code Analysis and Review
+## Why This Setup Is Perfect
 
+**Complete Privacy**
+Your Claude API key and all your interactions with Claude remain completely private:
+- **We never see your API key** - Authentication happens directly between you and Anthropic
+- **We never store your key** - Keys are managed locally in your terminal session
+- **Your conversations stay private** - No server-side logging or storage of Claude interactions
+
+**Zero Configuration**
+Unlike other platforms where you might need to configure API keys through web interfaces or settings pages, here you manage everything directly through the familiar Claude Code CLI.
+
+**Secure Environment**
+Your code and AI interactions happen in an isolated, secure environment. Even if you're working on sensitive projects, your data never leaves the secure container.
+
+**Always Up-to-Date**
+We keep Claude Code updated to the latest version, so you always have access to the newest features and improvements.
+
+## Getting Started
+
+1. **Access Your Workspace:** Create or open any workspace
+2. **Login to Claude:** Run `claude login` in your terminal
+3. **Enter Your API Key:** Follow the prompts to authenticate with your Anthropic API key
+4. **Start Using Claude:** Run `claude chat` or any other Claude Code commands
+
+## Common Usage Patterns
+
+**Code Review and Analysis**
 ```bash
-# Analyze current project
-claude analyze
+# Review your changes before committing
+claude chat "Can you review the changes I've made?"
 
-# Review specific files
-claude review src/components/Header.tsx
-
-# Check for potential issues
-claude audit --security
+# Get feedback on code quality
+claude chat "Any suggestions for improving this function?"
 ```
 
-### Code Generation and Modification
-
+**Debugging Help**
 ```bash
-# Generate new components
-claude generate component UserProfile --typescript
+# Get help with errors
+claude chat "I'm getting this error: [paste error message]"
 
-# Create API endpoints
-claude generate api user --express
-
-# Add tests for existing code
-claude generate tests src/utils/helpers.js
+# Understand complex code
+claude chat "Can you explain what this code does?"
 ```
 
-### Diff and Patch Operations
-
+**Feature Development**
 ```bash
-# Apply suggested changes
-claude apply changes.patch
+# Plan new features
+claude chat "How should I implement user authentication?"
 
-# Generate diffs for review
-claude diff --proposed-changes
-
-# Interactive code modification
-claude edit src/App.tsx "Add error boundary"
+# Get implementation suggestions
+claude chat "What's the best way to structure this API?"
 ```
 
-## Workspace-Specific Features
+## Project Context
 
-### Project Context Awareness
+**Automatic Project Understanding**
+Each workspace automatically includes information about your project in a `CLAUDE.md` file, helping Claude understand your codebase structure and technology stack.
 
-Claude Code automatically understands your project:
+**Smart Assistance**
+Claude Code can see your project files and understand your setup, providing more relevant and accurate suggestions based on your specific technology stack.
 
-- **Technology Stack** - Detects frameworks and tools
-- **File Structure** - Understands project organization
-- **Dependencies** - Knows about installed packages
-- **Git Context** - Aware of current branch and changes
+## API Key Management
 
-### Terminal Integration
+> **🔒 Security Highlight**
+> 
+> This is the most important feature: **your API key is completely under your control**. Unlike platforms that require you to enter API keys through web forms, here you manage everything through the secure Claude Code CLI.
 
-Claude Code works seamlessly in the terminal environment:
+**Best Practices:**
+- Keep your API key secure and don't share it
+- You can revoke or rotate API keys through your Anthropic dashboard at any time
+- If you stop using a workspace, your API key is automatically cleared when the session ends
 
-```bash
-# Use with pipes
-git diff | claude explain
+**No Server-Side Storage:**
+We deliberately designed the system so that:
+- AI Code Terminal servers never see or store your API key
+- All Claude interactions happen directly between your terminal and Anthropic's servers
+- Your API usage and billing are handled directly through your Anthropic account
 
-# Chain with other commands
-npm run build && claude analyze --performance
+## Why We Built It This Way
 
-# Interactive debugging
-claude debug --interactive
-```
+**Privacy First**
+By letting you manage your own API key through the Claude Code CLI, we ensure that your AI interactions remain completely private. Even we can't see what you're asking Claude or how you're using the service.
 
-### Multi-Language Support
+**Familiar Workflow**
+If you already use Claude Code locally, this works exactly the same way. No new tools to learn or different authentication methods.
 
-Claude Code supports all popular languages and frameworks:
+**Security by Design**
+Your sensitive code and AI interactions never leave the secure, isolated environment. Even if you're working on proprietary or confidential projects, everything stays contained.
 
-- **JavaScript/TypeScript** - React, Node.js, Vue, Angular
-- **Python** - Django, Flask, FastAPI, data science
-- **Go** - Web services, CLI tools, microservices
-- **Rust** - Systems programming, web assembly
-- **Java/Kotlin** - Spring Boot, Android development
-- **C#/.NET** - ASP.NET, desktop applications
+**No Vendor Lock-in**
+Since you manage your own API key and use the standard Claude Code interface, you're never locked into our platform. You can use your API key with any Claude Code installation.
 
-## Advanced Workflows
-
-### AI-Assisted Development
-
-Integrate Claude into your development workflow:
-
-```bash
-# Code review workflow
-git add .
-claude review --staged
-git commit -m "$(claude suggest-commit-message)"
-
-# Feature development
-claude plan "Add user authentication"
-claude implement --plan auth-plan.md
-claude test --coverage
-
-# Bug fixing
-claude debug "API returns 500 error"
-claude fix --apply-suggestions
-```
-
-### Documentation Generation
-
-```bash
-# Generate README files
-claude docs generate README
-
-# API documentation
-claude docs api --openapi
-
-# Code comments
-claude docs comment src/**/*.js
-```
-
-### Refactoring Support
-
-```bash
-# Refactor for better performance
-claude refactor --optimize
-
-# Update to newer patterns
-claude modernize --target es2024
-
-# Extract reusable components
-claude extract --component UserCard
-```
-
-## Configuration and Customization
-
-### Claude Code Configuration
-
-Configure Claude Code for your preferences:
-
-```bash
-# Set default model
-claude config set model claude-3-sonnet
-
-# Configure output format
-claude config set output detailed
-
-# Set project preferences
-claude config set language typescript
-claude config set framework react
-```
-
-### Project-Specific Settings
-
-Each workspace can have custom Claude settings:
-
-```json
-// .claude-config.json
-{
-  "model": "claude-3-sonnet",
-  "context": {
-    "include": ["src/**/*", "*.md", "package.json"],
-    "exclude": ["node_modules/**/*", "dist/**/*"]
-  },
-  "preferences": {
-    "codeStyle": "airbnb",
-    "testing": "jest",
-    "documentation": "detailed"
-  }
-}
-```
-
-### Environment Variables
-
-Control Claude Code behavior:
-
-```bash
-# Set API preferences
-export CLAUDE_MODEL=claude-3-sonnet
-export CLAUDE_MAX_TOKENS=4096
-export CLAUDE_TEMPERATURE=0.3
-
-# Project context
-export CLAUDE_PROJECT_TYPE=webapp
-export CLAUDE_FRAMEWORK=react
-```
-
-## Security and Privacy
-
-### API Key Management
-
-Claude Code manages API keys securely:
-
-- **Local Storage** - Keys stored locally, never in workspace
-- **Encryption** - API keys encrypted at rest
-- **Session-based** - Keys tied to terminal sessions
-- **No Logging** - API keys never logged or transmitted
-
-### Code Privacy
-
-Your code remains private:
-
-- **Local Processing** - Code analysis happens locally when possible
-- **Selective Sharing** - Only relevant context sent to API
-- **No Storage** - Anthropic doesn't store your code
-- **Encryption** - All API communications encrypted
-
-### Access Control
-
-Claude Code respects workspace boundaries:
-
-- **Workspace Isolation** - Each workspace has independent context
-- **Permission-based** - Respects file system permissions
-- **Git Integration** - Only accesses committed/staged code when requested
-
-## Performance Optimization
-
-### Context Management
-
-Optimize Claude's understanding of your project:
-
-```bash
-# Update project context
-claude context refresh
-
-# Selective context inclusion
-claude context add src/components/
-claude context remove tests/fixtures/
-
-# Context size optimization
-claude context optimize
-```
-
-### Response Caching
-
-Claude Code caches responses for better performance:
-
-- **Analysis Caching** - Reuses analysis for unchanged files
-- **Response Memoization** - Caches similar queries
-- **Context Reuse** - Maintains context across sessions
-
-## Troubleshooting Claude Integration
-
-### Authentication Issues
-
-**"Not authenticated" Error**
-```bash
-# Re-authenticate
-claude logout
-claude login
-
-# Check auth status
-claude auth status
-```
-
-**API Key Issues**
-```bash
-# Verify API key
-claude auth verify
-
-# Reset authentication
-claude auth reset
-```
-
-### Performance Issues
-
-**Slow Response Times**
-- Reduce context size with `.claude-ignore`
-- Use specific queries instead of broad requests
-- Optimize project structure
-
-**Rate Limiting**
-- Check API usage with `claude usage`
-- Implement request spacing
-- Use appropriate model for task complexity
-
-### Context Issues
-
-**Claude Doesn't Understand Project**
-```bash
-# Regenerate project context
-claude context rebuild
-
-# Update CLAUDE.md manually
-claude context update
-
-# Verify context accuracy
-claude context show
-```
-
-## Best Practices
-
-### Effective Prompting
-
-- **Be Specific** - Provide clear, detailed requirements
-- **Include Context** - Reference relevant files and functions
-- **Iterative Approach** - Build on previous interactions
-- **Code Examples** - Show desired patterns and styles
-
-### Workflow Integration
-
-- **Regular Context Updates** - Keep CLAUDE.md current
-- **Selective Queries** - Focus on specific problems
-- **Review Suggestions** - Always review AI-generated code
-- **Incremental Changes** - Apply changes gradually
-
-### Team Collaboration
-
-- **Shared Context** - Keep CLAUDE.md in version control
-- **Consistent Patterns** - Use Claude to maintain coding standards
-- **Documentation** - Generate and maintain docs with AI assistance
-- **Code Review** - Use Claude for pre-review analysis
-
-## Next Steps
-
-- **[Terminal Access](/docs/core-features/terminal-access/):** Master terminal operations
-- **[Workspace Management](/docs/core-features/workspace-management/):** Organize your projects
-- **[Development Setup](/docs/development/setup/):** Advanced development workflows
+This approach gives you all the benefits of AI assistance while maintaining complete control over your privacy and security.

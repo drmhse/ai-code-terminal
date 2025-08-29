@@ -21,7 +21,7 @@ Before starting, ensure you have:
 ```bash
 # Clone the repository
 git clone https://github.com/your-username/ai-coding-terminal.git
-cd ai-coding-terminal
+cd ai-coding-terminal/app
 
 # Copy environment template
 cp env.example .env
@@ -43,17 +43,19 @@ JWT_SECRET=your-super-secure-jwt-secret-at-least-32-characters
 
 ## Step 3: Start the Application
 
-```bash
-# Build and run with Docker
-npm run docker:build
-npm run docker:run
-```
-
-Or using Docker Compose:
+Using Docker Compose (recommended):
 
 ```bash
 # Start all services
 docker-compose up -d
+```
+
+Alternative Docker commands:
+
+```bash
+# Build and run with Docker
+npm run docker:build
+npm run docker:run
 ```
 
 ## Step 4: Access Your Terminal

@@ -1,288 +1,110 @@
 ---
 title: "GitHub Integration"
-description: "Seamless GitHub authentication, repository management, and Git operations"
-weight: 30
+description: "Seamless repository access with automatic Git authentication"
+weight: 40
 layout: "docs"
 ---
 
 # GitHub Integration
 
-AI Code Terminal provides seamless integration with GitHub for authentication, repository browsing, and automated Git operations with OAuth credential management.
+Connect your GitHub account and access all your repositories with zero configuration. Our OAuth credential helper means you'll never need to manage SSH keys or personal access tokens again.
 
-## Authentication Integration
+## One-Click Repository Access
 
-### OAuth Flow
+**Browse All Your Repositories**
+After logging in with GitHub, browse all your repositories—public, private, and organization repos—right from the workspace selector. Use the search bar to quickly find the project you want to work on.
 
-The GitHub integration handles the complete OAuth 2.0 flow:
+**Instant Workspace Creation**
+Click any repository to create a workspace. The system automatically clones the repository and sets up your development environment. No manual `git clone` commands needed.
 
-1. **Authorization Request** - User clicks "Login with GitHub"
-2. **GitHub Authorization** - User authorizes the application
-3. **Token Exchange** - Application receives access token
-4. **User Validation** - Validates against `TENANT_GITHUB_USERNAME`
-5. **Session Creation** - Creates authenticated session with JWT
+**Smart Repository Info**
+Each repository shows helpful information like the primary programming language, last update time, and description, so you can easily identify the project you're looking for.
 
-### Single-Tenant Security
+## The Magic: OAuth Credential Helper
 
-The application enforces single-tenant access:
-- Only the configured `TENANT_GITHUB_USERNAME` can access
-- All other GitHub users are denied access
-- Provides secure, personal development environment
+> **🎉 This is the killer feature!** Once you're authenticated, all Git operations just work. No SSH key setup, no personal access tokens, no credential configuration.
+
+**Never Configure Git Again**
+Just use Git normally and everything works automatically:
+
+```bash
+git push origin main        # ✅ Works automatically
+git pull origin develop     # ✅ No authentication prompts  
+git fetch --all            # ✅ Seamless access to all remotes
+git clone <private-repo>    # ✅ Private repositories work instantly
+```
+
+**What This Means for You:**
+- No more "Permission denied (publickey)" errors
+- No more managing SSH keys across different machines  
+- No more creating and managing personal access tokens
+- No more typing passwords or usernames for Git operations
+
+**How It Works Behind the Scenes**
+Our custom credential helper automatically provides your GitHub OAuth token to Git whenever needed. When your token expires, it's automatically refreshed. You'll never see authentication errors or password prompts.
+
+**Perfect for Multiple Repositories**
+Work across multiple repositories without any additional setup. Clone new repositories, add upstream remotes for forks, push to different branches—everything works seamlessly.
+
+## Why This Matters
+
+**No More Authentication Headaches**
+Stop wrestling with SSH keys, personal access tokens, or credential managers. Focus on your code instead of your configuration.
+
+**Works Everywhere**
+Access your private repositories from any device where you run AI Code Terminal. The authentication follows your account, not your device.
+
+**Secure by Design**
+Your GitHub credentials are encrypted and stored securely. We never store passwords or SSH keys—only OAuth tokens that can be revoked at any time from your GitHub settings.
+
+**Always Up-to-Date**
+Tokens are automatically refreshed, so you'll never experience authentication failures due to expired credentials.
+
+## Getting Started
+
+1. **Login with GitHub:** Click "Login with GitHub" on the main screen
+2. **Authorize Access:** Grant the application permission to access your repositories
+3. **Browse Repositories:** Use the repository browser to find your project
+4. **Create Workspace:** Click any repository to clone it and start coding
+5. **Use Git Normally:** All Git commands work automatically without any setup
 
 ## Repository Management
 
-### Repository Discovery
+**Organization Access**
+If you're part of GitHub organizations, you'll see all accessible organization repositories alongside your personal repos.
 
-Browse all your GitHub repositories through the integrated interface:
+**Fork Support**
+Working with forks? The system handles upstream remotes automatically. Add upstream remotes and push to different repositories without any authentication setup.
 
-- **All Repositories** - Public, private, and organization repos
-- **Search & Filter** - Find repositories quickly
-- **Repository Info** - Description, language, last update
-- **Permission Awareness** - Only shows accessible repositories
+**Branch Management**
+Create, switch, and push branches normally. The credential helper works with all Git operations, including complex workflows with multiple remotes.
 
-### Repository Selection
+## Pro Tips
 
-When selecting a repository for workspace creation:
+**Repository Search**
+Use the repository search to quickly find projects by name. Especially useful if you have many repositories or are part of large organizations.
 
-```javascript
-// Repository information includes:
-{
-  "name": "my-project",
-  "full_name": "username/my-project", 
-  "description": "Project description",
-  "private": true,
-  "clone_url": "https://github.com/username/my-project.git",
-  "default_branch": "main",
-  "language": "JavaScript",
-  "updated_at": "2024-01-15T10:30:00Z"
-}
-```
+**Fresh Workspaces**
+Each workspace is a fresh clone, so you can have multiple workspaces for the same repository if needed—perhaps for different branches or experiments.
 
-## Git Credential Management
+**Git Commands Work Normally**
+Don't change your Git workflow. All standard Git commands work exactly as you'd expect, just without the authentication hassle.
 
-### OAuth Credential Helper
+**Automatic User Configuration**
+Your Git user name and email are automatically configured from your GitHub profile, so commits are properly attributed without any manual setup.
 
-AI Code Terminal includes a custom Git credential helper that automatically provides OAuth tokens for GitHub operations:
+## Security Features
 
-**Location:** `/scripts/git-credential-oauth`
+**Single-Tenant Access**
+Only the configured GitHub user can access the system. Even if someone else has the URL, they can't log in unless they're the authorized user.
 
-```bash
-#!/usr/bin/env node
+**Encrypted Token Storage**
+Your OAuth tokens are encrypted and stored securely. They're never logged or exposed in any way.
 
-// Provides OAuth tokens to Git operations
-// Reads from application database
-// Handles token refresh automatically
-```
+**Revokable Access**
+You can revoke the application's access to your GitHub account at any time from your GitHub settings page, immediately invalidating all stored tokens.
 
-### Automatic Git Configuration
+**Minimal Permissions**
+The application requests only the minimum necessary permissions: access to your repositories and basic profile information for Git configuration.
 
-Each workspace is automatically configured with:
-
-```bash
-# Credential helper setup
-git config credential.helper 'oauth'
-git config credential.https://github.com.helper 'oauth'
-
-# User information from GitHub profile
-git config user.name "Your GitHub Name"
-git config user.email "your@github-email.com"
-```
-
-### Supported Git Operations
-
-All standard Git operations work seamlessly:
-
-```bash
-# Clone (handled automatically by workspace creation)
-git clone https://github.com/username/repo.git
-
-# Fetch and pull
-git fetch origin
-git pull origin main
-
-# Push operations
-git push origin feature-branch
-git push origin main
-
-# Remote management
-git remote -v
-git remote add upstream https://github.com/upstream/repo.git
-```
-
-## Token Management
-
-### Automatic Token Refresh
-
-The system handles OAuth token lifecycle automatically:
-
-- **Expiration Detection** - Monitors token expiration
-- **Refresh Process** - Uses refresh tokens when available
-- **Re-authentication** - Prompts for re-auth when needed
-- **Error Handling** - Graceful handling of token failures
-
-### Token Security
-
-OAuth tokens are securely managed:
-
-- **Encryption** - Tokens encrypted at rest using AES-256-CBC
-- **Memory Protection** - Tokens cleared from memory after use
-- **Database Security** - Secure token storage in SQLite database
-- **Network Security** - HTTPS-only token transmission
-
-## API Integration
-
-### GitHub REST API
-
-The application uses the GitHub REST API v4 for:
-
-- **User Information** - Profile data and email addresses
-- **Repository Listing** - All accessible repositories
-- **Repository Details** - Metadata and permissions
-- **Organization Access** - Organization repositories
-
-### API Rate Limiting
-
-Respectful API usage with:
-
-- **Rate Limit Headers** - Monitors GitHub rate limits
-- **Caching** - Caches repository data to reduce API calls
-- **Retry Logic** - Handles rate limit exceeded scenarios
-- **Pagination** - Handles large repository lists efficiently
-
-### Example API Usage
-
-```javascript
-// Repository listing with pagination
-const { Octokit } = require('@octokit/rest');
-
-const octokit = new Octokit({
-  auth: userToken
-});
-
-const repositories = await octokit.paginate(
-  octokit.rest.repos.listForAuthenticatedUser,
-  {
-    visibility: 'all',
-    sort: 'updated',
-    per_page: 100
-  }
-);
-```
-
-## Webhook Support
-
-### Repository Events
-
-The application can be configured to receive GitHub webhooks for:
-
-- **Push Events** - Automatic workspace synchronization
-- **Pull Request Events** - Workspace updates for PR changes
-- **Issue Events** - Notifications and workspace context
-- **Release Events** - Version management integration
-
-### Webhook Configuration
-
-To set up webhooks (optional):
-
-1. Go to your repository settings
-2. Click "Webhooks" → "Add webhook"
-3. Set URL to `https://your-domain.com/api/webhooks/github`
-4. Select events: `push`, `pull_request`, `issues`
-5. Set content type to `application/json`
-
-## Advanced Git Features
-
-### Multiple Remote Support
-
-Each workspace supports multiple Git remotes:
-
-```bash
-# Add upstream remote for forks
-git remote add upstream https://github.com/original/repo.git
-
-# Fetch from all remotes
-git fetch --all
-
-# Push to different remotes
-git push origin feature
-git push upstream main
-```
-
-### Branch Management
-
-Integrated branch operations:
-
-- **Branch Creation** - Create and switch to new branches
-- **Branch Switching** - Change branches with workspace context
-- **Remote Tracking** - Automatic upstream branch setup
-- **Merge Operations** - Handle merges and conflicts
-
-### Git Hooks Integration
-
-Support for Git hooks in workspaces:
-
-- **Pre-commit Hooks** - Code formatting and linting
-- **Pre-push Hooks** - Testing and validation
-- **Post-merge Hooks** - Dependency updates
-- **Custom Hooks** - Project-specific automation
-
-## Troubleshooting GitHub Integration
-
-### Authentication Issues
-
-**"Authentication failed" Error**
-- Verify GitHub OAuth credentials are correct
-- Check that OAuth app is active (not suspended)
-- Ensure callback URL matches exactly
-
-**"Access denied" Error**
-- Verify your GitHub username matches `TENANT_GITHUB_USERNAME`
-- Check that you have access to the repository
-- Ensure OAuth app has required permissions
-
-### Repository Access Issues
-
-**"Repository not found" Error**
-- Verify repository exists and you have access
-- Check if repository is private and token has repo scope
-- Ensure repository hasn't been renamed or transferred
-
-### Git Operation Failures
-
-**"Authentication failed" during Git operations**
-- Check OAuth token hasn't expired
-- Verify credential helper is properly configured
-- Ensure network connectivity to GitHub
-
-**"Permission denied" during push operations**
-- Verify you have write access to the repository
-- Check if branch is protected
-- Ensure you're pushing to correct remote/branch
-
-## Security Considerations
-
-### OAuth Scope Minimization
-
-The application requests only necessary scopes:
-- `read:user` - Basic profile information
-- `user:email` - Email addresses for Git configuration
-- `repo` - Repository access (both public and private)
-
-### Token Security Best Practices
-
-- Tokens are encrypted at rest
-- Regular token rotation in production
-- Secure token transmission (HTTPS only)
-- Automatic token cleanup on logout
-
-### Network Security
-
-- All GitHub API calls use HTTPS
-- Certificate validation enforced
-- No token logging or debugging output
-- Secure session management
-
-## Next Steps
-
-- **[Workspace Management](/docs/core-features/workspace-management/):** Learn about workspace features
-- **[Authentication Flow](/docs/authentication/auth-flow/):** Understand the security model
-- **[API Endpoints](/docs/api/endpoints/):** Explore the API interface
+This seamless integration means you spend more time coding and less time fighting with authentication. Just log in once and start working with any of your repositories immediately.
