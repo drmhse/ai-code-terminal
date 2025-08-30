@@ -1,95 +1,77 @@
-{{ $footer := .Site.Data.footer }}
-{{ $icons := .Site.Data.icons }}
-
-<footer class="fade-in-section" style="background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%); color: #e0e0e0; padding: 4rem 0 2rem;">
-    <div class="container">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 3rem; margin-bottom: 3rem;">
+<footer class="fade-in-section bg-slate-950 border-t border-slate-700">
+    <div class="container mx-auto px-5 py-12">
+        <!-- Main Footer Content -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
             
-            <!-- Project Info -->
-            <div>
-                <h3 style="color: #00d4ff; font-size: 1.2rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                    {{ $icons.icons.terminal | safeHTML }}
-                    {{ $footer.branding.name }}
-                </h3>
-                <p style="color: #b0b0b0; line-height: 1.6; margin-bottom: 1rem;">
-                    {{ $footer.branding.tagline }}
+            <!-- Brand -->
+            <div class="space-y-4">
+                <div class="flex items-center space-x-3">
+                    <img src="/terminal-icon.svg" alt="AI Code Terminal" class="w-8 h-8">
+                    <span class="text-xl font-semibold text-slate-200">AI Code Terminal</span>
+                </div>
+                <p class="text-slate-400 text-sm leading-relaxed">
+                    Self-hosted development environment for the AI-native era. Your code, your rules.
                 </p>
-                <div style="display: flex; gap: 0.5rem;">
-                    {{ range $footer.branding.badges }}
-                    <span style="background: {{ .color }}; color: #0f0f23; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">{{ .label }}</span>
-                    {{ end }}
+                <div class="flex space-x-3">
+                    <span class="px-3 py-1 bg-blue-500/10 text-blue-400 text-xs rounded-full border border-blue-500/20">Open Source</span>
+                    <span class="px-3 py-1 bg-green-500/10 text-green-400 text-xs rounded-full border border-green-500/20">Self-Hosted</span>
                 </div>
             </div>
 
-            {{ range $footer.sections }}
-            <div>
-                <h3 style="color: #00d4ff; font-size: 1.1rem; margin-bottom: 1rem;">{{ .title }}</h3>
-                <ul style="list-style: none; padding: 0; margin: 0;">
-                    {{ range .links }}
-                    <li style="margin-bottom: 0.5rem;">
-                        <a href="{{ .url }}" 
-                           {{ if .external }}target="_blank" rel="noopener"{{ end }}
-                           style="color: #e0e0e0; text-decoration: none; display: flex; align-items: center; gap: 0.5rem; transition: color 0.3s;">
-                            {{ index $icons.icons .icon | safeHTML }}
-                            {{ .title }}
-                        </a>
-                    </li>
-                    {{ end }}
-                </ul>
-
-                {{ if .callout }}
-                <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(0, 212, 255, 0.1); border-radius: 8px; border-left: 3px solid #00d4ff;">
-                    <p style="margin: 0; font-size: 0.9rem; color: #b0b0b0;">
-                        <strong style="color: #00d4ff;">{{ .callout.title }}</strong><br>
-                        {{ .callout.text }}
-                    </p>
+            <!-- Quick Links -->
+            <div class="space-y-4">
+                <h3 class="text-sm font-medium text-slate-300 uppercase tracking-wider">Quick Links</h3>
+                <div class="space-y-2">
+                    <a href="/docs/getting-started/introduction/" class="flex items-center space-x-2 text-slate-400 hover:text-blue-400 transition-colors text-sm">
+                        <i data-feather="book-open" class="w-4 h-4"></i>
+                        <span>Documentation</span>
+                    </a>
+                    <a href="{{ .Site.Params.github_url }}" target="_blank" rel="noopener noreferrer" class="flex items-center space-x-2 text-slate-400 hover:text-blue-400 transition-colors text-sm">
+                        <i data-feather="github" class="w-4 h-4"></i>
+                        <span>GitHub</span>
+                    </a>
+                    <a href="{{ .Site.Params.github_url }}/issues" target="_blank" rel="noopener noreferrer" class="flex items-center space-x-2 text-slate-400 hover:text-blue-400 transition-colors text-sm">
+                        <i data-feather="help-circle" class="w-4 h-4"></i>
+                        <span>Support</span>
+                    </a>
                 </div>
-                {{ end }}
             </div>
-            {{ end }}
+
+            <!-- Community -->
+            <div class="space-y-4">
+                <h3 class="text-sm font-medium text-slate-300 uppercase tracking-wider">Community</h3>
+                <div class="space-y-2">
+                    <a href="{{ .Site.Params.github_url }}/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer" class="flex items-center space-x-2 text-slate-400 hover:text-blue-400 transition-colors text-sm">
+                        <i data-feather="users" class="w-4 h-4"></i>
+                        <span>Contributing</span>
+                    </a>
+                    <a href="{{ .Site.Params.github_url }}/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" class="flex items-center space-x-2 text-slate-400 hover:text-blue-400 transition-colors text-sm">
+                        <i data-feather="file-text" class="w-4 h-4"></i>
+                        <span>License</span>
+                    </a>
+                    <a href="{{ .Site.Params.github_url }}/releases" target="_blank" rel="noopener noreferrer" class="flex items-center space-x-2 text-slate-400 hover:text-blue-400 transition-colors text-sm">
+                        <i data-feather="download" class="w-4 h-4"></i>
+                        <span>Releases</span>
+                    </a>
+                </div>
+            </div>
         </div>
 
         <!-- Bottom Bar -->
-        <div style="border-top: 1px solid #333; padding-top: 2rem; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem;">
-            <div style="display: flex; align-items: center; gap: 1rem;">
-                <p style="margin: 0; color: #b0b0b0; font-size: 0.9rem;">
-                    {{ $footer.bottom.copyright | safeHTML }}
-                </p>
-                <div style="display: flex; gap: 0.5rem; font-size: 0.8rem;">
-                    {{ range $footer.bottom.features }}
-                    <span style="color: {{ .color }};">{{ $icons.icons.check | safeHTML }} {{ .label }}</span>
-                    {{ end }}
+        <div class="pt-8 border-t border-slate-700">
+            <div class="flex flex-col md:flex-row md:items-center justify-between space-y-4 md:space-y-0">
+                <div class="flex items-center space-x-4 text-sm text-slate-400">
+                    <span>&copy; {{ now.Year }} AI Code Terminal</span>
+                    <span class="hidden md:inline">•</span>
+                    <span class="text-xs">Built for developers</span>
                 </div>
-            </div>
-            
-            <div style="display: flex; align-items: center; gap: 1rem;">
-                <span style="color: #666; font-size: 0.8rem;">{{ $footer.bottom.tagline }} {{ $icons.icons.heart | safeHTML }}</span>
-                <a href="{{ $footer.bottom.website_url }}" style="color: #00d4ff; text-decoration: none; font-weight: 600; font-size: 0.9rem;">
-                    {{ $footer.bottom.website_url | replaceRE "https?://" "" }}
-                </a>
+                <div class="flex items-center space-x-1 text-xs text-slate-500">
+                    <span>Powered by</span>
+                    <a href="https://gohugo.io" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 transition-colors">Hugo</a>
+                    <span>&amp;</span>
+                    <a href="https://tailwindcss.com" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 transition-colors">Tailwind</a>
+                </div>
             </div>
         </div>
     </div>
 </footer>
-
-<style>
-    footer a:hover {
-        color: #00d4ff !important;
-        transform: translateX(2px);
-    }
-    footer .container > div > div:hover {
-        transform: translateY(-2px);
-        transition: transform 0.3s ease;
-    }
-    @media (max-width: 768px) {
-        footer .container > div:first-child {
-            grid-template-columns: 1fr;
-            gap: 2rem;
-        }
-        footer .container > div:last-child {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 1rem;
-        }
-    }
-</style>
