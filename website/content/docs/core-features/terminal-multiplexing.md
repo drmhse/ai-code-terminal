@@ -47,7 +47,7 @@ Started a long-running build process? Close your laptop, go to lunch, and return
 3. **Focus Panes:** Click any pane to switch focus and start typing
 4. **Recover Sessions:** If you disconnect, just refresh your browser—everything will be restored
 
-> **💡 Pro Tip:** Your terminals are automatically saved and will persist across browser sessions. Start a process today, come back tomorrow, and it's still running!
+> **Pro Tip:** Your terminals are automatically saved and will persist across browser sessions. Start a process today, come back tomorrow, and it's still running!
 
 ## Quick Example
 

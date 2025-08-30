@@ -1,116 +1,121 @@
 ---
 title: "Process Management" 
-description: "Automatic supervision of long-running development processes"
+description: "Supervised terminal processes with persistence and monitoring"
 weight: 30
 layout: "docs"
 ---
 
 # Process Management
 
-Ever started a development server, closed your laptop, and came back to find it stopped? Our Process Supervisor automatically tracks and manages your long-running development processes, so they keep running even when you disconnect.
+AI Code Terminal includes a process supervisor that can track and manage long-running processes within your terminal sessions, providing persistence and monitoring capabilities for development workflows.
 
 ## How It Works
 
-**Automatic Process Detection**
-The system automatically recognizes and tracks common development processes when you start them:
-- Development servers (`npm run dev`, `yarn start`, `vite`)
-- Build tools (`webpack --watch`, `rollup --watch`)
-- Test watchers (`jest --watch`, `npm run test:watch`)
-- Database connections and servers
-- Custom long-running scripts
+**Process Tracking**
+The system can track processes that you explicitly register for supervision:
+- Long-running development servers
+- Build tools and watchers
+- Database servers and services
+- Custom background processes
 
 **Background Supervision**
-Once detected, these processes are supervised in the background. They continue running even if:
-- You close your browser
-- Your internet connection drops
-- You disconnect from the session
-- The browser crashes or refreshes
+Once tracked, processes are monitored and maintained:
+- Process health monitoring every 10 seconds
+- Automatic cleanup of terminated processes
+- Optional automatic restart on process failure
+- Process persistence across application restarts
 
-**Process Recovery**
-If a supervised process crashes or stops unexpectedly, the system can automatically restart it based on your preferences.
+**Session Integration**
+Supervised processes integrate with your terminal sessions:
+- Associated with specific workspaces and sessions
+- Status reporting and management through API
+- Integration with terminal multiplexing system
 
 ## Why This Matters
 
-**Never Lose Development State**
-Start your development server, run your tests, and work with confidence knowing everything will keep running. Close your laptop for a meeting and return to find your development environment exactly as you left it.
-
-**Perfect for Remote Work**
-Working from coffee shops with spotty WiFi? No problem. Your development processes keep running on the server even when your connection drops.
-
-**Long-Running Operations**
-Start a large build process or data migration and let it run while you work on other things. Come back later to check the results without babysitting the terminal.
-
-**Multi-Device Development**
-Start a process on your laptop, then continue monitoring it from your tablet or phone. The processes run independently of your client device.
-
-## Supported Process Types
-
-**Web Development**
-- `npm run dev` / `npm start`
-- `yarn dev` / `yarn start` 
-- `vite` / `vite dev`
-- `next dev` / `next start`
-- `nuxt dev` / `nuxt start`
-- `gatsby develop`
-
-**Build Tools**
-- `webpack --watch`
-- `rollup --watch --config`
-- `parcel watch`
-- `esbuild --watch`
-
-**Testing**
-- `jest --watch`
-- `npm run test:watch`
-- `vitest --watch`
-- `cypress open`
-
-**Databases and Services**
-- Local database servers
-- Redis servers
-- Docker containers
-- Custom daemon processes
-
-## Managing Your Processes
-
-**View Running Processes**
-See all your supervised processes at a glance. Each process shows:
-- Current status (running, stopped, crashed)
-- How long it's been running
-- Resource usage (CPU, memory)
-- Recent output/logs
-
-**Control Actions**
-For each supervised process, you can:
-- **Restart:** Stop and start the process
-- **Stop:** Terminate the process
-- **View Logs:** See recent output and error messages
-- **Remove Supervision:** Stop tracking the process
-
-**Process Notifications**
-Get notified when important events happen:
-- Process crashes or stops unexpectedly
-- Process consumes excessive resources
-- Process has been restarted automatically
-
-## Getting Started
-
-1. **Start a Long-Running Process:** Run any development command like `npm run dev`
-2. **Automatic Detection:** The system automatically recognizes and begins supervising it
-3. **Continue Working:** The process continues running even if you disconnect
-4. **Check Status:** View your processes in the Process Management panel
-5. **Manage as Needed:** Restart, stop, or monitor your processes
-
-## Pro Tips
-
-**Process Naming**
-The system automatically names processes based on the command and working directory. Processes running in different projects are tracked separately.
+**Process Persistence**
+Tracked processes can survive terminal disconnections and browser refreshes, maintaining long-running development workflows without interruption.
 
 **Resource Monitoring**
-Keep an eye on resource usage to ensure your processes aren't consuming excessive CPU or memory. The system provides warnings for resource-heavy processes.
+Keep track of process resource usage and health, with automatic cleanup of failed or terminated processes.
 
-**Selective Supervision**
-Not every command needs supervision. The system is smart about which processes to track—typically only long-running development tools, not quick commands like `ls` or `git status`.
+**Development Workflow Integration**
+Integrate process supervision with your workspace and terminal session management for organized development environments.
 
-**Process Persistence**
-Supervised processes persist across server restarts when possible. This means even server maintenance won't interrupt your development workflow.
+## Process Management Features
+
+**Process Lifecycle Management**
+- Explicit process tracking through API endpoints
+- Process health monitoring and status reporting
+- Controlled process termination and cleanup
+- Optional automatic restart on failure
+
+**Integration Capabilities**
+- Workspace-specific process tracking
+- Session-based process association
+- API-based process management interface
+- Integration with terminal multiplexing system
+
+**Monitoring and Maintenance**
+- Regular health checks of tracked processes
+- Automatic cleanup of dead processes
+- Process metadata and status tracking
+- Resource usage monitoring
+
+## Process Management API
+
+**View Tracked Processes**
+Access information about supervised processes through API endpoints:
+- Current status and process metadata
+- Runtime duration and resource information
+- Process association with workspaces and sessions
+- Health status and monitoring data
+
+**Process Control Operations**
+Manage tracked processes through available API actions:
+- **Start Tracking:** Register a process for supervision
+- **Stop Process:** Terminate a tracked process
+- **Restart Process:** Stop and restart a supervised process
+- **Remove Tracking:** Stop supervising a process
+
+**Status and Monitoring**
+Access detailed information about process health and status:
+- Process lifecycle events and state changes
+- Resource usage and performance metrics
+- Integration with workspace and session management
+- Health check results and monitoring data
+
+## Usage Guidelines
+
+**Explicit Process Tracking**
+Processes must be explicitly registered for supervision through the API. The system does not automatically detect or track terminal processes.
+
+**Resource Considerations**
+Consider the resource impact of process supervision:
+- Monitor system resources when tracking multiple processes
+- Use supervision for long-running processes that benefit from persistence
+- Clean up completed or no longer needed tracked processes
+
+**Integration with Workspaces**
+Process supervision integrates with workspace management:
+- Associate processes with specific workspaces
+- Organize process tracking by development environment
+- Coordinate process lifecycle with workspace operations
+
+## Implementation Details
+
+**Process Supervision Architecture**
+The process supervisor service provides:
+- Background monitoring of tracked processes (10-second intervals)
+- Database persistence of process metadata and status
+- Integration with workspace and session management systems
+- API endpoints for process control and status reporting
+
+**Health Monitoring**
+Tracked processes are monitored for:
+- Process lifecycle events (start, stop, crash)
+- Resource usage and system impact
+- Integration with terminal session management
+- Cleanup of terminated or orphaned processes
+
+This process management system provides a foundation for supervising long-running development processes while maintaining integration with the broader terminal and workspace management features of AI Code Terminal.

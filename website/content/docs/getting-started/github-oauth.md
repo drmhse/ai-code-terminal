@@ -38,7 +38,7 @@ After creating the app:
 2. Copy both the **Client ID** and **Client Secret**
 3. Store them securely - you'll need them for configuration
 
-⚠️ **Important:** The client secret is only shown once. Make sure to copy it immediately.
+**Important:** The client secret is only shown once. Make sure to copy it immediately.
 
 ## Production Configuration
 

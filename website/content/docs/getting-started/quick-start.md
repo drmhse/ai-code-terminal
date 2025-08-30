@@ -20,7 +20,7 @@ Before starting, ensure you have:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/ai-coding-terminal.git
+git clone https://github.com/drmhse/ai-code-terminal.git
 cd ai-coding-terminal/app
 
 # Copy environment template

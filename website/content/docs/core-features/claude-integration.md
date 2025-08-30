@@ -7,7 +7,7 @@ layout: "docs"
 
 # Claude Integration
 
-AI Code Terminal comes with Claude Code pre-installed, so you can use AI assistance directly in your secure terminal environment. Your API key stays completely private—we never store it on our servers.
+AI Code Terminal comes with Claude Code pre-installed, so you can use AI assistance directly in your secure terminal environment. Your API key stays completely private—the system never stores it in the application database.
 
 ## How It Works
 
@@ -21,7 +21,7 @@ When you're ready to use Claude Code, simply run:
 claude login
 ```
 
-This authenticates directly with Anthropic using your own API key. Crucially: your API key is stored locally in your terminal session and never touches our servers.
+This authenticates directly with Anthropic using your own API key. Crucially: your API key is stored locally in your terminal session and never touches the application server.
 
 **Ready to Use**
 Once authenticated, use Claude Code normally:
@@ -41,8 +41,8 @@ claude chat "Help me debug this API endpoint"
 
 **Complete Privacy**
 Your Claude API key and all your interactions with Claude remain completely private:
-- **We never see your API key** - Authentication happens directly between you and Anthropic
-- **We never store your key** - Keys are managed locally in your terminal session
+- **The system never accesses your API key** - Authentication happens directly between you and Anthropic
+- **Keys are never stored** - Keys are managed locally in your terminal session
 - **Your conversations stay private** - No server-side logging or storage of Claude interactions
 
 **Zero Configuration**
@@ -52,7 +52,7 @@ Unlike other platforms where you might need to configure API keys through web in
 Your code and AI interactions happen in an isolated, secure environment. Even if you're working on sensitive projects, your data never leaves the secure container.
 
 **Always Up-to-Date**
-We keep Claude Code updated to the latest version, so you always have access to the newest features and improvements.
+The Docker installation includes Claude Code updated to the latest version, so you always have access to the newest features and improvements.
 
 ## Getting Started
 
@@ -100,7 +100,7 @@ Claude Code can see your project files and understand your setup, providing more
 
 ## API Key Management
 
-> **🔒 Security Highlight**
+> **Security Highlight**
 > 
 > This is the most important feature: **your API key is completely under your control**. Unlike platforms that require you to enter API keys through web forms, here you manage everything through the secure Claude Code CLI.
 
@@ -110,15 +110,15 @@ Claude Code can see your project files and understand your setup, providing more
 - If you stop using a workspace, your API key is automatically cleared when the session ends
 
 **No Server-Side Storage:**
-We deliberately designed the system so that:
-- AI Code Terminal servers never see or store your API key
+The system is deliberately designed so that:
+- AI Code Terminal never accesses or stores your API key
 - All Claude interactions happen directly between your terminal and Anthropic's servers
 - Your API usage and billing are handled directly through your Anthropic account
 
-## Why We Built It This Way
+## Design Philosophy
 
 **Privacy First**
-By letting you manage your own API key through the Claude Code CLI, we ensure that your AI interactions remain completely private. Even we can't see what you're asking Claude or how you're using the service.
+By letting you manage your own API key through the Claude Code CLI, this ensures that your AI interactions remain completely private. The system has no visibility into what you're asking Claude or how you're using the service.
 
 **Familiar Workflow**
 If you already use Claude Code locally, this works exactly the same way. No new tools to learn or different authentication methods.
@@ -127,6 +127,6 @@ If you already use Claude Code locally, this works exactly the same way. No new 
 Your sensitive code and AI interactions never leave the secure, isolated environment. Even if you're working on proprietary or confidential projects, everything stays contained.
 
 **No Vendor Lock-in**
-Since you manage your own API key and use the standard Claude Code interface, you're never locked into our platform. You can use your API key with any Claude Code installation.
+Since you manage your own API key and use the standard Claude Code interface, you're never locked into this platform. You can use your API key with any Claude Code installation.
 
 This approach gives you all the benefits of AI assistance while maintaining complete control over your privacy and security.

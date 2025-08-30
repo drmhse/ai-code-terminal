@@ -1,147 +1,150 @@
 ---
 title: "Data and Privacy"
-description: "What data we store, what we don't, and how we protect your privacy"
+description: "Understanding data storage, privacy, and control in your self-hosted installation"
 weight: 10
 layout: "docs"
 ---
 
 # Data and Privacy
 
-Your data privacy and security are fundamental to how AI Code Terminal is designed. Here's exactly what data we store, what we never store, and how we keep everything secure.
+AI Code Terminal is designed with privacy-first principles for self-hosted installations. As the person running this software, you have complete control over all data storage and processing.
 
-## What We Store
+## Data Stored by Your Installation
 
-**Your Settings**
-We store minimal settings to make your experience consistent:
-- **Your encrypted GitHub tokens** - So you don't have to re-authenticate constantly
-- **Your theme preference** - Dark, light, or high-contrast themes
-- **Basic profile info from GitHub** - Your name and email for Git configuration
+**Application Settings**
+Your installation stores minimal settings locally:
+- **Encrypted GitHub OAuth tokens** - For seamless Git operations
+- **Theme preferences** - Your chosen terminal and interface themes
+- **GitHub profile information** - Name and email for Git configuration
 
-**Your Workspaces**
-A simple list of the repositories you've cloned:
-- **Repository names** - Which GitHub repositories you've worked with
-- **Workspace creation dates** - When you first cloned each repository
-- **Last access times** - To help clean up unused workspaces
+**Workspace Information**  
+A record of your development environments:
+- **Repository metadata** - Names and URLs of cloned repositories
+- **Workspace timestamps** - Creation and last access times
+- **Cleanup schedules** - For automatic maintenance of unused workspaces
 
-**Your Terminal Sessions**
-Information to help you recover your work:
-- **Session identifiers** - So you can reconnect to existing terminals
-- **Active session count** - To manage resource usage
-- **Session status** - Whether sessions are active or closed
+**Terminal Session Data**
+Information to maintain persistent terminal sessions:
+- **Session identifiers** - For reconnecting to existing terminals
+- **Session state** - Active/inactive status and basic metadata
+- **Layout configurations** - Your terminal multiplexing preferences
 
-## What We Never Store
+## Data Never Stored Locally
 
-**Your Source Code**
-Your actual code never enters our database:
-- **Code lives on the filesystem** - In isolated workspace directories  
-- **No database storage** - We never save your code files to the database
-- **Git repositories stay local** - Cloned repos exist only in your workspace
+**Source Code in Database**
+Your actual code remains on the filesystem:
+- **Filesystem storage only** - Code exists in workspace directories
+- **No database persistence** - Source code never enters the SQLite database
+- **Standard Git operations** - All code management through Git
 
-**Your Claude API Key**
-This is crucial for privacy:
-- **You manage your own key** - Through the `claude login` command directly
-- **No server-side storage** - We never see or store your Claude API key
-- **Direct authentication** - Your key goes directly to Anthropic, not through us
+**Claude API Credentials**
+Your AI interactions remain private:
+- **Direct authentication** - You authenticate directly with Anthropic
+- **No credential storage** - API keys never stored by the application
+- **Direct communication** - Your terminal communicates directly with Claude API
 
-**Your AI Conversations**
-Your interactions with Claude remain completely private:
-- **No conversation logging** - We never see what you ask Claude
-- **No response storage** - Claude responses don't touch our servers  
-- **Direct communication** - Your terminal talks directly to Anthropic's API
+**AI Conversations**
+Your development assistance remains confidential:
+- **No conversation logging** - AI interactions are not recorded
+- **No response caching** - Claude responses are not stored
+- **End-to-end privacy** - Communication bypasses the application server
 
-**Your Personal Access Tokens or SSH Keys**
-We use OAuth tokens instead:
-- **No manual token entry** - Our OAuth flow handles authentication
-- **No SSH key storage** - Everything works through secure OAuth tokens
-- **No password storage** - We never ask for or store passwords
+**Authentication Credentials**
+Secure authentication without credential storage:
+- **OAuth-only flow** - No passwords or personal access tokens stored
+- **No SSH key management** - OAuth handles all Git authentication
+- **Secure token handling** - Encrypted tokens with automatic refresh
 
-## How We Protect Your Data
+## Data Protection Methods
 
-**Encryption at Rest**
-All sensitive data is encrypted in our database:
-- **AES-256-CBC encryption** - Military-grade encryption for stored tokens
-- **Unique encryption keys** - Each installation uses its own encryption keys
-- **Secure key management** - Encryption keys stored separately from data
+**Local Encryption**
+Sensitive data is encrypted within your installation:
+- **AES-256-CBC encryption** - Industry-standard encryption for OAuth tokens
+- **Installation-specific keys** - Unique encryption keys per deployment
+- **Secure key storage** - Keys isolated from encrypted data
 
-**Encryption in Transit**
-All communication is secured:
-- **HTTPS everywhere** - All web traffic encrypted with TLS
-- **Secure WebSocket connections** - Terminal sessions encrypted in real-time  
-- **API security** - GitHub API calls always use HTTPS
+**Network Security**
+All communications are encrypted in transit:
+- **TLS encryption** - HTTPS for all web interface traffic
+- **Secure WebSockets** - Encrypted real-time terminal communications
+- **API security** - All external API calls use encrypted connections
 
 **Access Control**
-Your data is protected by multiple security layers:
-- **Single-tenant authentication** - Only you can access your data
-- **JWT tokens** - Secure session management with expiring tokens
-- **GitHub OAuth** - Leveraging GitHub's security for authentication
-- **Container isolation** - Your workspaces run in isolated Docker containers
+Multiple security layers protect your installation:
+- **Single-user authentication** - Only your configured GitHub username can access
+- **Session management** - Secure JWT tokens with configurable expiration
+- **Container isolation** - Docker containers isolate processes and data
+- **Filesystem permissions** - Restricted file access within containers
 
-## Data Locations
+## Data Storage Locations
 
-**Where Your Data Lives**
-All data stays within your AI Code Terminal instance:
-- **Local SQLite database** - Stored in your deployment's data directory
-- **Workspace files** - Stored in isolated filesystem directories  
-- **Session data** - Managed in memory and local storage only
+**Local Data Storage**
+All data remains within your installation:
+- **SQLite database** - Local file in your configured data directory
+- **Workspace files** - Individual directories for each cloned repository
+- **Application logs** - Local log files with configurable retention
+- **Session data** - Temporary files and memory-based storage
 
-**No Third-Party Data Sharing**
-Your data never leaves your AI Code Terminal instance except:
-- **GitHub OAuth flow** - Only for authentication with GitHub
-- **Claude API calls** - Only when YOU initiate them with YOUR API key
-- **No analytics** - We don't send usage data to third parties
-- **No tracking** - No external analytics or tracking services
+**External Communication**
+Limited external connections for essential functionality:
+- **GitHub OAuth** - Authentication and repository access only
+- **GitHub API** - Repository browsing and Git operations
+- **Claude API** - Only when you initiate AI assistance
+- **No analytics** - No usage data sent to external services
 
-## Data Retention
+## Data Retention Policies
 
-**Automatic Cleanup**
-We automatically clean up old data to protect your privacy:
-- **Inactive workspace cleanup** - Old workspaces removed after 30 days (configurable)
-- **Expired session cleanup** - Terminated sessions cleaned up automatically  
-- **Token refresh** - Expired OAuth tokens automatically refreshed or removed
+**Automatic Maintenance**
+Your installation handles data cleanup automatically:
+- **Workspace cleanup** - Configurable removal of inactive workspaces (default: 30 days)
+- **Session cleanup** - Automatic cleanup of terminated terminal sessions
+- **Log rotation** - Configurable log file retention and rotation
+- **Token refresh** - Automatic OAuth token refresh and cleanup
 
 **Manual Data Control**
-You have full control over your data:
-- **Delete workspaces** - Remove any workspace and its data at any time
-- **Clear sessions** - Terminate and clean up terminal sessions
-- **Revoke GitHub access** - Remove OAuth permissions from your GitHub settings
-- **Full data removal** - Deleting your GitHub OAuth app removes all associated data
+Complete control over your data:
+- **Workspace deletion** - Remove any workspace and its data instantly
+- **Session termination** - End terminal sessions and clear associated data
+- **Configuration changes** - Modify retention policies and cleanup schedules
+- **Complete removal** - Revoking GitHub OAuth removes all associated data
 
-## Single-Tenant Security Model
+## Self-Hosted Privacy Model
 
-**Designed for One User**
-AI Code Terminal is built as a personal development environment:
-- **One authorized user** - Only your GitHub username can access the system
-- **No multi-user complexity** - No user separation or permission management needed
-- **Personal instance** - Each deployment serves exactly one developer
-- **Complete isolation** - No shared resources or data between different deployments
+**Single-Tenant Architecture**
+Designed for individual control:
+- **One authorized user** - Only your GitHub account can access the system
+- **No shared resources** - Each installation is completely isolated
+- **Personal deployment** - You control the hosting environment and policies
+- **Data sovereignty** - All data remains under your direct control
 
-## Transparency Commitments
+**Open Source Transparency**
+Complete visibility into data handling:
+- **Auditable code** - Every aspect of data processing is visible
+- **No hidden functionality** - All features are documented and transparent
+- **Community oversight** - Open source enables security review
+- **Modifiable** - You can modify data handling to meet your requirements
 
-**Open Source**
-The entire codebase is open source:
-- **Full transparency** - You can audit exactly how data is handled
-- **No hidden features** - Everything is visible in the source code
-- **Community oversight** - Security reviewed by the open source community
+## Your Control and Rights
 
-**No Surprises**
-We commit to:
-- **No data collection changes** - Any changes to data handling will be clearly documented
-- **No hidden data storage** - If we store it, it's documented here
-- **No third-party data sharing** - Your data stays within your AI Code Terminal instance
-
-## Your Rights and Control
-
-**Full Data Control**
-You maintain complete control:
-- **Access your data** - Everything is stored in your deployment
-- **Export your data** - Standard Git operations export your code
-- **Delete your data** - Remove workspaces and OAuth permissions at any time
-- **Audit data usage** - Full source code available for review
+**Complete Data Ownership**
+As the self-hoster, you maintain full control:
+- **Direct access** - All data is stored in your controlled environment
+- **Export capabilities** - Standard tools can export all data
+- **Deletion authority** - Remove any or all data at will
+- **Audit capabilities** - Full visibility into what data exists and where
 
 **Privacy by Design**
-Every feature is built with privacy in mind:
-- **Minimal data collection** - We store only what's necessary for functionality
-- **Local-first** - Data processing happens locally when possible
-- **User-controlled** - You decide what data to share and when
+Every feature respects your privacy:
+- **Minimal collection** - Only essential data for functionality
+- **Local processing** - Operations happen within your installation
+- **User-controlled sharing** - You decide what data to share and when
+- **No vendor dependencies** - No reliance on external services for core functionality
 
-This privacy-first approach means you get all the benefits of a powerful development environment while maintaining complete control over your code, credentials, and AI interactions.
+**Customizable Policies**
+Adapt the system to your privacy requirements:
+- **Configurable retention** - Adjust data cleanup schedules
+- **Selective logging** - Control what information is logged
+- **Security settings** - Customize encryption and access controls
+- **External integrations** - Choose which external services to use
+
+This self-hosted model ensures you maintain complete control over your development environment, source code, and AI interactions while benefiting from a powerful, integrated development experience.

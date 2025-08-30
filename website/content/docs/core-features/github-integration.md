@@ -22,16 +22,16 @@ Each repository shows helpful information like the primary programming language,
 
 ## The Magic: OAuth Credential Helper
 
-> **🎉 This is the killer feature!** Once you're authenticated, all Git operations just work. No SSH key setup, no personal access tokens, no credential configuration.
+> **This is the killer feature!** Once you're authenticated, all Git operations just work. No SSH key setup, no personal access tokens, no credential configuration.
 
 **Never Configure Git Again**
 Just use Git normally and everything works automatically:
 
 ```bash
-git push origin main        # ✅ Works automatically
-git pull origin develop     # ✅ No authentication prompts  
-git fetch --all            # ✅ Seamless access to all remotes
-git clone <private-repo>    # ✅ Private repositories work instantly
+git push origin main        # Works automatically
+git pull origin develop     # No authentication prompts  
+git fetch --all            # Seamless access to all remotes
+git clone <private-repo>    # Private repositories work instantly
 ```
 
 **What This Means for You:**
