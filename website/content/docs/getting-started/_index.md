@@ -202,7 +202,10 @@ Click the **+** button in the workspace sidebar to clone a repository:
 
 ### Terminal Interface
 
-Once a repository is cloned, you'll have full terminal access:
+Once a repository is cloned, you'll have full terminal access with multiple pane support:
+
+![Multiple Panes Support](/images/multiple-panes-support.png)
+*Work with multiple terminals simultaneously using tabs and split panes*
 
 ![AI Terminal Interface](/images/claude_code_in_action.png)
 *Full terminal access within your browser*

@@ -25,3 +25,6 @@ WebSocket-powered real-time communication for terminal sessions, workspace updat
 
 ## Claude Integration
 Built-in Claude Code support with direct terminal integration for AI-assisted development workflows.
+
+## ACT CLI
+Context-aware AI development tool that maintains persistent context buffers for intelligent AI interactions.
