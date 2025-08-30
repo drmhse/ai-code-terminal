@@ -57,7 +57,7 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'JetBrains Mono', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
             background: var(--bg-primary);
             color: var(--text-primary);
             height: 100vh;
@@ -295,9 +295,17 @@
         }
 
         .workspace-item.selected {
-            background: var(--bg-secondary);
+            background: color-mix(in srgb, var(--accent-blue) 40%, white 60%);
             border-left-color: var(--accent-blue);
-            color: var(--text-primary);
+            color: black;
+        }
+
+        .workspace-item.selected .workspace-name {
+            color: black;
+        }
+
+        .workspace-item.selected .workspace-path {
+            color: rgba(0, 0, 0, 0.7);
         }
 
         .workspace-item .icon {
@@ -488,18 +496,24 @@
         }
 
         .file-item.selected {
-            background: var(--bg-secondary);
-            color: var(--accent-blue);
+            background: color-mix(in srgb, var(--accent-blue) 40%, white 60%);
+            color: black;
+            border: 1px solid var(--accent-blue);
+            border-radius: 3px;
         }
 
         .file-item.keyboard-selected {
-            background: var(--accent-blue);
-            color: white;
+            background: color-mix(in srgb, var(--accent-blue) 50%, white 50%);
+            color: black;
+            border: 1px solid var(--accent-blue-hover);
+            border-radius: 3px;
         }
 
         .file-item.keyboard-selected.selected {
-            background: var(--accent-blue);
-            color: white;
+            background: color-mix(in srgb, var(--accent-blue) 50%, white 50%);
+            color: black;
+            border: 1px solid var(--accent-blue-hover);
+            border-radius: 3px;
         }
 
         .file-item.file-hidden {
@@ -676,7 +690,7 @@
 
         .action-btn {
             background: none;
-            border: none;
+            border: 1px solid transparent;
             color: var(--text-muted);
             cursor: pointer;
             padding: 4px;
@@ -688,8 +702,9 @@
         }
 
         .action-btn:hover {
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
+            background: color-mix(in srgb, var(--accent-blue) 40%, white 60%);
+            border-color: var(--accent-blue);
+            color: black;
         }
 
         .layout-switcher {
@@ -865,19 +880,20 @@
 
         /* Buttons */
         .btn {
-            background: var(--button-bg);
-            color: white;
-            border: none;
+            background: color-mix(in srgb, var(--accent-blue) 40%, white 60%);
+            color: black;
+            border: 1px solid var(--accent-blue);
             padding: 8px 16px;
             border-radius: 4px;
             cursor: pointer;
             font-size: 13px;
             font-weight: 500;
-            transition: background 0.2s;
+            transition: all 0.2s;
         }
 
         .btn:hover {
-            background: var(--button-hover);
+            background: color-mix(in srgb, var(--accent-blue) 50%, white 50%);
+            border-color: var(--accent-blue-hover);
         }
 
         .btn-small {
@@ -936,7 +952,7 @@
         }
 
         .memory-usage {
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-family: 'JetBrains Mono', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
         }
 
         /* Modal Overlay */
@@ -2101,7 +2117,7 @@
             background: var(--terminal-bg);
             border: 1px solid var(--border-color);
             border-radius: 6px;
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-family: 'JetBrains Mono', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
             font-size: 12px;
             line-height: 1.5;
             overflow: auto;
@@ -2212,7 +2228,7 @@
         }
 
         .file-path {
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-family: 'JetBrains Mono', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
             font-size: 11px;
             color: var(--text-muted);
             background: var(--bg-tertiary);
@@ -2451,9 +2467,11 @@
         }
 
         .tab-button.active {
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            border-bottom-color: var(--tab-active-bg);
+            background: color-mix(in srgb, var(--accent-blue) 40%, white 60%);
+            color: black;
+            border-bottom-color: var(--accent-blue);
+            border: 1px solid var(--accent-blue);
+            border-bottom: 2px solid var(--accent-blue);
         }
 
         .tab-close {
