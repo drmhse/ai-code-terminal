@@ -1,22 +1,22 @@
 {{ define "main" }}
 <!-- Grid-based Documentation Layout -->
 <div class="docs-grid bg-gray-900 text-gray-100 min-h-screen">
-  
+
   <!-- Left Sidebar: Sections & Links -->
   <aside class="docs-sidebar">
     <!-- Logo Section -->
     <div class="logo-section">
       <div class="flex items-center space-x-3">
-        <div class="logo-box">
+        <div class="">
           <img src="/android-chrome-512x512.png" alt="AI Code Terminal" class="w-10 h-10 rounded-lg">
         </div>
-        <h2 class="text-lg font-semibold text-gray-100">sections<br>& Links</h2>
+        <h2 class="text-lg font-semibold text-gray-100">AI Code Terminal</h2>
       </div>
     </div>
-    
+
     <!-- Navigation Tree -->
     <nav class="p-4 space-y-2 overflow-y-auto">
-      
+
       <!-- Getting Started Section -->
       <div class="nav-section">
         <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section="getting-started">
@@ -59,79 +59,16 @@
         </ul>
       </div>
 
-      <!-- Authentication Section -->
+      <!-- Security Section -->
       <div class="nav-section">
-        <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section="authentication">
-          <span class="uppercase tracking-wider">Authentication</span>
+        <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section="security">
+          <span class="uppercase tracking-wider">Security</span>
           <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
           </svg>
         </button>
         <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-          {{ with .Site.GetPage "/docs/authentication" }}
-          {{ range .Pages.ByWeight }}
-          <li>
-            <a href="{{ .Permalink }}" class="nav-link {{ if eq $.Permalink .Permalink }}active{{ end }}">
-              {{ .Title }}
-            </a>
-          </li>
-          {{ end }}
-          {{ end }}
-        </ul>
-      </div>
-
-      <!-- API Section -->
-      <div class="nav-section">
-        <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section="api">
-          <span class="uppercase tracking-wider">API & WebSocket</span>
-          <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-          </svg>
-        </button>
-        <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-          {{ with .Site.GetPage "/docs/api" }}
-          {{ range .Pages.ByWeight }}
-          <li>
-            <a href="{{ .Permalink }}" class="nav-link {{ if eq $.Permalink .Permalink }}active{{ end }}">
-              {{ .Title }}
-            </a>
-          </li>
-          {{ end }}
-          {{ end }}
-        </ul>
-      </div>
-
-      <!-- Database Section -->
-      <div class="nav-section">
-        <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section="database">
-          <span class="uppercase tracking-wider">Database</span>
-          <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-          </svg>
-        </button>
-        <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-          {{ with .Site.GetPage "/docs/database" }}
-          {{ range .Pages.ByWeight }}
-          <li>
-            <a href="{{ .Permalink }}" class="nav-link {{ if eq $.Permalink .Permalink }}active{{ end }}">
-              {{ .Title }}
-            </a>
-          </li>
-          {{ end }}
-          {{ end }}
-        </ul>
-      </div>
-
-      <!-- Development Section -->
-      <div class="nav-section">
-        <button class="nav-section-toggle flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-600/5 rounded-lg transition-colors" data-section="development">
-          <span class="uppercase tracking-wider">Development</span>
-          <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-          </svg>
-        </button>
-        <ul class="nav-section-content mt-1 space-y-1 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-          {{ with .Site.GetPage "/docs/development" }}
+          {{ with .Site.GetPage "/docs/security" }}
           {{ range .Pages.ByWeight }}
           <li>
             <a href="{{ .Permalink }}" class="nav-link {{ if eq $.Permalink .Permalink }}active{{ end }}">
@@ -169,10 +106,10 @@
 
   <!-- Center: Main Content Area -->
   <main class="docs-main">
-    
+
     <!-- Top: Main Navbar -->
     {{ partial "header.html" . }}
-    
+
     <!-- Breadcrumbs -->
     <div class="docs-breadcrumbs">
       <nav class="flex items-center space-x-2 text-sm">
@@ -197,7 +134,7 @@
     <!-- Main Content -->
     <div class="docs-content">
       <article class="max-w-4xl mx-auto">
-        
+
         <!-- Article Header -->
         <header class="mb-8">
           {{ if .Params.category }}
@@ -207,13 +144,13 @@
             </span>
           </div>
           {{ end }}
-          
+
           <h1 class="text-3xl lg:text-4xl font-bold text-gray-100 mb-4 leading-tight">{{ .Title }}</h1>
-          
+
           {{ if .Description }}
           <p class="text-lg text-gray-300 leading-relaxed mb-6">{{ .Description }}</p>
           {{ end }}
-          
+
           {{ if or .Date .ReadingTime }}
           <div class="flex items-center space-x-6 text-sm text-gray-400">
             {{ if .Date }}
@@ -246,7 +183,7 @@
     <!-- Bottom: Page Navigation -->
     <div class="docs-nav">
       <div>
-        {{ with .PrevInSection }}
+        {{ with .NextInSection }}
         <a href="{{ .Permalink }}" class="inline-flex flex-col items-start px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg hover:bg-blue-600/5 hover:border-blue-400 transition-all">
           <span class="text-xs text-gray-400 uppercase tracking-wider mb-1">prev page</span>
           <span class="text-gray-100 font-medium text-sm">{{ .Title }}</span>
@@ -256,7 +193,7 @@
         {{ end }}
       </div>
       <div>
-        {{ with .NextInSection }}
+        {{ with .PrevInSection }}
         <a href="{{ .Permalink }}" class="inline-flex flex-col items-end px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg hover:bg-blue-600/5 hover:border-blue-400 transition-all">
           <span class="text-xs text-gray-400 uppercase tracking-wider mb-1">next page</span>
           <span class="text-gray-100 font-medium text-sm">{{ .Title }}</span>
@@ -287,13 +224,13 @@
 document.addEventListener('DOMContentLoaded', function() {
   // Navigation section toggles
   const navSectionToggles = document.querySelectorAll('.nav-section-toggle');
-  
+
   navSectionToggles.forEach(toggle => {
     toggle.addEventListener('click', function() {
       const section = this.closest('.nav-section');
       const content = section.querySelector('.nav-section-content');
       const chevron = this.querySelector('.chevron');
-      
+
       if (content.style.maxHeight === '0px' || content.style.maxHeight === '') {
         content.style.maxHeight = content.scrollHeight + 'px';
         chevron.style.transform = 'rotate(90deg)';
@@ -320,7 +257,7 @@ document.addEventListener('DOMContentLoaded', function() {
   function generateTableOfContents() {
     const headings = document.querySelectorAll('article h2, article h3, article h4, article h5, article h6');
     const toc = document.getElementById('table-of-contents');
-    
+
     if (headings.length === 0 || !toc) return;
 
     headings.forEach((heading, index) => {
@@ -332,7 +269,7 @@ document.addEventListener('DOMContentLoaded', function() {
       link.href = '#' + heading.id;
       link.textContent = heading.textContent;
       link.className = 'block py-1.5 px-3 text-xs text-gray-400 hover:text-gray-100 hover:bg-blue-600/5 rounded transition-colors';
-      
+
       const level = parseInt(heading.tagName.charAt(1));
       if (level > 2) {
         link.style.paddingLeft = `${(level - 2) * 12 + 12}px`;

@@ -129,5 +129,5 @@ TENANT_GITHUB_USERNAME=your-github-username
 ## Next Steps
 
 - **[Configuration](/docs/getting-started/configuration/):** Complete environment setup
-- **[Terminal Access](/docs/core-features/terminal-access/):** Start using the terminal
-- **[Authentication Flow](/docs/authentication/auth-flow/):** Understand the login process
+- **[Terminal Multiplexing](/docs/core-features/terminal-multiplexing/):** Start using the terminal interface
+- **[Security Overview](/docs/security/security-overview/):** Understand how your data is protected

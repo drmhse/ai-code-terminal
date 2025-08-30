@@ -78,7 +78,7 @@ curl http://localhost:3014/health
 
 ## Next Steps
 
-- **[Installation Guide](/docs/getting-started/installation/):** Detailed installation options
 - **[GitHub OAuth Setup](/docs/getting-started/github-oauth/):** Complete OAuth configuration
 - **[Configuration](/docs/getting-started/configuration/):** All environment variables explained
-- **[Terminal Access](/docs/core-features/terminal-access/):** Using the terminal interface
+- **[Terminal Multiplexing](/docs/core-features/terminal-multiplexing/):** Using the terminal interface
+- **[GitHub Integration](/docs/core-features/github-integration/):** Seamless repository access

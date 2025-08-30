@@ -63,15 +63,20 @@
   }
 
   .docs-content code {
-    @apply bg-gray-800 text-blue-300 px-2 py-1 rounded text-sm font-mono;
+    @apply bg-gray-800 text-blue-300 px-2 py-1 rounded text-sm;
+    font-family: 'Fira Code', 'JetBrains Mono', 'SF Mono', Monaco, Inconsolata, 'Roboto Mono', monospace;
+    font-feature-settings: 'liga' 1, 'calt' 1;
   }
 
   .docs-content pre {
     @apply bg-gray-800 border border-gray-700 rounded-lg p-4 overflow-x-auto mb-6;
+    font-family: 'Fira Code', 'JetBrains Mono', 'SF Mono', Monaco, Inconsolata, 'Roboto Mono', monospace;
+    font-feature-settings: 'liga' 1, 'calt' 1;
   }
 
   .docs-content pre code {
     @apply bg-transparent text-gray-100 px-0 py-0;
+    font-family: inherit;
   }
 
   /* Enhanced navigation */

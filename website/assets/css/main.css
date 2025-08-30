@@ -161,7 +161,9 @@
   .control-dot.green { @apply bg-green-500; }
 
   .terminal-body {
-    @apply p-4 font-mono text-sm text-slate-200 leading-relaxed flex-grow overflow-auto whitespace-pre;
+    @apply p-4 text-sm text-slate-200 leading-relaxed flex-grow overflow-auto whitespace-pre;
+    font-family: 'Fira Code', 'JetBrains Mono', 'SF Mono', Monaco, Inconsolata, 'Roboto Mono', monospace;
+    font-feature-settings: 'liga' 1, 'calt' 1;
     scrollbar-width: thin;
     scrollbar-color: rgb(71 85 105) transparent;
   }
@@ -243,7 +245,9 @@
   }
 
   .step-number {
-    @apply text-2xl font-bold text-blue-500 leading-none font-mono;
+    @apply text-2xl font-bold text-blue-500 leading-none;
+    font-family: 'Fira Code', 'JetBrains Mono', 'SF Mono', Monaco, Inconsolata, 'Roboto Mono', monospace;
+    font-feature-settings: 'liga' 1, 'calt' 1;
   }
 
   .step-content h3 {
@@ -255,7 +259,9 @@
   }
 
   .code-block {
-    @apply bg-slate-950 rounded-lg p-4 font-mono text-sm text-slate-400 relative;
+    @apply bg-slate-950 rounded-lg p-4 text-sm text-slate-400 relative;
+    font-family: 'Fira Code', 'JetBrains Mono', 'SF Mono', Monaco, Inconsolata, 'Roboto Mono', monospace;
+    font-feature-settings: 'liga' 1, 'calt' 1;
   }
 
   .code-block .copy-btn {
@@ -288,7 +294,9 @@
   }
 
   .logo {
-    @apply font-mono font-medium text-xl text-slate-200 no-underline;
+    @apply font-medium text-xl text-slate-200 no-underline;
+    font-family: 'Fira Code', 'JetBrains Mono', 'SF Mono', Monaco, Inconsolata, 'Roboto Mono', monospace;
+    font-feature-settings: 'liga' 1, 'calt' 1;
   }
 
   .logo .prompt-char {
@@ -346,11 +354,15 @@
   }
 
   .article-content pre {
-    @apply bg-slate-900 border border-slate-600 rounded-xl p-5 my-5 overflow-x-auto font-mono text-sm leading-relaxed text-slate-200;
+    @apply bg-slate-900 border border-slate-600 rounded-xl p-5 my-5 overflow-x-auto text-sm leading-relaxed text-slate-200;
+    font-family: 'Fira Code', 'JetBrains Mono', 'SF Mono', Monaco, Inconsolata, 'Roboto Mono', monospace;
+    font-feature-settings: 'liga' 1, 'calt' 1;
   }
 
   .article-content code {
-    @apply bg-slate-900 px-1.5 py-0.5 rounded font-mono text-sm text-slate-200 border border-slate-600;
+    @apply bg-slate-900 px-1.5 py-0.5 rounded text-sm text-slate-200 border border-slate-600;
+    font-family: 'Fira Code', 'JetBrains Mono', 'SF Mono', Monaco, Inconsolata, 'Roboto Mono', monospace;
+    font-feature-settings: 'liga' 1, 'calt' 1;
   }
 
   .article-content pre code {
