@@ -1,6 +1,6 @@
 [build]
-  # Hugo build command
-  command = "cd website && hugo --gc --minify"
+  # Hugo build command with npm dependencies
+  command = "cd website && npm install && hugo --gc --minify"
 
   # Directory to publish (relative to repo root)
   publish = "website/public"
@@ -12,7 +12,7 @@
     NODE_VERSION = "18"
 
 [context.production]
-  command = "cd website && hugo --gc --minify"
+  command = "cd website && npm install && hugo --gc --minify"
 
 # Headers for security and performance
 [[headers]]
