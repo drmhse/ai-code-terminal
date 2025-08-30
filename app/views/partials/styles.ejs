@@ -712,14 +712,14 @@
             align-items: center;
             gap: 2px;
             margin-left: 12px;
-            background: var(--bg-tertiary);
+            background: transparent;
             border-radius: 4px;
-            padding: 2px;
+            padding: 0;
         }
 
         .layout-btn {
             background: none;
-            border: none;
+            border: 1px solid transparent;
             color: var(--text-muted);
             cursor: pointer;
             padding: 4px;
@@ -731,13 +731,15 @@
         }
 
         .layout-btn:hover {
-            background: var(--bg-secondary);
-            color: var(--text-primary);
+            background: color-mix(in srgb, var(--accent-blue) 40%, white 60%);
+            border-color: var(--accent-blue);
+            color: black;
         }
 
         .layout-btn.active {
-            background: var(--accent-blue);
-            color: white;
+            background: color-mix(in srgb, var(--accent-blue) 40%, white 60%);
+            border-color: var(--accent-blue);
+            color: black;
         }
 
         .layout-btn .icon {
@@ -819,7 +821,7 @@
         }
 
         .terminal-pane.active-pane .pane-content {
-            border-color: var(--accent-blue);
+            border-color: color-mix(in srgb, var(--accent-blue) 70%, white 30%);
         }
 
         .terminal-wrapper {
@@ -910,26 +912,38 @@
         /* Status Bar */
         .status-bar {
             height: 22px;
-            background: var(--accent-blue);
+            background: var(--bg-primary);
             border-top: 1px solid var(--border-color);
             display: flex;
             align-items: center;
-            padding: 0 12px;
+            padding: 4px 0px;
             font-size: 12px;
-            color: white;
+            gap: 8px;
             justify-content: space-between;
         }
 
         .status-left {
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 12px;
+            background: color-mix(in srgb, var(--accent-blue) 40%, white 60%);
+            color: black;
+            padding: 2px 8px 2px 4px;
+            border-radius: 0 3px 3px 0;
+            border: 1px solid var(--accent-blue);
+            margin-left: 0;
         }
 
         .status-right {
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 12px;
+            background: color-mix(in srgb, var(--accent-blue) 40%, white 60%);
+            color: black;
+            padding: 2px 4px 2px 8px;
+            border-radius: 3px 0 0 3px;
+            border: 1px solid var(--accent-blue);
+            margin-right: 0;
         }
 
         .status-item {
@@ -943,7 +957,7 @@
         }
 
         .status-item:hover {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.1);
         }
 
         .status-item .icon {
