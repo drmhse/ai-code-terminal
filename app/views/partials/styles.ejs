@@ -754,19 +754,12 @@
 
         /* Terminal Pane */
         .terminal-pane {
-            background: var(--bg-primary);
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
+            background: transparent;
             display: flex;
             flex-direction: column;
             overflow: hidden;
             position: relative;
             transition: border-color 0.2s, box-shadow 0.2s;
-        }
-
-        .terminal-pane.active-pane {
-            border-color: var(--accent-blue);
-            box-shadow: 0 0 0 1px var(--accent-blue);
         }
 
         .pane-header {
@@ -820,6 +813,13 @@
             overflow: hidden;
             position: relative;
             padding: 8px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+
+        .terminal-pane.active-pane .pane-content {
+            border-color: var(--accent-blue);
         }
 
         .terminal-wrapper {
@@ -2435,30 +2435,32 @@
         /* Pane Tabs Styling */
         .pane-tabs {
             display: flex;
-            align-items: center;
-            background: var(--bg-secondary);
-            border-bottom: 1px solid var(--border-color);
+            align-items: flex-end;
+            background: transparent;
             min-height: 32px;
-            padding: 0 4px;
+            padding: 0;
             gap: 2px;
             overflow-x: auto;
+            position: relative;
+            z-index: 2;
         }
 
         .tab-button {
             display: flex;
             align-items: center;
             gap: 6px;
-            padding: 4px 8px;
-            border: none;
+            padding: 6px 12px;
+            border: 1px solid var(--border-color);
+            border-bottom: none;
             background: var(--tab-bg);
             color: var(--text-secondary);
-            border-radius: 4px 4px 0 0;
+            border-radius: 6px 6px 0 0;
             cursor: pointer;
             transition: all 0.2s;
             min-width: 0;
             white-space: nowrap;
             font-size: 11px;
-            border-bottom: 2px solid transparent;
+            position: relative;
         }
 
         .tab-button:hover {
@@ -2469,9 +2471,11 @@
         .tab-button.active {
             background: color-mix(in srgb, var(--accent-blue) 40%, white 60%);
             color: black;
-            border-bottom-color: var(--accent-blue);
             border: 1px solid var(--accent-blue);
-            border-bottom: 2px solid var(--accent-blue);
+            border-bottom: none;
+            z-index: 3;
+            position: relative;
+            margin-bottom: -1px;
         }
 
         .tab-close {
