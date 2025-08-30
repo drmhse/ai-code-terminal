@@ -30,16 +30,65 @@
     background: linear-gradient(180deg, rgb(17 24 39) 0%, rgb(15 23 42) 100%);
   }
 
-  /* Enhanced breadcrumbs - sticky below main navbar */
+  /* Enhanced breadcrumbs - primary sticky navigation */
   .docs-breadcrumbs {
-    @apply bg-gray-800/80 backdrop-blur-sm border-b border-gray-700/50 px-6 py-4 sticky z-10;
-    top: 73px; /* Position below the main navbar */
-    background: linear-gradient(90deg, rgb(31 41 55 / 0.8) 0%, rgb(55 65 81 / 0.8) 100%);
+    @apply bg-gray-800/90 backdrop-blur-md border-b border-gray-700/50 px-6 py-4 sticky top-0 z-20;
+    background: linear-gradient(90deg, rgb(31 41 55 / 0.9) 0%, rgb(55 65 81 / 0.9) 100%);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   }
 
-  /* Content area with better typography */
+  /* Fixed GitHub link */
+  .fixed-github-link {
+    @apply fixed top-4 right-4 z-30 bg-gray-800/90 hover:bg-blue-600/90 backdrop-blur-md border border-gray-600/50 hover:border-blue-500 rounded-full p-3 text-gray-300 hover:text-white transition-all duration-200 shadow-lg;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+
+  .fixed-github-link:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+
+  .fixed-github-link svg {
+    @apply w-5 h-5;
+  }
+
+  @media (max-width: 768px) {
+    .fixed-github-link {
+      @apply top-3 right-3 p-2.5;
+    }
+
+    .fixed-github-link svg {
+      @apply w-4 h-4;
+    }
+  }
+
+  /* Mobile breadcrumbs optimization */
+  @media (max-width: 768px) {
+    .docs-breadcrumbs {
+      @apply px-4 py-3;
+    }
+
+    .docs-breadcrumbs nav {
+      @apply flex-wrap gap-x-2 gap-y-1;
+    }
+
+    .docs-breadcrumbs a,
+    .docs-breadcrumbs span {
+      @apply text-xs;
+    }
+
+    /* Hide intermediate breadcrumbs on very small screens */
+    @media (max-width: 480px) {
+      .docs-breadcrumbs .breadcrumb-intermediate {
+        @apply hidden;
+      }
+    }
+  }
+
+  /* Content area with enhanced typography */
   .docs-content {
     @apply flex-1 p-8;
+    line-height: 1.75;
   }
 
   .docs-content article {
@@ -47,36 +96,201 @@
   }
 
   .docs-content h1 {
-    @apply text-4xl font-bold bg-gradient-to-r from-blue-200 to-blue-400 bg-clip-text text-transparent mb-6;
+    @apply text-4xl lg:text-5xl font-bold mb-8;
+    background: linear-gradient(135deg, #e2e8f0 0%, #60a5fa 50%, #3b82f6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.2;
+    letter-spacing: -0.025em;
   }
 
   .docs-content h2 {
-    @apply text-2xl font-semibold text-gray-100 mt-8 mb-4 border-b border-gray-700 pb-2;
+    @apply text-3xl font-bold text-gray-100 mt-12 mb-6 pb-3 border-b-2 border-blue-500/30;
+    line-height: 1.3;
+    letter-spacing: -0.015em;
+    position: relative;
+  }
+
+  .docs-content h2::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.3), transparent);
+    border-radius: 1px;
   }
 
   .docs-content h3 {
-    @apply text-xl font-medium text-gray-200 mt-6 mb-3;
+    @apply text-xl font-semibold text-gray-200 mt-10 mb-5;
+    line-height: 1.4;
+  }
+
+  .docs-content h4 {
+    @apply text-lg font-medium text-gray-300 mt-8 mb-4;
   }
 
   .docs-content p {
-    @apply text-gray-300 leading-relaxed mb-4;
+    @apply text-gray-300 mb-6;
+    line-height: 1.8;
+    font-size: 1.0625rem;
   }
 
-  .docs-content code {
-    @apply bg-gray-800 text-blue-300 px-2 py-1 rounded text-sm;
+  /* Inline code styling */
+  .docs-content code:not(pre code) {
+    @apply bg-gray-800/70 text-blue-300 px-2 py-0.5 rounded-md text-sm border border-gray-700/50;
     font-family: 'Fira Code', 'JetBrains Mono', 'SF Mono', Monaco, Inconsolata, 'Roboto Mono', monospace;
     font-feature-settings: 'liga' 1, 'calt' 1;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
   }
 
+  /* Code blocks with copy functionality */
   .docs-content pre {
-    @apply bg-gray-800 border border-gray-700 rounded-lg p-4 overflow-x-auto mb-6;
+    @apply relative bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700/70 rounded-xl p-6 overflow-x-auto mb-8 shadow-lg;
     font-family: 'Fira Code', 'JetBrains Mono', 'SF Mono', Monaco, Inconsolata, 'Roboto Mono', monospace;
     font-feature-settings: 'liga' 1, 'calt' 1;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), inset 0 1px 2px rgba(59, 130, 246, 0.05);
   }
 
   .docs-content pre code {
-    @apply bg-transparent text-gray-100 px-0 py-0;
+    @apply bg-transparent text-gray-200 px-0 py-0 text-sm leading-relaxed;
     font-family: inherit;
+    font-size: 0.925rem;
+    line-height: 1.6;
+  }
+
+  /* Copy button styling handled by JavaScript */
+
+  /* Focus improvements for accessibility */
+  .docs-content pre {
+    @apply focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 focus-within:ring-offset-gray-900;
+    transition: all 0.2s ease;
+  }
+
+  /* Enhanced readability adjustments */
+  .docs-content p + h2,
+  .docs-content ul + h2,
+  .docs-content ol + h2,
+  .docs-content pre + h2,
+  .docs-content table + h2 {
+    @apply mt-16;
+  }
+
+  .docs-content p + h3,
+  .docs-content ul + h3,
+  .docs-content ol + h3,
+  .docs-content pre + h3,
+  .docs-content table + h3 {
+    @apply mt-12;
+  }
+
+  /* Image enhancements */
+  .docs-content img {
+    @apply rounded-lg border border-gray-700/50 shadow-xl mb-8 max-w-full h-auto;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Enhanced list styling */
+  .docs-content ul {
+    @apply mb-8 pl-0 space-y-3;
+  }
+
+  .docs-content ul li {
+    @apply relative pl-8 text-gray-300;
+    line-height: 1.75;
+  }
+
+  .docs-content ul li::before {
+    content: "";
+    @apply absolute left-0 top-3 w-2 h-2 bg-blue-500 rounded-full;
+    box-shadow: 0 0 6px rgba(59, 130, 246, 0.4);
+  }
+
+  .docs-content ol {
+    @apply mb-8 pl-0 space-y-3;
+    counter-reset: docs-counter;
+  }
+
+  .docs-content ol li {
+    @apply relative pl-8 text-gray-300;
+    line-height: 1.75;
+    counter-increment: docs-counter;
+  }
+
+  .docs-content ol li::before {
+    content: counter(docs-counter);
+    @apply absolute left-0 top-0 w-6 h-6 bg-blue-600 text-white text-xs font-bold rounded-full flex items-center justify-center;
+    line-height: 1;
+  }
+
+  /* Nested list adjustments */
+  .docs-content ul ul,
+  .docs-content ol ol,
+  .docs-content ul ol,
+  .docs-content ol ul {
+    @apply mt-3 mb-0 pl-6;
+  }
+
+  /* Enhanced table styling */
+  .docs-content table {
+    @apply w-full mb-8 bg-gray-800/30 border border-gray-700/50 rounded-lg overflow-hidden shadow-lg;
+  }
+
+  .docs-content thead {
+    @apply bg-gradient-to-r from-gray-800 to-gray-700;
+  }
+
+  .docs-content thead th {
+    @apply px-6 py-4 text-left text-sm font-semibold text-gray-200 border-b border-gray-600;
+  }
+
+  .docs-content tbody tr {
+    @apply border-b border-gray-700/30 hover:bg-gray-700/20 transition-colors duration-200;
+  }
+
+  .docs-content tbody tr:last-child {
+    @apply border-b-0;
+  }
+
+  .docs-content tbody td {
+    @apply px-6 py-4 text-sm text-gray-300;
+    line-height: 1.6;
+  }
+
+  .docs-content tbody td:first-child {
+    @apply font-medium text-gray-200;
+  }
+
+  /* Blockquotes */
+  .docs-content blockquote {
+    @apply border-l-4 border-blue-500 bg-blue-500/5 pl-6 pr-6 py-4 mb-8 rounded-r-lg;
+    box-shadow: inset 0 1px 2px rgba(59, 130, 246, 0.1);
+  }
+
+  .docs-content blockquote p {
+    @apply text-gray-200 italic mb-0;
+    font-size: 1.125rem;
+  }
+
+  /* Links */
+  .docs-content a {
+    @apply text-blue-400 hover:text-blue-300 underline decoration-blue-400/30 underline-offset-2 hover:decoration-blue-300 transition-colors duration-200;
+  }
+
+  .docs-content a:hover {
+    text-shadow: 0 0 8px rgba(96, 165, 250, 0.3);
+  }
+
+  /* Strong text */
+  .docs-content strong {
+    @apply text-gray-100 font-semibold;
+  }
+
+  /* Emphasis */
+  .docs-content em {
+    @apply text-gray-200 italic;
   }
 
   /* Enhanced navigation */
@@ -147,14 +361,50 @@
     box-shadow: inset 0 1px 3px rgba(59, 130, 246, 0.1);
   }
 
+  /* Mobile sidebar overlay */
+  .mobile-sidebar-overlay {
+    @apply fixed inset-0 bg-black/50 backdrop-blur-sm z-40 opacity-0 pointer-events-none transition-opacity duration-300;
+  }
+
+  .mobile-sidebar-overlay.active {
+    @apply opacity-100 pointer-events-auto;
+  }
+
   /* Responsive design enhancements */
   @media (max-width: 1024px) {
     .docs-grid {
       @apply grid-cols-1;
     }
     
-    .docs-sidebar, .docs-toc {
+    /* Hide TOC on mobile */
+    .docs-toc {
       @apply hidden;
+    }
+
+    /* Mobile sidebar styling */
+    .docs-sidebar {
+      @apply fixed left-0 top-0 h-full w-80 max-w-[85vw] z-50 transform -translate-x-full transition-transform duration-300 ease-in-out shadow-2xl;
+    }
+
+    .docs-sidebar.mobile-open {
+      @apply translate-x-0;
+    }
+
+    /* Adjust main content for mobile */
+    .docs-main {
+      @apply w-full;
+    }
+
+    /* Mobile breadcrumbs use same positioning as desktop now */
+  }
+
+  @media (max-width: 640px) {
+    .docs-content {
+      @apply p-4;
+    }
+
+    .docs-sidebar {
+      @apply w-72;
     }
   }
 

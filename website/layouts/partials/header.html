@@ -1,7 +1,6 @@
 <header class="main-header sticky top-0">
     <div class="container">
         <nav class="main-nav">
-            {{ if ne .Section "docs" }}
             <a href="{{ .Site.BaseURL }}" class="logo">
                 <span class="prompt-char">&gt;</span> AI Code Terminal
             </a>
@@ -19,15 +18,6 @@
                     <span>View on GitHub</span>
                 </a>
             </div>
-            {{ else }}
-
-            <div class="nav-links pr-10" style="margin-left: auto;">
-                <a href="{{ .Site.Params.github_url }}" target="_blank" rel="noopener noreferrer" class="nav-link">
-                    <i data-feather="github"></i>
-                    <span>View on GitHub</span>
-                </a>
-            </div>
-            {{ end }}
         </nav>
     </div>
 </header>
