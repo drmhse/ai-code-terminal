@@ -7,21 +7,26 @@ layout: "docs"
 
 # Claude Integration
 
-AI Code Terminal comes with Claude Code pre-installed, so you can use AI assistance directly in your secure terminal environment. Your API key stays completely private—the system never stores it in the application database.
+AI Code Terminal comes with Claude Code pre-installed, so you can use AI assistance directly in your secure terminal environment. Your API key is managed by Claude Code in the standard way, stored in your user configuration within the container.
 
 ## How It Works
 
 **Pre-Installed Claude Code**
 Claude Code is already installed and ready to use in every workspace. No installation, configuration, or setup required.
 
-**Your API Key, Your Control**
+**Simple Authentication Process**
 When you're ready to use Claude Code, simply run:
 
 ```bash
-claude login
+claude
 ```
 
-This authenticates directly with Anthropic using your own API key. Crucially: your API key is stored locally in your terminal session and never touches the application server.
+On first use, Claude Code will guide you through authentication with options for:
+- **Anthropic Console (API)** - Pay-per-use API authentication with OAuth process
+- **Claude App (Pro/Max)** - Subscription-based authentication using your Claude.ai credentials
+- **Enterprise platforms** - Bedrock or Vertex AI integration
+
+Claude Code handles the entire authentication flow, including providing authorization links and token management.
 
 **Ready to Use**
 Once authenticated, use Claude Code normally:
@@ -39,11 +44,12 @@ claude chat "Help me debug this API endpoint"
 
 ## Why This Setup Is Perfect
 
-**Complete Privacy**
-Your Claude API key and all your interactions with Claude remain completely private:
-- **The system never accesses your API key** - Authentication happens directly between you and Anthropic
-- **Keys are never stored** - Keys are managed locally in your terminal session
-- **Your conversations stay private** - No server-side logging or storage of Claude interactions
+**Secure Authentication**
+Your Claude authentication and interactions remain secure:
+- **Direct authentication** - Claude Code handles authentication directly with Anthropic
+- **Secure credential storage** - Claude Code securely stores credentials using system-level encryption (macOS Keychain on Mac)
+- **AI Code Terminal isolation** - The application never accesses your Claude credentials or conversations
+- **Standard Claude Code behavior** - Authentication works exactly as it does on any other platform
 
 **Zero Configuration**
 Unlike other platforms where you might need to configure API keys through web interfaces or settings pages, here you manage everything directly through the familiar Claude Code CLI.
@@ -57,9 +63,10 @@ The Docker installation includes Claude Code updated to the latest version, so y
 ## Getting Started
 
 1. **Access Your Workspace:** Create or open any workspace
-2. **Login to Claude:** Run `claude login` in your terminal
-3. **Enter Your API Key:** Follow the prompts to authenticate with your Anthropic API key
-4. **Start Using Claude:** Run `claude chat` or any other Claude Code commands
+2. **Start Claude Code:** Run `claude` in your terminal
+3. **Choose Authentication:** Select from API Console, Pro/Max subscription, or Enterprise options
+4. **Complete Authentication:** Follow the guided process including OAuth authorization if needed
+5. **Start Using Claude:** Use `claude chat` or any other Claude Code commands
 
 ## Common Usage Patterns
 
@@ -104,21 +111,23 @@ Claude Code can see your project files and understand your setup, providing more
 > 
 > This is the most important feature: **your API key is completely under your control**. Unlike platforms that require you to enter API keys through web forms, here you manage everything through the secure Claude Code CLI.
 
-**Best Practices:**
-- Keep your API key secure and don't share it
-- You can revoke or rotate API keys through your Anthropic dashboard at any time
-- If you stop using a workspace, your API key is automatically cleared when the session ends
+**Authentication Management:**
+- **Account switching** - Use `/login` command to switch between different Claude accounts
+- **Logout** - Use `/logout` command to log out of your current session
+- **Credential persistence** - Authentication persists between sessions within the container
+- **Multiple options** - Choose between API billing or subscription billing based on your needs
 
-**No Server-Side Storage:**
-The system is deliberately designed so that:
-- AI Code Terminal never accesses or stores your API key
-- All Claude interactions happen directly between your terminal and Anthropic's servers
-- Your API usage and billing are handled directly through your Anthropic account
+**Standard Claude Code Behavior:**
+Claude Code operates normally within the container:
+- Credentials stored using Claude Code's standard secure storage mechanisms
+- All Claude interactions happen directly between Claude Code and Anthropic's servers  
+- Your usage and billing are handled directly through your chosen Anthropic account type
+- AI Code Terminal never intercepts, accesses, or processes these interactions
 
 ## Design Philosophy
 
 **Privacy First**
-By letting you manage your own API key through the Claude Code CLI, this ensures that your AI interactions remain completely private. The system has no visibility into what you're asking Claude or how you're using the service.
+By letting you manage your own API key through the Claude Code CLI, this ensures that your AI interactions remain completely private. AI Code Terminal has no visibility into what you're asking Claude or how you're using the service.
 
 **Familiar Workflow**
 If you already use Claude Code locally, this works exactly the same way. No new tools to learn or different authentication methods.

@@ -37,17 +37,17 @@ Your actual code remains on the filesystem:
 - **No database persistence** - Source code never enters the SQLite database
 - **Standard Git operations** - All code management through Git
 
-**Claude API Credentials**
-Your AI interactions remain private:
-- **Direct authentication** - You authenticate directly with Anthropic
-- **No credential storage** - API keys never stored by the application
-- **Direct communication** - Your terminal communicates directly with Claude API
+**AI Conversations by AI Code Terminal**
+Your Claude interactions remain private from the application:
+- **No conversation logging** - AI Code Terminal does not record AI interactions
+- **No response caching** - Claude responses are not stored by AI Code Terminal
+- **End-to-end privacy** - AI communication bypasses the AI Code Terminal application server
 
-**AI Conversations**
-Your development assistance remains confidential:
-- **No conversation logging** - AI interactions are not recorded
-- **No response caching** - Claude responses are not stored
-- **End-to-end privacy** - Communication bypasses the application server
+**Claude API Credentials**
+Claude Code manages API keys in its standard way:
+- **Standard Claude Code storage** - API keys stored in Claude Code's configuration (~/.config/claude)
+- **Container persistence** - Keys persist in the user's home directory within the container
+- **AI Code Terminal isolation** - The application never accesses or processes Claude credentials
 
 **Authentication Credentials**
 Secure authentication without credential storage:
