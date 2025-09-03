@@ -76,7 +76,39 @@
                     previewFile: null,
                     previewData: null,
                     previewLoading: false,
-                    previewError: null
+                    previewError: null,
+                    // Mobile Input Proxy
+                    mobileInputOpen: false,
+                    mobileInputText: '',
+                    activeModifiers: { ctrl: false, alt: false, shift: false },
+                    commandHistory: [],
+                    suggestions: [],
+                    quickActions: [
+                        { key: 'Tab', label: 'Tab', description: 'Auto-complete' },
+                        { key: 'Escape', label: 'Esc', description: 'Cancel/Exit' },
+                        { key: 'ArrowUp', label: '↑', description: 'Previous command' },
+                        { key: 'ArrowDown', label: '↓', description: 'Next command' },
+                        { key: 'ArrowLeft', label: '←', description: 'Move left' },
+                        { key: 'ArrowRight', label: '→', description: 'Move right' },
+                        { key: 'Home', label: 'Home', description: 'Beginning of line' },
+                        { key: 'End', label: 'End', description: 'End of line' },
+                        { key: 'Delete', label: 'Del', description: 'Delete character' },
+                        { key: 'Backspace', label: '⌫', description: 'Backspace' }
+                    ],
+                    commonCommands: [
+                        { command: 'ls', description: 'List directory contents' },
+                        { command: 'ls -la', description: 'List all files with details' },
+                        { command: 'cd', description: 'Change directory' },
+                        { command: 'pwd', description: 'Print working directory' },
+                        { command: 'clear', description: 'Clear terminal' },
+                        { command: 'vim', description: 'Open vim editor' },
+                        { command: 'nano', description: 'Open nano editor' },
+                        { command: 'git status', description: 'Check git status' },
+                        { command: 'git add .', description: 'Stage all changes' },
+                        { command: 'git commit -m ""', description: 'Commit changes' },
+                        { command: 'npm install', description: 'Install npm packages' },
+                        { command: 'npm run', description: 'Run npm script' }
+                    ]
                 };
             },
 
@@ -125,6 +157,7 @@
                         this.showDeleteModal = false;
                         this.showFilePreviewModal = false;
                         this.showContextMenu = false;
+                        this.mobileInputOpen = false;
                     }
 
                     // File explorer keyboard navigation
@@ -218,6 +251,29 @@
                     // Show placeholder if we need more panes than we have active sessions
                     const requiredPanes = this.getRequiredPanesCount(this.currentLayout);
                     return this.panes.length < requiredPanes;
+                },
+
+                // Mobile Input computed properties
+                hasActiveModifiers() {
+                    return this.activeModifiers.ctrl || this.activeModifiers.alt || this.activeModifiers.shift;
+                },
+
+                commandPreview() {
+                    if (!this.mobileInputText.trim()) return '';
+                    
+                    let preview = this.mobileInputText;
+                    if (this.hasActiveModifiers) {
+                        const mods = [];
+                        if (this.activeModifiers.ctrl) mods.push('Ctrl');
+                        if (this.activeModifiers.alt) mods.push('Alt');
+                        if (this.activeModifiers.shift) mods.push('Shift');
+                        preview = `${mods.join('+')}+${preview}`;
+                    }
+                    return preview;
+                },
+
+                recentCommands() {
+                    return this.commandHistory.slice(-10).reverse();
                 }
             },
 
@@ -330,6 +386,326 @@
 
                 toggleStats() {
                     this.statsOpen = !this.statsOpen;
+                },
+
+                // Mobile Input Proxy Methods
+                toggleMobileInput() {
+                    this.mobileInputOpen = !this.mobileInputOpen;
+                    if (this.mobileInputOpen) {
+                        this.$nextTick(() => {
+                            if (this.$refs.mobileInput) {
+                                this.$refs.mobileInput.focus();
+                            }
+                        });
+                    }
+                    // Close stats if open
+                    if (this.mobileInputOpen && this.statsOpen) {
+                        this.statsOpen = false;
+                    }
+                },
+
+                closeMobileInput() {
+                    this.mobileInputOpen = false;
+                    this.clearModifiers();
+                },
+
+                toggleModifier(modifier) {
+                    this.activeModifiers[modifier] = !this.activeModifiers[modifier];
+                },
+
+                clearModifiers() {
+                    this.activeModifiers = { ctrl: false, alt: false, shift: false };
+                },
+
+                sendCommand() {
+                    if (!this.mobileInputText.trim() || !this.socket || !this.activeTabId) return;
+                    
+                    const command = this.mobileInputText.trim();
+                    
+                    // Add to command history
+                    if (command && !this.commandHistory.includes(command)) {
+                        this.commandHistory.push(command);
+                        // Keep only last 50 commands
+                        if (this.commandHistory.length > 50) {
+                            this.commandHistory.shift();
+                        }
+                    }
+                    
+                    // Send command to terminal
+                    this.socket.emit('terminal-input', {
+                        input: command + '\r',
+                        sessionId: this.activeTabId
+                    });
+                    
+                    // Clear input
+                    this.mobileInputText = '';
+                    this.clearModifiers();
+                    
+                    // Close mobile input modal after sending command
+                    this.closeMobileInput();
+                },
+
+                sendKeyCombo(letter) {
+                    if (!this.hasActiveModifiers || !this.socket || !this.activeTabId) return;
+                    
+                    let inputData = '';
+                    const lowerLetter = letter.toLowerCase();
+                    const upperLetter = letter.toUpperCase();
+                    
+                    // Handle modifier combinations properly - send data exactly like xterm.js would
+                    if (this.activeModifiers.ctrl && this.activeModifiers.alt) {
+                        // Ctrl+Alt combinations - send as Alt+Ctrl sequence
+                        const ctrlMap = {
+                            'a': '\x01', 'b': '\x02', 'c': '\x03', 'd': '\x04', 'e': '\x05',
+                            'f': '\x06', 'g': '\x07', 'h': '\x08', 'i': '\x09', 'j': '\x0a',
+                            'k': '\x0b', 'l': '\x0c', 'm': '\x0d', 'n': '\x0e', 'o': '\x0f',
+                            'p': '\x10', 'q': '\x11', 'r': '\x12', 's': '\x13', 't': '\x14',
+                            'u': '\x15', 'v': '\x16', 'w': '\x17', 'x': '\x18', 'y': '\x19',
+                            'z': '\x1a'
+                        };
+                        inputData = '\x1b' + (ctrlMap[lowerLetter] || '');
+                    } else if (this.activeModifiers.ctrl) {
+                        // Ctrl combinations - send exactly as xterm.js would
+                        const ctrlMap = {
+                            'a': '\x01', 'b': '\x02', 'c': '\x03', 'd': '\x04', 'e': '\x05',
+                            'f': '\x06', 'g': '\x07', 'h': '\x08', 'i': '\x09', 'j': '\x0a',
+                            'k': '\x0b', 'l': '\x0c', 'm': '\x0d', 'n': '\x0e', 'o': '\x0f',
+                            'p': '\x10', 'q': '\x11', 'r': '\x12', 's': '\x13', 't': '\x14',
+                            'u': '\x15', 'v': '\x16', 'w': '\x17', 'x': '\x18', 'y': '\x19',
+                            'z': '\x1a'
+                        };
+                        inputData = ctrlMap[lowerLetter] || '';
+                    } else if (this.activeModifiers.alt) {
+                        // Alt combinations (ESC + letter, with shift if needed)
+                        const targetLetter = this.activeModifiers.shift ? upperLetter : lowerLetter;
+                        inputData = '\x1b' + targetLetter;
+                    } else if (this.activeModifiers.shift) {
+                        // Just shift (uppercase letter)
+                        inputData = upperLetter;
+                    }
+                    
+                    // Send using the exact same format as TerminalManager
+                    if (inputData) {
+                        this.socket.emit('terminal-input', {
+                            input: inputData,
+                            sessionId: this.activeTabId
+                        });
+                    }
+                    
+                    // Clear modifiers after sending
+                    this.clearModifiers();
+                },
+
+                sendQuickAction(action) {
+                    if (!this.socket || !this.activeTabId) return;
+                    
+                    let keyCode = '';
+                    switch (action.key) {
+                        case 'Tab':
+                            keyCode = '\t';
+                            break;
+                        case 'Escape':
+                            keyCode = '\x1b';
+                            break;
+                        case 'ArrowUp':
+                            keyCode = '\x1b[A';
+                            break;
+                        case 'ArrowDown':
+                            keyCode = '\x1b[B';
+                            break;
+                        case 'ArrowRight':
+                            keyCode = '\x1b[C';
+                            break;
+                        case 'ArrowLeft':
+                            keyCode = '\x1b[D';
+                            break;
+                        case 'Home':
+                            keyCode = '\x1b[H';
+                            break;
+                        case 'End':
+                            keyCode = '\x1b[F';
+                            break;
+                        case 'Delete':
+                            keyCode = '\x1b[3~';
+                            break;
+                        case 'Backspace':
+                            keyCode = '\x08';
+                            break;
+                    }
+                    
+                    if (keyCode) {
+                        this.socket.emit('terminal-input', {
+                            input: keyCode,
+                            sessionId: this.activeTabId
+                        });
+                    }
+                },
+
+                insertCommand(command) {
+                    this.mobileInputText = command;
+                    this.$nextTick(() => {
+                        if (this.$refs.mobileInput) {
+                            this.$refs.mobileInput.focus();
+                            
+                            // Enhanced cursor positioning for template commands
+                            const input = this.$refs.mobileInput;
+                            let cursorPos = command.length; // Default to end
+                            
+                            // Handle various template patterns
+                            if (command.includes('""')) {
+                                // For commands like 'git commit -m ""'
+                                cursorPos = command.indexOf('""') + 1;
+                            } else if (command.includes(' ')) {
+                                // For commands that expect arguments, position after space
+                                const patterns = [
+                                    'cd ', 'vim ', 'nano ', 'cat ', 'rm ', 'mv ', 'cp ',
+                                    'git add ', 'git commit ', 'npm run '
+                                ];
+                                for (const pattern of patterns) {
+                                    if (command === pattern.trim()) {
+                                        cursorPos = command.length;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            input.setSelectionRange(cursorPos, cursorPos);
+                        }
+                    });
+                },
+
+                applySuggestion(suggestion) {
+                    this.mobileInputText = suggestion.text;
+                    this.suggestions = [];
+                    this.$nextTick(() => {
+                        if (this.$refs.mobileInput) {
+                            this.$refs.mobileInput.focus();
+                        }
+                    });
+                },
+
+                handleInputKeydown(event) {
+                    if (event.key === 'Enter') {
+                        event.preventDefault();
+                        this.sendCommand();
+                    } else if (event.key === 'Escape') {
+                        event.preventDefault();
+                        this.closeMobileInput();
+                    }
+                },
+
+                handleInputChange() {
+                    this.updateSuggestions();
+                },
+
+                updateSuggestions() {
+                    const input = this.mobileInputText.toLowerCase().trim();
+                    if (!input) {
+                        this.suggestions = [];
+                        return;
+                    }
+                    
+                    const suggestions = [];
+                    
+                    // Helper function for fuzzy matching score
+                    const getFuzzyScore = (text, query) => {
+                        text = text.toLowerCase();
+                        query = query.toLowerCase();
+                        
+                        if (text.startsWith(query)) return 100; // Exact prefix match
+                        if (text.includes(query)) return 80;    // Contains match
+                        
+                        // Fuzzy character matching
+                        let score = 0;
+                        let queryIndex = 0;
+                        for (let i = 0; i < text.length && queryIndex < query.length; i++) {
+                            if (text[i] === query[queryIndex]) {
+                                score += 10;
+                                queryIndex++;
+                            }
+                        }
+                        return queryIndex === query.length ? score : 0;
+                    };
+                    
+                    // Get command frequency from history
+                    const getCommandFrequency = (cmd) => {
+                        return this.commandHistory.filter(h => h === cmd).length;
+                    };
+                    
+                    // Common commands suggestions
+                    this.commonCommands.forEach(cmd => {
+                        const score = getFuzzyScore(cmd.command, input);
+                        if (score > 0) {
+                            suggestions.push({
+                                text: cmd.command,
+                                description: cmd.description,
+                                score: score,
+                                type: 'common'
+                            });
+                        }
+                    });
+                    
+                    // History suggestions with frequency boost
+                    const uniqueHistory = [...new Set(this.commandHistory)];
+                    uniqueHistory.forEach(cmd => {
+                        const score = getFuzzyScore(cmd, input);
+                        if (score > 0 && !suggestions.some(s => s.text === cmd)) {
+                            const frequency = getCommandFrequency(cmd);
+                            suggestions.push({
+                                text: cmd,
+                                description: frequency > 1 ? `Used ${frequency} times` : 'From history',
+                                score: score + (frequency * 5), // Frequency boost
+                                type: 'history'
+                            });
+                        }
+                    });
+                    
+                    // Smart command completion for partial commands
+                    if (input.includes(' ')) {
+                        const parts = input.split(' ');
+                        const baseCommand = parts[0];
+                        const lastArg = parts[parts.length - 1];
+                        
+                        // Git command completions
+                        if (baseCommand === 'git' && parts.length === 2) {
+                            const gitCommands = ['status', 'add', 'commit', 'push', 'pull', 'branch', 'checkout', 'merge', 'log', 'diff'];
+                            gitCommands.forEach(gitCmd => {
+                                if (gitCmd.startsWith(lastArg)) {
+                                    suggestions.push({
+                                        text: `git ${gitCmd}`,
+                                        description: `Git ${gitCmd} command`,
+                                        score: 90,
+                                        type: 'completion'
+                                    });
+                                }
+                            });
+                        }
+                        
+                        // NPM command completions
+                        if (baseCommand === 'npm' && parts.length === 2) {
+                            const npmCommands = ['install', 'start', 'build', 'test', 'run', 'init', 'update'];
+                            npmCommands.forEach(npmCmd => {
+                                if (npmCmd.startsWith(lastArg)) {
+                                    suggestions.push({
+                                        text: `npm ${npmCmd}`,
+                                        description: `NPM ${npmCmd} command`,
+                                        score: 90,
+                                        type: 'completion'
+                                    });
+                                }
+                            });
+                        }
+                    }
+                    
+                    // Sort by score (descending) and limit results
+                    this.suggestions = suggestions
+                        .sort((a, b) => b.score - a.score)
+                        .slice(0, 6)
+                        .map(s => ({
+                            text: s.text,
+                            description: s.description,
+                            type: s.type
+                        }));
                 },
 
 

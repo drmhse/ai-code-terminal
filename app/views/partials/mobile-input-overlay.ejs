@@ -1,0 +1,141 @@
+<!-- Mobile Input Proxy Overlay -->
+<div v-if="isMobile" 
+     class="mobile-input-overlay" 
+     :class="{ active: mobileInputOpen }"
+     @click.self="closeMobileInput"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="mobile-input-title">
+    
+    <div class="mobile-input-panel" @click.stop>
+        <!-- Header -->
+        <div class="mobile-input-header">
+            <div class="header-title">
+                <i data-feather="smartphone" class="icon-small" aria-hidden="true"></i>
+                <span id="mobile-input-title">Mobile Terminal Input</span>
+            </div>
+            <button class="close-btn" @click="closeMobileInput" aria-label="Close mobile input panel">
+                <i data-feather="x" class="icon-small" aria-hidden="true"></i>
+            </button>
+        </div>
+
+        <!-- Command Input Section -->
+        <div class="command-input-section">
+            <div class="input-group">
+                <input 
+                    ref="mobileInput"
+                    v-model="mobileInputText"
+                    type="text"
+                    class="mobile-command-input"
+                    placeholder="Enter command..."
+                    @keydown="handleInputKeydown"
+                    @input="handleInputChange"
+                    autocapitalize="none"
+                    autocorrect="off"
+                    spellcheck="false"
+                    aria-label="Terminal command input"
+                    aria-describedby="command-preview"
+                >
+                <button class="send-btn" 
+                        @click="sendCommand" 
+                        :disabled="!mobileInputText.trim()"
+                        aria-label="Send command to terminal">
+                    <i data-feather="send" class="icon-small" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <!-- Command Preview -->
+            <div v-if="commandPreview" class="command-preview" id="command-preview">
+                <span class="preview-label">Will send:</span>
+                <code class="preview-command">{{ commandPreview }}</code>
+            </div>
+        </div>
+
+        <!-- Key Combinations -->
+        <div class="key-combinations" role="group" aria-labelledby="key-combinations-heading">
+            <h3 id="key-combinations-heading">Key Combinations</h3>
+            <div class="modifier-keys" role="group" aria-label="Modifier keys">
+                <button 
+                    v-for="mod in ['ctrl', 'alt', 'shift']"
+                    :key="mod"
+                    class="modifier-btn"
+                    :class="{ active: activeModifiers[mod] }"
+                    @click="toggleModifier(mod)"
+                    :aria-pressed="activeModifiers[mod]"
+                    :aria-label="`Toggle ${mod} modifier`"
+                >
+                    {{ mod.charAt(0).toUpperCase() + mod.slice(1) }}
+                </button>
+            </div>
+            <div class="letter-keys" role="group" aria-label="Letter keys for combinations">
+                <button 
+                    v-for="letter in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')"
+                    :key="letter"
+                    class="letter-btn"
+                    @click="sendKeyCombo(letter)"
+                    :disabled="!hasActiveModifiers"
+                    :aria-label="`Send ${letter} with active modifiers`"
+                >
+                    {{ letter }}
+                </button>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+            <h3>Quick Actions</h3>
+            <div class="action-grid">
+                <button v-for="action in quickActions" 
+                        :key="action.key"
+                        class="action-btn"
+                        @click="sendQuickAction(action)"
+                        :title="action.description">
+                    <span class="action-label">{{ action.label }}</span>
+                    <span class="action-desc">{{ action.key }}</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Common Commands -->
+        <div class="common-commands">
+            <h3>Common Commands</h3>
+            <div class="command-grid">
+                <button v-for="cmd in commonCommands"
+                        :key="cmd.command"
+                        class="command-btn"
+                        @click="insertCommand(cmd.command)"
+                        :title="cmd.description">
+                    {{ cmd.command }}
+                </button>
+            </div>
+        </div>
+
+        <!-- Command History -->
+        <div v-if="commandHistory.length > 0" class="command-history">
+            <h3>Recent Commands</h3>
+            <div class="history-list">
+                <button v-for="(cmd, index) in recentCommands"
+                        :key="index"
+                        class="history-btn"
+                        @click="insertCommand(cmd)">
+                    <code>{{ cmd }}</code>
+                    <i data-feather="clock" class="icon-tiny"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Command Suggestions -->
+        <div v-if="suggestions.length > 0" class="command-suggestions">
+            <h3>Suggestions</h3>
+            <div class="suggestions-list">
+                <button v-for="suggestion in suggestions"
+                        :key="suggestion.text"
+                        class="suggestion-btn"
+                        @click="applySuggestion(suggestion)">
+                    <code>{{ suggestion.text }}</code>
+                    <span class="suggestion-desc">{{ suggestion.description }}</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

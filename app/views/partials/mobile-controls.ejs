@@ -1,4 +1,19 @@
-<!-- Mobile Stats Toggle -->
-<button v-if="isMobile" @click="toggleStats" class="stats-toggle">
-    <i data-feather="bar-chart-2"></i>
-</button>
+<!-- Mobile Controls -->
+<div v-if="isMobile" class="mobile-controls-group" role="toolbar" aria-label="Mobile controls">
+    <!-- Mobile Input Toggle -->
+    <button @click="toggleMobileInput" 
+            class="mobile-input-toggle" 
+            :class="{ active: mobileInputOpen }"
+            :aria-label="mobileInputOpen ? 'Close mobile terminal input' : 'Open mobile terminal input'"
+            :aria-pressed="mobileInputOpen">
+        <i data-feather="smartphone" aria-hidden="true"></i>
+    </button>
+    
+    <!-- Mobile Stats Toggle -->
+    <button @click="toggleStats" 
+            class="stats-toggle"
+            :aria-label="statsOpen ? 'Close stats panel' : 'Open stats panel'"
+            :aria-pressed="statsOpen">
+        <i data-feather="bar-chart-2" aria-hidden="true"></i>
+    </button>
+</div>
