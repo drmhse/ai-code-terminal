@@ -11,6 +11,9 @@ AI Code Terminal provides a comprehensive set of features designed for modern de
 ## Terminal Access
 Full-featured browser-based terminal with persistent sessions, real-time collaboration, and advanced process management.
 
+## Mobile Accessibility  
+Advanced mobile terminal input overlay transforms touchscreen devices into viable development machines with modifier keys, command presets, intelligent autocomplete, and professional touch controls.
+
 ## GitHub Integration
 Seamless GitHub repository access, OAuth authentication, and Git credential management with automatic token handling.
 

@@ -59,7 +59,7 @@ Each theme includes carefully chosen colors for code syntax highlighting:
 - Git diff colors (additions/deletions)
 
 **Responsive Design**
-All themes work seamlessly across different screen sizes and devices, from desktop monitors to tablets and phones.
+All themes work seamlessly across different screen sizes and devices, from desktop monitors to tablets and phones. The advanced mobile input overlay inherits your chosen theme, ensuring consistent visual experience across all touch controls and interface elements.
 
 ## Why Themes Matter
 

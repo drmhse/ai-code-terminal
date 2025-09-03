@@ -83,6 +83,26 @@
                     activeModifiers: { ctrl: false, alt: false, shift: false },
                     commandHistory: [],
                     suggestions: [],
+                    // New Compact Interface Properties
+                    overlayExpanded: false,
+                    contextualMode: true,
+                    historyPanelOpen: false,
+                    activeTab: 'actions',
+                    essentialActions: [
+                        { key: 'Tab', label: 'Tab', description: 'Auto-complete' },
+                        { key: 'Escape', label: 'Esc', description: 'Cancel/Exit' },
+                        { key: 'ArrowUp', label: '↑', description: 'Previous command' },
+                        { key: 'ArrowDown', label: '↓', description: 'Next command' }
+                    ],
+                    topCommands: [
+                        { command: 'ls', description: 'List directory contents' },
+                        { command: 'git status', description: 'Check git status' },
+                        { command: 'npm install', description: 'Install dependencies' },
+                        { command: 'cd ..', description: 'Go to parent directory' }
+                    ],
+                    frequentLetters: ['C', 'Z', 'X', 'V', 'A', 'S', 'D', 'F', 'Q', 'W', 'E', 'R'],
+                    touchStartTime: 0,
+                    swipeStartY: 0,
                     quickActions: [
                         { key: 'Tab', label: 'Tab', description: 'Auto-complete' },
                         { key: 'Escape', label: 'Esc', description: 'Cancel/Exit' },
@@ -708,6 +728,60 @@
                         }));
                 },
 
+                // New Compact Interface Methods
+                toggleOverlayMode() {
+                    this.overlayExpanded = !this.overlayExpanded;
+                    if (this.overlayExpanded) {
+                        // Close other panels when expanding
+                        this.historyPanelOpen = false;
+                        this.contextualMode = false;
+                    } else {
+                        this.contextualMode = true;
+                    }
+                },
+
+                handleExpandTouch(event) {
+                    // Handle long press for additional options
+                    this.touchStartTime = Date.now();
+                },
+
+                setActiveTab(tab) {
+                    this.activeTab = tab;
+                },
+
+                toggleHistoryPanel() {
+                    this.historyPanelOpen = !this.historyPanelOpen;
+                    if (this.historyPanelOpen) {
+                        // Close other panels
+                        this.overlayExpanded = false;
+                        this.contextualMode = false;
+                    } else {
+                        this.contextualMode = true;
+                    }
+                },
+
+                getTimeAgo(index) {
+                    // Simple time ago calculation for history
+                    const minutes = index * 2; // Rough estimate
+                    if (minutes < 60) {
+                        return `${minutes}m`;
+                    } else {
+                        const hours = Math.floor(minutes / 60);
+                        return `${hours}h`;
+                    }
+                },
+
+                handleHistorySwipe(event) {
+                    // Handle swipe gestures for history panel
+                    if (event.type === 'touchstart') {
+                        this.swipeStartY = event.touches[0].clientY;
+                    } else if (event.type === 'touchend') {
+                        const deltaY = event.changedTouches[0].clientY - this.swipeStartY;
+                        if (deltaY > 100) { // Swipe down to close
+                            this.toggleHistoryPanel();
+                        }
+                    }
+                },
 
                 async selectTheme(theme) {
                     this.currentTheme = theme;

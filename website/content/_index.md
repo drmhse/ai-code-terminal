@@ -3,7 +3,7 @@ title: "AI Code Terminal: Self-Hosted Development Environment"
 description: "A comprehensive, browser-based development environment with terminal multiplexing, integrated file explorer, Claude Code support, and seamless GitHub integration. Self-hosted for complete privacy and control."
 hero:
   title: "Your Complete Development Environment in the Browser"
-  subtitle: "Self-hosted terminal multiplexing, integrated file management, AI assistance, and seamless GitHub integration. Code from anywhere with full privacy and control."
+  subtitle: "Self-hosted terminal multiplexing, integrated file management, AI assistance, and seamless GitHub integration. Code from anywhere—desktop, tablet, or mobile—with full privacy and control."
   cta_primary:
     text: "Get Started"
     url: "/docs/getting-started/"
@@ -22,6 +22,9 @@ AI Code Terminal transforms your browser into a powerful development environment
 
 ### Advanced Terminal Multiplexing
 **Multiple terminals, multiple layouts.** Create unlimited terminal sessions with sophisticated layout options including tabs, horizontal/vertical splits, and grid arrangements. Each session persists across browser refreshes and network disconnections, ensuring your work never gets interrupted.
+
+### Mobile-First Terminal Experience
+**Professional development on any device.** Advanced mobile terminal input overlay transforms tablets and phones into viable development machines. Features include modifier key support (Ctrl+C, Alt+Tab), command presets, intelligent autocomplete, and touch-optimized controls—making complex terminal operations effortless on touchscreens.
 
 ### Integrated File Explorer
 **Navigate your codebase visually.** Built-in sidebar file browser with syntax-highlighted previews, context menus for file operations, and search capabilities. Preview code, markdown, JSON, and images without leaving the terminal environment.
@@ -63,10 +66,10 @@ Built with Vue.js, Express.js, and Socket.IO for reliability and performance. Us
 ## Deployment Options
 
 ### Local Development
-Perfect for personal use on your laptop or desktop. Quick Docker setup gets you running in minutes.
+Perfect for personal use on your laptop or desktop. Quick Docker setup gets you running in minutes. Access your local development environment from mobile devices on the same network.
 
 ### VPS Deployment
-Deploy to any VPS provider for access from multiple devices. Maintains the same security model with encrypted communication.
+Deploy to any VPS provider for true anywhere development. Full mobile accessibility with advanced touch controls makes it practical to code from tablets and phones while maintaining professional-grade capabilities.
 
 ### Corporate/Team Use
 Self-hosted architecture makes it ideal for organizations requiring complete control over their development infrastructure and data.

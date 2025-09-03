@@ -40,6 +40,16 @@ Started a long-running build process? Close your laptop, go to lunch, and return
 - **Pane 3:** Use for Git commands and file operations
 - **Pane 4:** Run `claude chat` for AI assistance
 
+## Mobile Compatibility
+
+**Full multiplexing on touchscreens.** All terminal multiplexing features work seamlessly on mobile devices with the advanced mobile input overlay providing professional control over multiple terminals.
+
+**Touch-Optimized Navigation:**
+- **Swipe between tabs:** Navigate terminal sessions with intuitive touch gestures
+- **Tap to focus panes:** Switch between split terminals with simple taps
+- **Layout controls:** Access split-pane options through touch-friendly buttons
+- **Persistent sessions:** Long-running processes continue even when switching mobile apps
+
 ## Getting Started
 
 1. **Create Additional Tabs:** Click the "+" button to add more terminal sessions
