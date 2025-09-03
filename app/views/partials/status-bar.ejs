@@ -1,5 +1,5 @@
 <!-- Status Bar -->
-<div class="status-bar" :class="{ 'mobile-open': isMobile && statsOpen }">
+<div class="status-bar" v-show="!isMobile || !statsOpen">
     <div class="status-left">
         <div class="status-item">
             <i data-feather="activity" class="icon"></i>

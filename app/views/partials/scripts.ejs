@@ -44,6 +44,12 @@
                     isMobile: false,
                     sidebarOpen: false,
                     statsOpen: false,
+                    // Mobile Stats Interface
+                    statsExpanded: false,
+                    activeStatsTab: 'system',
+                    resourceAlerts: [],
+                    sessionUpdates: [],
+                    lastSessionCount: 0,
                     showThemeModal: false,
                     currentTheme: this.getDefaultTheme(),
                     availableThemes: [],
@@ -294,6 +300,31 @@
 
                 recentCommands() {
                     return this.commandHistory.slice(-10).reverse();
+                },
+
+                // Mobile Stats Computed Properties
+                hasResourceAlerts() {
+                    return this.resourceAlerts.length > 0;
+                },
+
+                hasSessionUpdates() {
+                    return this.sessionUpdates.length > 0;
+                },
+
+                systemHealthClass() {
+                    const cpuUsage = this.stats.resources?.cpu?.percentage || 0;
+                    const memoryUsage = this.stats.resources?.memory?.percentage || 0;
+                    
+                    if (cpuUsage > 95 || memoryUsage > 95) return 'critical';
+                    if (cpuUsage > 80 || memoryUsage > 80) return 'warning';
+                    return 'healthy';
+                },
+
+                systemHealthText() {
+                    const health = this.systemHealthClass;
+                    if (health === 'critical') return 'System resources critically high';
+                    if (health === 'warning') return 'System resources elevated';
+                    return 'System running normally';
                 }
             },
 
@@ -406,6 +437,121 @@
 
                 toggleStats() {
                     this.statsOpen = !this.statsOpen;
+                    if (!this.statsOpen) {
+                        // Reset expanded state when closing
+                        this.statsExpanded = false;
+                    }
+                },
+
+                // Mobile Stats Methods
+                toggleStatsMode() {
+                    this.statsExpanded = !this.statsExpanded;
+                    if (this.statsExpanded) {
+                        // Close mobile input when expanding stats
+                        this.mobileInputOpen = false;
+                        // Start with system tab
+                        this.activeStatsTab = 'system';
+                    }
+                },
+
+                setActiveStatsTab(tab) {
+                    this.activeStatsTab = tab;
+                },
+
+                focusOnAlert(alert) {
+                    // Switch to resources tab for resource alerts
+                    if (alert.type === 'cpu' || alert.type === 'memory') {
+                        this.activeStatsTab = 'resources';
+                        this.statsExpanded = true;
+                    }
+                    // Remove the alert after clicking
+                    this.resourceAlerts = this.resourceAlerts.filter(a => a !== alert);
+                },
+
+                acknowledgeUpdate(id) {
+                    this.sessionUpdates = this.sessionUpdates.filter(update => update.id !== id);
+                },
+
+                handleStatsTouch(event) {
+                    // Handle long press for additional options
+                    this.touchStartTime = Date.now();
+                },
+
+                getTabIcon(tab) {
+                    const icons = {
+                        system: 'server',
+                        resources: 'activity',
+                        sessions: 'terminal'
+                    };
+                    return icons[tab] || 'info';
+                },
+
+                closeMobileStats() {
+                    this.statsOpen = false;
+                    this.statsExpanded = false;
+                },
+
+                // Enhanced stats monitoring with alerts
+                checkResourceAlerts() {
+                    const alerts = [];
+                    const cpu = this.stats.resources?.cpu?.percentage || 0;
+                    const memory = this.stats.resources?.memory?.percentage || 0;
+
+                    if (cpu > 90) {
+                        alerts.push({
+                            type: 'cpu',
+                            severity: cpu > 95 ? 'critical' : 'warning',
+                            icon: 'zap',
+                            message: `CPU usage at ${cpu}%`
+                        });
+                    }
+
+                    if (memory > 85) {
+                        alerts.push({
+                            type: 'memory',
+                            severity: memory > 95 ? 'critical' : 'warning',
+                            icon: 'cpu',
+                            message: `Memory usage at ${memory}%`
+                        });
+                    }
+
+                    this.resourceAlerts = alerts;
+                },
+
+                checkSessionUpdates() {
+                    const currentCount = this.stats.sessions?.active || 0;
+                    
+                    if (this.lastSessionCount !== currentCount) {
+                        if (currentCount > this.lastSessionCount) {
+                            this.sessionUpdates.unshift({
+                                id: Date.now(),
+                                type: 'session-created',
+                                icon: 'plus-circle',
+                                message: `New session started (${currentCount} total)`
+                            });
+                        } else if (currentCount < this.lastSessionCount) {
+                            this.sessionUpdates.unshift({
+                                id: Date.now(),
+                                type: 'session-ended',
+                                icon: 'minus-circle',
+                                message: `Session ended (${currentCount} active)`
+                            });
+                        }
+                        
+                        this.lastSessionCount = currentCount;
+                        
+                        // Auto-remove updates after 10 seconds
+                        if (this.sessionUpdates.length > 0) {
+                            setTimeout(() => {
+                                this.sessionUpdates.pop();
+                            }, 10000);
+                        }
+                    }
+                    
+                    // Keep only last 3 updates
+                    if (this.sessionUpdates.length > 3) {
+                        this.sessionUpdates = this.sessionUpdates.slice(0, 3);
+                    }
                 },
 
                 // Mobile Input Proxy Methods
@@ -1317,6 +1463,12 @@
                         });
                         if (response.ok) {
                             this.stats = await response.json();
+                            
+                            // Check for resource alerts and session updates (mobile stats)
+                            if (this.isMobile) {
+                                this.checkResourceAlerts();
+                                this.checkSessionUpdates();
+                            }
                         }
                     } catch (error) {
                         console.error('Failed to load stats:', error);

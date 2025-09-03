@@ -1,6 +1,6 @@
 const environment = require('../config/environment');
 const { prisma } = require('../config/database');
-const shellService = require('../services/shell.service');
+const shellService = require('../services/multiplex-shell.service');
 const workspaceService = require('../services/workspace.service');
 const resourceService = require('../services/resource.service');
 const githubService = require('../services/github.service');
@@ -123,8 +123,17 @@ class HealthController {
    */
   async getSystemStats(req, res) {
     try {
-      // Get shell session stats
+      // Get shell session stats from multiplex service
       const sessionStats = shellService.getSessionStats();
+      
+      // Flatten all sessions from all workspaces into a single list
+      const allSessions = sessionStats.workspaces.reduce((acc, workspace) => {
+        const workspaceSessions = workspace.sessions.map(session => ({
+          ...session,
+          workspaceId: workspace.workspaceId
+        }));
+        return acc.concat(workspaceSessions);
+      }, []);
       
       // Get workspace count
       const workspaces = await workspaceService.listWorkspaces();
@@ -163,7 +172,7 @@ class HealthController {
         },
         sessions: {
           active: sessionStats.totalSessions,
-          list: sessionStats.sessions
+          list: allSessions
         },
         workspaces: {
           total: workspaces.length,

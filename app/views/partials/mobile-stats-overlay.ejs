@@ -1,0 +1,260 @@
+<!-- Mobile Stats Overlay -->
+<div v-if="isMobile" 
+     class="mobile-stats-overlay"
+     :class="{ 
+       active: statsOpen,
+       expanded: statsExpanded,
+       'has-alerts': hasResourceAlerts 
+     }"
+     @click.self="closeMobileStats"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="mobile-stats-title">
+    
+    <!-- Contextual Resource Alerts (appear above main chip) -->
+    <div v-if="statsOpen && hasResourceAlerts" class="contextual-alerts" @click.stop>
+        <div class="alert-scroll">
+            <div v-for="alert in resourceAlerts"
+                 :key="alert.type"
+                 class="alert-chip"
+                 :class="alert.severity"
+                 @click="focusOnAlert(alert)">
+                <i :data-feather="alert.icon" class="icon-tiny" aria-hidden="true"></i>
+                <span class="alert-text">{{ alert.message }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Smart Stats Notifications (session changes, workspace events) -->
+    <div v-if="statsOpen && hasSessionUpdates && !statsExpanded" 
+         class="session-updates" @click.stop>
+        <div v-for="update in sessionUpdates.slice(0, 2)"
+             :key="update.id"
+             class="update-chip"
+             @click="acknowledgeUpdate(update.id)">
+            <i :data-feather="update.icon" class="icon-tiny" aria-hidden="true"></i>
+            <span>{{ update.message }}</span>
+        </div>
+    </div>
+    
+    <!-- Compact Stats Chip -->
+    <div v-if="statsOpen && !statsExpanded" class="mobile-stats-panel compact" @click.stop>
+        <div class="compact-stats-row">
+            <div class="stats-group-compact">
+                <!-- Critical Stats -->
+                <div class="stat-compact" :class="{ warning: (stats.sessions?.active || 0) > 10 }">
+                    <i data-feather="activity" class="icon-tiny" aria-hidden="true"></i>
+                    <span class="stat-value">{{ stats.sessions?.active || 0 }}</span>
+                    <span class="stat-label">sessions</span>
+                </div>
+                
+                <div class="stat-compact" :class="{ warning: (stats.resources?.cpu?.percentage || 0) > 80, critical: (stats.resources?.cpu?.percentage || 0) > 95 }">
+                    <i data-feather="zap" class="icon-tiny" aria-hidden="true"></i>
+                    <span class="stat-value">{{ stats.resources?.cpu?.percentage || 0 }}%</span>
+                    <span class="stat-label">CPU</span>
+                </div>
+                
+                <div class="stat-compact" :class="{ warning: (stats.resources?.memory?.percentage || 0) > 80, critical: (stats.resources?.memory?.percentage || 0) > 95 }">
+                    <i data-feather="cpu" class="icon-tiny" aria-hidden="true"></i>
+                    <span class="stat-value">{{ stats.resources?.memory?.formatted?.used || '0 B' }}</span>
+                    <span class="stat-label">RAM</span>
+                </div>
+                
+                <button class="expand-btn" 
+                        @click="toggleStatsMode"
+                        @touchstart.passive="handleStatsTouch"
+                        :class="{ active: statsExpanded }"
+                        aria-label="Toggle expanded stats">
+                    <i :data-feather="statsExpanded ? 'chevron-down' : 'bar-chart-2'" class="icon-tiny" aria-hidden="true"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Quick System Status -->
+        <div v-if="!statsExpanded" class="system-status-compact">
+            <div class="status-indicators">
+                <div class="indicator" :class="systemHealthClass" :title="systemHealthText">
+                    <div class="indicator-dot"></div>
+                    <span>{{ stats.workspaces?.active || 0 }} workspaces</span>
+                </div>
+                <div class="indicator uptime">
+                    <i data-feather="clock" class="icon-tiny" aria-hidden="true"></i>
+                    <span>{{ stats.system?.uptimeFormatted || '0m' }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Expanded Stats Bottom Sheet -->
+    <div v-if="statsOpen && statsExpanded" class="expanded-stats-panel" @click.stop>
+        
+        <!-- Quick Stats Header -->
+        <div class="expanded-stats-header">
+            <div class="header-stats-grid">
+                <div class="header-stat">
+                    <div class="stat-number">{{ stats.sessions?.active || 0 }}</div>
+                    <div class="stat-title">Active Sessions</div>
+                </div>
+                <div class="header-stat">
+                    <div class="stat-number">{{ stats.resources?.cpu?.percentage || 0 }}%</div>
+                    <div class="stat-title">CPU Usage</div>
+                </div>
+                <div class="header-stat">
+                    <div class="stat-number">{{ stats.resources?.memory?.percentage || 0 }}%</div>
+                    <div class="stat-title">Memory Usage</div>
+                </div>
+                <button class="collapse-btn" 
+                        @click="toggleStatsMode"
+                        aria-label="Collapse stats panel">
+                    <i data-feather="chevron-down" class="icon-small" aria-hidden="true"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Tabbed Content -->
+        <div class="stats-tab-content">
+            <!-- System Tab -->
+            <div v-if="activeStatsTab === 'system'" class="system-tab">
+                <div class="system-info-grid">
+                    <div class="info-card">
+                        <div class="card-header">
+                            <i data-feather="server" class="icon-small"></i>
+                            <span>System</span>
+                        </div>
+                        <div class="card-content">
+                            <div class="info-row">
+                                <span class="label">Platform</span>
+                                <span class="value">{{ stats.system?.platform || 'unknown' }}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Node.js</span>
+                                <span class="value">{{ stats.system?.nodeVersion || 'unknown' }}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Runtime</span>
+                                <span class="value">{{ stats.system?.containerized ? 'Docker' : 'Native' }}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Uptime</span>
+                                <span class="value">{{ stats.system?.uptimeFormatted || '0m' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resources Tab -->
+            <div v-if="activeStatsTab === 'resources'" class="resources-tab">
+                <div class="resource-cards">
+                    <!-- Memory Card -->
+                    <div class="resource-card">
+                        <div class="resource-header">
+                            <i data-feather="cpu" class="icon-small"></i>
+                            <span>Memory Usage</span>
+                            <span class="resource-percentage">{{ stats.resources?.memory?.percentage || 0 }}%</span>
+                        </div>
+                        <div class="resource-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" 
+                                     :style="{ width: (stats.resources?.memory?.percentage || 0) + '%' }"
+                                     :class="{ warning: (stats.resources?.memory?.percentage || 0) > 80, critical: (stats.resources?.memory?.percentage || 0) > 95 }">
+                                </div>
+                            </div>
+                            <div class="resource-details">
+                                <span>{{ stats.resources?.memory?.formatted?.used || '0 B' }} / {{ stats.resources?.memory?.formatted?.limit || '0 B' }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CPU Card -->
+                    <div class="resource-card">
+                        <div class="resource-header">
+                            <i data-feather="zap" class="icon-small"></i>
+                            <span>CPU Usage</span>
+                            <span class="resource-percentage">{{ stats.resources?.cpu?.percentage || 0 }}%</span>
+                        </div>
+                        <div class="resource-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" 
+                                     :style="{ width: (stats.resources?.cpu?.percentage || 0) + '%' }"
+                                     :class="{ warning: (stats.resources?.cpu?.percentage || 0) > 80, critical: (stats.resources?.cpu?.percentage || 0) > 95 }">
+                                </div>
+                            </div>
+                            <div class="resource-details">
+                                <span>{{ stats.resources?.cpu?.cores || 0 }} cores • {{ stats.resources?.cpu?.formatted?.limit || 'unlimited' }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Storage Card -->
+                    <div class="resource-card">
+                        <div class="resource-header">
+                            <i data-feather="hard-drive" class="icon-small"></i>
+                            <span>Workspace Storage</span>
+                        </div>
+                        <div class="resource-details single">
+                            <span>{{ stats.resources?.disk?.workspaces?.formatted || '0 B' }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sessions Tab -->
+            <div v-if="activeStatsTab === 'sessions'" class="sessions-tab">
+                <div class="sessions-overview">
+                    <div class="overview-header">
+                        <div class="session-count">
+                            <span class="count-number">{{ stats.sessions?.active || 0 }}</span>
+                            <span class="count-label">Active Sessions</span>
+                        </div>
+                        <div class="workspace-count">
+                            <span class="count-number">{{ stats.workspaces?.active || 0 }}</span>
+                            <span class="count-label">Workspaces</span>
+                        </div>
+                    </div>
+                    
+                    <div v-if="(stats.sessions?.list || []).length > 0" class="sessions-list">
+                        <div v-for="session in (stats.sessions?.list || []).slice(0, 8)"
+                             :key="session.sessionId || session.pid"
+                             class="session-item">
+                            <div class="session-icon">
+                                <i data-feather="terminal" class="icon-tiny"></i>
+                            </div>
+                            <div class="session-info">
+                                <div class="session-name">{{ session.sessionName || `Session ${session.sessionId}` }}</div>
+                                <div class="session-details">
+                                    <span>PID: {{ session.pid }}</span>
+                                    <span>{{ session.connectedSockets || 0 }} socket(s)</span>
+                                </div>
+                            </div>
+                            <div class="session-status" :class="{ active: session.connectedSockets > 0 }">
+                                <div class="status-dot"></div>
+                            </div>
+                        </div>
+                        
+                        <div v-if="(stats.sessions?.list || []).length > 8" class="sessions-overflow">
+                            +{{ (stats.sessions?.list || []).length - 8 }} more sessions
+                        </div>
+                    </div>
+                    
+                    <div v-else class="no-sessions">
+                        <i data-feather="terminal" class="icon-large"></i>
+                        <span>No active sessions</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tab Navigation at Bottom -->
+        <div class="stats-panel-tabs">
+            <button v-for="tab in ['system', 'resources', 'sessions']" 
+                    :key="tab"
+                    class="stats-tab-btn"
+                    :class="{ active: activeStatsTab === tab }"
+                    @click="setActiveStatsTab(tab)">
+                <i :data-feather="getTabIcon(tab)" class="icon-tiny"></i>
+                <span>{{ tab }}</span>
+            </button>
+        </div>
+    </div>
+</div>
