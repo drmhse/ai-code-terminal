@@ -77,12 +77,20 @@
                     contextMenuX: 0,
                     contextMenuY: 0,
                     contextMenuFile: null,
-                    // File Preview Modal
+                    // Unified File Editor Modal
                     showFilePreviewModal: false,
                     previewFile: null,
                     previewData: null,
                     previewLoading: false,
                     previewError: null,
+                    // Editor state
+                    editMode: false,
+                    editorInstance: null,
+                    originalContent: '',
+                    hasUnsavedChanges: false,
+                    saving: false,
+                    saveError: null,
+                    editorKeyboardHandler: null,
                     // Mobile Input Proxy
                     mobileInputOpen: false,
                     mobileInputText: '',
@@ -162,12 +170,10 @@
                     window.history.replaceState({}, document.title, '/');
                 }
 
-                // Check existing token
+                // Try to initialize app - let backend decide if token is valid
                 const existingToken = localStorage.getItem('authToken');
                 if (existingToken) {
-                    this.isAuthenticated = true;
-                    await this.loadAvailableThemes();
-                    this.initializeApp();
+                    await this.tryInitializeApp();
                 }
 
                 // Initialize Feather Icons
@@ -181,7 +187,7 @@
                         this.showThemeModal = false;
                         this.showRepositoriesModal = false;
                         this.showDeleteModal = false;
-                        this.showFilePreviewModal = false;
+                        this.closeFilePreviewModal();
                         this.showContextMenu = false;
                         this.mobileInputOpen = false;
                     }
@@ -214,24 +220,6 @@
                     });
                 },
 
-                highlightedContent() {
-                    if (!this.previewData?.content || !this.previewFile) {
-                        return '';
-                    }
-
-                    const language = this.getPrismLanguage(this.previewFile);
-                    
-                    if (language && window.Prism && window.Prism.languages && window.Prism.languages[language]) {
-                        try {
-                            return window.Prism.highlight(this.previewData.content, window.Prism.languages[language], language);
-                        } catch (error) {
-                            console.warn('Syntax highlighting failed for', language, ':', error);
-                            return this.escapeHtml(this.previewData.content);
-                        }
-                    }
-
-                    return this.escapeHtml(this.previewData.content);
-                },
 
                 pathSegments() {
                     if (!this.currentPath || this.currentPath === '.') {
@@ -370,6 +358,38 @@
                             brightWhite: '#ffffff'
                         }
                     };
+                },
+
+                async tryInitializeApp() {
+                    try {
+                        // Let backend decide if we're authenticated by trying to load themes
+                        const token = localStorage.getItem('authToken');
+                        const response = await fetch('/api/themes', {
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            }
+                        });
+
+                        if (response.ok) {
+                            // Backend says we're authenticated - proceed with app init
+                            this.isAuthenticated = true;
+                            await this.loadAvailableThemes();
+                            this.initializeApp();
+                        } else if (response.status === 401 || response.status === 403) {
+                            // Backend says token is invalid - clear it and stay on login
+                            localStorage.removeItem('authToken');
+                            this.isAuthenticated = false;
+                            console.log('Token invalid, redirecting to login');
+                        } else {
+                            // Some other error - log but don't authenticate
+                            console.error('Error checking authentication:', response.status);
+                            this.isAuthenticated = false;
+                        }
+                    } catch (error) {
+                        // Network error - assume not authenticated
+                        console.error('Network error during auth check:', error);
+                        this.isAuthenticated = false;
+                    }
                 },
 
                 async loadAvailableThemes() {
@@ -938,6 +958,11 @@
                     // Update terminal if active
                     if (this.terminal && this.selectedWorkspace) {
                         this.setupTerminal();
+                    }
+
+                    // Update CodeMirror editor theme if active
+                    if (this.editorInstance) {
+                        this.editorInstance.setTheme(theme.type === 'dark' ? 'dark' : 'light');
                     }
                 },
 
@@ -2334,6 +2359,21 @@
                 async showFilePreview(file) {
                     if (!this.selectedWorkspace) return;
 
+                    // Reset editor state and clean up resources
+                    this.editMode = false;
+                    this.hasUnsavedChanges = false;
+                    this.saveError = null;
+                    if (this.editorInstance) {
+                        this.editorInstance.destroy();
+                        this.editorInstance = null;
+                    }
+                    
+                    // Clean up previous keyboard handler
+                    if (this.editorKeyboardHandler) {
+                        document.removeEventListener('keydown', this.editorKeyboardHandler);
+                        this.editorKeyboardHandler = null;
+                    }
+
                     // Set modal state
                     this.previewFile = file;
                     this.previewData = null;
@@ -2352,6 +2392,12 @@
                         if (response.ok) {
                             const data = await response.json();
                             this.previewData = data;
+                            this.originalContent = data.content || '';
+
+                            // Initialize CodeMirror editor after modal is rendered
+                            this.$nextTick(() => {
+                                this.initializeEditor();
+                            });
                         } else {
                             const errorData = await response.json();
                             this.previewError = errorData.error || 'Failed to load file content';
@@ -2377,6 +2423,226 @@
                 async refreshFilePreview() {
                     if (!this.previewFile) return;
                     await this.showFilePreview(this.previewFile);
+                },
+
+                initializeEditor() {
+                    if (!window.CodeMirrorSetup || !this.$refs.editorContainer || !this.previewData?.content) {
+                        if (!window.CodeMirrorSetup) {
+                            console.error('CodeMirrorSetup not loaded');
+                            this.previewError = 'Editor failed to load. Please refresh the page.';
+                        }
+                        return;
+                    }
+
+                    try {
+                        const container = this.$refs.editorContainer;
+                        
+                        // Clear container
+                        container.innerHTML = '';
+
+                        const options = {
+                            content: this.originalContent,
+                            readonly: !this.editMode,
+                            theme: this.currentTheme.type === 'dark' ? 'dark' : 'light',
+                            fileExtension: this.previewFile?.extension,
+                            onChange: (content) => {
+                                this.hasUnsavedChanges = content !== this.originalContent;
+                            }
+                        };
+
+                        this.editorInstance = window.CodeMirrorSetup.createUnifiedEditor(container, options);
+                        
+                        // Add keyboard shortcuts
+                        this.addEditorKeyboardShortcuts();
+
+                    } catch (error) {
+                        console.error('Failed to initialize CodeMirror editor:', error);
+                        this.previewError = 'Failed to initialize editor';
+                    }
+                },
+
+                addEditorKeyboardShortcuts() {
+                    if (!this.editorInstance) return;
+
+                    // Add global keyboard event listener for save shortcut
+                    const handleKeyDown = (e) => {
+                        // Ctrl+S or Cmd+S to save
+                        if ((e.ctrlKey || e.metaKey) && e.key === 's' && this.editMode) {
+                            e.preventDefault();
+                            this.saveFile();
+                        }
+                        // Escape to cancel edit mode
+                        else if (e.key === 'Escape' && this.editMode && this.hasUnsavedChanges) {
+                            e.preventDefault();
+                            this.confirmDiscardChanges();
+                        }
+                    };
+
+                    document.addEventListener('keydown', handleKeyDown);
+
+                    // Store reference to remove listener later
+                    this.editorKeyboardHandler = handleKeyDown;
+                },
+
+                toggleEditMode() {
+                    if (!this.editorInstance || !this.previewData?.content) return;
+
+                    // If switching from edit to preview with unsaved changes, confirm first
+                    if (this.editMode && this.hasUnsavedChanges) {
+                        this.confirmDiscardChanges();
+                        return;
+                    }
+
+                    this.editMode = !this.editMode;
+                    this.editorInstance.setReadonly(!this.editMode);
+
+                    // Focus editor if entering edit mode
+                    if (this.editMode) {
+                        this.$nextTick(() => {
+                            this.editorInstance.focus();
+                        });
+                    }
+                },
+
+                async saveFile() {
+                    if (!this.editorInstance || !this.previewFile || !this.hasUnsavedChanges) return;
+
+                    this.saving = true;
+                    this.saveError = null;
+
+                    try {
+                        const content = this.editorInstance.getContent();
+                        const token = localStorage.getItem('authToken');
+                        
+                        const response = await fetch(`/api/workspaces/${this.selectedWorkspace.id}/file-content`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                path: this.previewFile.path,
+                                content: content
+                            })
+                        });
+
+                        if (response.ok) {
+                            const result = await response.json();
+                            
+                            // Update original content and metadata
+                            this.originalContent = content;
+                            this.hasUnsavedChanges = false;
+                            
+                            if (this.previewData) {
+                                this.previewData.size = result.size;
+                                this.previewData.modified = result.modified;
+                            }
+
+                            // Show success feedback
+                            this.showNotification('File saved successfully', 'success');
+
+                            // Refresh file list to update size/date
+                            this.refreshFiles();
+                            
+                        } else {
+                            const errorData = await response.json();
+                            this.saveError = errorData.error || 'Failed to save file';
+                            this.showNotification(this.saveError, 'error');
+                        }
+                    } catch (error) {
+                        console.error('Error saving file:', error);
+                        this.saveError = 'Failed to connect to server';
+                        this.showNotification(this.saveError, 'error');
+                    } finally {
+                        this.saving = false;
+                    }
+                },
+
+                discardChanges() {
+                    if (!this.editorInstance || !this.hasUnsavedChanges) return;
+
+                    // Reset content to original
+                    this.editorInstance.setContent(this.originalContent);
+                    this.hasUnsavedChanges = false;
+                    
+                    // Exit edit mode
+                    this.editMode = false;
+                    this.editorInstance.setReadonly(true);
+                },
+
+                confirmDiscardChanges() {
+                    if (!this.hasUnsavedChanges) {
+                        this.editMode = false;
+                        this.editorInstance.setReadonly(true);
+                        return;
+                    }
+
+                    if (confirm('You have unsaved changes. Discard them?')) {
+                        this.discardChanges();
+                    }
+                },
+
+                showNotification(message, type = 'info') {
+                    // Simple notification system - could be enhanced
+                    const notification = document.createElement('div');
+                    notification.className = `notification notification-${type}`;
+                    notification.textContent = message;
+                    notification.style.cssText = `
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        padding: 12px 24px;
+                        border-radius: 6px;
+                        color: white;
+                        font-weight: 500;
+                        z-index: 10000;
+                        transition: all 0.3s ease;
+                        ${type === 'success' ? 'background: #10b981;' : ''}
+                        ${type === 'error' ? 'background: #ef4444;' : ''}
+                        ${type === 'info' ? 'background: #3b82f6;' : ''}
+                    `;
+                    
+                    document.body.appendChild(notification);
+                    
+                    setTimeout(() => {
+                        notification.style.opacity = '0';
+                        notification.style.transform = 'translateX(100px)';
+                        setTimeout(() => {
+                            document.body.removeChild(notification);
+                        }, 300);
+                    }, 3000);
+                },
+
+                closeFilePreviewModal() {
+                    // Check for unsaved changes before closing
+                    if (this.editMode && this.hasUnsavedChanges) {
+                        if (!confirm('You have unsaved changes. Close without saving?')) {
+                            return;
+                        }
+                    }
+
+                    // Clean up editor instance
+                    if (this.editorInstance) {
+                        this.editorInstance.destroy();
+                        this.editorInstance = null;
+                    }
+
+                    // Remove keyboard event listener
+                    if (this.editorKeyboardHandler) {
+                        document.removeEventListener('keydown', this.editorKeyboardHandler);
+                        this.editorKeyboardHandler = null;
+                    }
+
+                    // Reset state
+                    this.showFilePreviewModal = false;
+                    this.editMode = false;
+                    this.hasUnsavedChanges = false;
+                    this.saving = false;
+                    this.saveError = null;
+                    this.previewFile = null;
+                    this.previewData = null;
+                    this.previewError = null;
+                    this.originalContent = '';
                 },
 
                 getFileIcon(file) {
@@ -2416,87 +2682,6 @@
                     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
                 },
 
-                getPrismLanguage(file) {
-                    if (!file || !file.extension) return null;
-
-                    const ext = file.extension.toLowerCase();
-                    const languageMap = {
-                        'js': 'javascript',
-                        'jsx': 'jsx',
-                        'ts': 'typescript',
-                        'tsx': 'tsx',
-                        'json': 'json',
-                        'html': 'html',
-                        'htm': 'html',
-                        'css': 'css',
-                        'scss': 'scss',
-                        'sass': 'sass',
-                        'less': 'less',
-                        'py': 'python',
-                        'rb': 'ruby',
-                        'php': 'php',
-                        'java': 'java',
-                        'c': 'c',
-                        'cpp': 'cpp',
-                        'cc': 'cpp',
-                        'cxx': 'cpp',
-                        'h': 'c',
-                        'hpp': 'cpp',
-                        'cs': 'csharp',
-                        'go': 'go',
-                        'rs': 'rust',
-                        'sh': 'bash',
-                        'bash': 'bash',
-                        'zsh': 'bash',
-                        'fish': 'bash',
-                        'ps1': 'powershell',
-                        'sql': 'sql',
-                        'xml': 'xml',
-                        'yaml': 'yaml',
-                        'yml': 'yaml',
-                        'toml': 'toml',
-                        'ini': 'ini',
-                        'conf': 'ini',
-                        'config': 'ini',
-                        'md': 'markdown',
-                        'markdown': 'markdown',
-                        'tex': 'latex',
-                        'r': 'r',
-                        'matlab': 'matlab',
-                        'm': 'matlab',
-                        'swift': 'swift',
-                        'kt': 'kotlin',
-                        'scala': 'scala',
-                        'clj': 'clojure',
-                        'hs': 'haskell',
-                        'elm': 'elm',
-                        'dart': 'dart',
-                        'lua': 'lua',
-                        'perl': 'perl',
-                        'pl': 'perl',
-                        'dockerfile': 'dockerfile',
-                        'makefile': 'makefile',
-                        'cmake': 'cmake',
-                        'gradle': 'gradle',
-                        'groovy': 'groovy',
-                        'vim': 'vim',
-                        'asm': 'nasm',
-                        's': 'nasm'
-                    };
-
-                    return languageMap[ext] || null;
-                },
-
-                getLanguageClass(file) {
-                    const language = this.getPrismLanguage(file);
-                    return language ? `language-${language}` : '';
-                },
-
-                escapeHtml(text) {
-                    const div = document.createElement('div');
-                    div.textContent = text;
-                    return div.innerHTML;
-                },
 
                 handleFileContextMenu(event, file) {
                     event.preventDefault();

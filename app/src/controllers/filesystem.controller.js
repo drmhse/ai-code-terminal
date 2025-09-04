@@ -316,6 +316,165 @@ class FileSystemController {
       return false;
     }
   }
+
+  /**
+   * Save file contents (for file editing)
+   */
+  async saveFileContents(req, res) {
+    try {
+      const { workspaceId } = req.params;
+      const { path: requestedPath, content } = req.body;
+
+      if (!requestedPath) {
+        return res.status(400).json({
+          error: 'File path is required'
+        });
+      }
+
+      if (typeof content !== 'string') {
+        return res.status(400).json({
+          error: 'Content must be a string'
+        });
+      }
+
+      // Validate content size (prevent memory attacks)
+      const maxContentSize = 10 * 1024 * 1024; // 10MB
+      if (Buffer.byteLength(content, 'utf8') > maxContentSize) {
+        return res.status(413).json({
+          error: 'File content too large (10MB limit)'
+        });
+      }
+
+      // Validate workspace access
+      const workspace = await workspaceService.getWorkspace(workspaceId);
+      if (!workspace) {
+        return res.status(404).json({
+          error: 'Workspace not found'
+        });
+      }
+
+      // Construct and validate the requested path
+      const workspacePath = `/app/workspaces/${workspace.name}`;
+      const fullPath = path.resolve(workspacePath, requestedPath);
+
+      // Security check: ensure path is within workspace
+      if (!fullPath.startsWith(workspacePath)) {
+        return res.status(403).json({
+          error: 'Access denied: Path outside workspace'
+        });
+      }
+
+      // Check if file exists and get stats
+      let fileExists = true;
+      let stats = null;
+      try {
+        await fs.access(fullPath, constants.F_OK);
+        stats = await fs.stat(fullPath);
+      } catch (error) {
+        fileExists = false;
+      }
+
+      // If file exists, validate it's a file and not too large
+      if (fileExists) {
+        if (stats && !stats.isFile()) {
+          return res.status(400).json({
+            error: 'Path is not a file'
+          });
+        }
+
+        // Check if file is writable
+        const isWritable = await this.isWritable(fullPath);
+        if (!isWritable) {
+          return res.status(403).json({
+            error: 'File is not writable'
+          });
+        }
+
+        // Size check - prevent saving very large files
+        const maxSize = 10 * 1024 * 1024; // 10MB limit
+        if (stats && stats.size > maxSize) {
+          return res.status(413).json({
+            error: 'File too large to edit (10MB limit)'
+          });
+        }
+      }
+
+      // Create backup of existing file
+      let backupCreated = false;
+      if (fileExists) {
+        try {
+          const backupPath = `${fullPath}.bak`;
+          await fs.copyFile(fullPath, backupPath);
+          backupCreated = true;
+        } catch (error) {
+          logger.warn(`Failed to create backup for ${fullPath}:`, error);
+          // Continue without backup - better to save than fail
+        }
+      }
+
+      // Write file atomically using temporary file
+      const tempPath = `${fullPath}.tmp.${Date.now()}`;
+      try {
+        // Write to temporary file first
+        await fs.writeFile(tempPath, content, 'utf8');
+        
+        // Atomic rename to final destination
+        await fs.rename(tempPath, fullPath);
+
+        // Get updated stats
+        const updatedStats = await fs.stat(fullPath);
+
+        res.json({
+          success: true,
+          path: requestedPath,
+          size: updatedStats.size,
+          modified: updatedStats.mtime.toISOString(),
+          backupCreated
+        });
+
+        logger.info(`File saved successfully: ${fullPath}`);
+
+      } catch (writeError) {
+        // Clean up temp file if it exists
+        try {
+          await fs.unlink(tempPath);
+        } catch (cleanupError) {
+          // Ignore cleanup errors
+        }
+
+        // If we created a backup and write failed, restore it
+        if (backupCreated && fileExists) {
+          try {
+            const backupPath = `${fullPath}.bak`;
+            await fs.copyFile(backupPath, fullPath);
+            logger.info(`Restored backup after write failure: ${fullPath}`);
+          } catch (restoreError) {
+            logger.error(`Failed to restore backup for ${fullPath}:`, restoreError);
+          }
+        }
+
+        throw writeError;
+      }
+
+    } catch (error) {
+      logger.error('Error saving file contents:', error);
+      
+      // Return appropriate error message
+      if (error.code === 'ENOSPC') {
+        return res.status(507).json({
+          error: 'Insufficient storage space'
+        });
+      } else if (error.code === 'EACCES') {
+        return res.status(403).json({
+          error: 'Permission denied'
+        });
+      } else {
+        return res.status(500).json({
+          error: 'Failed to save file contents'
+        });
+      }
+    }
+  }
 }
 
 module.exports = new FileSystemController();

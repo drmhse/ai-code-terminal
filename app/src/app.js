@@ -104,7 +104,10 @@ app.use(sanitizeInput);
 // CORS and body parsing
 app.use(cors(corsConfig));
 app.use(express.json({ limit: LIMITS.REQUEST_SIZE_LIMIT }));
-// Static file serving removed - frontend is now deployed separately
+
+// Static file serving for assets and CodeMirror modules
+const path = require('path');
+app.use(express.static(path.join(__dirname, '../public')));
 
 // Main application page
 app.get('/', (req, res) => {
@@ -163,6 +166,7 @@ app.post('/api/theme',
 );
 
 // Theme API routes
+// Themes API - requires authentication (backend enforces security)
 app.get('/api/themes',
   authenticateToken,
   asyncHandler(themeController.getAllThemes.bind(themeController))
@@ -259,6 +263,12 @@ app.get('/api/workspaces/:workspaceId/file-info',
   authenticateToken,
   validateWorkspaceId,
   asyncHandler(filesystemController.getFileInfo.bind(filesystemController))
+);
+
+app.post('/api/workspaces/:workspaceId/file-content',
+  authenticateToken,
+  validateWorkspaceId,
+  asyncHandler(filesystemController.saveFileContents.bind(filesystemController))
 );
 
 app.post('/api/processes/:processId/restart',

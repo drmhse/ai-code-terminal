@@ -650,7 +650,7 @@
         }
 
         /* Main Editor Panel */
-        .editor-panel {
+        .terminal-panel {
             flex: 1;
             display: flex;
             flex-direction: column;
@@ -2124,85 +2124,108 @@
             color: var(--text-secondary);
         }
 
-        .file-preview-content {
+        /* Unified CodeMirror Editor Container */
+        .unified-editor-container {
             flex: 1;
-            margin: 0;
-            padding: 16px;
-            background: var(--terminal-bg);
+            overflow: auto;
+            background: var(--bg-secondary);
             border: 1px solid var(--border-color);
             border-radius: 6px;
             font-family: 'JetBrains Mono', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-            font-size: 12px;
+            font-size: 13px;
             line-height: 1.5;
-            overflow: auto;
-            max-height: 400px;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            color: var(--text-primary);
+            max-height: 60vh;
+            min-height: 300px;
         }
 
-        .file-preview-content code {
-            background: transparent;
-            color: inherit;
+        .unified-editor-container .cm-editor {
+            height: 100%;
+            outline: none;
+        }
+
+        .unified-editor-container .cm-scroller {
             font-family: inherit;
             font-size: inherit;
             line-height: inherit;
         }
 
-        /* Override Prism.js styles to match our theme */
-        .file-preview-content .token.comment,
-        .file-preview-content .token.prolog,
-        .file-preview-content .token.doctype,
-        .file-preview-content .token.cdata {
-            color: var(--text-muted);
+        .unified-editor-container .cm-focused {
+            outline: none;
         }
 
-        .file-preview-content .token.punctuation {
-            color: var(--text-secondary);
+        /* Readonly mode styling */
+        .unified-editor-container.editor-readonly {
+            border-color: var(--border-color);
         }
 
-        .file-preview-content .token.property,
-        .file-preview-content .token.tag,
-        .file-preview-content .token.boolean,
-        .file-preview-content .token.number,
-        .file-preview-content .token.constant,
-        .file-preview-content .token.symbol,
-        .file-preview-content .token.deleted {
-            color: var(--accent-red);
+        .unified-editor-container.editor-readonly .cm-editor {
+            background: var(--terminal-bg);
         }
 
-        .file-preview-content .token.selector,
-        .file-preview-content .token.attr-name,
-        .file-preview-content .token.string,
-        .file-preview-content .token.char,
-        .file-preview-content .token.builtin,
-        .file-preview-content .token.inserted {
-            color: var(--accent-green);
+        /* Editable mode styling */
+        .unified-editor-container.editor-editable {
+            border-color: var(--accent-blue);
         }
 
-        .file-preview-content .token.operator,
-        .file-preview-content .token.entity,
-        .file-preview-content .token.url,
-        .file-preview-content .language-css .token.string,
-        .file-preview-content .style .token.string {
-            color: var(--text-primary);
+        .unified-editor-container.editor-editable .cm-editor {
+            background: var(--bg-primary);
         }
 
-        .file-preview-content .token.atrule,
-        .file-preview-content .token.attr-value,
-        .file-preview-content .token.keyword {
-            color: var(--accent-blue);
+        /* Custom theme integration for light mode */
+        .cm-editor.cm-focused {
+            outline: none;
         }
 
-        .file-preview-content .token.function,
-        .file-preview-content .token.class-name {
-            color: var(--accent-orange);
+        /* Unsaved changes notice */
+        .unsaved-changes-notice {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: #fef3cd;
+            border: 1px solid #faebcd;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            color: #664d03;
+            font-size: 13px;
         }
 
-        .file-preview-content .token.regex,
-        .file-preview-content .token.important,
-        .file-preview-content .token.variable {
-            color: var(--accent-purple);
+        .unsaved-changes-notice i {
+            color: #f08c00;
+        }
+
+        [data-theme="dark"] .unsaved-changes-notice {
+            background: #2d1b0a;
+            border-color: #3e2723;
+            color: #ffb74d;
+        }
+
+        /* Button states for editor actions */
+        .btn.active {
+            background: var(--accent-blue);
+            color: white;
+            border-color: var(--accent-blue);
+        }
+
+        .btn.active:hover {
+            background: var(--accent-blue-dark, var(--accent-blue));
+            border-color: var(--accent-blue-dark, var(--accent-blue));
+        }
+
+        .btn-primary {
+            background: var(--accent-green);
+            color: white;
+            border-color: var(--accent-green);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--accent-green-dark, var(--accent-green));
+            border-color: var(--accent-green-dark, var(--accent-green));
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
 
         .file-message {
