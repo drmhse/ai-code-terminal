@@ -16,8 +16,18 @@
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
     
-    <!-- CodeMirror 6 Unified Editor -->
-    <script type="module" src="/js/codemirror-setup.js"></script>
+    <!-- CodeMirror 6 Unified Editor (Cache-Busted) -->
+    <script type="module" src="<%= assets.esModule %>"></script>
+    <script nomodule src="<%= assets.umd %>"></script>
+    
+    <!-- Asset Version Info for Client-Side Cache Management -->
+    <script>
+      window.APP_ASSET_VERSION = {
+        version: '<%= assetVersion.version %>',
+        timestamp: <%= assetVersion.timestamp %>,
+        strategy: '<%= assetVersion.strategy %>'
+      };
+    </script>
     <%- include('terminal-components') %>
     <%- include('styles') %>
 </head>

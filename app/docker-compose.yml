@@ -1,6 +1,8 @@
 services:
   claude-code-web:
-    build: .
+    build: 
+      context: ..
+      dockerfile: app/Dockerfile
     ports:
       - "${PORT:-3014}:3014"
     environment:

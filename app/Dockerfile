@@ -1,4 +1,24 @@
-# Dockerfile
+# Multi-stage Dockerfile for frontend build
+# Stage 1: Frontend build
+FROM node:20-alpine AS frontend-builder
+
+WORKDIR /frontend
+
+# Copy frontend package files
+COPY frontend/package*.json ./
+COPY frontend/tsconfig*.json ./
+
+# Install frontend dependencies
+RUN npm ci
+
+# Copy frontend source code
+COPY frontend/src ./src
+COPY frontend/vite.config.ts ./
+
+# Build frontend assets
+RUN npm run build
+
+# Stage 2: Main application
 FROM node:20-alpine
 
 # Install essential development tools
@@ -30,11 +50,14 @@ RUN npm install -g @anthropic-ai/claude-code @drmhse/act-cli
 WORKDIR /app
 
 # Copy package files and install dependencies
-COPY package*.json ./
+COPY app/package*.json ./
 RUN npm install --omit=dev && npm cache clean --force
 
-# Copy application code
-COPY . .
+# Copy application code (excluding node_modules which is already installed)
+COPY app/ .
+
+# Copy built frontend assets from previous stage
+COPY --from=frontend-builder /frontend/dist ./public/dist
 
 
 # Make startup script executable
@@ -63,7 +86,7 @@ RUN echo 'export PS1="\[\033[1;32m\]\u@\h\[\033[0m\]:\[\033[1;34m\]\w\[\033[0m\]
     echo 'echo "🚀 act-cli is available! Try: act context add <file>, act context --help"' >> /home/claude/.bashrc && \
     chown claude:claude /home/claude/.bashrc
 
-COPY init.sh /init.sh
+COPY app/init.sh /init.sh
 RUN chmod +x /init.sh
 
 # Install su-exec for user switching

@@ -54,6 +54,7 @@ const processSupervisorService = require('./services/process-supervisor.service'
 const logger = require('./utils/logger');
 const { initializeDirectories } = require('./utils/init');
 const { testConnection, disconnect } = require('./config/database');
+const { assetMiddleware } = require('./utils/assets');
 
 // Create Express app
 const app = express();
@@ -101,12 +102,37 @@ app.use((req, res, next) => {
 app.use(securityHeaders);
 app.use(sanitizeInput);
 
+// Asset management middleware (provides dynamic asset URLs to templates)
+app.use(assetMiddleware);
+
 // CORS and body parsing
 app.use(cors(corsConfig));
 app.use(express.json({ limit: LIMITS.REQUEST_SIZE_LIMIT }));
 
-// Static file serving for assets and CodeMirror modules
+// Static file serving with appropriate cache headers
 const path = require('path');
+
+// Cache headers middleware for static assets
+app.use('/dist', (req, res, next) => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const hasHash = /\.[a-zA-Z0-9_-]{8,}\./.test(req.path); // Check if filename has hash (Vite format)
+  
+  if (hasHash && isProduction) {
+    // Hashed files can be cached for a long time (1 year)
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+  } else if (isProduction) {
+    // Non-hashed files in production - short cache with revalidation
+    res.set('Cache-Control', 'public, max-age=300, must-revalidate');
+  } else {
+    // Development - no caching
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+  }
+  
+  next();
+});
+
 app.use(express.static(path.join(__dirname, '../public')));
 
 // Main application page
@@ -126,9 +152,18 @@ app.get('/api', (req, res) => {
     endpoints: {
       health: '/health',
       auth: '/api/github/auth',
-      stats: '/api/stats'
+      stats: '/api/stats',
+      assetVersion: '/api/asset-version'
     }
   });
+});
+
+// Asset version endpoint for cache management
+app.get('/api/asset-version', (req, res) => {
+  const { assetManager } = require('./utils/assets');
+  const versionInfo = assetManager.getCacheBustingInfo();
+  
+  res.json(versionInfo);
 });
 
 // Health check endpoint (no auth required)

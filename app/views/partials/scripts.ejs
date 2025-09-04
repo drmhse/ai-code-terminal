@@ -962,7 +962,11 @@
 
                     // Update CodeMirror editor theme if active
                     if (this.editorInstance) {
-                        this.editorInstance.setTheme(theme.type === 'dark' ? 'dark' : 'light');
+                        try {
+                            await this.editorInstance.setTheme({ type: theme.type, colors: theme.colors });
+                        } catch (error) {
+                            console.error('Failed to update editor theme:', error);
+                        }
                     }
                 },
 
@@ -2425,7 +2429,7 @@
                     await this.showFilePreview(this.previewFile);
                 },
 
-                initializeEditor() {
+                async initializeEditor() {
                     if (!window.CodeMirrorSetup || !this.$refs.editorContainer || !this.previewData?.content) {
                         if (!window.CodeMirrorSetup) {
                             console.error('CodeMirrorSetup not loaded');
@@ -2439,25 +2443,30 @@
                         
                         // Clear container
                         container.innerHTML = '';
+                        
+                        console.log('Initializing editor for file:', this.previewFile?.name, 'with extension:', this.previewFile?.extension);
 
                         const options = {
                             content: this.originalContent,
                             readonly: !this.editMode,
-                            theme: this.currentTheme.type === 'dark' ? 'dark' : 'light',
+                            theme: { type: this.currentTheme.type, colors: this.currentTheme.colors },
                             fileExtension: this.previewFile?.extension,
                             onChange: (content) => {
                                 this.hasUnsavedChanges = content !== this.originalContent;
                             }
                         };
 
-                        this.editorInstance = window.CodeMirrorSetup.createUnifiedEditor(container, options);
+                        // CodeMirror setup is now async, so await it
+                        this.editorInstance = await window.CodeMirrorSetup.createUnifiedEditor(container, options);
                         
                         // Add keyboard shortcuts
                         this.addEditorKeyboardShortcuts();
+                        
+                        console.log('Editor initialized successfully with syntax highlighting');
 
                     } catch (error) {
                         console.error('Failed to initialize CodeMirror editor:', error);
-                        this.previewError = 'Failed to initialize editor';
+                        this.previewError = 'Failed to initialize editor: ' + error.message;
                     }
                 },
 
@@ -2484,7 +2493,7 @@
                     this.editorKeyboardHandler = handleKeyDown;
                 },
 
-                toggleEditMode() {
+                async toggleEditMode() {
                     if (!this.editorInstance || !this.previewData?.content) return;
 
                     // If switching from edit to preview with unsaved changes, confirm first
@@ -2494,13 +2503,18 @@
                     }
 
                     this.editMode = !this.editMode;
-                    this.editorInstance.setReadonly(!this.editMode);
+                    
+                    try {
+                        await this.editorInstance.setReadonly(!this.editMode);
 
-                    // Focus editor if entering edit mode
-                    if (this.editMode) {
-                        this.$nextTick(() => {
-                            this.editorInstance.focus();
-                        });
+                        // Focus editor if entering edit mode
+                        if (this.editMode) {
+                            this.$nextTick(() => {
+                                this.editorInstance.focus();
+                            });
+                        }
+                    } catch (error) {
+                        console.error('Failed to toggle edit mode:', error);
                     }
                 },
 
@@ -2558,27 +2572,35 @@
                     }
                 },
 
-                discardChanges() {
+                async discardChanges() {
                     if (!this.editorInstance || !this.hasUnsavedChanges) return;
 
-                    // Reset content to original
-                    this.editorInstance.setContent(this.originalContent);
-                    this.hasUnsavedChanges = false;
-                    
-                    // Exit edit mode
-                    this.editMode = false;
-                    this.editorInstance.setReadonly(true);
+                    try {
+                        // Reset content to original
+                        this.editorInstance.setContent(this.originalContent);
+                        this.hasUnsavedChanges = false;
+                        
+                        // Exit edit mode
+                        this.editMode = false;
+                        await this.editorInstance.setReadonly(true);
+                    } catch (error) {
+                        console.error('Failed to discard changes:', error);
+                    }
                 },
 
-                confirmDiscardChanges() {
+                async confirmDiscardChanges() {
                     if (!this.hasUnsavedChanges) {
                         this.editMode = false;
-                        this.editorInstance.setReadonly(true);
+                        try {
+                            await this.editorInstance.setReadonly(true);
+                        } catch (error) {
+                            console.error('Failed to set editor readonly:', error);
+                        }
                         return;
                     }
 
                     if (confirm('You have unsaved changes. Discard them?')) {
-                        this.discardChanges();
+                        await this.discardChanges();
                     }
                 },
 
