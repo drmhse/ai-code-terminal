@@ -1,24 +1,26 @@
 const fs = require('fs');
 const path = require('path');
 const logger = require('../utils/logger');
+const ThemeGenerator = require('../utils/theme-generator');
 
 class ThemeService {
   constructor() {
-    this.themesPath = path.join(__dirname, '../data/themes.json');
     this.themes = null;
     this.loadThemes();
   }
 
   /**
-   * Load themes from JSON file
+   * Load themes from palette system only
    */
   loadThemes() {
     try {
-      const themesData = fs.readFileSync(this.themesPath, 'utf8');
-      this.themes = JSON.parse(themesData);
-      logger.info(`Loaded ${this.themes.themes.length} themes successfully`);
+      // Generate all themes from palettes - no legacy support
+      this.themes = { themes: ThemeGenerator.generateAllThemes() };
+      
+      logger.info(`Generated ${this.themes.themes.length} themes from semantic palettes`);
+      
     } catch (error) {
-      logger.error('Failed to load themes:', error);
+      logger.error('Failed to generate themes from palettes:', error);
       this.themes = { themes: [] };
     }
   }
@@ -152,6 +154,45 @@ class ThemeService {
     }
 
     return { valid: true };
+  }
+
+  /**
+   * Generate a custom theme from a palette
+   * @param {string} paletteId - ID of the palette to use
+   * @param {Object} overrides - Optional color overrides
+   * @returns {Object} Generated theme or error
+   */
+  generateThemeFromPalette(paletteId, overrides = {}) {
+    try {
+      const theme = ThemeGenerator.generateTheme(paletteId, overrides);
+      const validation = this.validateTheme(theme);
+      
+      if (!validation.valid) {
+        return {
+          success: false,
+          error: `Generated theme validation failed: ${validation.error}`
+        };
+      }
+      
+      return {
+        success: true,
+        theme
+      };
+    } catch (error) {
+      logger.error('Failed to generate theme from palette:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Get available color palettes
+   * @returns {Array} List of available palette IDs
+   */
+  getAvailablePalettes() {
+    return ThemeGenerator.getAvailablePalettes();
   }
 
   /**

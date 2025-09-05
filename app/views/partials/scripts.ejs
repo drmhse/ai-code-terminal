@@ -330,17 +330,29 @@
                         name: 'VS Code Dark',
                         type: 'dark',
                         colors: {
+                            // Background colors
+                            bgPrimary: '#1e1e1e',
+                            bgSecondary: '#252526',
+                            bgTertiary: '#2d2d30',
+                            bgSidebar: '#181818',
+                            
+                            // Legacy compatibility
                             primary: '#1e1e1e',
                             secondary: '#252526',
                             tertiary: '#2d2d30',
                             sidebar: '#181818',
+                            
+                            // Text colors
                             border: '#3c3c3c',
                             textPrimary: '#cccccc',
                             textSecondary: '#969696',
                             textMuted: '#6a6a6a',
-                            accentBlue: '#007acc',
-                            accentGreen: '#16825d',
-                            accentRed: '#f14c4c',
+                            
+                            // Action colors (semantic)
+                            actionPrimary: '#007acc',
+                            actionSuccess: '#16825d',
+                            actionError: '#f14c4c',
+                            
                             terminalBg: '#1e1e1e'
                         },
                         terminal: {
@@ -982,11 +994,11 @@
                     const root = document.documentElement;
                     const colors = theme.colors;
 
-                    // Background Colors
-                    root.style.setProperty('--bg-primary', colors.primary);
-                    root.style.setProperty('--bg-secondary', colors.secondary);
-                    root.style.setProperty('--bg-tertiary', colors.tertiary);
-                    root.style.setProperty('--bg-sidebar', colors.sidebar);
+                    // Background Colors - Use new semantic names with fallbacks
+                    root.style.setProperty('--bg-primary', colors.bgPrimary || colors.primary);
+                    root.style.setProperty('--bg-secondary', colors.bgSecondary || colors.secondary);
+                    root.style.setProperty('--bg-tertiary', colors.bgTertiary || colors.tertiary);
+                    root.style.setProperty('--bg-sidebar', colors.bgSidebar || colors.sidebar);
 
                     // Text Colors
                     root.style.setProperty('--text-primary', colors.textPrimary);
@@ -996,28 +1008,28 @@
                     // Border & Divider Colors
                     root.style.setProperty('--border-color', colors.border || colors.textMuted);
 
-                    // Accent Colors
-                    root.style.setProperty('--accent-blue', colors.accentBlue);
-                    root.style.setProperty('--accent-blue-hover', colors.accentBlueHover || colors.accentBlue);
-                    root.style.setProperty('--accent-green', colors.accentGreen);
-                    root.style.setProperty('--accent-green-hover', colors.accentGreenHover || colors.accentGreen);
-                    root.style.setProperty('--accent-red', colors.accentRed);
-                    root.style.setProperty('--accent-red-hover', colors.accentRedHover || colors.accentRed);
-                    root.style.setProperty('--accent-orange', colors.accentOrange || colors.accentBlue);
-                    root.style.setProperty('--accent-purple', colors.accentPurple || colors.accentBlue);
+                    // Semantic Action Colors - Use distinct action colors!
+                    root.style.setProperty('--primary', colors.actionPrimary || colors.primary);
+                    root.style.setProperty('--primary-hover', colors.actionPrimaryHover || colors.actionPrimary || colors.primary);
+                    root.style.setProperty('--success', colors.actionSuccess || colors.success);
+                    root.style.setProperty('--success-hover', colors.actionSuccessHover || colors.actionSuccess || colors.success);
+                    root.style.setProperty('--error', colors.actionError || colors.error);
+                    root.style.setProperty('--error-hover', colors.actionErrorHover || colors.actionError || colors.error);
+                    root.style.setProperty('--warning', colors.actionWarning || colors.warning || colors.actionPrimary || colors.primary);
+                    root.style.setProperty('--info', colors.actionInfo || colors.info || colors.actionPrimary || colors.primary);
 
                     // Component-specific Variables
-                    root.style.setProperty('--button-bg', colors.accentBlue);
-                    root.style.setProperty('--button-hover', colors.accentBlueHover || colors.accentBlue);
+                    root.style.setProperty('--button-bg', colors.actionPrimary || colors.primary);
+                    root.style.setProperty('--button-hover', colors.actionPrimaryHover || colors.actionPrimary || colors.primary);
                     root.style.setProperty('--button-secondary-bg', colors.tertiary);
                     root.style.setProperty('--button-secondary-hover', colors.secondary);
                     root.style.setProperty('--input-bg', colors.tertiary);
                     root.style.setProperty('--terminal-bg', colors.terminalBg || colors.primary);
 
                     // Interactive States
-                    root.style.setProperty('--sidebar-item-hover-bg', colors.secondary);
-                    root.style.setProperty('--sidebar-item-selected-bg', colors.accentBlue);
-                    root.style.setProperty('--sidebar-item-bg', colors.secondary);
+                    root.style.setProperty('--sidebar-item-hover-bg', colors.bgSecondary || colors.secondary);
+                    root.style.setProperty('--sidebar-item-selected-bg', colors.actionPrimary || colors.primary);
+                    root.style.setProperty('--sidebar-item-bg', colors.bgSecondary || colors.secondary);
 
                     // Enhanced Variables for Comprehensive Theming
                     root.style.setProperty('--scrollbar-slider', colors.textMuted + '66');

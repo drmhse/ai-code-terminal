@@ -1,0 +1,399 @@
+{
+  "palettes": {
+    "vscode-dark": {
+      "name": "VS Code Dark",
+      "type": "dark",
+      "base": {
+        "darkest": "#1e1e1e",
+        "darker": "#252526", 
+        "dark": "#2d2d30",
+        "medium": "#3c3c3c",
+        "light": "#6a6a6a",
+        "lighter": "#969696",
+        "lightest": "#cccccc"
+      },
+      "accent": {
+        "primary": "#007acc",
+        "primaryHover": "#1177bb",
+        "success": "#16825d", 
+        "warning": "#ff8c00",
+        "error": "#f14c4c",
+        "info": "#c678dd"
+      }
+    },
+
+    "github-dark": {
+      "name": "GitHub Dark Dimmed",
+      "type": "dark",
+      "base": {
+        "darkest": "#22272e",
+        "darker": "#2d333b",
+        "dark": "#373e47",
+        "medium": "#444c56",
+        "light": "#636e7b",
+        "lighter": "#768390", 
+        "lightest": "#adbac7"
+      },
+      "accent": {
+        "primary": "#539bf5",
+        "primaryHover": "#6cb6ff",
+        "success": "#57ab5a",
+        "warning": "#c69026",
+        "error": "#f47067",
+        "info": "#b083f0"
+      }
+    },
+
+    "tokyo-night": {
+      "name": "Tokyo Night",
+      "type": "dark",
+      "base": {
+        "darkest": "#1a1b26",
+        "darker": "#1f2335",
+        "dark": "#24283b",
+        "medium": "#292e42",
+        "light": "#565f89",
+        "lighter": "#9da5b4",
+        "lightest": "#a9b1d6"
+      },
+      "accent": {
+        "primary": "#7aa2f7",
+        "primaryHover": "#89b4fa",
+        "success": "#9ece6a",
+        "warning": "#e0af68",
+        "error": "#f7768e",
+        "info": "#bb9af7"
+      }
+    },
+
+    "dracula": {
+      "name": "Dracula",
+      "type": "dark",
+      "base": {
+        "darkest": "#282a36",
+        "darker": "#44475a",
+        "dark": "#44475a",
+        "medium": "#6272a4",
+        "light": "#a6accd",
+        "lighter": "#bfbfbf",
+        "lightest": "#f8f8f2"
+      },
+      "accent": {
+        "primary": "#bd93f9",
+        "primaryHover": "#d6acff",
+        "success": "#50fa7b",
+        "warning": "#ffb86c",
+        "error": "#ff5555",
+        "info": "#ff79c6"
+      }
+    },
+
+    "one-dark-pro": {
+      "name": "One Dark Pro",
+      "type": "dark",
+      "base": {
+        "darkest": "#21252b",
+        "darker": "#2c313c",
+        "dark": "#3e4451",
+        "medium": "#181a1f",
+        "light": "#5c6370",
+        "lighter": "#828997",
+        "lightest": "#abb2bf"
+      },
+      "accent": {
+        "primary": "#61afef",
+        "primaryHover": "#528bff",
+        "success": "#98c379",
+        "warning": "#e5c07b",
+        "error": "#e06c75",
+        "info": "#c678dd"
+      }
+    },
+
+    "catppuccin-mocha": {
+      "name": "Catppuccin Mocha",
+      "type": "dark",
+      "base": {
+        "darkest": "#1e1e2e",
+        "darker": "#313244",
+        "dark": "#45475a",
+        "medium": "#585b70",
+        "light": "#9399b2",
+        "lighter": "#bac2de",
+        "lightest": "#cdd6f4"
+      },
+      "accent": {
+        "primary": "#89b4fa",
+        "primaryHover": "#74c7ec",
+        "success": "#a6e3a1",
+        "warning": "#fab387",
+        "error": "#f38ba8",
+        "info": "#cba6f7"
+      }
+    },
+
+    "nord": {
+      "name": "Nord",
+      "type": "dark",
+      "base": {
+        "darkest": "#2e3440",
+        "darker": "#3b4252",
+        "dark": "#434c5e",
+        "medium": "#4c566a",
+        "light": "#8fbcbb",
+        "lighter": "#e5e9f0",
+        "lightest": "#eceff4"
+      },
+      "accent": {
+        "primary": "#81a1c1",
+        "primaryHover": "#88c0d0",
+        "success": "#a3be8c",
+        "warning": "#ebcb8b",
+        "error": "#bf616a",
+        "info": "#b48ead"
+      }
+    },
+
+    "gruvbox-dark": {
+      "name": "Gruvbox Dark",
+      "type": "dark",
+      "base": {
+        "darkest": "#282828",
+        "darker": "#3c3836",
+        "dark": "#504945",
+        "medium": "#665c54",
+        "light": "#a89984",
+        "lighter": "#d5c4a1",
+        "lightest": "#ebdbb2"
+      },
+      "accent": {
+        "primary": "#458588",
+        "primaryHover": "#83a598",
+        "success": "#689d6a",
+        "warning": "#d79921",
+        "error": "#cc241d",
+        "info": "#b16286"
+      }
+    },
+
+    "ayu-mirage": {
+      "name": "Ayu Mirage",
+      "type": "dark",
+      "base": {
+        "darkest": "#1f2430",
+        "darker": "#232834",
+        "dark": "#343b4a",
+        "medium": "#404859",
+        "light": "#707a8c",
+        "lighter": "#a6b3cc",
+        "lightest": "#cbccc6"
+      },
+      "accent": {
+        "primary": "#73d0ff",
+        "primaryHover": "#85ddff",
+        "success": "#95e6cb",
+        "warning": "#ffcc66",
+        "error": "#f28779",
+        "info": "#d4bfff"
+      }
+    },
+
+    "material-palenight": {
+      "name": "Material Palenight",
+      "type": "dark",
+      "base": {
+        "darkest": "#292d3e",
+        "darker": "#2f3349",
+        "dark": "#444267",
+        "medium": "#4e5579",
+        "light": "#8896b5",
+        "lighter": "#bfc7d5",
+        "lightest": "#eeffff"
+      },
+      "accent": {
+        "primary": "#82aaff",
+        "primaryHover": "#91b4ff",
+        "success": "#c3e88d",
+        "warning": "#ffcb6b",
+        "error": "#f07178",
+        "info": "#c792ea"
+      }
+    },
+
+    "monokai-pro": {
+      "name": "Monokai Pro",
+      "type": "dark",
+      "base": {
+        "darkest": "#2d2a2e",
+        "darker": "#403e41",
+        "dark": "#5b595c",
+        "medium": "#727072",
+        "light": "#939293",
+        "lighter": "#c1c0c0",
+        "lightest": "#fcfcfa"
+      },
+      "accent": {
+        "primary": "#78dce8",
+        "primaryHover": "#85e3ef",
+        "success": "#a9dc76",
+        "warning": "#ffd866",
+        "error": "#ff6188",
+        "info": "#ab9df2"
+      }
+    },
+
+    "solarized-light": {
+      "name": "Solarized Light",
+      "type": "light",
+      "base": {
+        "darkest": "#657b83",
+        "darker": "#586e75",
+        "dark": "#839496",
+        "medium": "#93a1a1",
+        "light": "#eee8d5",
+        "lighter": "#eee8d5",
+        "lightest": "#fdf6e3"
+      },
+      "accent": {
+        "primary": "#268bd2",
+        "primaryHover": "#4c9bd8",
+        "success": "#859900",
+        "warning": "#cb4b16",
+        "error": "#dc322f",
+        "info": "#6c71c4"
+      }
+    },
+    
+    "github-light": {
+      "name": "GitHub Light",
+      "type": "light",
+      "base": {
+        "darkest": "#24292f",
+        "darker": "#656d76",
+        "dark": "#8b949e",
+        "medium": "#d1d9e0",
+        "light": "#f1f3f4",
+        "lighter": "#f6f8fa", 
+        "lightest": "#ffffff"
+      },
+      "accent": {
+        "primary": "#0969da",
+        "primaryHover": "#0078d4",
+        "success": "#1a7f37",
+        "warning": "#795e26", 
+        "error": "#cf222e",
+        "info": "#8250df"
+      }
+    },
+
+    "autumn-warmth": {
+      "name": "Autumn Warmth",
+      "type": "dark",
+      "base": {
+        "darkest": "#2b1b17",
+        "darker": "#3d2b23",
+        "dark": "#4a3429",
+        "medium": "#8b4513",
+        "light": "#cd853f",
+        "lighter": "#e6d3a3",
+        "lightest": "#f4e4bc"
+      },
+      "accent": {
+        "primary": "#ff8c00",
+        "primaryHover": "#e6924a", 
+        "success": "#9acd32",
+        "warning": "#ffd700",
+        "error": "#b22222",
+        "info": "#d2691e"
+      }
+    },
+
+    "forest-green": {
+      "name": "Forest Green", 
+      "type": "dark",
+      "base": {
+        "darkest": "#1b2421",
+        "darker": "#253529",
+        "dark": "#354a39",
+        "medium": "#4a6741",
+        "light": "#8fbc8f",
+        "lighter": "#b8d4aa",
+        "lightest": "#e8f5e8"
+      },
+      "accent": {
+        "primary": "#7cb342",
+        "primaryHover": "#8bc34a",
+        "success": "#9acd32", 
+        "warning": "#fbc02d",
+        "error": "#8b4513",
+        "info": "#6b8e23"
+      }
+    },
+
+    "shades-of-purple": {
+      "name": "Shades of Purple",
+      "type": "dark", 
+      "base": {
+        "darkest": "#2d2b55",
+        "darker": "#373364",
+        "dark": "#4d4b7c", 
+        "medium": "#5a4b81",
+        "light": "#9c7dd8",
+        "lighter": "#b362c7",
+        "lightest": "#e1e1e6"
+      },
+      "accent": {
+        "primary": "#c991e1",
+        "primaryHover": "#d4a5f4",
+        "success": "#7fb069",
+        "warning": "#ffc649",
+        "error": "#ff6b9d", 
+        "info": "#8d85f0"
+      }
+    },
+
+    "synthwave-84": {
+      "name": "SynthWave '84",
+      "type": "dark",
+      "base": {
+        "darkest": "#1a1a2e",
+        "darker": "#262040",
+        "dark": "#2a2550",
+        "medium": "#495495",
+        "light": "#848bbd", 
+        "lighter": "#b4b4f0",
+        "lightest": "#e2e2e2"
+      },
+      "accent": {
+        "primary": "#f97e72",
+        "primaryHover": "#ff6b75",
+        "success": "#72f1b8",
+        "warning": "#f9dc5c",
+        "error": "#fe4450",
+        "info": "#36f9f6"
+      }
+    },
+
+    "cherry-blossom": {
+      "name": "Cherry Blossom",
+      "type": "light",
+      "base": {
+        "darkest": "#5d4037",
+        "darker": "#8d6e63",
+        "dark": "#a1887f",
+        "medium": "#e1a3aa",
+        "light": "#f8d7da",
+        "lighter": "#fdeaea",
+        "lightest": "#fef7f7"  
+      },
+      "accent": {
+        "primary": "#e91e63",
+        "primaryHover": "#f06292",
+        "success": "#66bb6a",
+        "warning": "#ff7043", 
+        "error": "#f44336",
+        "info": "#5c6bc0"
+      }
+    }
+  }
+}

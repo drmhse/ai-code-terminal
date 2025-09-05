@@ -170,9 +170,9 @@ describe('SettingsService', () => {
           textPrimary: '#cccccc',
           textSecondary: '#969696',
           textMuted: '#6a6a6a',
-          accentBlue: '#007acc',
-          accentGreen: '#16825d',
-          accentRed: '#f14c4c',
+          primary: '#007acc',
+          success: '#16825d',
+          error: '#f14c4c',
           terminalBg: '#1e1e1e'
         },
         terminal: {

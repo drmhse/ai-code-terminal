@@ -37,9 +37,9 @@ const mockThemesData = {
         textPrimary: '#cccccc',
         textSecondary: '#969696',
         textMuted: '#6a6a6a',
-        accentBlue: '#007acc',
-        accentGreen: '#16825d',
-        accentRed: '#f14c4c'
+        primary: '#007acc',
+        success: '#16825d',
+        error: '#f14c4c'
       }
     },
     {
@@ -56,9 +56,9 @@ const mockThemesData = {
         textPrimary: '#24292f',
         textSecondary: '#656d76',
         textMuted: '#8c959f',
-        accentBlue: '#0969da',
-        accentGreen: '#1a7f37',
-        accentRed: '#cf222e'
+        primary: '#0969da',
+        success: '#1a7f37',
+        error: '#cf222e'
       }
     }
   ]
