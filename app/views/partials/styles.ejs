@@ -2320,6 +2320,8 @@
                 margin: 0;
                 border: none; /* Frameless! */
                 box-shadow: none; /* No frame shadows */
+                display: flex;
+                flex-direction: column;
             }
 
             /* Special handling for file preview modal */
@@ -2433,10 +2435,23 @@
             }
 
             /* Exception: Theme modal MUST show footer buttons */
+            .theme-modal {
+                display: flex !important;
+                flex-direction: column !important;
+            }
+            
+            .theme-modal .modal-header {
+                flex-shrink: 0;
+            }
+            
+            .theme-modal .modal-body {
+                flex: 1 !important;
+                min-height: 0 !important;
+                overflow: hidden !important;
+            }
+            
             .theme-modal .modal-footer {
                 display: flex !important;
-                position: sticky;
-                bottom: 0;
                 background: var(--bg-primary);
                 border-top: 1px solid var(--border-color);
                 padding: max(env(safe-area-inset-bottom), 16px) 16px 16px;
@@ -2506,26 +2521,21 @@
                 padding: 8px 16px 12px;
             }
 
-            /* Theme Modal Mobile Grid Override */
+            /* Theme Modal Mobile Layout - Simple 2-Column Flow */            
             .theme-grid {
-                display: grid !important;
-                grid-template-columns: 1fr 1fr;
-                column-gap: 12px;
-                row-gap: 20px;
-                padding: 12px;
-                overflow-x: visible;
-                overflow-y: auto;
-                align-items: start;
-                align-content: start;
-                height: auto;
-                flex: none;
+                display: flex !important;
+                flex-wrap: wrap;
+                justify-content: space-between;
+                padding: 16px !important;
+                overflow-y: auto !important;
+                -webkit-overflow-scrolling: touch;
             }
 
-            /* Mobile Theme Cards - fit within grid columns */
+            /* Mobile Theme Cards - 46% width each for safer 2-column layout */
             .theme-card {
-                width: auto !important;
-                min-width: 0;
-                max-width: 100%;
+                width: 46% !important;
+                margin-bottom: 12px !important;
+                box-sizing: border-box !important;
             }
 
             /* Compact cards on very small screens to prevent overlap */

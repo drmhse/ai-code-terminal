@@ -25,9 +25,10 @@ class ThemeController {
       }
 
       // Set cache headers for themes (cache for 1 hour)
+      const themesHash = require('crypto').createHash('md5').update(JSON.stringify(result.themes)).digest('hex').substring(0, 8);
       res.set({
         'Cache-Control': 'public, max-age=3600',
-        'ETag': `"themes-${result.count}-${Date.now().toString(36)}"`
+        'ETag': `"themes-${result.count}-${themesHash}"`
       });
 
       res.json({
@@ -70,9 +71,10 @@ class ThemeController {
       }
 
       // Set cache headers
+      const themeHash = require('crypto').createHash('md5').update(JSON.stringify(result.theme)).digest('hex').substring(0, 8);
       res.set({
         'Cache-Control': 'public, max-age=3600',
-        'ETag': `"theme-${themeId}-${Date.now().toString(36)}"`
+        'ETag': `"theme-${themeId}-${themeHash}"`
       });
 
       res.json({
