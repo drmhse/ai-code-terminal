@@ -79,10 +79,18 @@
                     contextMenuFile: null,
                     // Unified File Editor Modal
                     showFilePreviewModal: false,
+                    showDiscardModal: false,
+                    discardAction: 'exitEdit', // 'exitEdit' or 'closeModal'
                     previewFile: null,
                     previewData: null,
                     previewLoading: false,
                     previewError: null,
+                    changesSummary: '',
+                    // Mobile Actions Menu
+                    showMobileActionsMenu: false,
+                    showUtilityActions: false,
+                    // Floating Action Button System  
+                    showSecondaryFAB: false,
                     // Editor state
                     editMode: false,
                     editorInstance: null,
@@ -2599,8 +2607,72 @@
                         return;
                     }
 
-                    if (confirm('You have unsaved changes. Discard them?')) {
+                    // Calculate contextual information about changes
+                    this.calculateChangesSummary();
+                    
+                    // Set action type and show custom discard modal
+                    this.discardAction = 'exitEdit';
+                    this.showDiscardModal = true;
+                },
+
+                async performDiscardChanges() {
+                    // This is called when user confirms discard in the modal
+                    this.showDiscardModal = false;
+                    
+                    if (this.discardAction === 'closeModal') {
+                        // Discard changes and close the entire modal
                         await this.discardChanges();
+                        this.forceCloseModal();
+                    } else {
+                        // Just discard changes and exit edit mode
+                        await this.discardChanges();
+                    }
+                },
+
+                forceCloseModal() {
+                    // Clean up editor instance
+                    if (this.editorInstance) {
+                        this.editorInstance.destroy();
+                        this.editorInstance = null;
+                    }
+
+                    // Remove keyboard event listener
+                    if (this.editorKeyboardHandler) {
+                        document.removeEventListener('keydown', this.editorKeyboardHandler);
+                        this.editorKeyboardHandler = null;
+                    }
+
+                    // Reset all modal state
+                    this.resetFilePreviewState();
+                },
+
+                calculateChangesSummary() {
+                    if (!this.editorInstance || !this.originalContent) {
+                        this.changesSummary = '';
+                        return;
+                    }
+
+                    try {
+                        const currentContent = this.editorInstance.getContent();
+                        const originalLines = this.originalContent.split('\n');
+                        const currentLines = currentContent.split('\n');
+                        
+                        // Calculate rough diff statistics
+                        const lineDiff = Math.abs(currentLines.length - originalLines.length);
+                        const hasChanges = currentContent !== this.originalContent;
+                        
+                        if (hasChanges) {
+                            if (lineDiff > 0) {
+                                this.changesSummary = `You will lose changes across approximately ${lineDiff} line${lineDiff !== 1 ? 's' : ''}.`;
+                            } else {
+                                this.changesSummary = 'You will lose your modifications to this file.';
+                            }
+                        } else {
+                            this.changesSummary = '';
+                        }
+                    } catch (error) {
+                        console.error('Failed to calculate changes summary:', error);
+                        this.changesSummary = 'You have unsaved modifications.';
                     }
                 },
 
@@ -2638,9 +2710,11 @@
                 closeFilePreviewModal() {
                     // Check for unsaved changes before closing
                     if (this.editMode && this.hasUnsavedChanges) {
-                        if (!confirm('You have unsaved changes. Close without saving?')) {
-                            return;
-                        }
+                        // Show discard modal instead of browser confirm
+                        this.calculateChangesSummary();
+                        this.discardAction = 'closeModal';
+                        this.showDiscardModal = true;
+                        return;
                     }
 
                     // Clean up editor instance
@@ -2657,6 +2731,8 @@
 
                     // Reset state
                     this.showFilePreviewModal = false;
+                    this.showMobileActionsMenu = false;
+                    this.showSecondaryFAB = false;
                     this.editMode = false;
                     this.hasUnsavedChanges = false;
                     this.saving = false;
@@ -2665,6 +2741,35 @@
                     this.previewData = null;
                     this.previewError = null;
                     this.originalContent = '';
+                },
+
+                toggleMobileActionsMenu() {
+                    this.showMobileActionsMenu = !this.showMobileActionsMenu;
+                },
+
+                toggleUtilityActions() {
+                    this.showUtilityActions = !this.showUtilityActions;
+                },
+
+                toggleSecondaryFAB() {
+                    this.showSecondaryFAB = !this.showSecondaryFAB;
+                },
+
+                handleFABClick() {
+                    // Simple click toggles edit mode
+                    // Long press (handled by CSS animation) shows secondary actions
+                    this.toggleEditMode();
+                    
+                    // Auto-show secondary FAB when entering edit mode
+                    if (this.editMode) {
+                        setTimeout(() => {
+                            this.showSecondaryFAB = true;
+                            // Auto-hide after 3 seconds
+                            setTimeout(() => {
+                                this.showSecondaryFAB = false;
+                            }, 3000);
+                        }, 300);
+                    }
                 },
 
                 getFileIcon(file) {
@@ -2717,6 +2822,11 @@
                         if (!e.target.closest('.context-menu')) {
                             this.showContextMenu = false;
                             document.removeEventListener('click', closeContextMenu);
+                        }
+
+                        // Also close mobile actions menu if clicking outside
+                        if (this.showMobileActionsMenu && !e.target.closest('.mobile-actions-menu') && !e.target.closest('[title="More Actions"]')) {
+                            this.showMobileActionsMenu = false;
                         }
                     };
 

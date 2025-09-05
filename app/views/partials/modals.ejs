@@ -340,10 +340,11 @@
 
 <!-- File Preview Modal -->
 <div v-if="showFilePreviewModal" class="modal-overlay" @click.self="closeFilePreviewModal">
-    <div class="file-preview-modal">
+    <div class="file-preview-modal" :class="{ 'edit-mode': editMode, 'has-unsaved-changes': editMode && hasUnsavedChanges }">
         <!-- Modal Header -->
         <div class="modal-header">
-            <div class="modal-title">
+            <!-- Desktop Header Layout -->
+            <div class="modal-title desktop-only">
                 <div class="title-icon">
                     <i :data-feather="getFileIcon(previewFile || {})" ></i>
                 </div>
@@ -355,7 +356,7 @@
                     </div>
                 </div>
             </div>
-            <div class="modal-header-actions">
+            <div class="modal-header-actions desktop-only">
                 <!-- Preview/Edit Toggle -->
                 <button @click="toggleEditMode" 
                         class="btn btn-small"
@@ -384,6 +385,75 @@
                 </button>
                 <button @click="closeFilePreviewModal" class="close-btn">
                     <i data-feather="x"></i>
+                </button>
+            </div>
+
+            <!-- Mobile App-like Navigation Header -->
+            <div class="frameless-nav-header mobile-only">
+                <div class="nav-back-section">
+                    <button @click="closeFilePreviewModal" class="back-btn">
+                        <i data-feather="arrow-left"></i>
+                    </button>
+                    <div class="file-title-section">
+                        <div class="file-title-line">
+                            <h1>{{ previewFile?.name || 'File Preview' }}</h1>
+                            
+                            <!-- Edit Mode Indicator -->
+                            <div class="mode-indicators" v-if="editMode">
+                                <span class="edit-badge">EDITING</span>
+                                <span class="changes-indicator" v-if="hasUnsavedChanges" title="Unsaved changes">
+                                    <i data-feather="alert-circle"></i>
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="file-meta-inline" v-if="previewData">
+                            <span v-if="previewData?.size">{{ formatFileSize(previewData.size) }}</span>
+                            <span v-if="previewFile?.extension">{{ previewFile.extension.toUpperCase() }}</span>
+                            <span v-if="previewData?.modified">{{ formatDate(previewData.modified) }}</span>
+                            <!-- Edit mode specific meta -->
+                            <span v-if="editMode && hasUnsavedChanges" class="unsaved-meta">Unsaved changes</span>
+                        </div>
+                    </div>
+                </div>
+                <button @click="toggleMobileActionsMenu" class="overflow-menu-btn" title="More Actions">
+                    <i data-feather="more-vertical"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Enhanced Mobile Edit Actions -->
+        <div class="mobile-edit-actions mobile-only" v-if="previewFile && !previewData?.binary && !previewData?.truncated && previewData?.content">
+            
+            <!-- Edit Mode: Primary Actions Bar -->
+            <div class="edit-actions-bar" v-if="editMode">
+                <div class="primary-actions">
+                    <!-- Save Button (most prominent when changes exist) -->
+                    <button @click="saveFile" 
+                            class="action-btn primary save-btn"
+                            :class="{ 'has-changes': hasUnsavedChanges, 'saving': saving }"
+                            :disabled="saving || !hasUnsavedChanges"
+                            v-if="hasUnsavedChanges">
+                        <i :data-feather="saving ? 'loader' : 'save'" :class="{ spinning: saving }"></i>
+                        <span>{{ saving ? 'Saving' : 'Save' }}</span>
+                    </button>
+                    
+                    <!-- Cancel/Exit Edit Button -->
+                    <button @click="confirmDiscardChanges" 
+                            class="action-btn secondary cancel-btn"
+                            :class="{ 'has-changes': hasUnsavedChanges }">
+                        <i :data-feather="hasUnsavedChanges ? 'x-circle' : 'eye'"></i>
+                        <span>{{ hasUnsavedChanges ? 'Cancel' : 'View Only' }}</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- View Mode: Single Primary Action -->
+            <div class="view-actions" v-else>
+                <button @click="toggleEditMode" 
+                        class="action-btn primary edit-btn">
+                    <i data-feather="edit"></i>
+                    <span>Edit File</span>
                 </button>
             </div>
         </div>
@@ -472,6 +542,57 @@
                     Close
                 </button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Discard Changes Confirmation Modal -->
+<div v-if="showDiscardModal" class="modal-overlay" @click.self="showDiscardModal = false">
+    <div class="discard-modal">
+        <!-- Modal Header -->
+        <div class="modal-header">
+            <div class="modal-title">
+                <div class="title-icon">
+                    <i data-feather="alert-triangle"></i>
+                </div>
+                <h3>Discard Changes</h3>
+            </div>
+            <button @click="showDiscardModal = false" class="close-btn">
+                <i data-feather="x"></i>
+            </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="modal-body">
+            <div class="discard-warning">
+                <div class="warning-icon">
+                    <i data-feather="file-text"></i>
+                </div>
+                <div class="warning-content">
+                    <p>You have <strong>unsaved changes</strong> to <strong>&quot;{{ previewFile?.name }}&quot;</strong></p>
+                    <p class="warning-details" v-if="changesSummary">{{ changesSummary }}</p>
+                    <p class="warning-details" v-else>All your edits will be lost if you continue.</p>
+                </div>
+            </div>
+            
+            <div class="discard-options">
+                <div class="option-info">
+                    <i data-feather="info"></i>
+                    <span>Consider saving your work before discarding changes.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer">
+            <button @click="showDiscardModal = false" class="btn-secondary">
+                <i data-feather="edit"></i>
+                Keep Editing
+            </button>
+            <button @click="performDiscardChanges" class="btn-danger">
+                <i data-feather="trash-2"></i>
+                Discard Changes
+            </button>
         </div>
     </div>
 </div>
