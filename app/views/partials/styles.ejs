@@ -2390,6 +2390,118 @@
                 box-shadow: 0 4px 12px rgba(241, 76, 76, 0.3);
             }
 
+            /* Exception: Delete modal MUST show footer buttons */
+            .delete-modal .modal-footer {
+                display: flex !important;
+                position: sticky;
+                bottom: 0;
+                background: var(--bg-primary);
+                border-top: 1px solid var(--border-color);
+                padding: max(env(safe-area-inset-bottom), 16px) 16px 16px;
+                gap: 12px;
+                justify-content: space-between;
+                z-index: 10;
+                flex-shrink: 0;
+            }
+
+            /* Mobile-friendly button styling for delete modal */
+            .delete-modal .modal-footer button {
+                flex: 1;
+                min-height: 40px;
+                font-size: 15px;
+                font-weight: 500;
+                border-radius: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                transition: all 0.2s ease;
+                padding: 10px 16px;
+            }
+
+            .delete-modal .modal-footer .btn-secondary {
+                background: var(--bg-secondary);
+                color: var(--text-primary);
+                border: 1px solid var(--border-color);
+            }
+
+            .delete-modal .modal-footer .btn-danger {
+                background: var(--accent-red);
+                color: white;
+                border: none;
+                box-shadow: 0 4px 12px rgba(241, 76, 76, 0.3);
+            }
+
+            /* Exception: Theme modal MUST show footer buttons */
+            .theme-modal .modal-footer {
+                display: flex !important;
+                position: sticky;
+                bottom: 0;
+                background: var(--bg-primary);
+                border-top: 1px solid var(--border-color);
+                padding: max(env(safe-area-inset-bottom), 16px) 16px 16px;
+                gap: 12px;
+                justify-content: flex-end;
+                z-index: 10;
+                flex-shrink: 0;
+            }
+
+            /* Mobile-friendly button styling for theme modal */
+            .theme-modal .modal-footer button {
+                min-height: 40px;
+                font-size: 15px;
+                font-weight: 500;
+                border-radius: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                transition: all 0.2s ease;
+                padding: 10px 16px;
+                min-width: 100px;
+            }
+
+            .theme-modal .modal-footer .btn-secondary {
+                background: var(--bg-secondary);
+                color: var(--text-primary);
+                border: 1px solid var(--border-color);
+            }
+
+            /* Exception: Repository modal MUST show footer buttons */
+            .modal .modal-footer {
+                display: flex !important;
+                position: sticky;
+                bottom: 0;
+                background: var(--bg-primary);
+                border-top: 1px solid var(--border-color);
+                padding: max(env(safe-area-inset-bottom), 16px) 16px 16px;
+                gap: 12px;
+                justify-content: space-between;
+                z-index: 10;
+                flex-shrink: 0;
+            }
+
+            /* Mobile-friendly button styling for repository modal */
+            .modal .modal-footer button {
+                min-height: 40px;
+                font-size: 15px;
+                font-weight: 500;
+                border-radius: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                transition: all 0.2s ease;
+                padding: 10px 16px;
+                min-width: 80px;
+            }
+
+            .modal .modal-footer .btn-secondary {
+                background: var(--bg-secondary);
+                color: var(--text-primary);
+                border: 1px solid var(--border-color);
+            }
+
             .modal-search-section {
                 padding: 8px 16px 12px;
             }
