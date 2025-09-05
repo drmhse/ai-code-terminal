@@ -2506,6 +2506,44 @@
                 padding: 8px 16px 12px;
             }
 
+            /* Theme Modal Mobile Grid Override */
+            .theme-grid {
+                display: grid !important;
+                grid-template-columns: 1fr 1fr;
+                column-gap: 12px;
+                row-gap: 20px;
+                padding: 12px;
+                overflow-x: visible;
+                overflow-y: auto;
+                align-items: start;
+                align-content: start;
+                height: auto;
+                flex: none;
+            }
+
+            /* Mobile Theme Cards - fit within grid columns */
+            .theme-card {
+                width: auto !important;
+                min-width: 0;
+                max-width: 100%;
+            }
+
+            /* Compact cards on very small screens to prevent overlap */
+            @media (max-height: 600px), (max-width: 480px) {
+                .theme-grid {
+                    row-gap: 24px !important;
+                    padding: 16px 12px !important;
+                }
+                
+                .theme-card-inner {
+                    padding: 12px !important;
+                }
+                
+                .theme-preview-window {
+                    margin-bottom: 8px !important;
+                }
+            }
+
             /* File Preview Modal Mobile Optimization */
             .file-preview-modal .modal-header {
                 background: var(--bg-sidebar);
