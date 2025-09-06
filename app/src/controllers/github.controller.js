@@ -52,8 +52,8 @@ class GitHubController {
       // Get GitHub user info from the token result
       const githubUser = tokenResult.user;
       
-      // Verify user is the authorized tenant
-      if (githubUser.login !== environment.TENANT_GITHUB_USERNAME) {
+      const allowedUsers = environment.TENANT_GITHUB_USERNAMES;
+      if (!allowedUsers.includes(githubUser.login)) {
         logger.warn(`Unauthorized GitHub user attempted login: ${githubUser.login}`);
         return res.redirect(`/?error=${encodeURIComponent('Unauthorized user')}`);
       }

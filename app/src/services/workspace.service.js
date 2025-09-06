@@ -593,7 +593,7 @@ You can customize it with project-specific information to help Claude Code work 
    */
   async getUserName(userId) {
     logger.warn('getUserName is deprecated in single-user system');
-    return environment.TENANT_GITHUB_USERNAME || 'single-user';
+    return environment.PRIMARY_TENANT_GITHUB_USERNAME || 'single-user';
   }
 
   /**

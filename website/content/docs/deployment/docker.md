@@ -206,7 +206,7 @@ Common issues:
 
 ### Can't Login with GitHub
 
-- Verify your GitHub username matches `TENANT_GITHUB_USERNAME` exactly
+- Verify your GitHub username matches `TENANT_GITHUB_USERNAME` exactly, or is included in the comma-separated list if multiple users are authorized
 - Check that your OAuth callback URL matches your GitHub app settings
 - Make sure your GitHub OAuth app is active and not suspended
 

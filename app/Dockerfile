@@ -1,6 +1,5 @@
-# Multi-stage Dockerfile for frontend build
 # Stage 1: Frontend build
-FROM node:20-alpine AS frontend-builder
+FROM node:22-alpine AS frontend-builder
 
 WORKDIR /frontend
 
@@ -18,18 +17,33 @@ COPY frontend/vite.config.ts ./
 # Build frontend assets
 RUN npm run build
 
-# Stage 2: Main application
-FROM node:20-alpine
+# Stage 2: Backend builder
+FROM node:22-alpine AS backend-builder
 
-# Install essential development tools
+# Install build-time system dependencies
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    py3-setuptools
+
+WORKDIR /app
+
+# Copy package files
+COPY app/package.json ./
+COPY app/package-lock.json ./
+
+# Install all dependencies (including devDependencies)
+RUN npm install
+
+# Stage 3: Main application
+FROM node:22-alpine
+
+# Install runtime system dependencies
 RUN apk add --no-cache \
     openssl-dev \
     git \
     bash \
-    python3 \
-    py3-pip \
-    make \
-    g++ \
     sqlite \
     openssh-client \
     curl \
@@ -46,19 +60,21 @@ RUN addgroup -g 1001 claude && adduser -u 1001 -G claude -h /home/claude -s /bin
 # Install Claude Code and act CLI globally (requires root)
 RUN npm install -g @anthropic-ai/claude-code @drmhse/act-cli
 
-# Build application in /app
 WORKDIR /app
 
-# Copy package files and install dependencies
-COPY app/package*.json ./
-RUN npm install --omit=dev && npm cache clean --force
+# Create necessary directories and set permissions
+RUN mkdir -p workspaces prisma/data data logs && \
+    chown -R claude:claude /home/claude && \
+    chown -R claude:claude /app
 
-# Copy application code (excluding node_modules which is already installed)
+# Copy node_modules from builder stage
+COPY --from=backend-builder /app/node_modules ./node_modules
+
+# Copy application code
 COPY app/ .
 
 # Copy built frontend assets from previous stage
 COPY --from=frontend-builder /frontend/dist ./public/dist
-
 
 # Make startup script executable
 RUN chmod +x start.sh
@@ -66,13 +82,8 @@ RUN chmod +x start.sh
 # Run Prisma generate as root (before switching users)
 RUN npx prisma generate
 
-# Create necessary directories and set permissions
-RUN mkdir -p workspaces prisma/data data logs && \
-    chown -R claude:claude /home/claude && \
-    chown -R claude:claude /app
-
 # Setup bash environment for claude user
-RUN echo 'export PS1="\[\033[1;32m\]\u@\h\[\033[0m\]:\[\033[1;34m\]\w\[\033[0m\]$ "' >> /home/claude/.bashrc && \
+RUN echo 'export PS1="[\u@\h]:[\w]$ "' >> /home/claude/.bashrc && \
     echo 'export PATH=$PATH:/home/claude/.local/bin' >> /home/claude/.bashrc && \
     echo 'alias ll="ls -la"' >> /home/claude/.bashrc && \
     echo 'alias gs="git status"' >> /home/claude/.bashrc && \
@@ -91,7 +102,6 @@ RUN chmod +x /init.sh
 
 # Install su-exec for user switching
 RUN apk add --no-cache su-exec
-
 
 # Health check endpoint
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \

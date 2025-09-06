@@ -39,7 +39,7 @@ GITHUB_CALLBACK_URL=http://localhost:3014/auth/github/callback
 JWT_SECRET=your-super-secure-jwt-secret-at-least-32-characters-long
 
 # Single authorized GitHub username (only this user can access)
-TENANT_GITHUB_USERNAME=your-github-username
+TENANT_GITHUB_USERNAME=your-github-username,another-github-username
 ```
 
 ## Optional Environment Variables
@@ -127,7 +127,7 @@ GITHUB_CALLBACK_URL=http://localhost:3014/auth/github/callback
 
 # Required - Security & Single-Tenant
 JWT_SECRET=your-super-secure-jwt-secret-at-least-32-characters-long
-TENANT_GITHUB_USERNAME=your-github-username
+TENANT_GITHUB_USERNAME=your-github-username,another-github-username
 
 # Optional - Server
 PORT=3014
@@ -242,7 +242,7 @@ uuidgen | tr -d '-' | tr '[:upper:]' '[:lower:]'
 - Ensure GitHub OAuth credentials are correct
 
 **Authentication Fails**
-- Verify `TENANT_GITHUB_USERNAME` matches your GitHub username exactly
+- Verify `TENANT_GITHUB_USERNAME` matches your GitHub username exactly, or is included in the comma-separated list if multiple users are authorized
 - Check GitHub OAuth callback URL matches configuration
 - Ensure GitHub OAuth app is active and not suspended
 

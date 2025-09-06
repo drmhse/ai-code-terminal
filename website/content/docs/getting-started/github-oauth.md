@@ -108,7 +108,7 @@ After configuration, test the OAuth flow:
 - Ensure OAuth app is not suspended
 
 **Authorization Failed**
-- Verify your GitHub username matches `TENANT_GITHUB_USERNAME`
+- Verify your GitHub username matches `TENANT_GITHUB_USERNAME` exactly, or is included in the comma-separated list if multiple users are authorized
 - Check that the OAuth app is active
 - Ensure you have the required permissions
 

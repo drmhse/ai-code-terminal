@@ -117,6 +117,30 @@ describe('Environment Configuration', () => {
       expect(environment.TENANT_GITHUB_USERNAME).toBe('test-user');
     });
 
+    it('should read and parse tenant usernames', () => {
+      process.env.TENANT_GITHUB_USERNAME = 'user1, user2,user3';
+      delete require.cache[require.resolve('../../src/config/environment')];
+      const env = require('../../src/config/environment');
+      expect(env.TENANT_GITHUB_USERNAMES).toEqual(['user1', 'user2', 'user3']);
+      expect(env.PRIMARY_TENANT_GITHUB_USERNAME).toBe('user1');
+    });
+
+    it('should handle a single tenant username', () => {
+      process.env.TENANT_GITHUB_USERNAME = 'user1';
+      delete require.cache[require.resolve('../../src/config/environment')];
+      const env = require('../../src/config/environment');
+      expect(env.TENANT_GITHUB_USERNAMES).toEqual(['user1']);
+      expect(env.PRIMARY_TENANT_GITHUB_USERNAME).toBe('user1');
+    });
+
+    it('should handle empty tenant username', () => {
+      delete process.env.TENANT_GITHUB_USERNAME;
+      delete require.cache[require.resolve('../../src/config/environment')];
+      const env = require('../../src/config/environment');
+      expect(env.TENANT_GITHUB_USERNAMES).toEqual([]);
+      expect(env.PRIMARY_TENANT_GITHUB_USERNAME).toBe(null);
+    });
+
     it('should parse workspace cleanup days as integer', () => {
       expect(environment.WORKSPACE_CLEANUP_DAYS).toBe(60);
     });
@@ -154,11 +178,12 @@ describe('Environment Configuration', () => {
       process.env.GITHUB_CLIENT_ID = 'github-client-id';
       process.env.GITHUB_CLIENT_SECRET = 'github-client-secret';
       process.env.GITHUB_CALLBACK_URL = 'https://app.com/auth/callback';
+      process.env.PORT = '3014';
       
       environment.validate();
 
       expect(console.log).toHaveBeenCalledWith(
-        'Environment validated: test mode on port 3001 for tenant: test-user'
+        'Environment validated: development mode on port 3014 for tenants: test-user'
       );
     });
 
@@ -195,13 +220,11 @@ describe('Environment Configuration', () => {
 
     it('should exit if TENANT_GITHUB_USERNAME is missing', () => {
       // Set environment without TENANT_GITHUB_USERNAME
-      process.env = {
-        GITHUB_CLIENT_ID: 'github-client-id',
-        GITHUB_CLIENT_SECRET: 'github-client-secret',
-        GITHUB_CALLBACK_URL: 'https://app.com/auth/callback'
-      };
+      delete process.env.TENANT_GITHUB_USERNAME;
+      delete require.cache[require.resolve('../../src/config/environment')];
+      const env = require('../../src/config/environment');
 
-      environment.validate();
+      env.validate();
 
       expect(console.error).toHaveBeenCalledWith(
         'ERROR: TENANT_GITHUB_USERNAME is required for single-tenant mode'

@@ -8,7 +8,7 @@ jest.mock('../../src/utils/logger');
 jest.mock('jsonwebtoken');
 jest.mock('../../src/config/environment', () => ({
   ...jest.requireActual('../../src/config/environment'),
-  TENANT_GITHUB_USERNAME: 'testuser',
+  TENANT_GITHUB_USERNAMES: ['testuser', 'anotheruser'],
   JWT_SECRET: 'test-secret',
   PORT: '3001'
 }));
@@ -94,7 +94,7 @@ describe('GitHubController', () => {
       });
     });
 
-    it('should successfully handle callback and redirect with token', async () => {
+    it('should successfully handle callback for the first tenant and redirect with token', async () => {
       req.query = { code: 'test-code', state: 'test-state' };
       
       GitHubService.exchangeCodeForToken.mockResolvedValue({
@@ -113,6 +113,31 @@ describe('GitHubController', () => {
       expect(SettingsService.updateGithubTokens).toHaveBeenCalledWith('access-token', 'refresh-token', expect.any(Date));
       expect(jwt.sign).toHaveBeenCalledWith(
         { authorized: true, username: 'testuser' },
+        'test-secret',
+        { expiresIn: '7d' }
+      );
+      expect(res.redirect).toHaveBeenCalledWith('/?token=jwt-token');
+    });
+
+    it('should successfully handle callback for another tenant and redirect with token', async () => {
+      req.query = { code: 'test-code', state: 'test-state' };
+      
+      GitHubService.exchangeCodeForToken.mockResolvedValue({
+        accessToken: 'access-token',
+        refreshToken: 'refresh-token',
+        expiresAt: new Date(),
+        user: { login: 'anotheruser' }
+      });
+      
+      SettingsService.updateGithubTokens.mockResolvedValue();
+      jwt.sign.mockReturnValue('jwt-token');
+
+      await GitHubController.handleCallback(req, res);
+
+      expect(GitHubService.exchangeCodeForToken).toHaveBeenCalledWith('test-code', 'test-state');
+      expect(SettingsService.updateGithubTokens).toHaveBeenCalledWith('access-token', 'refresh-token', expect.any(Date));
+      expect(jwt.sign).toHaveBeenCalledWith(
+        { authorized: true, username: 'anotheruser' },
         'test-secret',
         { expiresIn: '7d' }
       );

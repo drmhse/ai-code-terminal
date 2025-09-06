@@ -7,6 +7,16 @@ module.exports = {
   get GITHUB_CLIENT_SECRET() { return process.env.GITHUB_CLIENT_SECRET; },
   get GITHUB_CALLBACK_URL() { return process.env.GITHUB_CALLBACK_URL; },
   get TENANT_GITHUB_USERNAME() { return process.env.TENANT_GITHUB_USERNAME; },
+  get TENANT_GITHUB_USERNAMES() {
+    const users = process.env.TENANT_GITHUB_USERNAME;
+    if (!users) {
+      return [];
+    }
+    return users.split(',').map(u => u.trim());
+  },
+  get PRIMARY_TENANT_GITHUB_USERNAME() {
+    return this.TENANT_GITHUB_USERNAMES[0] || null;
+  },
   get WORKSPACE_CLEANUP_DAYS() { return parseInt(process.env.WORKSPACE_CLEANUP_DAYS) || 30; },
   get FRONTEND_URL() { return process.env.FRONTEND_URL; },
   get ALLOWED_ORIGINS() { return process.env.ALLOWED_ORIGINS; },
@@ -26,7 +36,7 @@ module.exports = {
       console.warn('JWT_SECRET should be at least 32 characters for production use');
     }
     
-    if (!this.TENANT_GITHUB_USERNAME) {
+    if (this.TENANT_GITHUB_USERNAMES.length === 0) {
       console.error('ERROR: TENANT_GITHUB_USERNAME is required for single-tenant mode');
       process.exit(1);
     }
@@ -41,6 +51,6 @@ module.exports = {
       process.exit(1);
     }
     
-    console.log(`Environment validated: ${this.NODE_ENV} mode on port ${this.PORT} for tenant: ${this.TENANT_GITHUB_USERNAME}`);
+    console.log(`Environment validated: ${this.NODE_ENV} mode on port ${this.PORT} for tenants: ${this.TENANT_GITHUB_USERNAMES.join(', ')}`);
   }
 };

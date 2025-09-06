@@ -35,7 +35,7 @@ Edit your `.env` file with the required values:
 # Required - GitHub OAuth
 GITHUB_CLIENT_ID=your_github_client_id
 GITHUB_CLIENT_SECRET=your_github_client_secret
-TENANT_GITHUB_USERNAME=your-github-username
+TENANT_GITHUB_USERNAME=your-github-username,another-github-username
 
 # Required - Security
 JWT_SECRET=your-super-secure-jwt-secret-at-least-32-characters

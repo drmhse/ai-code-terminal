@@ -1,21 +1,12 @@
-# docker-compose.prod.yml
-version: '3.8'
-
 services:
   act:
-    # Pull the image from Docker Hub instead of building it.
-    # You can pin to a specific version like 'editoredit/act:1.0.0' for stability.
-    image: editoredit/act:latest
-
-    container_name: act_production
-    restart: unless-stopped
-
+    build:
+      context: ..
+      dockerfile: app/Dockerfile
     ports:
       - "${PORT:-3014}:3014"
-
-    # Environment variables are loaded from the .env file in the same directory
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=${NODE_ENV:-production}
       - JWT_SECRET=${JWT_SECRET}
       - PORT=${PORT:-3014}
       - DATABASE_URL=${DATABASE_URL:-file:/app/prisma/data/database.db}
@@ -29,15 +20,12 @@ services:
       - LOG_MAX_SIZE=${LOG_MAX_SIZE}
       - LOG_MAX_FILES=${LOG_MAX_FILES}
       - LOG_COMPRESS=${LOG_COMPRESS}
-
-    # Volumes remain the same to persist data
     volumes:
       - act_home:/home/claude
       - act_data:/app/prisma/data
       - act_workspaces:/app/workspaces
       - act_logs:/app/logs
-
-    # Resource limits are crucial for production stability
+    restart: unless-stopped
     deploy:
       resources:
         limits:
@@ -46,8 +34,6 @@ services:
         reservations:
           memory: 512M
           cpus: '0.25'
-
-    # The healthcheck is defined in the image, but specifying it here is also fine.
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3014/health"]
       interval: 30s
@@ -55,9 +41,12 @@ services:
       retries: 3
       start_period: 40s
 
-# Define top-level volumes to be managed by Docker
 volumes:
   act_home:
+    driver: local
   act_data:
+    driver: local
   act_workspaces:
+    driver: local
   act_logs:
+    driver: local

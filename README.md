@@ -105,7 +105,7 @@ All configuration is managed through environment variables. Copy `env.example` t
 | `GITHUB_CLIENT_ID`       | Yes      | GitHub OAuth App Client ID                      |
 | `GITHUB_CLIENT_SECRET`   | Yes      | GitHub OAuth App Client Secret                  |
 | `GITHUB_CALLBACK_URL`    | Yes      | The exact callback URL from your OAuth App      |
-| `TENANT_GITHUB_USERNAME` | Yes      | The single GitHub username authorized to log in |
+| `TENANT_GITHUB_USERNAME` | Yes      | A comma-separated list of GitHub usernames authorized to log in |
 
 ### Optional Variables
 
@@ -129,7 +129,7 @@ DATABASE_URL=file:./data/database.db
 GITHUB_CLIENT_ID=your-github-oauth-client-id
 GITHUB_CLIENT_SECRET=your-github-oauth-client-secret
 GITHUB_CALLBACK_URL=http://localhost:3014/auth/github/callback
-TENANT_GITHUB_USERNAME=your-github-username
+TENANT_GITHUB_USERNAME=your-github-username,another-github-username
 WORKSPACE_CLEANUP_DAYS=7
 ```
 
@@ -142,7 +142,7 @@ DATABASE_URL=file:./data/database.db
 GITHUB_CLIENT_ID=prod-github-oauth-client-id
 GITHUB_CLIENT_SECRET=prod-github-oauth-client-secret
 GITHUB_CALLBACK_URL=https://your-domain.com/auth/github/callback
-TENANT_GITHUB_USERNAME=your-github-username
+TENANT_GITHUB_USERNAME=your-github-username,another-github-username
 FRONTEND_URL=https://your-frontend-domain.com
 ALLOWED_ORIGINS=https://your-domain.com,https://preview--your-app.netlify.app
 WORKSPACE_CLEANUP_DAYS=30
