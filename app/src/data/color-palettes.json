@@ -246,11 +246,11 @@
       "name": "Solarized Light",
       "type": "light",
       "base": {
-        "darkest": "#657b83",
-        "darker": "#586e75",
-        "dark": "#839496",
-        "medium": "#93a1a1",
-        "light": "#eee8d5",
+        "darkest": "#002b36",
+        "darker": "#073642",
+        "dark": "#586e75",
+        "medium": "#657b83",
+        "light": "#839496",
         "lighter": "#eee8d5",
         "lightest": "#fdf6e3"
       },
@@ -260,7 +260,7 @@
         "success": "#859900",
         "warning": "#cb4b16",
         "error": "#dc322f",
-        "info": "#6c71c4"
+        "info": "#2aa198"
       }
     },
     

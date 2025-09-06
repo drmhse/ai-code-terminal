@@ -2928,7 +2928,7 @@
                         position: fixed;
                         top: 20px;
                         right: 20px;
-                        background: var(--accent-green);
+                        background: var(--success);
                         color: white;
                         padding: 12px 16px;
                         border-radius: 6px;
@@ -2939,9 +2939,9 @@
                     `;
 
                     if (type === 'error') {
-                        toast.style.background = 'var(--accent-red)';
+                        toast.style.background = 'var(--error)';
                     } else if (type === 'warning') {
-                        toast.style.background = 'var(--accent-orange)';
+                        toast.style.background = 'var(--warning)';
                     }
 
                     document.body.appendChild(toast);
