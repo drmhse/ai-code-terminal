@@ -27,8 +27,8 @@
             --info: #c678dd;
 
             /* Component-specific Variables */
-            --button-bg: var(--primary);
-            --button-hover: var(--primary-hover);
+            --button-bg: var(--bg-tertiary);
+            --button-hover: color-mix(in srgb, var(--border-color) 20%, var(--bg-tertiary) 80%);
             --button-secondary-bg: var(--bg-tertiary);
             --button-secondary-hover: var(--bg-secondary);
             --input-bg: var(--bg-tertiary);
@@ -36,18 +36,18 @@
 
             /* Interactive States */
             --sidebar-item-hover-bg: var(--bg-secondary);
-            --sidebar-item-selected-bg: var(--primary);
+            --sidebar-item-selected-bg: var(--text-primary);
             --sidebar-item-bg: var(--bg-secondary);
 
             /* Enhanced Variables for Comprehensive Theming */
             --scrollbar-slider: #79797966;
             --scrollbar-slider-hover: #646464b3;
             --modal-backdrop: rgba(0, 0, 0, 0.6);
-            
+
             /* Component-specific Variables */
             --tab-border: var(--border-color);
             --tab-bg: var(--bg-tertiary);
-            --tab-active-bg: var(--primary);
+            --tab-active-bg: var(--text-primary);
         }
 
         * {
@@ -295,17 +295,18 @@
         }
 
         .workspace-item.selected {
-            background: color-mix(in srgb, var(--primary) 40%, white 60%);
-            border-left-color: var(--primary);
-            color: black;
+            background: var(--text-primary);
+            border-left: 3px solid var(--text-primary);
+            color: var(--bg-primary);
         }
 
         .workspace-item.selected .workspace-name {
-            color: black;
+            color: var(--bg-primary);
+            font-weight: 500;
         }
 
         .workspace-item.selected .workspace-path {
-            color: rgba(0, 0, 0, 0.7);
+            color: color-mix(in srgb, var(--bg-primary) 80%, var(--text-muted) 20%);
         }
 
         .workspace-item .icon {
@@ -496,23 +497,23 @@
         }
 
         .file-item.selected {
-            background: color-mix(in srgb, var(--primary) 40%, white 60%);
-            color: black;
-            border: 1px solid var(--primary);
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            border: 1px solid var(--text-primary);
             border-radius: 3px;
         }
 
         .file-item.keyboard-selected {
-            background: color-mix(in srgb, var(--primary) 50%, white 50%);
-            color: black;
-            border: 1px solid var(--primary-hover);
+            background: var(--text-secondary);
+            color: var(--bg-primary);
+            border: 1px solid var(--text-secondary);
             border-radius: 3px;
         }
 
         .file-item.keyboard-selected.selected {
-            background: color-mix(in srgb, var(--primary) 50%, white 50%);
-            color: black;
-            border: 1px solid var(--primary-hover);
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            border: 1px solid var(--text-primary);
             border-radius: 3px;
         }
 
@@ -731,15 +732,15 @@
         }
 
         .layout-btn:hover {
-            background: color-mix(in srgb, var(--primary) 40%, white 60%);
-            border-color: var(--primary);
-            color: black;
+            background: var(--bg-tertiary);
+            border-color: var(--border-color);
+            color: var(--text-primary);
         }
 
         .layout-btn.active {
-            background: color-mix(in srgb, var(--primary) 40%, white 60%);
-            border-color: var(--primary);
-            color: black;
+            background: var(--text-primary);
+            border-color: var(--text-primary);
+            color: var(--bg-primary);
         }
 
         .layout-btn .icon {
@@ -814,14 +815,14 @@
             flex: 1;
             overflow: hidden;
             position: relative;
-            padding: 8px;
             background: var(--bg-primary);
             border: 1px solid var(--border-color);
             border-radius: 0 0 4px 4px;
         }
 
         .terminal-pane.active-pane .pane-content {
-            border-color: color-mix(in srgb, var(--primary) 70%, white 30%);
+            border-color: color-mix(in srgb, var(--border-color) 80%, var(--text-secondary) 20%);
+            border-width: 2px;
         }
 
         .terminal-wrapper {
@@ -882,9 +883,9 @@
 
         /* Buttons */
         .btn {
-            background: color-mix(in srgb, var(--primary) 40%, white 60%);
-            color: black;
-            border: 1px solid var(--primary);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
             padding: 8px 16px;
             border-radius: 4px;
             cursor: pointer;
@@ -894,8 +895,9 @@
         }
 
         .btn:hover {
-            background: color-mix(in srgb, var(--primary) 50%, white 50%);
-            border-color: var(--primary-hover);
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            border-color: var(--text-primary);
         }
 
         .btn-small {
@@ -926,11 +928,11 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            background: color-mix(in srgb, var(--primary) 40%, white 60%);
-            color: black;
+            background: var(--text-primary);
+            color: var(--bg-primary);
             padding: 2px 8px 2px 4px;
             border-radius: 0 3px 3px 0;
-            border: 1px solid var(--primary);
+            border: 1px solid var(--text-primary);
             margin-left: 0;
         }
 
@@ -938,11 +940,11 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            background: color-mix(in srgb, var(--primary) 40%, white 60%);
-            color: black;
+            background: var(--text-primary);
+            color: var(--bg-primary);
             padding: 2px 4px 2px 8px;
             border-radius: 3px 0 0 3px;
-            border: 1px solid var(--primary);
+            border: 1px solid var(--text-primary);
             margin-right: 0;
         }
 
@@ -957,7 +959,8 @@
         }
 
         .status-item:hover {
-            background: rgba(0, 0, 0, 0.1);
+            background: color-mix(in srgb, var(--text-primary) 80%, var(--text-secondary) 20%);
+            border-radius: 4px;
         }
 
         .status-item .icon {
@@ -2439,17 +2442,17 @@
                 display: flex !important;
                 flex-direction: column !important;
             }
-            
+
             .theme-modal .modal-header {
                 flex-shrink: 0;
             }
-            
+
             .theme-modal .modal-body {
                 flex: 1 !important;
                 min-height: 0 !important;
                 overflow: hidden !important;
             }
-            
+
             .theme-modal .modal-footer {
                 display: flex !important;
                 background: var(--bg-primary);
@@ -2521,7 +2524,7 @@
                 padding: 8px 16px 12px;
             }
 
-            /* Theme Modal Mobile Layout - Simple 2-Column Flow */            
+            /* Theme Modal Mobile Layout - Simple 2-Column Flow */
             .theme-grid {
                 display: flex !important;
                 flex-wrap: wrap;
@@ -2544,11 +2547,11 @@
                     row-gap: 24px !important;
                     padding: 16px 12px !important;
                 }
-                
+
                 .theme-card-inner {
                     padding: 12px !important;
                 }
-                
+
                 .theme-preview-window {
                     margin-bottom: 8px !important;
                 }
@@ -2685,7 +2688,7 @@
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                box-shadow: 
+                box-shadow:
                     0 4px 12px rgba(0, 122, 204, 0.4),
                     0 8px 24px rgba(0, 0, 0, 0.2);
                 transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -2694,20 +2697,20 @@
 
             .fab-primary:hover {
                 transform: translateY(-2px);
-                box-shadow: 
+                box-shadow:
                     0 6px 16px rgba(0, 122, 204, 0.5),
                     0 12px 32px rgba(0, 0, 0, 0.3);
             }
 
             .fab-primary.editing {
                 background: var(--success);
-                box-shadow: 
+                box-shadow:
                     0 4px 12px rgba(76, 175, 80, 0.4),
                     0 8px 24px rgba(0, 0, 0, 0.2);
             }
 
             .fab-primary.editing:hover {
-                box-shadow: 
+                box-shadow:
                     0 6px 16px rgba(76, 175, 80, 0.5),
                     0 12px 32px rgba(0, 0, 0, 0.3);
             }
@@ -2769,10 +2772,10 @@
             }
 
             @keyframes pulse-save {
-                0%, 100% { 
+                0%, 100% {
                     box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
                 }
-                50% { 
+                50% {
                     box-shadow: 0 4px 16px rgba(76, 175, 80, 0.4);
                 }
             }
@@ -2846,7 +2849,7 @@
                 .mobile-action-bar .btn-text {
                     display: none;
                 }
-                
+
                 .mobile-action-bar .btn {
                     padding: 8px;
                     min-width: 36px;
@@ -2910,7 +2913,7 @@
             .mobile-edit-actions .action-btn.primary.save-btn {
                 background: var(--success);
                 color: white;
-                box-shadow: 
+                box-shadow:
                     0 4px 12px rgba(76, 175, 80, 0.3),
                     0 2px 6px rgba(0, 0, 0, 0.2);
             }
@@ -2918,7 +2921,7 @@
             .mobile-edit-actions .action-btn.primary.save-btn:hover {
                 background: var(--success-hover);
                 transform: translateY(-1px);
-                box-shadow: 
+                box-shadow:
                     0 6px 16px rgba(76, 175, 80, 0.4),
                     0 4px 12px rgba(0, 0, 0, 0.3);
             }
@@ -2955,7 +2958,7 @@
             .mobile-edit-actions .action-btn.primary.edit-btn {
                 background: var(--primary);
                 color: white;
-                box-shadow: 
+                box-shadow:
                     0 4px 12px rgba(0, 122, 204, 0.3),
                     0 2px 6px rgba(0, 0, 0, 0.2);
             }
@@ -2963,7 +2966,7 @@
             .mobile-edit-actions .action-btn.primary.edit-btn:hover {
                 background: var(--primary-hover);
                 transform: translateY(-1px);
-                box-shadow: 
+                box-shadow:
                     0 6px 16px rgba(0, 122, 204, 0.4),
                     0 4px 12px rgba(0, 0, 0, 0.3);
             }
@@ -3028,20 +3031,20 @@
 
             .file-preview-modal.has-unsaved-changes {
                 border-color: var(--warning);
-                box-shadow: 
+                box-shadow:
                     0 0 0 1px var(--warning),
                     0 8px 32px rgba(255, 140, 0, 0.1);
             }
 
             .file-preview-modal.edit-mode .frameless-nav-header {
-                background: linear-gradient(135deg, 
-                    rgba(76, 175, 80, 0.1) 0%, 
+                background: linear-gradient(135deg,
+                    rgba(76, 175, 80, 0.1) 0%,
                     transparent 100%);
             }
 
             .file-preview-modal.has-unsaved-changes .frameless-nav-header {
-                background: linear-gradient(135deg, 
-                    rgba(255, 140, 0, 0.1) 0%, 
+                background: linear-gradient(135deg,
+                    rgba(255, 140, 0, 0.1) 0%,
                     transparent 100%);
             }
 
@@ -3053,7 +3056,7 @@
                 width: min(400px, calc(100vw - 40px));
                 max-height: calc(100vh - 80px);
                 overflow: auto;
-                box-shadow: 
+                box-shadow:
                     0 20px 60px rgba(0, 0, 0, 0.4),
                     0 8px 32px rgba(0, 0, 0, 0.3);
             }
@@ -3283,7 +3286,7 @@
                 height: 85vh;
                 border: none; /* Frameless! */
                 border-radius: 0;
-                box-shadow: 
+                box-shadow:
                     0 0 0 1px rgba(255, 255, 255, 0.08), /* Subtle edge definition */
                     0 50px 100px rgba(0, 0, 0, 0.4),      /* Deep elevation */
                     0 20px 40px rgba(0, 0, 0, 0.3);       /* Mid-range shadow */
@@ -3533,9 +3536,9 @@
         }
 
         .tab-button.active {
-            background: color-mix(in srgb, var(--primary) 40%, white 60%);
-            color: black;
-            border: 1px solid var(--primary);
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            border: 1px solid var(--text-primary);
             border-bottom: none;
             z-index: 3;
             position: relative;
@@ -4708,7 +4711,7 @@
                 flex-direction: column;
                 gap: 8px;
             }
-            
+
             .modifier-keys-compact,
             .quick-keys {
                 justify-content: center;
@@ -5356,7 +5359,7 @@
                 grid-template-rows: 1fr 1fr;
                 gap: 12px;
             }
-            
+
             .collapse-btn {
                 grid-column: span 2;
                 justify-self: center;

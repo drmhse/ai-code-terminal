@@ -73,7 +73,7 @@ class ThemeGenerator {
         
         terminalBg: base.lightest
       },
-      terminal: this.generateTerminalColors(base, accent)
+      terminal: this.generateTerminalColors(base, accent, palette.type)
     };
 
     // For dark themes, invert the hierarchy
@@ -115,34 +115,39 @@ class ThemeGenerator {
    * Generate terminal colors from palette
    * @param {Object} base - Base color scale
    * @param {Object} accent - Accent colors
+   * @param {string} themeType - 'light' or 'dark'
    * @returns {Object} Terminal color configuration
    */
-  generateTerminalColors(base, accent) {
+  generateTerminalColors(base, accent, themeType) {
+    // For light themes, use light terminal with dark text
+    // For dark themes, use dark terminal with light text
+    const isLight = themeType === 'light';
+    
     return {
-      background: base.darkest,
-      foreground: base.lightest,
+      background: isLight ? base.lightest : base.darkest,
+      foreground: isLight ? base.darkest : base.lightest,
       cursor: accent.primary,
-      selection: base.dark,
+      selection: isLight ? base.lighter : base.dark,
       
-      // ANSI colors using semantic mapping
-      ansiBlack: base.darkest,
+      // ANSI colors - adjust black/white for light themes, keep others semantic
+      ansiBlack: isLight ? base.darkest : base.darkest,
       ansiRed: accent.error,
       ansiGreen: accent.success,
       ansiYellow: accent.warning,
       ansiBlue: accent.primary,
       ansiMagenta: accent.info,
       ansiCyan: this.blend(accent.primary, accent.info, 0.5),
-      ansiWhite: base.lightest,
+      ansiWhite: isLight ? base.light : base.lightest,
       
       // Bright variants
-      ansiBrightBlack: base.medium,
+      ansiBrightBlack: isLight ? base.dark : base.medium,
       ansiBrightRed: this.lighten(accent.error, 0.1),
       ansiBrightGreen: this.lighten(accent.success, 0.1),
       ansiBrightYellow: this.lighten(accent.warning, 0.1),
       ansiBrightBlue: accent.primaryHover,
       ansiBrightMagenta: this.lighten(accent.info, 0.1),
       ansiBrightCyan: this.lighten(this.blend(accent.primary, accent.info, 0.5), 0.1),
-      ansiBrightWhite: '#ffffff'
+      ansiBrightWhite: isLight ? base.lightest : '#ffffff'
     };
   }
 
