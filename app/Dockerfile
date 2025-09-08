@@ -1,18 +1,18 @@
-# Stage 1: Frontend build
-FROM node:22-alpine AS frontend-builder
+# Stage 1: Editor build
+FROM node:22-alpine AS editor-builder
 
-WORKDIR /frontend
+WORKDIR /editor
 
-# Copy frontend package files
-COPY frontend/package*.json ./
-COPY frontend/tsconfig*.json ./
+# Copy editor package files
+COPY editor/package*.json ./
+COPY editor/tsconfig*.json ./
 
-# Install frontend dependencies
+# Install editor dependencies
 RUN npm ci
 
-# Copy frontend source code
-COPY frontend/src ./src
-COPY frontend/vite.config.ts ./
+# Copy editor source code
+COPY editor/src ./src
+COPY editor/vite.config.ts ./
 
 # Build frontend assets
 RUN npm run build
@@ -74,7 +74,7 @@ COPY --from=backend-builder /app/node_modules ./node_modules
 COPY app/ .
 
 # Copy built frontend assets from previous stage
-COPY --from=frontend-builder /frontend/dist ./public/dist
+COPY --from=editor-builder /editor/dist ./public/dist
 
 # Make startup script executable
 RUN chmod +x start.sh
