@@ -1,0 +1,6803 @@
+{
+  "extracted_at": "2025-09-07T11:09:02.118Z",
+  "summary": {
+    "total_properties": 97,
+    "total_methods": 360,
+    "total_computed": 2,
+    "async_methods": 21,
+    "categories": [
+      "auth",
+      "misc",
+      "terminal",
+      "repository",
+      "ui",
+      "mobile",
+      "file",
+      "editor"
+    ]
+  },
+  "properties": {
+    "all": [
+      {
+        "name": "isAuthenticated",
+        "type": "boolean",
+        "category": "auth",
+        "defaultValue": "false",
+        "comment": "",
+        "line": 2
+      },
+      {
+        "name": "username",
+        "type": "object",
+        "category": "auth",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 3
+      },
+      {
+        "name": "errorMessage",
+        "type": "object",
+        "category": "misc",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 4
+      },
+      {
+        "name": "socket",
+        "type": "object",
+        "category": "misc",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 5
+      },
+      {
+        "name": "terminalTabs",
+        "type": "array",
+        "category": "terminal",
+        "defaultValue": "[]",
+        "comment": "NOTE: Terminal management is now handled by TerminalManager service",
+        "line": 7
+      },
+      {
+        "name": "activeTabId",
+        "type": "object",
+        "category": "terminal",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 8
+      },
+      {
+        "name": "currentLayout",
+        "type": "string",
+        "category": "terminal",
+        "defaultValue": "'single'",
+        "comment": "Split pane layout properties",
+        "line": 10
+      },
+      {
+        "name": "panes",
+        "type": "array",
+        "category": "misc",
+        "defaultValue": "[]",
+        "comment": "",
+        "line": 11
+      },
+      {
+        "name": "activePaneId",
+        "type": "object",
+        "category": "terminal",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 12
+      },
+      {
+        "name": "draggedTab",
+        "type": "object",
+        "category": "terminal",
+        "defaultValue": "null",
+        "comment": "Tab drag and drop state",
+        "line": 14
+      },
+      {
+        "name": "dragOverPane",
+        "type": "object",
+        "category": "terminal",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 15
+      },
+      {
+        "name": "viewportWidth",
+        "type": "unknown",
+        "category": "misc",
+        "defaultValue": "window.innerWidth",
+        "comment": "",
+        "line": 16
+      },
+      {
+        "name": "layoutRecommendations",
+        "type": "object",
+        "category": "misc",
+        "defaultValue": "{ supported: [], recommended: 'single' }",
+        "comment": "",
+        "line": 17
+      },
+      {
+        "name": "workspaces",
+        "type": "array",
+        "category": "repository",
+        "defaultValue": "[]",
+        "comment": "",
+        "line": 18
+      },
+      {
+        "name": "selectedWorkspace",
+        "type": "object",
+        "category": "repository",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 19
+      },
+      {
+        "name": "repositories",
+        "type": "array",
+        "category": "misc",
+        "defaultValue": "[]",
+        "comment": "",
+        "line": 20
+      },
+      {
+        "name": "repositoriesLoading",
+        "type": "boolean",
+        "category": "misc",
+        "defaultValue": "false",
+        "comment": "",
+        "line": 21
+      },
+      {
+        "name": "repositoryError",
+        "type": "object",
+        "category": "repository",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 22
+      },
+      {
+        "name": "repositoryPage",
+        "type": "number",
+        "category": "repository",
+        "defaultValue": "1",
+        "comment": "",
+        "line": 23
+      },
+      {
+        "name": "repositoryHasMore",
+        "type": "boolean",
+        "category": "repository",
+        "defaultValue": "true",
+        "comment": "",
+        "line": 24
+      },
+      {
+        "name": "repositoryLoadingMore",
+        "type": "boolean",
+        "category": "repository",
+        "defaultValue": "false",
+        "comment": "",
+        "line": 25
+      },
+      {
+        "name": "scrollTimeout",
+        "type": "object",
+        "category": "misc",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 26
+      },
+      {
+        "name": "repositorySearchTerm",
+        "type": "string",
+        "category": "repository",
+        "defaultValue": "''",
+        "comment": "",
+        "line": 27
+      },
+      {
+        "name": "searchTimeout",
+        "type": "object",
+        "category": "misc",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 28
+      },
+      {
+        "name": "showRepositoriesModal",
+        "type": "boolean",
+        "category": "ui",
+        "defaultValue": "false",
+        "comment": "",
+        "line": 29
+      },
+      {
+        "name": "cloningRepository",
+        "type": "object",
+        "category": "repository",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 30
+      },
+      {
+        "name": "cloneProgress",
+        "type": "object",
+        "category": "misc",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 31
+      },
+      {
+        "name": "cloneError",
+        "type": "object",
+        "category": "misc",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 32
+      },
+      {
+        "name": "stats",
+        "type": "object",
+        "category": "misc",
+        "defaultValue": "{}",
+        "comment": "",
+        "line": 33
+      },
+      {
+        "name": "statsInterval",
+        "type": "object",
+        "category": "misc",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 34
+      },
+      {
+        "name": "isMobile",
+        "type": "boolean",
+        "category": "mobile",
+        "defaultValue": "false",
+        "comment": "",
+        "line": 35
+      },
+      {
+        "name": "sidebarOpen",
+        "type": "boolean",
+        "category": "misc",
+        "defaultValue": "false",
+        "comment": "",
+        "line": 36
+      },
+      {
+        "name": "statsOpen",
+        "type": "boolean",
+        "category": "misc",
+        "defaultValue": "false",
+        "comment": "",
+        "line": 37
+      },
+      {
+        "name": "statsExpanded",
+        "type": "boolean",
+        "category": "misc",
+        "defaultValue": "false",
+        "comment": "Mobile Stats Interface",
+        "line": 39
+      },
+      {
+        "name": "activeStatsTab",
+        "type": "string",
+        "category": "terminal",
+        "defaultValue": "'system'",
+        "comment": "",
+        "line": 40
+      },
+      {
+        "name": "resourceAlerts",
+        "type": "array",
+        "category": "misc",
+        "defaultValue": "[]",
+        "comment": "",
+        "line": 41
+      },
+      {
+        "name": "sessionUpdates",
+        "type": "array",
+        "category": "misc",
+        "defaultValue": "[]",
+        "comment": "",
+        "line": 42
+      },
+      {
+        "name": "lastSessionCount",
+        "type": "number",
+        "category": "misc",
+        "defaultValue": "0",
+        "comment": "",
+        "line": 43
+      },
+      {
+        "name": "showThemeModal",
+        "type": "boolean",
+        "category": "ui",
+        "defaultValue": "false",
+        "comment": "",
+        "line": 44
+      },
+      {
+        "name": "currentTheme",
+        "type": "unknown",
+        "category": "ui",
+        "defaultValue": "this.getDefaultTheme()",
+        "comment": "",
+        "line": 45
+      },
+      {
+        "name": "availableThemes",
+        "type": "array",
+        "category": "ui",
+        "defaultValue": "[]",
+        "comment": "",
+        "line": 46
+      },
+      {
+        "name": "showDeleteModal",
+        "type": "boolean",
+        "category": "ui",
+        "defaultValue": "false",
+        "comment": "",
+        "line": 47
+      },
+      {
+        "name": "workspaceToDelete",
+        "type": "object",
+        "category": "repository",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 48
+      },
+      {
+        "name": "deleteFiles",
+        "type": "boolean",
+        "category": "file",
+        "defaultValue": "false",
+        "comment": "",
+        "line": 49
+      },
+      {
+        "name": "deletingWorkspace",
+        "type": "boolean",
+        "category": "repository",
+        "defaultValue": "false",
+        "comment": "",
+        "line": 50
+      },
+      {
+        "name": "connectionError",
+        "type": "object",
+        "category": "misc",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 51
+      },
+      {
+        "name": "fileExplorerEnabled",
+        "type": "boolean",
+        "category": "file",
+        "defaultValue": "true",
+        "comment": "File Explorer",
+        "line": 53
+      },
+      {
+        "name": "fileExplorerCollapsed",
+        "type": "boolean",
+        "category": "file",
+        "defaultValue": "false",
+        "comment": "",
+        "line": 54
+      },
+      {
+        "name": "currentFiles",
+        "type": "array",
+        "category": "file",
+        "defaultValue": "[]",
+        "comment": "",
+        "line": 55
+      },
+      {
+        "name": "currentPath",
+        "type": "string",
+        "category": "file",
+        "defaultValue": "'.'",
+        "comment": "",
+        "line": 56
+      },
+      {
+        "name": "selectedFile",
+        "type": "object",
+        "category": "file",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 57
+      },
+      {
+        "name": "loadingFiles",
+        "type": "boolean",
+        "category": "file",
+        "defaultValue": "false",
+        "comment": "",
+        "line": 58
+      },
+      {
+        "name": "fileError",
+        "type": "object",
+        "category": "file",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 59
+      },
+      {
+        "name": "showHiddenFiles",
+        "type": "boolean",
+        "category": "file",
+        "defaultValue": "false",
+        "comment": "",
+        "line": 60
+      },
+      {
+        "name": "directoryCache",
+        "type": "Map",
+        "category": "file",
+        "defaultValue": "new Map()",
+        "comment": "",
+        "line": 61
+      },
+      {
+        "name": "cacheTimeout",
+        "type": "unknown",
+        "category": "misc",
+        "defaultValue": "5 * 60 * 1000",
+        "comment": "",
+        "line": 62
+      },
+      {
+        "name": "fileSearchTerm",
+        "type": "string",
+        "category": "file",
+        "defaultValue": "''",
+        "comment": "",
+        "line": 63
+      },
+      {
+        "name": "fileSearchTimeout",
+        "type": "object",
+        "category": "file",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 64
+      },
+      {
+        "name": "selectedFileIndex",
+        "type": "unknown",
+        "category": "file",
+        "defaultValue": "-1",
+        "comment": "",
+        "line": 65
+      },
+      {
+        "name": "showContextMenu",
+        "type": "boolean",
+        "category": "ui",
+        "defaultValue": "false",
+        "comment": "Context Menu",
+        "line": 67
+      },
+      {
+        "name": "contextMenuX",
+        "type": "number",
+        "category": "misc",
+        "defaultValue": "0",
+        "comment": "",
+        "line": 68
+      },
+      {
+        "name": "contextMenuY",
+        "type": "number",
+        "category": "misc",
+        "defaultValue": "0",
+        "comment": "",
+        "line": 69
+      },
+      {
+        "name": "contextMenuFile",
+        "type": "object",
+        "category": "file",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 70
+      },
+      {
+        "name": "showFilePreviewModal",
+        "type": "boolean",
+        "category": "file",
+        "defaultValue": "false",
+        "comment": "Unified File Editor Modal",
+        "line": 72
+      },
+      {
+        "name": "showDiscardModal",
+        "type": "boolean",
+        "category": "ui",
+        "defaultValue": "false",
+        "comment": "",
+        "line": 73
+      },
+      {
+        "name": "discardAction",
+        "type": "string",
+        "category": "misc",
+        "defaultValue": "'exitEdit'",
+        "comment": "",
+        "line": 74
+      },
+      {
+        "name": "previewFile",
+        "type": "object",
+        "category": "file",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 75
+      },
+      {
+        "name": "previewData",
+        "type": "object",
+        "category": "editor",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 76
+      },
+      {
+        "name": "previewLoading",
+        "type": "boolean",
+        "category": "editor",
+        "defaultValue": "false",
+        "comment": "",
+        "line": 77
+      },
+      {
+        "name": "previewError",
+        "type": "object",
+        "category": "editor",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 78
+      },
+      {
+        "name": "changesSummary",
+        "type": "string",
+        "category": "misc",
+        "defaultValue": "''",
+        "comment": "",
+        "line": 79
+      },
+      {
+        "name": "showMobileActionsMenu",
+        "type": "boolean",
+        "category": "ui",
+        "defaultValue": "false",
+        "comment": "Mobile Actions Menu",
+        "line": 81
+      },
+      {
+        "name": "showUtilityActions",
+        "type": "boolean",
+        "category": "ui",
+        "defaultValue": "false",
+        "comment": "",
+        "line": 82
+      },
+      {
+        "name": "showSecondaryFAB",
+        "type": "boolean",
+        "category": "ui",
+        "defaultValue": "false",
+        "comment": "Floating Action Button System",
+        "line": 84
+      },
+      {
+        "name": "editMode",
+        "type": "boolean",
+        "category": "editor",
+        "defaultValue": "false",
+        "comment": "Editor state",
+        "line": 86
+      },
+      {
+        "name": "editorInstance",
+        "type": "object",
+        "category": "editor",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 87
+      },
+      {
+        "name": "originalContent",
+        "type": "string",
+        "category": "misc",
+        "defaultValue": "''",
+        "comment": "",
+        "line": 88
+      },
+      {
+        "name": "hasUnsavedChanges",
+        "type": "boolean",
+        "category": "misc",
+        "defaultValue": "false",
+        "comment": "",
+        "line": 89
+      },
+      {
+        "name": "saving",
+        "type": "boolean",
+        "category": "misc",
+        "defaultValue": "false",
+        "comment": "",
+        "line": 90
+      },
+      {
+        "name": "saveError",
+        "type": "object",
+        "category": "misc",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 91
+      },
+      {
+        "name": "editorKeyboardHandler",
+        "type": "object",
+        "category": "editor",
+        "defaultValue": "null",
+        "comment": "",
+        "line": 92
+      },
+      {
+        "name": "mobileInputOpen",
+        "type": "boolean",
+        "category": "mobile",
+        "defaultValue": "false",
+        "comment": "Mobile Input Proxy",
+        "line": 94
+      },
+      {
+        "name": "mobileInputText",
+        "type": "string",
+        "category": "mobile",
+        "defaultValue": "''",
+        "comment": "",
+        "line": 95
+      },
+      {
+        "name": "activeModifiers",
+        "type": "object",
+        "category": "misc",
+        "defaultValue": "{ ctrl: false, alt: false, shift: false }",
+        "comment": "",
+        "line": 96
+      },
+      {
+        "name": "commandHistory",
+        "type": "array",
+        "category": "misc",
+        "defaultValue": "[]",
+        "comment": "",
+        "line": 97
+      },
+      {
+        "name": "suggestions",
+        "type": "array",
+        "category": "misc",
+        "defaultValue": "[]",
+        "comment": "",
+        "line": 98
+      },
+      {
+        "name": "overlayExpanded",
+        "type": "boolean",
+        "category": "misc",
+        "defaultValue": "false",
+        "comment": "New Compact Interface Properties",
+        "line": 100
+      },
+      {
+        "name": "contextualMode",
+        "type": "boolean",
+        "category": "misc",
+        "defaultValue": "true",
+        "comment": "",
+        "line": 101
+      },
+      {
+        "name": "historyPanelOpen",
+        "type": "boolean",
+        "category": "terminal",
+        "defaultValue": "false",
+        "comment": "",
+        "line": 102
+      },
+      {
+        "name": "activeTab",
+        "type": "string",
+        "category": "terminal",
+        "defaultValue": "'actions'",
+        "comment": "",
+        "line": 103
+      },
+      {
+        "name": "essentialActions",
+        "type": "array",
+        "category": "misc",
+        "defaultValue": "[",
+        "comment": "",
+        "line": 104
+      },
+      {
+        "name": "topCommands",
+        "type": "array",
+        "category": "misc",
+        "defaultValue": "[",
+        "comment": "",
+        "line": 110
+      },
+      {
+        "name": "frequentLetters",
+        "type": "array",
+        "category": "misc",
+        "defaultValue": "['C', 'Z', 'X', 'V', 'A', 'S', 'D', 'F', 'Q', 'W', 'E', 'R']",
+        "comment": "",
+        "line": 116
+      },
+      {
+        "name": "touchStartTime",
+        "type": "number",
+        "category": "mobile",
+        "defaultValue": "0",
+        "comment": "",
+        "line": 117
+      },
+      {
+        "name": "swipeStartY",
+        "type": "number",
+        "category": "mobile",
+        "defaultValue": "0",
+        "comment": "",
+        "line": 118
+      },
+      {
+        "name": "quickActions",
+        "type": "array",
+        "category": "misc",
+        "defaultValue": "[",
+        "comment": "",
+        "line": 119
+      },
+      {
+        "name": "commonCommands",
+        "type": "array",
+        "category": "misc",
+        "defaultValue": "[",
+        "comment": "",
+        "line": 131
+      }
+    ],
+    "by_category": {
+      "auth": [
+        {
+          "name": "isAuthenticated",
+          "type": "boolean",
+          "category": "auth",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 2
+        },
+        {
+          "name": "username",
+          "type": "object",
+          "category": "auth",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 3
+        }
+      ],
+      "misc": [
+        {
+          "name": "errorMessage",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 4
+        },
+        {
+          "name": "socket",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 5
+        },
+        {
+          "name": "panes",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[]",
+          "comment": "",
+          "line": 11
+        },
+        {
+          "name": "viewportWidth",
+          "type": "unknown",
+          "category": "misc",
+          "defaultValue": "window.innerWidth",
+          "comment": "",
+          "line": 16
+        },
+        {
+          "name": "layoutRecommendations",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "{ supported: [], recommended: 'single' }",
+          "comment": "",
+          "line": 17
+        },
+        {
+          "name": "repositories",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[]",
+          "comment": "",
+          "line": 20
+        },
+        {
+          "name": "repositoriesLoading",
+          "type": "boolean",
+          "category": "misc",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 21
+        },
+        {
+          "name": "scrollTimeout",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 26
+        },
+        {
+          "name": "searchTimeout",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 28
+        },
+        {
+          "name": "cloneProgress",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 31
+        },
+        {
+          "name": "cloneError",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 32
+        },
+        {
+          "name": "stats",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "{}",
+          "comment": "",
+          "line": 33
+        },
+        {
+          "name": "statsInterval",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 34
+        },
+        {
+          "name": "sidebarOpen",
+          "type": "boolean",
+          "category": "misc",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 36
+        },
+        {
+          "name": "statsOpen",
+          "type": "boolean",
+          "category": "misc",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 37
+        },
+        {
+          "name": "statsExpanded",
+          "type": "boolean",
+          "category": "misc",
+          "defaultValue": "false",
+          "comment": "Mobile Stats Interface",
+          "line": 39
+        },
+        {
+          "name": "resourceAlerts",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[]",
+          "comment": "",
+          "line": 41
+        },
+        {
+          "name": "sessionUpdates",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[]",
+          "comment": "",
+          "line": 42
+        },
+        {
+          "name": "lastSessionCount",
+          "type": "number",
+          "category": "misc",
+          "defaultValue": "0",
+          "comment": "",
+          "line": 43
+        },
+        {
+          "name": "connectionError",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 51
+        },
+        {
+          "name": "cacheTimeout",
+          "type": "unknown",
+          "category": "misc",
+          "defaultValue": "5 * 60 * 1000",
+          "comment": "",
+          "line": 62
+        },
+        {
+          "name": "contextMenuX",
+          "type": "number",
+          "category": "misc",
+          "defaultValue": "0",
+          "comment": "",
+          "line": 68
+        },
+        {
+          "name": "contextMenuY",
+          "type": "number",
+          "category": "misc",
+          "defaultValue": "0",
+          "comment": "",
+          "line": 69
+        },
+        {
+          "name": "discardAction",
+          "type": "string",
+          "category": "misc",
+          "defaultValue": "'exitEdit'",
+          "comment": "",
+          "line": 74
+        },
+        {
+          "name": "changesSummary",
+          "type": "string",
+          "category": "misc",
+          "defaultValue": "''",
+          "comment": "",
+          "line": 79
+        },
+        {
+          "name": "originalContent",
+          "type": "string",
+          "category": "misc",
+          "defaultValue": "''",
+          "comment": "",
+          "line": 88
+        },
+        {
+          "name": "hasUnsavedChanges",
+          "type": "boolean",
+          "category": "misc",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 89
+        },
+        {
+          "name": "saving",
+          "type": "boolean",
+          "category": "misc",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 90
+        },
+        {
+          "name": "saveError",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 91
+        },
+        {
+          "name": "activeModifiers",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "{ ctrl: false, alt: false, shift: false }",
+          "comment": "",
+          "line": 96
+        },
+        {
+          "name": "commandHistory",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[]",
+          "comment": "",
+          "line": 97
+        },
+        {
+          "name": "suggestions",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[]",
+          "comment": "",
+          "line": 98
+        },
+        {
+          "name": "overlayExpanded",
+          "type": "boolean",
+          "category": "misc",
+          "defaultValue": "false",
+          "comment": "New Compact Interface Properties",
+          "line": 100
+        },
+        {
+          "name": "contextualMode",
+          "type": "boolean",
+          "category": "misc",
+          "defaultValue": "true",
+          "comment": "",
+          "line": 101
+        },
+        {
+          "name": "essentialActions",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[",
+          "comment": "",
+          "line": 104
+        },
+        {
+          "name": "topCommands",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[",
+          "comment": "",
+          "line": 110
+        },
+        {
+          "name": "frequentLetters",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "['C', 'Z', 'X', 'V', 'A', 'S', 'D', 'F', 'Q', 'W', 'E', 'R']",
+          "comment": "",
+          "line": 116
+        },
+        {
+          "name": "quickActions",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[",
+          "comment": "",
+          "line": 119
+        },
+        {
+          "name": "commonCommands",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[",
+          "comment": "",
+          "line": 131
+        }
+      ],
+      "terminal": [
+        {
+          "name": "terminalTabs",
+          "type": "array",
+          "category": "terminal",
+          "defaultValue": "[]",
+          "comment": "NOTE: Terminal management is now handled by TerminalManager service",
+          "line": 7
+        },
+        {
+          "name": "activeTabId",
+          "type": "object",
+          "category": "terminal",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 8
+        },
+        {
+          "name": "currentLayout",
+          "type": "string",
+          "category": "terminal",
+          "defaultValue": "'single'",
+          "comment": "Split pane layout properties",
+          "line": 10
+        },
+        {
+          "name": "activePaneId",
+          "type": "object",
+          "category": "terminal",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 12
+        },
+        {
+          "name": "draggedTab",
+          "type": "object",
+          "category": "terminal",
+          "defaultValue": "null",
+          "comment": "Tab drag and drop state",
+          "line": 14
+        },
+        {
+          "name": "dragOverPane",
+          "type": "object",
+          "category": "terminal",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 15
+        },
+        {
+          "name": "activeStatsTab",
+          "type": "string",
+          "category": "terminal",
+          "defaultValue": "'system'",
+          "comment": "",
+          "line": 40
+        },
+        {
+          "name": "historyPanelOpen",
+          "type": "boolean",
+          "category": "terminal",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 102
+        },
+        {
+          "name": "activeTab",
+          "type": "string",
+          "category": "terminal",
+          "defaultValue": "'actions'",
+          "comment": "",
+          "line": 103
+        }
+      ],
+      "repository": [
+        {
+          "name": "workspaces",
+          "type": "array",
+          "category": "repository",
+          "defaultValue": "[]",
+          "comment": "",
+          "line": 18
+        },
+        {
+          "name": "selectedWorkspace",
+          "type": "object",
+          "category": "repository",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 19
+        },
+        {
+          "name": "repositoryError",
+          "type": "object",
+          "category": "repository",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 22
+        },
+        {
+          "name": "repositoryPage",
+          "type": "number",
+          "category": "repository",
+          "defaultValue": "1",
+          "comment": "",
+          "line": 23
+        },
+        {
+          "name": "repositoryHasMore",
+          "type": "boolean",
+          "category": "repository",
+          "defaultValue": "true",
+          "comment": "",
+          "line": 24
+        },
+        {
+          "name": "repositoryLoadingMore",
+          "type": "boolean",
+          "category": "repository",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 25
+        },
+        {
+          "name": "repositorySearchTerm",
+          "type": "string",
+          "category": "repository",
+          "defaultValue": "''",
+          "comment": "",
+          "line": 27
+        },
+        {
+          "name": "cloningRepository",
+          "type": "object",
+          "category": "repository",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 30
+        },
+        {
+          "name": "workspaceToDelete",
+          "type": "object",
+          "category": "repository",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 48
+        },
+        {
+          "name": "deletingWorkspace",
+          "type": "boolean",
+          "category": "repository",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 50
+        }
+      ],
+      "ui": [
+        {
+          "name": "showRepositoriesModal",
+          "type": "boolean",
+          "category": "ui",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 29
+        },
+        {
+          "name": "showThemeModal",
+          "type": "boolean",
+          "category": "ui",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 44
+        },
+        {
+          "name": "currentTheme",
+          "type": "unknown",
+          "category": "ui",
+          "defaultValue": "this.getDefaultTheme()",
+          "comment": "",
+          "line": 45
+        },
+        {
+          "name": "availableThemes",
+          "type": "array",
+          "category": "ui",
+          "defaultValue": "[]",
+          "comment": "",
+          "line": 46
+        },
+        {
+          "name": "showDeleteModal",
+          "type": "boolean",
+          "category": "ui",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 47
+        },
+        {
+          "name": "showContextMenu",
+          "type": "boolean",
+          "category": "ui",
+          "defaultValue": "false",
+          "comment": "Context Menu",
+          "line": 67
+        },
+        {
+          "name": "showDiscardModal",
+          "type": "boolean",
+          "category": "ui",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 73
+        },
+        {
+          "name": "showMobileActionsMenu",
+          "type": "boolean",
+          "category": "ui",
+          "defaultValue": "false",
+          "comment": "Mobile Actions Menu",
+          "line": 81
+        },
+        {
+          "name": "showUtilityActions",
+          "type": "boolean",
+          "category": "ui",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 82
+        },
+        {
+          "name": "showSecondaryFAB",
+          "type": "boolean",
+          "category": "ui",
+          "defaultValue": "false",
+          "comment": "Floating Action Button System",
+          "line": 84
+        },
+        {
+          "name": "errorMessage",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 4
+        },
+        {
+          "name": "socket",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 5
+        },
+        {
+          "name": "panes",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[]",
+          "comment": "",
+          "line": 11
+        },
+        {
+          "name": "viewportWidth",
+          "type": "unknown",
+          "category": "misc",
+          "defaultValue": "window.innerWidth",
+          "comment": "",
+          "line": 16
+        },
+        {
+          "name": "layoutRecommendations",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "{ supported: [], recommended: 'single' }",
+          "comment": "",
+          "line": 17
+        },
+        {
+          "name": "repositories",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[]",
+          "comment": "",
+          "line": 20
+        },
+        {
+          "name": "repositoriesLoading",
+          "type": "boolean",
+          "category": "misc",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 21
+        },
+        {
+          "name": "scrollTimeout",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 26
+        },
+        {
+          "name": "searchTimeout",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 28
+        },
+        {
+          "name": "cloneProgress",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 31
+        },
+        {
+          "name": "cloneError",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 32
+        },
+        {
+          "name": "stats",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "{}",
+          "comment": "",
+          "line": 33
+        },
+        {
+          "name": "statsInterval",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 34
+        },
+        {
+          "name": "sidebarOpen",
+          "type": "boolean",
+          "category": "misc",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 36
+        },
+        {
+          "name": "statsOpen",
+          "type": "boolean",
+          "category": "misc",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 37
+        },
+        {
+          "name": "statsExpanded",
+          "type": "boolean",
+          "category": "misc",
+          "defaultValue": "false",
+          "comment": "Mobile Stats Interface",
+          "line": 39
+        },
+        {
+          "name": "resourceAlerts",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[]",
+          "comment": "",
+          "line": 41
+        },
+        {
+          "name": "sessionUpdates",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[]",
+          "comment": "",
+          "line": 42
+        },
+        {
+          "name": "lastSessionCount",
+          "type": "number",
+          "category": "misc",
+          "defaultValue": "0",
+          "comment": "",
+          "line": 43
+        },
+        {
+          "name": "connectionError",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 51
+        },
+        {
+          "name": "cacheTimeout",
+          "type": "unknown",
+          "category": "misc",
+          "defaultValue": "5 * 60 * 1000",
+          "comment": "",
+          "line": 62
+        },
+        {
+          "name": "contextMenuX",
+          "type": "number",
+          "category": "misc",
+          "defaultValue": "0",
+          "comment": "",
+          "line": 68
+        },
+        {
+          "name": "contextMenuY",
+          "type": "number",
+          "category": "misc",
+          "defaultValue": "0",
+          "comment": "",
+          "line": 69
+        },
+        {
+          "name": "discardAction",
+          "type": "string",
+          "category": "misc",
+          "defaultValue": "'exitEdit'",
+          "comment": "",
+          "line": 74
+        },
+        {
+          "name": "changesSummary",
+          "type": "string",
+          "category": "misc",
+          "defaultValue": "''",
+          "comment": "",
+          "line": 79
+        },
+        {
+          "name": "originalContent",
+          "type": "string",
+          "category": "misc",
+          "defaultValue": "''",
+          "comment": "",
+          "line": 88
+        },
+        {
+          "name": "hasUnsavedChanges",
+          "type": "boolean",
+          "category": "misc",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 89
+        },
+        {
+          "name": "saving",
+          "type": "boolean",
+          "category": "misc",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 90
+        },
+        {
+          "name": "saveError",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 91
+        },
+        {
+          "name": "activeModifiers",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "{ ctrl: false, alt: false, shift: false }",
+          "comment": "",
+          "line": 96
+        },
+        {
+          "name": "commandHistory",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[]",
+          "comment": "",
+          "line": 97
+        },
+        {
+          "name": "suggestions",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[]",
+          "comment": "",
+          "line": 98
+        },
+        {
+          "name": "overlayExpanded",
+          "type": "boolean",
+          "category": "misc",
+          "defaultValue": "false",
+          "comment": "New Compact Interface Properties",
+          "line": 100
+        },
+        {
+          "name": "contextualMode",
+          "type": "boolean",
+          "category": "misc",
+          "defaultValue": "true",
+          "comment": "",
+          "line": 101
+        },
+        {
+          "name": "essentialActions",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[",
+          "comment": "",
+          "line": 104
+        },
+        {
+          "name": "topCommands",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[",
+          "comment": "",
+          "line": 110
+        },
+        {
+          "name": "frequentLetters",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "['C', 'Z', 'X', 'V', 'A', 'S', 'D', 'F', 'Q', 'W', 'E', 'R']",
+          "comment": "",
+          "line": 116
+        },
+        {
+          "name": "quickActions",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[",
+          "comment": "",
+          "line": 119
+        },
+        {
+          "name": "commonCommands",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[",
+          "comment": "",
+          "line": 131
+        },
+        {
+          "name": "isMobile",
+          "type": "boolean",
+          "category": "mobile",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 35
+        },
+        {
+          "name": "mobileInputOpen",
+          "type": "boolean",
+          "category": "mobile",
+          "defaultValue": "false",
+          "comment": "Mobile Input Proxy",
+          "line": 94
+        },
+        {
+          "name": "mobileInputText",
+          "type": "string",
+          "category": "mobile",
+          "defaultValue": "''",
+          "comment": "",
+          "line": 95
+        },
+        {
+          "name": "touchStartTime",
+          "type": "number",
+          "category": "mobile",
+          "defaultValue": "0",
+          "comment": "",
+          "line": 117
+        },
+        {
+          "name": "swipeStartY",
+          "type": "number",
+          "category": "mobile",
+          "defaultValue": "0",
+          "comment": "",
+          "line": 118
+        }
+      ],
+      "mobile": [
+        {
+          "name": "isMobile",
+          "type": "boolean",
+          "category": "mobile",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 35
+        },
+        {
+          "name": "mobileInputOpen",
+          "type": "boolean",
+          "category": "mobile",
+          "defaultValue": "false",
+          "comment": "Mobile Input Proxy",
+          "line": 94
+        },
+        {
+          "name": "mobileInputText",
+          "type": "string",
+          "category": "mobile",
+          "defaultValue": "''",
+          "comment": "",
+          "line": 95
+        },
+        {
+          "name": "touchStartTime",
+          "type": "number",
+          "category": "mobile",
+          "defaultValue": "0",
+          "comment": "",
+          "line": 117
+        },
+        {
+          "name": "swipeStartY",
+          "type": "number",
+          "category": "mobile",
+          "defaultValue": "0",
+          "comment": "",
+          "line": 118
+        }
+      ],
+      "file": [
+        {
+          "name": "deleteFiles",
+          "type": "boolean",
+          "category": "file",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 49
+        },
+        {
+          "name": "fileExplorerEnabled",
+          "type": "boolean",
+          "category": "file",
+          "defaultValue": "true",
+          "comment": "File Explorer",
+          "line": 53
+        },
+        {
+          "name": "fileExplorerCollapsed",
+          "type": "boolean",
+          "category": "file",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 54
+        },
+        {
+          "name": "currentFiles",
+          "type": "array",
+          "category": "file",
+          "defaultValue": "[]",
+          "comment": "",
+          "line": 55
+        },
+        {
+          "name": "currentPath",
+          "type": "string",
+          "category": "file",
+          "defaultValue": "'.'",
+          "comment": "",
+          "line": 56
+        },
+        {
+          "name": "selectedFile",
+          "type": "object",
+          "category": "file",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 57
+        },
+        {
+          "name": "loadingFiles",
+          "type": "boolean",
+          "category": "file",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 58
+        },
+        {
+          "name": "fileError",
+          "type": "object",
+          "category": "file",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 59
+        },
+        {
+          "name": "showHiddenFiles",
+          "type": "boolean",
+          "category": "file",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 60
+        },
+        {
+          "name": "directoryCache",
+          "type": "Map",
+          "category": "file",
+          "defaultValue": "new Map()",
+          "comment": "",
+          "line": 61
+        },
+        {
+          "name": "fileSearchTerm",
+          "type": "string",
+          "category": "file",
+          "defaultValue": "''",
+          "comment": "",
+          "line": 63
+        },
+        {
+          "name": "fileSearchTimeout",
+          "type": "object",
+          "category": "file",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 64
+        },
+        {
+          "name": "selectedFileIndex",
+          "type": "unknown",
+          "category": "file",
+          "defaultValue": "-1",
+          "comment": "",
+          "line": 65
+        },
+        {
+          "name": "contextMenuFile",
+          "type": "object",
+          "category": "file",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 70
+        },
+        {
+          "name": "showFilePreviewModal",
+          "type": "boolean",
+          "category": "file",
+          "defaultValue": "false",
+          "comment": "Unified File Editor Modal",
+          "line": 72
+        },
+        {
+          "name": "previewFile",
+          "type": "object",
+          "category": "file",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 75
+        }
+      ],
+      "editor": [
+        {
+          "name": "previewData",
+          "type": "object",
+          "category": "editor",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 76
+        },
+        {
+          "name": "previewLoading",
+          "type": "boolean",
+          "category": "editor",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 77
+        },
+        {
+          "name": "previewError",
+          "type": "object",
+          "category": "editor",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 78
+        },
+        {
+          "name": "editMode",
+          "type": "boolean",
+          "category": "editor",
+          "defaultValue": "false",
+          "comment": "Editor state",
+          "line": 86
+        },
+        {
+          "name": "editorInstance",
+          "type": "object",
+          "category": "editor",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 87
+        },
+        {
+          "name": "editorKeyboardHandler",
+          "type": "object",
+          "category": "editor",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 92
+        }
+      ]
+    }
+  },
+  "methods": {
+    "all": [
+      {
+        "name": "createApp",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "filteredFiles",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "pathSegments",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "gridTemplateColumns",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "switch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "gridTemplateRows",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "switch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "showEmptyPanePlaceholder",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "hasActiveModifiers",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "commandPreview",
+        "isAsync": false,
+        "category": "editor"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "recentCommands",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "hasResourceAlerts",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "hasSessionUpdates",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "systemHealthClass",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "systemHealthText",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "getDefaultTheme",
+        "isAsync": false,
+        "category": "ui"
+      },
+      {
+        "name": "tryInitializeApp",
+        "isAsync": true,
+        "category": "auth"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "loadAvailableThemes",
+        "isAsync": true,
+        "category": "ui"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "getFallbackThemes",
+        "isAsync": false,
+        "category": "ui"
+      },
+      {
+        "name": "checkMobile",
+        "isAsync": false,
+        "category": "ui"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "toggleSidebar",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "toggleStats",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "toggleStatsMode",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "setActiveStatsTab",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "focusOnAlert",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "acknowledgeUpdate",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "handleStatsTouch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "getTabIcon",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "closeMobileStats",
+        "isAsync": false,
+        "category": "ui"
+      },
+      {
+        "name": "checkResourceAlerts",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "checkSessionUpdates",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "toggleMobileInput",
+        "isAsync": false,
+        "category": "ui"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "closeMobileInput",
+        "isAsync": false,
+        "category": "ui"
+      },
+      {
+        "name": "toggleModifier",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "clearModifiers",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "sendCommand",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "sendKeyCombo",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "sendQuickAction",
+        "isAsync": false,
+        "category": "ui"
+      },
+      {
+        "name": "switch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "insertCommand",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "for",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "applySuggestion",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "handleInputKeydown",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "handleInputChange",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "updateSuggestions",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "for",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "toggleOverlayMode",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "handleExpandTouch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "setActiveTab",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "toggleHistoryPanel",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "getTimeAgo",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "handleHistorySwipe",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "selectTheme",
+        "isAsync": true,
+        "category": "ui"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "applyTheme",
+        "isAsync": false,
+        "category": "ui"
+      },
+      {
+        "name": "loadTheme",
+        "isAsync": true,
+        "category": "ui"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "saveTheme",
+        "isAsync": true,
+        "category": "editor"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "initializeApp",
+        "isAsync": true,
+        "category": "auth"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "initializeSocket",
+        "isAsync": false,
+        "category": "auth"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "loadWorkspaces",
+        "isAsync": false,
+        "category": "repository"
+      },
+      {
+        "name": "loadStats",
+        "isAsync": true,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "startStatsInterval",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "stopStatsInterval",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "selectWorkspace",
+        "isAsync": false,
+        "category": "repository"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "setupTerminal",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "updateTerminalTabs",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "addTab",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "switchToTab",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "closeTab",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "closeTabLocally",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "createNewTab",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "updateTabInfo",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "processPaneConfiguration",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "convertLayout",
+        "isAsync": true,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "generatePanesFromLayout",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "for",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "for",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "for",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "switch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "switchToPaneTab",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "addTabToPane",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "removeTabFromPane",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "closePane",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "forEach",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "getTabName",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "startTabDrag",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "endTabDrag",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "handleTabDrop",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "updateViewportWidth",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "handleLayoutConverted",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "forEach",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "loadRepositories",
+        "isAsync": true,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "loadMoreRepositories",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "handleRepositorySearch",
+        "isAsync": false,
+        "category": "repository"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "clearRepositorySearch",
+        "isAsync": false,
+        "category": "repository"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "cloneRepository",
+        "isAsync": true,
+        "category": "repository"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "clearCloneState",
+        "isAsync": false,
+        "category": "repository"
+      },
+      {
+        "name": "dismissCloneError",
+        "isAsync": false,
+        "category": "repository"
+      },
+      {
+        "name": "formatDate",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "getLanguageColor",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "formatStars",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "confirmDeleteWorkspace",
+        "isAsync": false,
+        "category": "repository"
+      },
+      {
+        "name": "deleteWorkspace",
+        "isAsync": false,
+        "category": "repository"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "refreshFiles",
+        "isAsync": true,
+        "category": "file"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "toggleFileExplorer",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "handleFileClick",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "handleFileDoubleClick",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "navigateToParent",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "navigateToRoot",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "navigateToSegment",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "showFilePreview",
+        "isAsync": true,
+        "category": "file"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "runCatCommand",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "refreshFilePreview",
+        "isAsync": true,
+        "category": "file"
+      },
+      {
+        "name": "initializeEditor",
+        "isAsync": true,
+        "category": "editor"
+      },
+      {
+        "name": "if",
+        "isAsync": true,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "addEditorKeyboardShortcuts",
+        "isAsync": false,
+        "category": "editor"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "toggleEditMode",
+        "isAsync": true,
+        "category": "editor"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "saveFile",
+        "isAsync": true,
+        "category": "file"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "discardChanges",
+        "isAsync": true,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "confirmDiscardChanges",
+        "isAsync": true,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "performDiscardChanges",
+        "isAsync": true,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "forceCloseModal",
+        "isAsync": false,
+        "category": "ui"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "calculateChangesSummary",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "showNotification",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "closeFilePreviewModal",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "toggleMobileActionsMenu",
+        "isAsync": false,
+        "category": "ui"
+      },
+      {
+        "name": "toggleUtilityActions",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "toggleSecondaryFAB",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "handleFABClick",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "getFileIcon",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "switch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "formatFileSize",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "handleFileContextMenu",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "copyFilePath",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "copyFileName",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "previewContextFile",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "openInTerminal",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "openDirectory",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "copyToClipboard",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "fallbackCopyToClipboard",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "showNotification",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "isTerminalFocused",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "handleFileSearch",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "clearFileSearch",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "handleFileNavigationKeys",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "switch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "scrollToSelectedFile",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "handleRepositoryScroll",
+        "isAsync": false,
+        "category": "repository"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "logout",
+        "isAsync": true,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "getTerminalName",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "focusPane",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "closePane",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "createNewTerminal",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "getRequiredPanesCount",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "switch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "updated",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "showRepositoriesModal",
+        "isAsync": false,
+        "category": "ui"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "beforeUnmount",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      }
+    ],
+    "async": [
+      {
+        "name": "tryInitializeApp",
+        "isAsync": true,
+        "category": "auth"
+      },
+      {
+        "name": "loadAvailableThemes",
+        "isAsync": true,
+        "category": "ui"
+      },
+      {
+        "name": "selectTheme",
+        "isAsync": true,
+        "category": "ui"
+      },
+      {
+        "name": "loadTheme",
+        "isAsync": true,
+        "category": "ui"
+      },
+      {
+        "name": "saveTheme",
+        "isAsync": true,
+        "category": "editor"
+      },
+      {
+        "name": "initializeApp",
+        "isAsync": true,
+        "category": "auth"
+      },
+      {
+        "name": "loadStats",
+        "isAsync": true,
+        "category": "misc"
+      },
+      {
+        "name": "convertLayout",
+        "isAsync": true,
+        "category": "terminal"
+      },
+      {
+        "name": "loadRepositories",
+        "isAsync": true,
+        "category": "misc"
+      },
+      {
+        "name": "cloneRepository",
+        "isAsync": true,
+        "category": "repository"
+      },
+      {
+        "name": "refreshFiles",
+        "isAsync": true,
+        "category": "file"
+      },
+      {
+        "name": "showFilePreview",
+        "isAsync": true,
+        "category": "file"
+      },
+      {
+        "name": "refreshFilePreview",
+        "isAsync": true,
+        "category": "file"
+      },
+      {
+        "name": "initializeEditor",
+        "isAsync": true,
+        "category": "editor"
+      },
+      {
+        "name": "if",
+        "isAsync": true,
+        "category": "misc"
+      },
+      {
+        "name": "toggleEditMode",
+        "isAsync": true,
+        "category": "editor"
+      },
+      {
+        "name": "saveFile",
+        "isAsync": true,
+        "category": "file"
+      },
+      {
+        "name": "discardChanges",
+        "isAsync": true,
+        "category": "misc"
+      },
+      {
+        "name": "confirmDiscardChanges",
+        "isAsync": true,
+        "category": "misc"
+      },
+      {
+        "name": "performDiscardChanges",
+        "isAsync": true,
+        "category": "misc"
+      },
+      {
+        "name": "logout",
+        "isAsync": true,
+        "category": "misc"
+      }
+    ],
+    "sync": [
+      {
+        "name": "createApp",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "filteredFiles",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "pathSegments",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "gridTemplateColumns",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "switch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "gridTemplateRows",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "switch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "showEmptyPanePlaceholder",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "hasActiveModifiers",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "commandPreview",
+        "isAsync": false,
+        "category": "editor"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "recentCommands",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "hasResourceAlerts",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "hasSessionUpdates",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "systemHealthClass",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "systemHealthText",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "getDefaultTheme",
+        "isAsync": false,
+        "category": "ui"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "getFallbackThemes",
+        "isAsync": false,
+        "category": "ui"
+      },
+      {
+        "name": "checkMobile",
+        "isAsync": false,
+        "category": "ui"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "toggleSidebar",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "toggleStats",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "toggleStatsMode",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "setActiveStatsTab",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "focusOnAlert",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "acknowledgeUpdate",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "handleStatsTouch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "getTabIcon",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "closeMobileStats",
+        "isAsync": false,
+        "category": "ui"
+      },
+      {
+        "name": "checkResourceAlerts",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "checkSessionUpdates",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "toggleMobileInput",
+        "isAsync": false,
+        "category": "ui"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "closeMobileInput",
+        "isAsync": false,
+        "category": "ui"
+      },
+      {
+        "name": "toggleModifier",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "clearModifiers",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "sendCommand",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "sendKeyCombo",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "sendQuickAction",
+        "isAsync": false,
+        "category": "ui"
+      },
+      {
+        "name": "switch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "insertCommand",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "for",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "applySuggestion",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "handleInputKeydown",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "handleInputChange",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "updateSuggestions",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "for",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "toggleOverlayMode",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "handleExpandTouch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "setActiveTab",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "toggleHistoryPanel",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "getTimeAgo",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "handleHistorySwipe",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "applyTheme",
+        "isAsync": false,
+        "category": "ui"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "initializeSocket",
+        "isAsync": false,
+        "category": "auth"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "loadWorkspaces",
+        "isAsync": false,
+        "category": "repository"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "startStatsInterval",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "stopStatsInterval",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "selectWorkspace",
+        "isAsync": false,
+        "category": "repository"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "setupTerminal",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "updateTerminalTabs",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "addTab",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "switchToTab",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "closeTab",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "closeTabLocally",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "createNewTab",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "updateTabInfo",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "processPaneConfiguration",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "generatePanesFromLayout",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "for",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "for",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "for",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "switch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "switchToPaneTab",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "addTabToPane",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "removeTabFromPane",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "closePane",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "forEach",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "getTabName",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "startTabDrag",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "endTabDrag",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "handleTabDrop",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "updateViewportWidth",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "handleLayoutConverted",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "forEach",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "loadMoreRepositories",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "handleRepositorySearch",
+        "isAsync": false,
+        "category": "repository"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "clearRepositorySearch",
+        "isAsync": false,
+        "category": "repository"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "clearCloneState",
+        "isAsync": false,
+        "category": "repository"
+      },
+      {
+        "name": "dismissCloneError",
+        "isAsync": false,
+        "category": "repository"
+      },
+      {
+        "name": "formatDate",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "getLanguageColor",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "formatStars",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "confirmDeleteWorkspace",
+        "isAsync": false,
+        "category": "repository"
+      },
+      {
+        "name": "deleteWorkspace",
+        "isAsync": false,
+        "category": "repository"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "toggleFileExplorer",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "handleFileClick",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "handleFileDoubleClick",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "navigateToParent",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "navigateToRoot",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "navigateToSegment",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "runCatCommand",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "addEditorKeyboardShortcuts",
+        "isAsync": false,
+        "category": "editor"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "forceCloseModal",
+        "isAsync": false,
+        "category": "ui"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "calculateChangesSummary",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "showNotification",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "closeFilePreviewModal",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "toggleMobileActionsMenu",
+        "isAsync": false,
+        "category": "ui"
+      },
+      {
+        "name": "toggleUtilityActions",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "toggleSecondaryFAB",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "handleFABClick",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "getFileIcon",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "switch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "formatFileSize",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "handleFileContextMenu",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "copyFilePath",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "copyFileName",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "previewContextFile",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "openInTerminal",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "openDirectory",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "copyToClipboard",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "fallbackCopyToClipboard",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "showNotification",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "isTerminalFocused",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "handleFileSearch",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "clearFileSearch",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "handleFileNavigationKeys",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "switch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "scrollToSelectedFile",
+        "isAsync": false,
+        "category": "file"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "handleRepositoryScroll",
+        "isAsync": false,
+        "category": "repository"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "catch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "getTerminalName",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "focusPane",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "closePane",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "createNewTerminal",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "getRequiredPanesCount",
+        "isAsync": false,
+        "category": "terminal"
+      },
+      {
+        "name": "switch",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "updated",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "showRepositoriesModal",
+        "isAsync": false,
+        "category": "ui"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "beforeUnmount",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      },
+      {
+        "name": "if",
+        "isAsync": false,
+        "category": "misc"
+      }
+    ]
+  },
+  "computed": [
+    {
+      "name": "filteredFiles",
+      "category": "file"
+    },
+    {
+      "name": "trim",
+      "category": "misc"
+    }
+  ],
+  "store_mapping": {
+    "useTerminalStore": {
+      "description": "Terminal management, layouts, panes, tabs",
+      "properties": [
+        {
+          "name": "terminalTabs",
+          "type": "array",
+          "category": "terminal",
+          "defaultValue": "[]",
+          "comment": "NOTE: Terminal management is now handled by TerminalManager service",
+          "line": 7
+        },
+        {
+          "name": "activeTabId",
+          "type": "object",
+          "category": "terminal",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 8
+        },
+        {
+          "name": "currentLayout",
+          "type": "string",
+          "category": "terminal",
+          "defaultValue": "'single'",
+          "comment": "Split pane layout properties",
+          "line": 10
+        },
+        {
+          "name": "activePaneId",
+          "type": "object",
+          "category": "terminal",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 12
+        },
+        {
+          "name": "draggedTab",
+          "type": "object",
+          "category": "terminal",
+          "defaultValue": "null",
+          "comment": "Tab drag and drop state",
+          "line": 14
+        },
+        {
+          "name": "dragOverPane",
+          "type": "object",
+          "category": "terminal",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 15
+        },
+        {
+          "name": "activeStatsTab",
+          "type": "string",
+          "category": "terminal",
+          "defaultValue": "'system'",
+          "comment": "",
+          "line": 40
+        },
+        {
+          "name": "historyPanelOpen",
+          "type": "boolean",
+          "category": "terminal",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 102
+        },
+        {
+          "name": "activeTab",
+          "type": "string",
+          "category": "terminal",
+          "defaultValue": "'actions'",
+          "comment": "",
+          "line": 103
+        }
+      ],
+      "methods": [
+        {
+          "name": "showEmptyPanePlaceholder",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "setActiveStatsTab",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "getTabIcon",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "setActiveTab",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "toggleHistoryPanel",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "setupTerminal",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "updateTerminalTabs",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "addTab",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "switchToTab",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "closeTab",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "closeTabLocally",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "createNewTab",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "updateTabInfo",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "processPaneConfiguration",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "convertLayout",
+          "isAsync": true,
+          "category": "terminal"
+        },
+        {
+          "name": "generatePanesFromLayout",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "switchToPaneTab",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "addTabToPane",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "removeTabFromPane",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "closePane",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "getTabName",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "startTabDrag",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "endTabDrag",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "handleTabDrop",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "handleLayoutConverted",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "openInTerminal",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "isTerminalFocused",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "getTerminalName",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "focusPane",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "closePane",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "createNewTerminal",
+          "isAsync": false,
+          "category": "terminal"
+        },
+        {
+          "name": "getRequiredPanesCount",
+          "isAsync": false,
+          "category": "terminal"
+        }
+      ]
+    },
+    "useRepositoryStore": {
+      "description": "Repository cloning, workspace management",
+      "properties": [
+        {
+          "name": "workspaces",
+          "type": "array",
+          "category": "repository",
+          "defaultValue": "[]",
+          "comment": "",
+          "line": 18
+        },
+        {
+          "name": "selectedWorkspace",
+          "type": "object",
+          "category": "repository",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 19
+        },
+        {
+          "name": "repositoryError",
+          "type": "object",
+          "category": "repository",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 22
+        },
+        {
+          "name": "repositoryPage",
+          "type": "number",
+          "category": "repository",
+          "defaultValue": "1",
+          "comment": "",
+          "line": 23
+        },
+        {
+          "name": "repositoryHasMore",
+          "type": "boolean",
+          "category": "repository",
+          "defaultValue": "true",
+          "comment": "",
+          "line": 24
+        },
+        {
+          "name": "repositoryLoadingMore",
+          "type": "boolean",
+          "category": "repository",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 25
+        },
+        {
+          "name": "repositorySearchTerm",
+          "type": "string",
+          "category": "repository",
+          "defaultValue": "''",
+          "comment": "",
+          "line": 27
+        },
+        {
+          "name": "cloningRepository",
+          "type": "object",
+          "category": "repository",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 30
+        },
+        {
+          "name": "workspaceToDelete",
+          "type": "object",
+          "category": "repository",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 48
+        },
+        {
+          "name": "deletingWorkspace",
+          "type": "boolean",
+          "category": "repository",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 50
+        }
+      ],
+      "methods": [
+        {
+          "name": "loadWorkspaces",
+          "isAsync": false,
+          "category": "repository"
+        },
+        {
+          "name": "selectWorkspace",
+          "isAsync": false,
+          "category": "repository"
+        },
+        {
+          "name": "handleRepositorySearch",
+          "isAsync": false,
+          "category": "repository"
+        },
+        {
+          "name": "clearRepositorySearch",
+          "isAsync": false,
+          "category": "repository"
+        },
+        {
+          "name": "cloneRepository",
+          "isAsync": true,
+          "category": "repository"
+        },
+        {
+          "name": "clearCloneState",
+          "isAsync": false,
+          "category": "repository"
+        },
+        {
+          "name": "dismissCloneError",
+          "isAsync": false,
+          "category": "repository"
+        },
+        {
+          "name": "confirmDeleteWorkspace",
+          "isAsync": false,
+          "category": "repository"
+        },
+        {
+          "name": "deleteWorkspace",
+          "isAsync": false,
+          "category": "repository"
+        },
+        {
+          "name": "handleRepositoryScroll",
+          "isAsync": false,
+          "category": "repository"
+        }
+      ]
+    },
+    "useFileStore": {
+      "description": "File system, caching, context menus",
+      "properties": [
+        {
+          "name": "deleteFiles",
+          "type": "boolean",
+          "category": "file",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 49
+        },
+        {
+          "name": "fileExplorerEnabled",
+          "type": "boolean",
+          "category": "file",
+          "defaultValue": "true",
+          "comment": "File Explorer",
+          "line": 53
+        },
+        {
+          "name": "fileExplorerCollapsed",
+          "type": "boolean",
+          "category": "file",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 54
+        },
+        {
+          "name": "currentFiles",
+          "type": "array",
+          "category": "file",
+          "defaultValue": "[]",
+          "comment": "",
+          "line": 55
+        },
+        {
+          "name": "currentPath",
+          "type": "string",
+          "category": "file",
+          "defaultValue": "'.'",
+          "comment": "",
+          "line": 56
+        },
+        {
+          "name": "selectedFile",
+          "type": "object",
+          "category": "file",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 57
+        },
+        {
+          "name": "loadingFiles",
+          "type": "boolean",
+          "category": "file",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 58
+        },
+        {
+          "name": "fileError",
+          "type": "object",
+          "category": "file",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 59
+        },
+        {
+          "name": "showHiddenFiles",
+          "type": "boolean",
+          "category": "file",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 60
+        },
+        {
+          "name": "directoryCache",
+          "type": "Map",
+          "category": "file",
+          "defaultValue": "new Map()",
+          "comment": "",
+          "line": 61
+        },
+        {
+          "name": "fileSearchTerm",
+          "type": "string",
+          "category": "file",
+          "defaultValue": "''",
+          "comment": "",
+          "line": 63
+        },
+        {
+          "name": "fileSearchTimeout",
+          "type": "object",
+          "category": "file",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 64
+        },
+        {
+          "name": "selectedFileIndex",
+          "type": "unknown",
+          "category": "file",
+          "defaultValue": "-1",
+          "comment": "",
+          "line": 65
+        },
+        {
+          "name": "contextMenuFile",
+          "type": "object",
+          "category": "file",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 70
+        },
+        {
+          "name": "showFilePreviewModal",
+          "type": "boolean",
+          "category": "file",
+          "defaultValue": "false",
+          "comment": "Unified File Editor Modal",
+          "line": 72
+        },
+        {
+          "name": "previewFile",
+          "type": "object",
+          "category": "file",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 75
+        }
+      ],
+      "methods": [
+        {
+          "name": "filteredFiles",
+          "isAsync": false,
+          "category": "file"
+        },
+        {
+          "name": "refreshFiles",
+          "isAsync": true,
+          "category": "file"
+        },
+        {
+          "name": "toggleFileExplorer",
+          "isAsync": false,
+          "category": "file"
+        },
+        {
+          "name": "handleFileClick",
+          "isAsync": false,
+          "category": "file"
+        },
+        {
+          "name": "handleFileDoubleClick",
+          "isAsync": false,
+          "category": "file"
+        },
+        {
+          "name": "showFilePreview",
+          "isAsync": true,
+          "category": "file"
+        },
+        {
+          "name": "refreshFilePreview",
+          "isAsync": true,
+          "category": "file"
+        },
+        {
+          "name": "saveFile",
+          "isAsync": true,
+          "category": "file"
+        },
+        {
+          "name": "closeFilePreviewModal",
+          "isAsync": false,
+          "category": "file"
+        },
+        {
+          "name": "getFileIcon",
+          "isAsync": false,
+          "category": "file"
+        },
+        {
+          "name": "formatFileSize",
+          "isAsync": false,
+          "category": "file"
+        },
+        {
+          "name": "handleFileContextMenu",
+          "isAsync": false,
+          "category": "file"
+        },
+        {
+          "name": "copyFilePath",
+          "isAsync": false,
+          "category": "file"
+        },
+        {
+          "name": "copyFileName",
+          "isAsync": false,
+          "category": "file"
+        },
+        {
+          "name": "previewContextFile",
+          "isAsync": false,
+          "category": "file"
+        },
+        {
+          "name": "openDirectory",
+          "isAsync": false,
+          "category": "file"
+        },
+        {
+          "name": "handleFileSearch",
+          "isAsync": false,
+          "category": "file"
+        },
+        {
+          "name": "clearFileSearch",
+          "isAsync": false,
+          "category": "file"
+        },
+        {
+          "name": "handleFileNavigationKeys",
+          "isAsync": false,
+          "category": "file"
+        },
+        {
+          "name": "scrollToSelectedFile",
+          "isAsync": false,
+          "category": "file"
+        }
+      ]
+    },
+    "useEditorStore": {
+      "description": "File editing, preview, unsaved changes",
+      "properties": [
+        {
+          "name": "previewData",
+          "type": "object",
+          "category": "editor",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 76
+        },
+        {
+          "name": "previewLoading",
+          "type": "boolean",
+          "category": "editor",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 77
+        },
+        {
+          "name": "previewError",
+          "type": "object",
+          "category": "editor",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 78
+        },
+        {
+          "name": "editMode",
+          "type": "boolean",
+          "category": "editor",
+          "defaultValue": "false",
+          "comment": "Editor state",
+          "line": 86
+        },
+        {
+          "name": "editorInstance",
+          "type": "object",
+          "category": "editor",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 87
+        },
+        {
+          "name": "editorKeyboardHandler",
+          "type": "object",
+          "category": "editor",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 92
+        }
+      ],
+      "methods": [
+        {
+          "name": "commandPreview",
+          "isAsync": false,
+          "category": "editor"
+        },
+        {
+          "name": "saveTheme",
+          "isAsync": true,
+          "category": "editor"
+        },
+        {
+          "name": "initializeEditor",
+          "isAsync": true,
+          "category": "editor"
+        },
+        {
+          "name": "addEditorKeyboardShortcuts",
+          "isAsync": false,
+          "category": "editor"
+        },
+        {
+          "name": "toggleEditMode",
+          "isAsync": true,
+          "category": "editor"
+        }
+      ]
+    },
+    "useUIStore": {
+      "description": "Theme management, modals, UI state",
+      "properties": [
+        {
+          "name": "showRepositoriesModal",
+          "type": "boolean",
+          "category": "ui",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 29
+        },
+        {
+          "name": "showThemeModal",
+          "type": "boolean",
+          "category": "ui",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 44
+        },
+        {
+          "name": "currentTheme",
+          "type": "unknown",
+          "category": "ui",
+          "defaultValue": "this.getDefaultTheme()",
+          "comment": "",
+          "line": 45
+        },
+        {
+          "name": "availableThemes",
+          "type": "array",
+          "category": "ui",
+          "defaultValue": "[]",
+          "comment": "",
+          "line": 46
+        },
+        {
+          "name": "showDeleteModal",
+          "type": "boolean",
+          "category": "ui",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 47
+        },
+        {
+          "name": "showContextMenu",
+          "type": "boolean",
+          "category": "ui",
+          "defaultValue": "false",
+          "comment": "Context Menu",
+          "line": 67
+        },
+        {
+          "name": "showDiscardModal",
+          "type": "boolean",
+          "category": "ui",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 73
+        },
+        {
+          "name": "showMobileActionsMenu",
+          "type": "boolean",
+          "category": "ui",
+          "defaultValue": "false",
+          "comment": "Mobile Actions Menu",
+          "line": 81
+        },
+        {
+          "name": "showUtilityActions",
+          "type": "boolean",
+          "category": "ui",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 82
+        },
+        {
+          "name": "showSecondaryFAB",
+          "type": "boolean",
+          "category": "ui",
+          "defaultValue": "false",
+          "comment": "Floating Action Button System",
+          "line": 84
+        },
+        {
+          "name": "errorMessage",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 4
+        },
+        {
+          "name": "socket",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 5
+        },
+        {
+          "name": "panes",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[]",
+          "comment": "",
+          "line": 11
+        },
+        {
+          "name": "viewportWidth",
+          "type": "unknown",
+          "category": "misc",
+          "defaultValue": "window.innerWidth",
+          "comment": "",
+          "line": 16
+        },
+        {
+          "name": "layoutRecommendations",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "{ supported: [], recommended: 'single' }",
+          "comment": "",
+          "line": 17
+        },
+        {
+          "name": "repositories",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[]",
+          "comment": "",
+          "line": 20
+        },
+        {
+          "name": "repositoriesLoading",
+          "type": "boolean",
+          "category": "misc",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 21
+        },
+        {
+          "name": "scrollTimeout",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 26
+        },
+        {
+          "name": "searchTimeout",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 28
+        },
+        {
+          "name": "cloneProgress",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 31
+        },
+        {
+          "name": "cloneError",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 32
+        },
+        {
+          "name": "stats",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "{}",
+          "comment": "",
+          "line": 33
+        },
+        {
+          "name": "statsInterval",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 34
+        },
+        {
+          "name": "sidebarOpen",
+          "type": "boolean",
+          "category": "misc",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 36
+        },
+        {
+          "name": "statsOpen",
+          "type": "boolean",
+          "category": "misc",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 37
+        },
+        {
+          "name": "statsExpanded",
+          "type": "boolean",
+          "category": "misc",
+          "defaultValue": "false",
+          "comment": "Mobile Stats Interface",
+          "line": 39
+        },
+        {
+          "name": "resourceAlerts",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[]",
+          "comment": "",
+          "line": 41
+        },
+        {
+          "name": "sessionUpdates",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[]",
+          "comment": "",
+          "line": 42
+        },
+        {
+          "name": "lastSessionCount",
+          "type": "number",
+          "category": "misc",
+          "defaultValue": "0",
+          "comment": "",
+          "line": 43
+        },
+        {
+          "name": "connectionError",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 51
+        },
+        {
+          "name": "cacheTimeout",
+          "type": "unknown",
+          "category": "misc",
+          "defaultValue": "5 * 60 * 1000",
+          "comment": "",
+          "line": 62
+        },
+        {
+          "name": "contextMenuX",
+          "type": "number",
+          "category": "misc",
+          "defaultValue": "0",
+          "comment": "",
+          "line": 68
+        },
+        {
+          "name": "contextMenuY",
+          "type": "number",
+          "category": "misc",
+          "defaultValue": "0",
+          "comment": "",
+          "line": 69
+        },
+        {
+          "name": "discardAction",
+          "type": "string",
+          "category": "misc",
+          "defaultValue": "'exitEdit'",
+          "comment": "",
+          "line": 74
+        },
+        {
+          "name": "changesSummary",
+          "type": "string",
+          "category": "misc",
+          "defaultValue": "''",
+          "comment": "",
+          "line": 79
+        },
+        {
+          "name": "originalContent",
+          "type": "string",
+          "category": "misc",
+          "defaultValue": "''",
+          "comment": "",
+          "line": 88
+        },
+        {
+          "name": "hasUnsavedChanges",
+          "type": "boolean",
+          "category": "misc",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 89
+        },
+        {
+          "name": "saving",
+          "type": "boolean",
+          "category": "misc",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 90
+        },
+        {
+          "name": "saveError",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 91
+        },
+        {
+          "name": "activeModifiers",
+          "type": "object",
+          "category": "misc",
+          "defaultValue": "{ ctrl: false, alt: false, shift: false }",
+          "comment": "",
+          "line": 96
+        },
+        {
+          "name": "commandHistory",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[]",
+          "comment": "",
+          "line": 97
+        },
+        {
+          "name": "suggestions",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[]",
+          "comment": "",
+          "line": 98
+        },
+        {
+          "name": "overlayExpanded",
+          "type": "boolean",
+          "category": "misc",
+          "defaultValue": "false",
+          "comment": "New Compact Interface Properties",
+          "line": 100
+        },
+        {
+          "name": "contextualMode",
+          "type": "boolean",
+          "category": "misc",
+          "defaultValue": "true",
+          "comment": "",
+          "line": 101
+        },
+        {
+          "name": "essentialActions",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[",
+          "comment": "",
+          "line": 104
+        },
+        {
+          "name": "topCommands",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[",
+          "comment": "",
+          "line": 110
+        },
+        {
+          "name": "frequentLetters",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "['C', 'Z', 'X', 'V', 'A', 'S', 'D', 'F', 'Q', 'W', 'E', 'R']",
+          "comment": "",
+          "line": 116
+        },
+        {
+          "name": "quickActions",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[",
+          "comment": "",
+          "line": 119
+        },
+        {
+          "name": "commonCommands",
+          "type": "array",
+          "category": "misc",
+          "defaultValue": "[",
+          "comment": "",
+          "line": 131
+        },
+        {
+          "name": "isMobile",
+          "type": "boolean",
+          "category": "mobile",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 35
+        },
+        {
+          "name": "mobileInputOpen",
+          "type": "boolean",
+          "category": "mobile",
+          "defaultValue": "false",
+          "comment": "Mobile Input Proxy",
+          "line": 94
+        },
+        {
+          "name": "mobileInputText",
+          "type": "string",
+          "category": "mobile",
+          "defaultValue": "''",
+          "comment": "",
+          "line": 95
+        },
+        {
+          "name": "touchStartTime",
+          "type": "number",
+          "category": "mobile",
+          "defaultValue": "0",
+          "comment": "",
+          "line": 117
+        },
+        {
+          "name": "swipeStartY",
+          "type": "number",
+          "category": "mobile",
+          "defaultValue": "0",
+          "comment": "",
+          "line": 118
+        }
+      ],
+      "methods": [
+        {
+          "name": "getDefaultTheme",
+          "isAsync": false,
+          "category": "ui"
+        },
+        {
+          "name": "loadAvailableThemes",
+          "isAsync": true,
+          "category": "ui"
+        },
+        {
+          "name": "getFallbackThemes",
+          "isAsync": false,
+          "category": "ui"
+        },
+        {
+          "name": "checkMobile",
+          "isAsync": false,
+          "category": "ui"
+        },
+        {
+          "name": "closeMobileStats",
+          "isAsync": false,
+          "category": "ui"
+        },
+        {
+          "name": "toggleMobileInput",
+          "isAsync": false,
+          "category": "ui"
+        },
+        {
+          "name": "closeMobileInput",
+          "isAsync": false,
+          "category": "ui"
+        },
+        {
+          "name": "sendQuickAction",
+          "isAsync": false,
+          "category": "ui"
+        },
+        {
+          "name": "selectTheme",
+          "isAsync": true,
+          "category": "ui"
+        },
+        {
+          "name": "applyTheme",
+          "isAsync": false,
+          "category": "ui"
+        },
+        {
+          "name": "loadTheme",
+          "isAsync": true,
+          "category": "ui"
+        },
+        {
+          "name": "forceCloseModal",
+          "isAsync": false,
+          "category": "ui"
+        },
+        {
+          "name": "toggleMobileActionsMenu",
+          "isAsync": false,
+          "category": "ui"
+        },
+        {
+          "name": "showRepositoriesModal",
+          "isAsync": false,
+          "category": "ui"
+        }
+      ]
+    },
+    "useAuthStore": {
+      "description": "Authentication, user management",
+      "properties": [
+        {
+          "name": "isAuthenticated",
+          "type": "boolean",
+          "category": "auth",
+          "defaultValue": "false",
+          "comment": "",
+          "line": 2
+        },
+        {
+          "name": "username",
+          "type": "object",
+          "category": "auth",
+          "defaultValue": "null",
+          "comment": "",
+          "line": 3
+        }
+      ],
+      "methods": [
+        {
+          "name": "tryInitializeApp",
+          "isAsync": true,
+          "category": "auth"
+        },
+        {
+          "name": "initializeApp",
+          "isAsync": true,
+          "category": "auth"
+        },
+        {
+          "name": "initializeSocket",
+          "isAsync": false,
+          "category": "auth"
+        }
+      ]
+    }
+  }
+}

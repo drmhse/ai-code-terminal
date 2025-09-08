@@ -49,3 +49,5 @@ _*.md
 ehthumbs.db
 Thumbs.db
 website/public
+rust/*/target
+rust/*/data
