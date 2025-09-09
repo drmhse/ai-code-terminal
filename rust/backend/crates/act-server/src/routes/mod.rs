@@ -32,6 +32,7 @@ pub fn api_routes() -> Router<AppState> {
 fn auth_routes() -> Router<AppState> {
     Router::new()
         .route("/status", axum::routing::get(auth::get_auth_status))
+        .route("/validate", axum::routing::get(auth::validate_auth))
         .route("/logout", axum::routing::post(auth::logout))
         .route("/me", axum::routing::get(auth::get_current_user))
         .route("/github/callback", axum::routing::get(auth::handle_github_callback))

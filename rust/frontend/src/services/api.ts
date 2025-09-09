@@ -55,8 +55,9 @@ class ApiService {
   }
 
   // Workspace endpoints
-  async getWorkspaces(): Promise<Workspace[]> {
-    const response: AxiosResponse<ApiResponse<Workspace[]>> = await this.client.get('/api/v1/workspaces')
+  async getWorkspaces(ownerId?: string): Promise<Workspace[]> {
+    const params = ownerId ? { owner_id: ownerId } : undefined
+    const response: AxiosResponse<ApiResponse<Workspace[]>> = await this.client.get('/api/v1/workspaces', { params })
     return response.data.data
   }
 
@@ -82,13 +83,18 @@ class ApiService {
 
   // Repository endpoints
   async getRepositories(page = 1, searchTerm = ''): Promise<{ repositories: Repository[], hasMore: boolean }> {
-    const response: AxiosResponse<ApiResponse<{ repositories: Repository[], hasMore: boolean }>> = 
-      await this.client.get('/api/v1/github/repositories', {
-        params: { page, search: searchTerm }
-      })
+    const response = await this.client.get('/api/v1/github/repositories', {
+      params: { page, search: searchTerm }
+    })
+    
+    // Validate response structure
+    if (!response.data || !response.data.data || !response.data.data.repositories) {
+      throw new Error('Invalid response structure from repositories API')
+    }
+    
     return {
-      repositories: response.data.data.repositories,
-      hasMore: response.data.pagination.has_more
+      repositories: response.data.data.repositories || [],
+      hasMore: response.data.pagination?.has_more || false
     }
   }
 
@@ -103,6 +109,14 @@ class ApiService {
   // File system endpoints
   async getDirectoryContents(path: string): Promise<FileItem[]> {
     const response: AxiosResponse<ApiResponse<FileItem[]>> = await this.client.get('/api/v1/files', {
+      params: { path }
+    })
+    return response.data.data
+  }
+
+  // Workspace-specific file system endpoints
+  async getWorkspaceDirectoryContents(workspaceId: string, path: string = ''): Promise<FileItem[]> {
+    const response: AxiosResponse<ApiResponse<FileItem[]>> = await this.client.get(`/api/v1/workspaces/${workspaceId}/files`, {
       params: { path }
     })
     return response.data.data

@@ -117,6 +117,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links'
 import { useWorkspaceStore } from '../stores/workspace'
 import { useTerminalStore } from '../stores/terminal'
 import { socketService } from '../services/socket'
+import { apiService } from '../services/api'
 import type { TerminalTheme } from '../types/terminal'
 
 const workspaceStore = useWorkspaceStore()
@@ -345,8 +346,30 @@ onMounted(async () => {
   await initializeSocketConnection()
   
   // Initialize terminal when a workspace is selected
-  if (workspaceStore.selectedWorkspace && terminalStore.panes.length === 0) {
-    await createNewTerminal()
+  if (workspaceStore.selectedWorkspace) {
+    // First, try to load existing sessions
+    try {
+      const existingSessions = await apiService.getSessions(workspaceStore.selectedWorkspace.id)
+      if (existingSessions.length > 0) {
+        console.log(`Found ${existingSessions.length} existing sessions, attempting to recover them`)
+        // TODO: Implement session recovery logic
+        // For now, just log the sessions
+        existingSessions.forEach(session => {
+          console.log(`Session: ${session.id}, Status: ${session.status}, Name: ${session.session_name}`)
+        })
+      }
+      
+      // If no existing sessions or panes, create a new terminal
+      if (terminalStore.panes.length === 0) {
+        await createNewTerminal()
+      }
+    } catch (error) {
+      console.warn('Failed to load existing sessions:', error)
+      // Fallback to creating new terminal
+      if (terminalStore.panes.length === 0) {
+        await createNewTerminal()
+      }
+    }
   }
 
   // Initialize existing terminals

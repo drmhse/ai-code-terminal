@@ -34,6 +34,13 @@ pub struct AuthStatusResponse {
 }
 
 #[derive(Debug, Serialize)]
+pub struct AuthValidationResponse {
+    valid: bool,
+    reason: Option<String>,
+    message: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
 pub struct GitHubCallbackResponse {
     success: bool,
     access_token: String,
@@ -387,6 +394,150 @@ pub async fn get_current_user(
     };
     
     Ok(Json(ApiResponse::success(user_info)))
+}
+
+pub async fn validate_auth(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap
+) -> Result<Json<AuthValidationResponse>, axum::response::Response<axum::body::Body>> {
+    let auth_header = match headers.get("authorization") {
+        Some(header) => header,
+        None => {
+            return Ok(Json(AuthValidationResponse {
+                valid: false,
+                reason: Some("no_token".to_string()),
+                message: Some("No authentication token provided".to_string()),
+            }));
+        }
+    };
+    
+    let auth_str = match auth_header.to_str() {
+        Ok(str) => str,
+        Err(_) => {
+            return Ok(Json(AuthValidationResponse {
+                valid: false,
+                reason: Some("invalid_header".to_string()),
+                message: Some("Invalid authorization header format".to_string()),
+            }));
+        }
+    };
+    
+    if !auth_str.starts_with("Bearer ") {
+        return Ok(Json(AuthValidationResponse {
+            valid: false,
+            reason: Some("invalid_format".to_string()),
+            message: Some("Authorization header must start with 'Bearer '".to_string()),
+        }));
+    }
+    
+    let token = &auth_str[7..];
+    
+    // Validate JWT token
+    let claims = match decode::<Claims>(
+        token,
+        &DecodingKey::from_secret(state.config.auth.jwt_secret.as_ref()),
+        &Validation::default()
+    ) {
+        Ok(token_data) => token_data.claims,
+        Err(_) => {
+            return Ok(Json(AuthValidationResponse {
+                valid: false,
+                reason: Some("jwt_invalid".to_string()),
+                message: Some("Invalid JWT token".to_string()),
+            }));
+        }
+    };
+    
+    // Check if JWT is expired
+    let now = chrono::Utc::now().timestamp() as usize;
+    if claims.exp < now {
+        return Ok(Json(AuthValidationResponse {
+            valid: false,
+            reason: Some("jwt_expired".to_string()),
+            message: Some("JWT token has expired".to_string()),
+        }));
+    }
+    
+    let github_service = GitHubService::new(Arc::new(state.config.clone()))
+        .map_err(|e| {
+            error!("Failed to initialize GitHub service: {}", e);
+            create_error_response(500, "Internal server error", &e.to_string())
+        })?;
+    
+    let settings_service = SettingsService::new(state.db.clone());
+    
+    // Check if GitHub token exists
+    let github_token = match settings_service.get_github_token(&github_service).await {
+        Ok(Some(token)) => token,
+        Ok(None) => {
+            return Ok(Json(AuthValidationResponse {
+                valid: false,
+                reason: Some("github_token_missing".to_string()),
+                message: Some("GitHub session expired. Please re-authenticate.".to_string()),
+            }));
+        }
+        Err(_) => {
+            return Ok(Json(AuthValidationResponse {
+                valid: false,
+                reason: Some("github_token_error".to_string()),
+                message: Some("Failed to retrieve GitHub token".to_string()),
+            }));
+        }
+    };
+    
+    // Check if GitHub token is expired
+    if let Ok(true) = settings_service.is_github_token_expired().await {
+        // Try to refresh the token
+        if let Ok(Some(refresh_token)) = settings_service.get_github_refresh_token(&github_service).await {
+            match github_service.refresh_access_token(&refresh_token).await {
+                Ok(new_token_result) => {
+                    // Update tokens in database
+                    if let Err(_) = settings_service.update_github_tokens(
+                        &github_service,
+                        Some(&new_token_result.access_token),
+                        new_token_result.refresh_token.as_deref(),
+                        Some(new_token_result.expires_at),
+                    ).await {
+                        return Ok(Json(AuthValidationResponse {
+                            valid: false,
+                            reason: Some("token_refresh_failed".to_string()),
+                            message: Some("Failed to refresh GitHub token".to_string()),
+                        }));
+                    }
+                    info!("Successfully refreshed GitHub token for user {}", claims.username);
+                }
+                Err(_) => {
+                    return Ok(Json(AuthValidationResponse {
+                        valid: false,
+                        reason: Some("github_token_expired".to_string()),
+                        message: Some("GitHub token expired and could not be refreshed. Please re-authenticate.".to_string()),
+                    }));
+                }
+            }
+        } else {
+            return Ok(Json(AuthValidationResponse {
+                valid: false,
+                reason: Some("github_token_expired".to_string()),
+                message: Some("GitHub token expired. Please re-authenticate.".to_string()),
+            }));
+        }
+    }
+    
+    // Validate GitHub token with GitHub API
+    if !github_service.validate_token(&github_token).await {
+        return Ok(Json(AuthValidationResponse {
+            valid: false,
+            reason: Some("github_token_invalid".to_string()),
+            message: Some("GitHub token is invalid. Please re-authenticate.".to_string()),
+        }));
+    }
+    
+    // All validations passed
+    Ok(Json(AuthValidationResponse {
+        valid: true,
+        reason: None,
+        message: Some("Authentication is valid".to_string()),
+    }))
 }
 
 fn create_error_response(status: u16, error: &str, message: &str) -> axum::response::Response<axum::body::Body> {

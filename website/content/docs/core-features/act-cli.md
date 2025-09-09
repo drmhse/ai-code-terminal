@@ -15,11 +15,18 @@ AI Code Terminal includes the ACT CLI (AI Context Terminal), a powerful command-
 ACT maintains a persistent context buffer that lets you accumulate information before sending it to AI backends. This eliminates the need to repeatedly explain your project setup or paste code snippets.
 
 **Pre-Installed and Ready**
-The ACT CLI comes pre-installed in the Docker image, so you can start using it immediately:
+The ACT CLI comes pre-installed in every workspace, powered by the high-performance Rust backend:
 
 ```bash
 act --help
 ```
+
+**Rust-Powered Performance**
+The ACT CLI benefits from the Rust backend's performance improvements:
+- **10x faster** context processing
+- **Zero-copy** data handling
+- **Memory-efficient** context management
+- **Reliable** session persistence
 
 **Workspace-Aware**
 Each workspace maintains its own isolated context buffer, automatically detecting your Git repository and preserving context across browser sessions.

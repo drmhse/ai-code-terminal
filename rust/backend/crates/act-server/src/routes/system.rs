@@ -11,7 +11,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use sysinfo::{System, Disks};
-use tracing::{info, error};
+use tracing::{error, debug};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SystemStats {
@@ -35,7 +35,7 @@ pub fn routes() -> Router<AppState> {
 pub async fn get_system_stats(
     State(state): State<AppState>
 ) -> Result<Json<ApiResponse<SystemStats>>, StatusCode> {
-    info!("System stats requested");
+    debug!("System stats requested");
     
     let mut sys = System::new_all();
     sys.refresh_all();
@@ -97,6 +97,6 @@ pub async fn get_system_stats(
         load_average: Some(load_average.one as f32),
     };
     
-    info!("System stats retrieved successfully");
+    debug!("System stats retrieved successfully");
     Ok(Json(ApiResponse::success(stats)))
 }

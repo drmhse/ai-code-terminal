@@ -315,6 +315,13 @@ impl FileSystemService {
             path
         };
 
+        // Handle special case for root directory
+        let clean_path = if clean_path == "." || clean_path.is_empty() {
+            ""
+        } else {
+            clean_path
+        };
+
         // Additional validation: check for excessive path length
         if clean_path.len() > 4096 {
             return Err(anyhow!("Path too long: exceeds 4096 characters"));
@@ -330,8 +337,10 @@ impl FileSystemService {
             Ok(path) => path,
             Err(_) => {
                 // If canonicalize fails, the path might not exist yet (e.g., for file creation)
-                // In this case, canonicalize the parent directory
-                if let Some(parent) = full_path.parent() {
+                // Special case: if the full_path equals workspace_root, use canonical_workspace
+                if full_path == self.workspace_root {
+                    canonical_workspace.clone()
+                } else if let Some(parent) = full_path.parent() {
                     let canonical_parent = parent.canonicalize()
                         .map_err(|e| anyhow!("Failed to canonicalize parent directory: {}", e))?;
                     canonical_parent.join(full_path.file_name().unwrap_or_default())
@@ -351,10 +360,19 @@ impl FileSystemService {
     }
 
     fn get_relative_path(&self, full_path: &Path) -> Result<String> {
-        let relative = full_path.strip_prefix(&self.workspace_root)
+        // Use canonicalized workspace root for consistent comparison
+        let canonical_workspace = self.workspace_root.canonicalize()
+            .map_err(|e| anyhow!("Failed to canonicalize workspace root: {}", e))?;
+        
+        let relative = full_path.strip_prefix(&canonical_workspace)
             .map_err(|_| anyhow!("Path is outside workspace"))?;
         
-        Ok(format!("/{}", relative.to_string_lossy()))
+        if relative.as_os_str().is_empty() {
+            // Root directory case
+            Ok("/".to_string())
+        } else {
+            Ok(format!("/{}", relative.to_string_lossy()))
+        }
     }
 
     async fn is_binary_file(&self, path: &Path) -> Result<bool> {

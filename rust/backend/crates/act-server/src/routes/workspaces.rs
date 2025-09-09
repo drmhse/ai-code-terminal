@@ -13,7 +13,7 @@ use axum::{
 };
 use serde::Deserialize;
 use std::path::PathBuf;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -27,6 +27,12 @@ pub fn routes() -> Router<AppState> {
         .route("/:workspace_id/git/history", get(get_git_history))
         .route("/:workspace_id/access", post(update_last_accessed))
         .route("/:workspace_id/sessions", get(get_workspace_sessions))
+        .route("/:workspace_id/files", get(crate::routes::files::list_directory_workspace))
+        .route("/:workspace_id/files/content", get(crate::routes::files::read_file_workspace))
+        .route("/:workspace_id/files/content", put(crate::routes::files::save_file_workspace))
+        .route("/:workspace_id/files", post(crate::routes::files::create_file_workspace))
+        .route("/:workspace_id/files", delete(crate::routes::files::delete_file_workspace))
+        .route("/:workspace_id/files/rename", put(crate::routes::files::rename_file_workspace))
 }
 
 #[derive(Debug, Deserialize)]
@@ -182,28 +188,37 @@ pub async fn clone_repository(
 ) -> Result<Json<ApiResponse<Workspace>>, StatusCode> {
     info!("Repository clone requested: {} -> {}", request.git_url, request.name);
     
-    let github_service = GitHubService::new(std::sync::Arc::new(state.config.clone()))
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    
-    let settings_service = SettingsService::new(state.db.clone());
-    
-    // Get access token
-    let access_token = match settings_service.get_github_token(&github_service).await {
-        Ok(Some(token)) => token,
-        Ok(None) => {
-            error!("GitHub token not found");
-            return Err(StatusCode::UNAUTHORIZED);
-        }
-        Err(e) => {
-            error!("Failed to get GitHub token: {}", e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
-    
     let workspace_root = PathBuf::from("./workspaces");
     let workspace_service = WorkspaceService::new(state.db.clone(), workspace_root);
     
-    match workspace_service.clone_repository(request, &access_token).await {
+    // Try to get GitHub token if available for private repositories
+    let access_token = if let Ok(github_service) = GitHubService::new(std::sync::Arc::new(state.config.clone())) {
+        let settings_service = SettingsService::new(state.db.clone());
+        match settings_service.get_github_token(&github_service).await {
+            Ok(Some(token)) => Some(token),
+            Ok(None) => {
+                info!("No GitHub token found, proceeding without authentication");
+                None
+            }
+            Err(e) => {
+                warn!("Failed to get GitHub token: {}, proceeding without authentication", e);
+                None
+            }
+        }
+    } else {
+        info!("GitHub service not configured, proceeding without authentication");
+        None
+    };
+    
+    // Clone with or without authentication
+    let result = if let Some(token) = access_token {
+        workspace_service.clone_repository(request, &token).await
+    } else {
+        // For public repos or when no token is available, try without authentication
+        workspace_service.clone_repository_without_auth(request).await
+    };
+    
+    match result {
         Ok(workspace) => {
             info!("Repository cloned successfully: {}", workspace.id);
             Ok(Json(ApiResponse::success(workspace)))

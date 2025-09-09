@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed, readonly } from 'vue'
+import { ref, computed, readonly, onMounted, onUnmounted } from 'vue'
 import type { User } from '@/types'
 import { apiService } from '@/services/api'
 import { socketService } from '@/services/socket'
@@ -33,7 +33,7 @@ export const useAuthStore = defineStore('auth', () => {
   
   // System stats
   const stats = ref<AppStats | null>(null)
-  const statsInterval = ref<number | null>(null)
+  const statsListener = ref<((event: Event) => void) | null>(null)
 
   const isAuthenticated = computed(() => !!token.value && !!user.value)
   const hasStats = computed(() => !!stats.value)
@@ -97,11 +97,12 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null
     errorMessage.value = null
     
-    // Stop stats polling
-    if (statsInterval.value) {
-      clearInterval(statsInterval.value)
-      statsInterval.value = null
+    // Unsubscribe from WebSocket stats and clean up listener
+    if (statsListener.value) {
+      window.removeEventListener('stats:data', statsListener.value)
+      statsListener.value = null
     }
+    socketService.unsubscribeFromStats()
     stats.value = null
     
     localStorage.removeItem('jwt_token')
@@ -118,8 +119,28 @@ export const useAuthStore = defineStore('auth', () => {
     return `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=user:email repo read:org&state=${state}`
   }
 
-  const checkAuthStatus = () => {
+  const checkAuthStatus = async () => {
+    // Initialize from localStorage first
     initializeAuth()
+    
+    // If we have a token, validate it and establish connections
+    if (token.value && user.value) {
+      try {
+        // Validate token by fetching current user
+        await fetchCurrentUser()
+        await connectWebSocket()
+        
+        // Initialize app after successful authentication
+        if (user.value) {
+          username.value = user.value.login || null
+          await initializeApp()
+        }
+      } catch (error) {
+        console.error('Auth validation failed on reload:', error)
+        // Token is invalid, clear it
+        logout()
+      }
+    }
   }
 
   const setToken = async (authToken: string) => {
@@ -176,21 +197,11 @@ export const useAuthStore = defineStore('auth', () => {
     }
     
     try {
-      // Load initial stats
-      await loadStats()
+      // Set up WebSocket stats subscription
+      setupStatsSubscription()
       
-      // Start stats polling (every 5 seconds)
-      if (statsInterval.value) {
-        clearInterval(statsInterval.value)
-      }
-      
-      statsInterval.value = setInterval(async () => {
-        try {
-          await loadStats()
-        } catch (err) {
-          console.error('Failed to poll stats:', err)
-        }
-      }, 5000)
+      // Subscribe to WebSocket stats (every 5 seconds)
+      socketService.subscribeToStats(5)
       
     } catch (err) {
       console.error('Failed to initialize app:', err)
@@ -198,14 +209,58 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
   
-  const loadStats = async () => {
-    try {
-      const statsData = await apiService.getSystemStats()
-      stats.value = statsData
-    } catch (err) {
-      console.error('Failed to load stats:', err)
-      // Don't throw here to avoid breaking the polling
+  const setupStatsSubscription = () => {
+    // Clean up existing listener
+    if (statsListener.value) {
+      window.removeEventListener('stats:data', statsListener.value)
     }
+    
+    // Create new listener
+    statsListener.value = (event: Event) => {
+      const customEvent = event as CustomEvent
+      const statsData = customEvent.detail
+      
+      // Transform backend stats format to frontend AppStats format
+      if (statsData) {
+        stats.value = {
+          system: {
+            cpu: statsData.cpu_usage || 0,
+            memory: statsData.memory_percentage || 0,
+            disk: statsData.disk_percentage || 0,
+            uptime: statsData.uptime_seconds || 0,
+          },
+          sessions: {
+            active: statsData.active_sessions || 0,
+            total: statsData.active_sessions || 0, // Using active as total for now
+          },
+          workspaces: {
+            count: 0, // This would need to be added to backend stats if needed
+          }
+        }
+      }
+    }
+    
+    // Register listener for WebSocket stats events
+    window.addEventListener('stats:data', statsListener.value)
+    
+    // Also listen for WebSocket auth errors
+    window.addEventListener('websocket:auth_error', (event: Event) => {
+      const customEvent = event as CustomEvent
+      const error = customEvent.detail
+      console.warn('WebSocket authentication error received:', error)
+      
+      // Only logout if JWT is actually invalid/expired
+      if (error.code === 'JWT_EXPIRED' || error.code === 'JWT_INVALID') {
+        console.log('JWT token is invalid, logging out')
+        logout()
+      }
+    })
+  }
+
+  // Keep loadStats for backward compatibility but make it a no-op
+  const loadStats = async () => {
+    // This function is kept for compatibility but stats now come via WebSocket
+    console.debug('loadStats called - stats now streamed via WebSocket')
   }
 
   return {

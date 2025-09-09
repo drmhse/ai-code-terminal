@@ -7,10 +7,20 @@ import { createPinia } from 'pinia'
 
 import App from './App.vue'
 import router from './router'
+import { useAuthStore } from './stores/auth'
 
-const app = createApp(App)
+async function initializeApp() {
+  const app = createApp(App)
+  
+  app.use(createPinia())
+  
+  // Initialize auth store from localStorage before router
+  const authStore = useAuthStore()
+  await authStore.checkAuthStatus()
+  
+  app.use(router)
+  
+  app.mount('#app')
+}
 
-app.use(createPinia())
-app.use(router)
-
-app.mount('#app')
+initializeApp().catch(console.error)

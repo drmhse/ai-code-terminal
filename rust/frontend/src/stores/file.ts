@@ -97,7 +97,7 @@ export const useFileStore = defineStore('file', () => {
     previewError.value = null
   }
 
-  const refreshFiles = async (path?: string, useCache = true) => {
+  const refreshFiles = async (path?: string, useCache = true, workspaceId?: string) => {
     const targetPath = path || currentPath.value
     
     // Check cache first if enabled
@@ -114,7 +114,10 @@ export const useFileStore = defineStore('file', () => {
     fileError.value = null
 
     try {
-      const files = await apiService.getDirectoryContents(targetPath)
+      // Use workspace-specific endpoint if workspaceId is provided
+      const files = workspaceId 
+        ? await apiService.getWorkspaceDirectoryContents(workspaceId, targetPath)
+        : await apiService.getDirectoryContents(targetPath)
       
       // Process files
       const processedFiles: FileItem[] = files.map((file: any) => ({

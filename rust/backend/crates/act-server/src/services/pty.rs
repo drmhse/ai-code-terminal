@@ -99,7 +99,6 @@ impl PtyService {
                 match reader.read(&mut buffer) {
                     Ok(n) if n > 0 => {
                         let output = String::from_utf8_lossy(&buffer[..n]).to_string();
-                        debug!("PTY output for session {}: {} bytes", read_session_id, n);
                         
                         if let Err(err) = read_output_tx.send(output) {
                             error!("Failed to send PTY output for session {}: {}", read_session_id, err);
@@ -107,7 +106,6 @@ impl PtyService {
                         }
                     }
                     Ok(_) => {
-                        debug!("PTY read returned 0 bytes for session {}", read_session_id);
                         thread::sleep(Duration::from_millis(10));
                     }
                     Err(err) => {
@@ -116,7 +114,7 @@ impl PtyService {
                     }
                 }
             }
-            info!("PTY read thread ended for session {}", read_session_id);
+            debug!("PTY read thread ended for session {}", read_session_id);
         });
 
         // Take the writer for the PTY
@@ -142,7 +140,7 @@ impl PtyService {
                         }
                     }
                 }
-                info!("PTY write thread ended for session {}", write_session_id);
+                debug!("PTY write thread ended for session {}", write_session_id);
             });
         });
 

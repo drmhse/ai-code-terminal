@@ -88,19 +88,34 @@ impl WorkspaceService {
 
         // Insert into database
         let settings_json = serde_json::to_string(&workspace.settings)?;
+        
+        // Extract github_repo from git URL if available
+        let github_repo = if let Some(ref git_url) = workspace.git_url {
+            if let Some(repo_path) = git_url.strip_prefix("https://github.com/") {
+                repo_path.strip_suffix(".git").unwrap_or(repo_path).to_string()
+            } else {
+                git_url.clone()
+            }
+        } else {
+            // For non-git workspaces, use workspace name as fallback
+            workspace.name.clone()
+        };
 
         sqlx::query(
             r#"
             INSERT INTO workspaces (
-                id, name, description, path, git_url, git_branch, git_commit, 
+                id, name, github_repo, description, local_path, path, github_url, git_url, git_branch, git_commit, 
                 is_git_repo, owner_id, created_at, updated_at, last_accessed, settings
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#
         )
         .bind(&workspace.id)
         .bind(&workspace.name)
+        .bind(&github_repo)
         .bind(&workspace.description)
         .bind(&workspace.path)
+        .bind(&workspace.path)
+        .bind(&workspace.git_url)
         .bind(&workspace.git_url)
         .bind(&workspace.git_branch)
         .bind(&workspace.git_commit)
@@ -119,6 +134,25 @@ impl WorkspaceService {
 
     pub async fn clone_repository(&self, request: CloneRequest, github_token: &str) -> Result<Workspace> {
         info!("Cloning repository: {} -> {}", request.git_url, request.name);
+
+        // Extract github_repo from git URL (format: "owner/repo") 
+        let github_repo = if let Some(repo_path) = request.git_url.strip_prefix("https://github.com/") {
+            repo_path.strip_suffix(".git").unwrap_or(repo_path).to_string()
+        } else {
+            // Fallback for other URL formats
+            request.git_url.clone()
+        };
+
+        // Check if workspace already exists for this user and repository
+        let existing = sqlx::query("SELECT id FROM workspaces WHERE github_repo = ? AND owner_id = ?")
+            .bind(&github_repo)
+            .bind(&request.owner_id)
+            .fetch_optional(self.db.pool())
+            .await?;
+
+        if existing.is_some() {
+            return Err(anyhow!("Repository {} is already cloned for this user", github_repo));
+        }
 
         let workspace_id = Uuid::new_v4().to_string();
         let workspace_path = self.workspace_root.join(&workspace_id);
@@ -165,6 +199,7 @@ impl WorkspaceService {
         let git_info = self.get_git_info(&workspace_path).await?;
         let current_branch = self.get_current_branch(&workspace_path).await?;
         
+        
         let workspace = Workspace {
             id: workspace_id,
             name: request.name,
@@ -187,15 +222,117 @@ impl WorkspaceService {
         sqlx::query(
             r#"
             INSERT INTO workspaces (
-                id, name, description, path, git_url, git_branch, git_commit, 
+                id, name, github_repo, description, local_path, path, github_url, git_url, git_branch, git_commit, 
                 is_git_repo, owner_id, created_at, updated_at, last_accessed, settings
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#
         )
         .bind(&workspace.id)
         .bind(&workspace.name)
+        .bind(&github_repo)
         .bind(&workspace.description)
         .bind(&workspace.path)
+        .bind(&workspace.path)
+        .bind(&workspace.git_url)
+        .bind(&workspace.git_url)
+        .bind(&workspace.git_branch)
+        .bind(&workspace.git_commit)
+        .bind(workspace.is_git_repo)
+        .bind(&workspace.owner_id)
+        .bind(workspace.created_at)
+        .bind(workspace.updated_at)
+        .bind(workspace.last_accessed)
+        .bind(&settings_json)
+        .execute(self.db.pool())
+        .await?;
+
+        info!("Repository cloned successfully: {}", workspace.id);
+        Ok(workspace)
+    }
+
+    /// Clone repository without authentication (for public repos)
+    pub async fn clone_repository_without_auth(&self, request: CloneRequest) -> Result<Workspace> {
+        info!("Cloning repository without auth: {} -> {}", request.git_url, request.name);
+
+        let workspace_id = Uuid::new_v4().to_string();
+        let workspace_path = self.workspace_root.join(&workspace_id);
+
+        // Create the workspace directory
+        tokio::fs::create_dir_all(&workspace_path).await?;
+
+        // Clone the repository without authentication
+        let mut cmd = Command::new("git");
+        cmd.arg("clone")
+            .arg("--progress")  // Enable progress output
+            .arg("--verbose")   // Verbose output for better tracking
+            .arg(&request.git_url)
+            .arg(&workspace_path);
+
+        if let Some(branch) = &request.branch {
+            cmd.args(["-b", branch]);
+        }
+
+        info!("Starting git clone: git clone {} {}", request.git_url, workspace_path.display());
+        
+        let output = cmd.output().await?;
+
+        if !output.status.success() {
+            let error_msg = String::from_utf8_lossy(&output.stderr);
+            error!("Git clone failed: {}", error_msg);
+            // Clean up the directory
+            let _ = tokio::fs::remove_dir_all(&workspace_path).await;
+            return Err(anyhow!("Git clone failed: {}", error_msg));
+        }
+
+        let clone_output = String::from_utf8_lossy(&output.stderr);
+        debug!("Git clone output: {}", clone_output);
+
+        // Get git information
+        let git_info = self.get_git_info(&workspace_path).await?;
+        let current_branch = self.get_current_branch(&workspace_path).await?;
+        
+        // Extract github_repo from git URL (format: "owner/repo")
+        let github_repo = if let Some(repo_path) = request.git_url.strip_prefix("https://github.com/") {
+            repo_path.strip_suffix(".git").unwrap_or(repo_path).to_string()
+        } else {
+            // Fallback for other URL formats
+            request.git_url.clone()
+        };
+        
+        let workspace = Workspace {
+            id: workspace_id,
+            name: request.name,
+            description: request.description,
+            path: workspace_path.to_string_lossy().to_string(),
+            git_url: Some(request.git_url),
+            git_branch: Some(current_branch),
+            git_commit: Some(git_info.hash),
+            is_git_repo: true,
+            owner_id: request.owner_id,
+            created_at: chrono::Utc::now().timestamp(),
+            updated_at: chrono::Utc::now().timestamp(),
+            last_accessed: None,
+            settings: WorkspaceSettings::default(),
+        };
+
+        // Save to database
+        let settings_json = serde_json::to_string(&workspace.settings)?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO workspaces (
+                id, name, github_repo, description, local_path, path, github_url, git_url, git_branch, git_commit, 
+                is_git_repo, owner_id, created_at, updated_at, last_accessed, settings
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            "#
+        )
+        .bind(&workspace.id)
+        .bind(&workspace.name)
+        .bind(&github_repo)
+        .bind(&workspace.description)
+        .bind(&workspace.path)
+        .bind(&workspace.path)
+        .bind(&workspace.git_url)
         .bind(&workspace.git_url)
         .bind(&workspace.git_branch)
         .bind(&workspace.git_commit)
@@ -215,7 +352,7 @@ impl WorkspaceService {
     pub async fn get_workspace(&self, workspace_id: &str) -> Result<Option<Workspace>> {
         let row = sqlx::query(
             r#"
-            SELECT id, name, description, path, git_url, git_branch, git_commit, 
+            SELECT id, name, github_repo, description, local_path, path, github_url, git_url, git_branch, git_commit, 
                    is_git_repo, owner_id, created_at, updated_at, last_accessed, settings
             FROM workspaces WHERE id = ?
             "#
@@ -251,7 +388,7 @@ impl WorkspaceService {
         let query = if let Some(owner) = owner_id {
             sqlx::query(
                 r#"
-                SELECT id, name, description, path, git_url, git_branch, git_commit, 
+                SELECT id, name, github_repo, description, local_path, path, github_url, git_url, git_branch, git_commit, 
                        is_git_repo, owner_id, created_at, updated_at, last_accessed, settings
                 FROM workspaces WHERE owner_id = ? ORDER BY updated_at DESC
                 "#
@@ -259,7 +396,7 @@ impl WorkspaceService {
         } else {
             sqlx::query(
                 r#"
-                SELECT id, name, description, path, git_url, git_branch, git_commit, 
+                SELECT id, name, github_repo, description, local_path, path, github_url, git_url, git_branch, git_commit, 
                        is_git_repo, owner_id, created_at, updated_at, last_accessed, settings
                 FROM workspaces ORDER BY updated_at DESC
                 "#

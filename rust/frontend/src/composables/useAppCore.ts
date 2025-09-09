@@ -47,13 +47,12 @@ export function useAppCore() {
       }
 
       if (token) {
-        localStorage.setItem('authToken', token)
-        localStorage.setItem('jwt_token', token) // Also store as jwt_token for compatibility
+        localStorage.setItem('jwt_token', token)
         window.history.replaceState({}, document.title, '/')
       }
 
       // 3. Try to initialize authentication
-      const existingToken = localStorage.getItem('authToken') || localStorage.getItem('jwt_token')
+      const existingToken = localStorage.getItem('jwt_token')
       if (existingToken) {
         try {
           await authStore.tryInitializeApp()
@@ -72,7 +71,8 @@ export function useAppCore() {
       console.log('✅ Theme system initialized')
 
       // 5. Load workspaces and repositories
-      await workspaceStore.fetchWorkspaces()
+      const ownerId = authStore.user?.id || authStore.user?.login
+      await workspaceStore.fetchWorkspaces(ownerId)
       console.log('✅ Workspaces loaded')
 
       // 6. Initialize terminal system

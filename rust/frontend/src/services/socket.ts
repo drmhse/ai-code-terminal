@@ -1,4 +1,5 @@
 import { io, type Socket } from 'socket.io-client'
+import router from '@/router'
 
 export interface SocketEvents {
   // Terminal events
@@ -37,7 +38,10 @@ class SocketService {
       this.socket.on('connect', () => {
         console.log('Connected to WebSocket server')
         this.reconnectAttempts = 0
-        resolve()
+        
+        // Send explicit authentication after connection
+        this.socket?.emit('authenticate', { token })
+        // Don't resolve here - wait for authentication confirmation
       })
 
       this.socket.on('disconnect', (reason) => {
@@ -51,16 +55,32 @@ class SocketService {
       this.socket.on('connect_error', (error) => {
         console.error('WebSocket connection error:', error)
         if (error.message.includes('Authentication')) {
-          // Clear invalid token and redirect to login
-          localStorage.removeItem('jwt_token')
-          localStorage.removeItem('user')
-          window.location.href = '/login'
+          // Don't immediately clear tokens, let auth store handle it
+          console.warn('WebSocket authentication failed, will retry')
         }
         reject(error)
       })
 
-      // Set up event listeners for terminal data
+      this.socket.on('authenticated', (data) => {
+        console.log('WebSocket authenticated successfully:', data)
+        // Resolve the promise now that authentication is confirmed
+        resolve()
+      })
+
+      this.socket.on('auth_error', (error) => {
+        console.error('WebSocket authentication error:', error)
+        // Don't immediately clear localStorage here
+        // Let the auth store handle token validation and cleanup
+        if (error.code === 'JWT_EXPIRED' || error.code === 'JWT_INVALID') {
+          console.warn('JWT token issue detected, will need re-authentication')
+          // Emit custom event for auth store to handle
+          window.dispatchEvent(new CustomEvent('websocket:auth_error', { detail: error }))
+        }
+      })
+
+      // Set up event listeners for terminal data and stats
       this.setupTerminalListeners()
+      this.setupStatsListeners()
     })
   }
 
@@ -81,6 +101,27 @@ class SocketService {
     })
   }
 
+  private setupStatsListeners(): void {
+    if (!this.socket) return
+
+    this.socket.on('stats', (data: any) => {
+      // Emit custom event for components to listen to
+      window.dispatchEvent(new CustomEvent('stats:data', { detail: data }))
+    })
+
+    this.socket.on('stats:subscribed', (data: any) => {
+      console.log('Successfully subscribed to stats:', data)
+    })
+
+    this.socket.on('stats:unsubscribed', (data: any) => {
+      console.log('Successfully unsubscribed from stats:', data)
+    })
+
+    this.socket.on('stats:error', (error: any) => {
+      console.error('Stats error:', error)
+    })
+  }
+
   private handleReconnection(): void {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++
@@ -92,7 +133,7 @@ class SocketService {
     } else {
       console.error('Max reconnection attempts reached')
       // Redirect to login or show error message
-      window.location.href = '/login'
+      router.push('/login')
     }
   }
 
@@ -123,6 +164,15 @@ class SocketService {
   // Workspace methods
   switchWorkspace(workspaceId: string): void {
     this.socket?.emit('workspace:switch', { workspaceId })
+  }
+
+  // Stats methods
+  subscribeToStats(interval: number = 5): void {
+    this.socket?.emit('stats:subscribe', { interval })
+  }
+
+  unsubscribeFromStats(): void {
+    this.socket?.emit('stats:unsubscribe')
   }
 
   get isConnected(): boolean {

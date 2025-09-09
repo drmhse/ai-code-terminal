@@ -1,11 +1,21 @@
 use crate::{AppState, services::{GitHubService, SettingsService}, models::ApiResponse};
 use axum::{
     extract::{Path, Query, State},
+    http::HeaderMap,
     Json,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::{error, info, warn};
+use jsonwebtoken::{decode, DecodingKey, Validation};
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Claims {
+    pub sub: String,
+    pub username: String,
+    pub exp: usize,
+    pub iat: usize,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct RepoQuery {
@@ -192,15 +202,37 @@ pub struct CloneRequest {
 /// Clone a repository and create a workspace
 pub async fn clone_repository(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(request): Json<CloneRequest>
 ) -> Result<Json<ApiResponse<serde_json::Value>>, axum::response::Response<axum::body::Body>> {
     info!("Repository clone requested: {} -> {}", request.clone_url, request.name);
     
-    let github_service = GitHubService::new(Arc::new(state.config.clone()))
-        .map_err(|e| {
+    // Extract user ID from JWT token
+    let auth_header = headers.get("authorization")
+        .and_then(|h| h.to_str().ok())
+        .ok_or_else(|| create_error_response(401, "Missing authorization header", "Authorization header is required"))?;
+        
+    let token = auth_header.strip_prefix("Bearer ")
+        .ok_or_else(|| create_error_response(401, "Invalid authorization format", "Authorization header must start with 'Bearer '"))?;
+    
+    let jwt_secret = std::env::var("ACT_AUTH_JWT_SECRET")
+        .map_err(|_| create_error_response(500, "Internal server error", "JWT configuration missing"))?;
+    
+    let claims = decode::<Claims>(
+        token,
+        &DecodingKey::from_secret(jwt_secret.as_bytes()),
+        &Validation::default()
+    )
+    .map_err(|_| create_error_response(401, "Invalid token", "Failed to decode JWT token"))?
+    .claims;
+    
+    let github_service = match GitHubService::new(Arc::new(state.config.clone())) {
+        Ok(service) => service,
+        Err(e) => {
             error!("Failed to initialize GitHub service: {}", e);
-            create_error_response(500, "Internal server error", &e.to_string())
-        })?;
+            return Err(create_error_response(500, "Internal server error", &e.to_string()));
+        }
+    };
     
     let settings_service = SettingsService::new(state.db.clone());
     
@@ -231,7 +263,7 @@ pub async fn clone_repository(
         name: request.name,
         branch: None, // TODO: Allow specifying branch in request
         description: None, // TODO: Allow specifying description in request
-        owner_id: "current_user".to_string(), // TODO: Get from JWT token
+        owner_id: claims.sub, // Use actual user ID from JWT token
     };
     
     match workspace_service.clone_repository(clone_request, &access_token).await {
@@ -244,8 +276,14 @@ pub async fn clone_repository(
             Ok(Json(ApiResponse::success(workspace_json)))
         },
         Err(e) => {
-            error!("Failed to clone repository: {}", e);
-            Err(create_error_response(500, "Failed to clone repository", &e.to_string()))
+            let error_msg = e.to_string();
+            if error_msg.contains("is already cloned for this user") {
+                error!("Repository already exists: {}", e);
+                Err(create_error_response(409, "Repository already exists", &error_msg))
+            } else {
+                error!("Failed to clone repository: {}", e);
+                Err(create_error_response(500, "Failed to clone repository", &error_msg))
+            }
         }
     }
 }

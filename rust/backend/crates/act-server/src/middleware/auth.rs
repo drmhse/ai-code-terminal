@@ -1,6 +1,6 @@
 use axum::{
-    extract::{Request, State},
-    http::{HeaderMap, StatusCode},
+    extract::{FromRequestParts, Request, State},
+    http::{HeaderMap, StatusCode, request::Parts},
     middleware::Next,
     response::Response,
 };
@@ -9,12 +9,32 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 use crate::AppState;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
     pub sub: String,  // GitHub user ID
-    pub username: String,  // GitHub username
+    pub github_username: String,  // GitHub username  
+    pub username: String,  // GitHub username (for compatibility)
     pub exp: usize,   // Expiration timestamp
     pub iat: usize,   // Issued at timestamp
+}
+
+// Extension type to pass authenticated user info through requests
+#[derive(Debug, Clone)]
+pub struct AuthenticatedUser {
+    pub user_id: String,
+    pub username: String,
+}
+
+#[axum::async_trait]
+impl FromRequestParts<AppState> for AuthenticatedUser {
+    type Rejection = StatusCode;
+
+    async fn from_request_parts(parts: &mut Parts, _state: &AppState) -> Result<Self, Self::Rejection> {
+        parts.extensions
+            .get::<AuthenticatedUser>()
+            .cloned()
+            .ok_or(StatusCode::UNAUTHORIZED)
+    }
 }
 
 pub struct AuthMiddleware;
@@ -23,7 +43,7 @@ impl AuthMiddleware {
     pub async fn verify_jwt(
         State(state): State<AppState>,
         headers: HeaderMap,
-        request: Request,
+        mut request: Request,
         next: Next,
     ) -> Result<Response, StatusCode> {
         // Extract JWT from Authorization header
@@ -52,13 +72,22 @@ impl AuthMiddleware {
         // Verify JWT with secret from config
         let secret = DecodingKey::from_secret(state.config.auth.jwt_secret.as_ref());
         let validation = Validation::default();
-        let _claims = decode::<Claims>(&token, &secret, &validation)
+        let token_data = decode::<Claims>(&token, &secret, &validation)
             .map_err(|e| {
                 warn!("JWT verification failed: {}", e);
                 StatusCode::UNAUTHORIZED
             })?;
 
-        debug!("JWT verification successful for user: {}", _claims.claims.username);
+        let claims = token_data.claims;
+        debug!("JWT verification successful for user: {}", claims.username);
+        
+        // Inject authenticated user info into request extensions
+        let auth_user = AuthenticatedUser {
+            user_id: claims.sub.clone(),
+            username: claims.github_username.clone(),
+        };
+        
+        request.extensions_mut().insert(auth_user);
         Ok(next.run(request).await)
     }
 }

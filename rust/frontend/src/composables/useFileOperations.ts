@@ -33,7 +33,7 @@ export function useFileOperations() {
     try {
       console.log(`🔄 Refreshing files${path ? ` for path: ${path}` : ''}...`)
       
-      const files = await fileStore.refreshFiles(path, useCache)
+      const files = await fileStore.refreshFiles(path, useCache, workspaceStore.selectedWorkspace.id)
       
       console.log(`✅ Loaded ${files.length} files`)
       return files

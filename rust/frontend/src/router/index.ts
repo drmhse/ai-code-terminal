@@ -36,10 +36,21 @@ const router = createRouter({
 })
 
 // Navigation guard for authentication
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const authStore = useAuthStore()
   
-  // Check if route requires authentication
+  // If not authenticated and route requires auth, try to initialize from localStorage
+  if (to.meta.requiresAuth !== false && !authStore.isAuthenticated) {
+    try {
+      // Try to initialize auth from localStorage
+      await authStore.checkAuthStatus()
+    } catch (error) {
+      // If initialization fails, clear any invalid tokens and redirect to login
+      console.warn('Auth initialization failed:', error)
+    }
+  }
+  
+  // Check if route requires authentication after initialization attempt
   if (to.meta.requiresAuth !== false && !authStore.isAuthenticated) {
     // Redirect to login if not authenticated
     return '/login'

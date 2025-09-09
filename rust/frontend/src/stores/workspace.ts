@@ -90,12 +90,12 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   })
   const selectedWorkspace = computed(() => currentWorkspace.value) // Alias for compatibility
 
-  const fetchWorkspaces = async () => {
+  const fetchWorkspaces = async (ownerId?: string) => {
     loading.value = true
     error.value = null
 
     try {
-      const data = await apiService.getWorkspaces()
+      const data = await apiService.getWorkspaces(ownerId)
       workspaces.value = data
       
       // Set current workspace if none selected and workspaces exist
@@ -205,6 +205,15 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   
   // Repository management actions
   const loadRepositories = async (page = 1, append = false) => {
+    // Prevent duplicate calls when already loading
+    if (page === 1 && repositoriesLoading.value) {
+      return
+    }
+    
+    if (page > 1 && repositoryLoadingMore.value) {
+      return
+    }
+    
     if (page === 1) {
       repositoriesLoading.value = true
     } else {
@@ -337,30 +346,30 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   return {
     // Original workspace state
-    workspaces: readonly(workspaces),
-    currentWorkspace: readonly(currentWorkspace),
+    workspaces,
+    currentWorkspace,
     selectedWorkspace,
-    sessions: readonly(sessions),
-    loading: readonly(loading),
-    error: readonly(error),
+    sessions,
+    loading,
+    error,
     hasWorkspaces,
     
     // Enhanced repository state
-    repositories: readonly(repositories),
-    repositoriesLoading: readonly(repositoriesLoading),
-    repositoryError: readonly(repositoryError),
-    repositoryPage: readonly(repositoryPage),
-    repositoryHasMore: readonly(repositoryHasMore),
-    repositoryLoadingMore: readonly(repositoryLoadingMore),
-    repositorySearchTerm: readonly(repositorySearchTerm),
-    showRepositoriesModal: readonly(showRepositoriesModal),
-    cloningRepository: readonly(cloningRepository),
-    cloneProgress: readonly(cloneProgress),
-    cloneError: readonly(cloneError),
-    showDeleteModal: readonly(showDeleteModal),
-    workspaceToDelete: readonly(workspaceToDelete),
-    deleteFiles: readonly(deleteFiles),
-    deletingWorkspace: readonly(deletingWorkspace),
+    repositories,
+    repositoriesLoading,
+    repositoryError,
+    repositoryPage,
+    repositoryHasMore,
+    repositoryLoadingMore,
+    repositorySearchTerm,
+    showRepositoriesModal,
+    cloningRepository,
+    cloneProgress,
+    cloneError,
+    showDeleteModal,
+    workspaceToDelete,
+    deleteFiles,
+    deletingWorkspace,
     
     // Computed
     hasRepositories,

@@ -71,18 +71,18 @@ async fn main() -> anyhow::Result<()> {
     });
     info!("Session cleanup task started");
 
-    // Create Socket.IO server
-    let (socket_layer, io) = SocketIo::new_layer();
-    
-    // Set up socket event handlers
-    socket::setup_socket_handlers(io, pty_service.clone(), session_manager.clone());
-    info!("WebSocket handlers configured");
-
     // Create application state
     let state = AppState {
         db: database,
         config: config.clone(),
     };
+
+    // Create Socket.IO server
+    let (socket_layer, io) = SocketIo::new_layer();
+    
+    // Set up socket event handlers
+    socket::setup_socket_handlers(io, pty_service.clone(), session_manager.clone(), state.clone());
+    info!("WebSocket handlers configured");
 
     // Validate CORS configuration
     middleware::cors::validate_cors_config(&config.cors.allowed_origins)

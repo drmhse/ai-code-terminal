@@ -10,9 +10,9 @@ import { useAuthStore } from './stores/auth'
 
 const authStore = useAuthStore()
 
-onMounted(() => {
+onMounted(async () => {
   // Initialize authentication state
-  authStore.checkAuthStatus()
+  await authStore.checkAuthStatus()
 })
 </script>
 

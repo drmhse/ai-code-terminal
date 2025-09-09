@@ -1,5 +1,6 @@
 use sqlx::{sqlite::SqlitePool, migrate::MigrateDatabase, Sqlite};
 use std::time::Duration;
+use std::path::Path;
 use tracing::{info, error};
 
 use crate::{Error, Result};
@@ -13,6 +14,21 @@ pub struct Database {
 impl Database {
     /// Create a new database connection pool
     pub async fn new(database_url: &str) -> Result<Self> {
+        // Extract file path from database URL and create parent directory if needed
+        let file_path = database_url.strip_prefix("sqlite:").unwrap_or(database_url);
+        let db_path = Path::new(file_path);
+        
+        if let Some(parent) = db_path.parent() {
+            if !parent.exists() {
+                info!("Creating database directory: {}", parent.display());
+                tokio::fs::create_dir_all(parent).await
+                    .map_err(|e| Error::Database(sqlx::Error::Io(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        format!("Failed to create database directory: {}", e)
+                    ))))?;
+            }
+        }
+
         // Create database if it doesn't exist
         if !Sqlite::database_exists(database_url).await? {
             info!("Creating database at {}", database_url);
@@ -39,7 +55,7 @@ impl Database {
     pub async fn migrate(&self) -> Result<()> {
         info!("Running database migrations");
         
-        match sqlx::migrate!("../act-server/migrations").run(&self.pool).await {
+        match sqlx::migrate!("../../migrations").run(&self.pool).await {
             Ok(_) => {
                 info!("Database migrations completed successfully");
                 Ok(())

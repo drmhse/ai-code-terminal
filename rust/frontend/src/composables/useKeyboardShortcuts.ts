@@ -1,4 +1,5 @@
 import { onMounted, onUnmounted } from 'vue'
+import { useAuthStore } from '@/stores/auth'
 import { useFileStore } from '@/stores/file'
 import { useEditorStore } from '@/stores/editor'
 import { useWorkspaceStore } from '@/stores/workspace'
@@ -10,6 +11,7 @@ import { useFileOperations } from './useFileOperations'
  * Handles application-wide keyboard shortcuts and hotkeys
  */
 export function useKeyboardShortcuts() {
+  const authStore = useAuthStore()
   const fileStore = useFileStore()
   const editorStore = useEditorStore()
   const workspaceStore = useWorkspaceStore()
@@ -354,9 +356,10 @@ export function useKeyboardShortcuts() {
   const handleHardRefresh = async () => {
     // Clear all caches and refresh everything
     fileStore.clearCache()
+    const ownerId = authStore.user?.id || authStore.user?.login
     await Promise.all([
       fileOperations.refreshFiles(undefined, false),
-      workspaceStore.fetchWorkspaces()
+      workspaceStore.fetchWorkspaces(ownerId)
     ])
     
     uiStore.addResourceAlert({

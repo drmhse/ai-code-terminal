@@ -36,24 +36,24 @@
       
       <div class="modal-body">
         <!-- Loading State -->
-        <div v-if="repositoryManagement.repositoriesLoading" class="loading-state">
+        <div v-if="repositoriesLoading" class="loading-state">
           <div class="loading-spinner"></div>
           <p>Loading repositories...</p>
         </div>
         
         <!-- Error State -->
-        <div v-else-if="repositoryManagement.repositoryError" class="error-state">
+        <div v-else-if="repositoryError" class="error-state">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"></circle>
             <line x1="12" y1="8" x2="12" y2="12"></line>
             <line x1="12" y1="16" x2="12.01" y2="16"></line>
           </svg>
-          <p>{{ repositoryManagement.repositoryError }}</p>
+          <p>{{ repositoryError }}</p>
           <button @click="loadRepositories" class="retry-btn">Retry</button>
         </div>
         
         <!-- Empty State -->
-        <div v-else-if="!repositoryManagement.repositories || repositoryManagement.repositories.length === 0" class="empty-state">
+        <div v-else-if="repositories.length === 0" class="empty-state">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
           </svg>
@@ -63,11 +63,11 @@
         <!-- Repository List -->
         <div v-else class="repository-list" ref="repositoryListRef">
           <div 
-            v-for="repository in repositoryManagement.repositories" 
-            :key="repository.id"
+            v-for="repository in repositories" 
+            :key="repository?.id || Math.random()"
             class="repository-item"
             :class="{ 
-              'is-cloning': repositoryManagement.cloningRepository?.id === repository.id,
+              'is-cloning': cloningRepository?.id === repository.id,
               'is-private': repository.private,
               'is-fork': repository.fork,
               'is-archived': repository.archived
@@ -101,7 +101,7 @@
               
               <!-- Clone button or progress -->
               <div class="repository-actions">
-                <div v-if="repositoryManagement.cloningRepository?.id === repository.id" class="clone-progress">
+                <div v-if="cloningRepository?.id === repository.id" class="clone-progress">
                   <div class="progress-spinner"></div>
                   <span class="progress-text">Cloning...</span>
                 </div>
@@ -109,14 +109,15 @@
                   v-else-if="!repository.archived && !repository.disabled"
                   @click.stop="cloneRepository(repository)" 
                   class="clone-btn"
-                  :disabled="!!repositoryManagement.cloningRepository"
+                  :disabled="!!cloningRepository"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                     <polyline points="7,10 12,15 17,10"></polyline>
                     <line x1="12" y1="15" x2="12" y2="3"></line>
                   </svg>
-                  Clone                </button>
+                  Clone
+                </button>
               </div>
             </div>
             
@@ -155,7 +156,7 @@
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                   <polyline points="14,2 14,8 20,8"></polyline>
                 </svg>
-                {{ repositoryManagement.formatRepositorySize(repository.size) }}
+                {{ formatRepositorySize(repository.size) }}
               </div>
               
               <div class="metadata-item updated">
@@ -163,49 +164,49 @@
                   <circle cx="12" cy="12" r="10"></circle>
                   <polyline points="12,6 12,12 16,14"></polyline>
                 </svg>
-                Updated {{ repositoryManagement.formatLastUpdated(repository.updated_at) }}
+                Updated {{ formatLastUpdated(repository.updated_at) }}
               </div>
             </div>
           </div>
           
           <!-- Load More Button -->
-          <div v-if="repositoryManagement.repositoryHasMore" class="load-more-container">
+          <div v-if="repositoryHasMore" class="load-more-container">
             <button 
               @click="loadMoreRepositories" 
               class="load-more-btn"
-              :disabled="repositoryManagement.repositoryLoadingMore"
+              :disabled="repositoryLoadingMore"
             >
-              <div v-if="repositoryManagement.repositoryLoadingMore" class="loading-spinner small"></div>
+              <div v-if="repositoryLoadingMore" class="loading-spinner small"></div>
               <span v-else>Load More</span>
             </button>
           </div>
         </div>
         
         <!-- Clone Progress -->
-        <div v-if="repositoryManagement.cloneProgress" class="clone-progress-section">
+        <div v-if="cloneProgress && cloneProgress.repository" class="clone-progress-section">
           <div class="progress-header">
-            <h4>Cloning {{ repositoryManagement.cloneProgress.repository.name }}</h4>
+            <h4>Cloning {{ cloneProgress.repository.name }}</h4>
           </div>
           <div class="progress-bar">
             <div 
               class="progress-fill" 
-              :style="{ width: `${repositoryManagement.cloneProgress.progress}%` }"
+              :style="{ width: `${cloneProgress.progress}%` }"
             ></div>
           </div>
           <div class="progress-info">
-            <span class="progress-stage">{{ repositoryManagement.cloneProgress.stage }}</span>
-            <span class="progress-message">{{ repositoryManagement.cloneProgress.message }}</span>
+            <span class="progress-stage">{{ cloneProgress.stage }}</span>
+            <span class="progress-message">{{ cloneProgress.message }}</span>
           </div>
         </div>
         
         <!-- Clone Error -->
-        <div v-if="repositoryManagement.cloneError" class="clone-error">
+        <div v-if="cloneError" class="clone-error">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"></circle>
             <line x1="12" y1="8" x2="12" y2="12"></line>
             <line x1="12" y1="16" x2="12.01" y2="16"></line>
           </svg>
-          <span>{{ repositoryManagement.cloneError }}</span>
+          <span>{{ cloneError }}</span>
         </div>
       </div>
       
@@ -218,12 +219,21 @@
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useWorkspaceStore } from '@/stores/workspace'
-import { useRepositoryManagement } from '@/composables/useRepositoryManagement'
 import type { Repository } from '@/stores/workspace'
 
 const workspaceStore = useWorkspaceStore()
-const repositoryManagement = useRepositoryManagement()
+const { 
+  repositories, 
+  repositoriesLoading, 
+  repositoryError,
+  repositoryHasMore,
+  repositoryLoadingMore,
+  cloningRepository,
+  cloneProgress,
+  cloneError
+} = storeToRefs(workspaceStore)
 
 // Search functionality
 const searchTerm = ref('')
@@ -234,30 +244,29 @@ const closeModal = () => {
 }
 
 const handleSearch = () => {
-  repositoryManagement.searchRepositories(searchTerm.value)
+  workspaceStore.searchRepositories(searchTerm.value)
 }
 
 const clearSearch = () => {
   searchTerm.value = ''
-  repositoryManagement.searchRepositories('')
+  workspaceStore.searchRepositories('')
 }
 
 const loadRepositories = async () => {
-  await repositoryManagement.loadRepositories(1, false)
+  await workspaceStore.loadRepositories(1, false)
 }
 
 const loadMoreRepositories = async () => {
-  await repositoryManagement.loadMoreRepositories()
+  await workspaceStore.loadMoreRepositories()
 }
 
 const selectRepository = (repository: Repository) => {
-  repositoryManagement.selectRepository(repository)
+  console.log('Repository selected:', repository.full_name)
 }
 
 const cloneRepository = async (repository: Repository) => {
   try {
-    await repositoryManagement.cloneRepository(repository)
-    // Modal will be closed by the repository management composable
+    await workspaceStore.cloneRepository(repository)
   } catch (err) {
     console.error('Failed to clone repository:', err)
   }
@@ -289,6 +298,42 @@ const getLanguageColor = (language: string): string => {
 }
 
 // Setup infinite scrolling
+// Format repository size
+const formatRepositorySize = (sizeKb: number) => {
+  if (sizeKb < 1024) {
+    return `${sizeKb} KB`
+  } else if (sizeKb < 1024 * 1024) {
+    return `${Math.round(sizeKb / 1024)} MB`
+  } else {
+    return `${Math.round(sizeKb / (1024 * 1024))} GB`
+  }
+}
+
+// Format last updated time
+const formatLastUpdated = (updatedAt: string) => {
+  const date = new Date(updatedAt)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+  if (diffDays === 0) {
+    return 'Today'
+  } else if (diffDays === 1) {
+    return 'Yesterday'
+  } else if (diffDays < 7) {
+    return `${diffDays} days ago`
+  } else if (diffDays < 30) {
+    const weeks = Math.floor(diffDays / 7)
+    return `${weeks} week${weeks > 1 ? 's' : ''} ago`
+  } else if (diffDays < 365) {
+    const months = Math.floor(diffDays / 30)
+    return `${months} month${months > 1 ? 's' : ''} ago`
+  } else {
+    const years = Math.floor(diffDays / 365)
+    return `${years} year${years > 1 ? 's' : ''} ago`
+  }
+}
+
 const setupInfiniteScroll = () => {
   if (!repositoryListRef.value) return
   
@@ -298,8 +343,7 @@ const setupInfiniteScroll = () => {
     
     // Load more when 200px from bottom
     if (scrollHeight - scrollTop <= clientHeight + 200) {
-      if (repositoryManagement.repositoryHasMore && 
-          !repositoryManagement.repositoryLoadingMore) {
+      if (repositoryHasMore.value && !repositoryLoadingMore.value) {
         loadMoreRepositories()
       }
     }
@@ -309,12 +353,7 @@ const setupInfiniteScroll = () => {
 }
 
 onMounted(async () => {
-  // Load repositories if not already loaded
-  if (!repositoryManagement.hasRepositories) {
-    await loadRepositories()
-  }
-  
-  // Setup infinite scrolling
+  // Setup infinite scrolling - repositories are loaded by openRepositoriesModal in store
   nextTick(() => {
     setupInfiniteScroll()
   })
