@@ -59,6 +59,7 @@ impl SettingsService {
     }
 
     /// Get raw settings without decryption (for internal use)
+    #[allow(dead_code)]
     pub async fn get_raw_settings(&self) -> anyhow::Result<Option<Settings>> {
         self.get_settings().await
     }
@@ -165,7 +166,7 @@ impl SettingsService {
     pub async fn is_github_authenticated(&self) -> anyhow::Result<bool> {
         let settings = self.get_settings().await?;
         
-        Ok(settings.map_or(false, |s| {
+        Ok(settings.is_some_and(|s| {
             s.github_token.is_some() && s.github_token_expires_at.is_some()
         }))
     }
@@ -181,6 +182,7 @@ impl SettingsService {
     }
 
     /// Update theme preferences
+    #[allow(dead_code)]
     pub async fn update_theme(&self, theme: serde_json::Value) -> anyhow::Result<()> {
         let theme_str = serde_json::to_string(&theme)?;
         
@@ -200,6 +202,7 @@ impl SettingsService {
     }
 
     /// Get theme preferences
+    #[allow(dead_code)]
     pub async fn get_theme(&self) -> anyhow::Result<Option<serde_json::Value>> {
         let settings = self.get_settings().await?;
         Ok(settings.and_then(|s| s.theme))

@@ -65,8 +65,8 @@ pub async fn list_workspaces(
 ) -> Result<Json<ApiResponse<Vec<Workspace>>>, StatusCode> {
     info!("Workspace list requested for owner: {:?}", params.owner_id);
     
-    // TODO: Get workspace root from configuration
-    let workspace_root = PathBuf::from("./workspaces");
+    // Get workspace root from configuration
+    let workspace_root = state.config.workspace.root_path.clone();
     let workspace_service = WorkspaceService::new(state.db.clone(), workspace_root);
     
     match workspace_service.list_workspaces(params.owner_id.as_deref()).await {
@@ -84,7 +84,7 @@ pub async fn create_workspace(
 ) -> Result<Json<ApiResponse<Workspace>>, StatusCode> {
     info!("Workspace creation requested: {}", request.name);
     
-    let workspace_root = PathBuf::from("./workspaces");
+    let workspace_root = state.config.workspace.root_path.clone();
     let workspace_service = WorkspaceService::new(state.db.clone(), workspace_root);
     
     let workspace = Workspace {
@@ -236,7 +236,7 @@ pub async fn get_git_status(
 ) -> Result<Json<ApiResponse<GitStatus>>, StatusCode> {
     info!("Git status requested for workspace: {}", workspace_id);
     
-    let workspace_root = PathBuf::from("./workspaces");
+    let workspace_root = state.config.workspace.root_path.clone();
     let workspace_service = WorkspaceService::new(state.db.clone(), workspace_root);
     
     // Get workspace to verify it exists and get path
@@ -270,7 +270,7 @@ pub async fn get_git_history(
 ) -> Result<Json<ApiResponse<Vec<GitCommit>>>, StatusCode> {
     info!("Git history requested for workspace: {}", workspace_id);
     
-    let workspace_root = PathBuf::from("./workspaces");
+    let workspace_root = state.config.workspace.root_path.clone();
     let workspace_service = WorkspaceService::new(state.db.clone(), workspace_root);
     let limit = params.limit.unwrap_or(20);
     
@@ -304,7 +304,7 @@ pub async fn update_last_accessed(
 ) -> Result<Json<ApiResponse<()>>, StatusCode> {
     info!("Updating last accessed for workspace: {}", workspace_id);
     
-    let workspace_root = PathBuf::from("./workspaces");
+    let workspace_root = state.config.workspace.root_path.clone();
     let workspace_service = WorkspaceService::new(state.db.clone(), workspace_root);
     
     match workspace_service.update_last_accessed(&workspace_id).await {

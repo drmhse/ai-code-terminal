@@ -324,7 +324,7 @@ const initializeSocketConnection = async () => {
     console.log('✅ WebSocket connected successfully')
     
     // Update existing terminals with connection status
-    for (const [paneId, instance] of terminalInstances) {
+    for (const [, instance] of terminalInstances) {
       instance.terminal.writeln('\r\n\x1b[1;32m● Connected to server\x1b[0m')
     }
   } catch (error) {
@@ -332,7 +332,7 @@ const initializeSocketConnection = async () => {
     isConnected.value = false
     
     // Update existing terminals with connection status
-    for (const [paneId, instance] of terminalInstances) {
+    for (const [, instance] of terminalInstances) {
       instance.terminal.writeln('\r\n\x1b[1;31m● Connection failed\x1b[0m')
     }
   }

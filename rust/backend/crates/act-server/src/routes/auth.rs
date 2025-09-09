@@ -71,6 +71,7 @@ pub async fn start_authorization(State(state): State<AppState>) -> Result<Redire
     }
 }
 
+#[allow(dead_code)]
 pub async fn handle_callback(
     Query(params): Query<AuthCallbackQuery>,
     State(state): State<AppState>
@@ -317,10 +318,14 @@ pub async fn logout(State(state): State<AppState>) -> Result<Json<serde_json::Va
     let settings_service = SettingsService::new(state.db.clone());
     
     // Get current access token for revocation
-    if let Ok(Some(_access_token)) = settings_service.get_github_token(&github_service).await {
-        // TODO: Implement GitHub token revocation API call
-        // For now, we'll just clear local tokens
-        warn!("GitHub token revocation not yet implemented, clearing local tokens only");
+    if let Ok(Some(access_token)) = settings_service.get_github_token(&github_service).await {
+        // Revoke the GitHub OAuth token
+        if let Err(e) = github_service.revoke_token(&access_token).await {
+            warn!("Failed to revoke GitHub token: {}", e);
+            // Continue with logout even if revocation fails
+        } else {
+            info!("Successfully revoked GitHub OAuth token");
+        }
     }
     
     // Clear tokens from database
@@ -492,12 +497,12 @@ pub async fn validate_auth(
             match github_service.refresh_access_token(&refresh_token).await {
                 Ok(new_token_result) => {
                     // Update tokens in database
-                    if let Err(_) = settings_service.update_github_tokens(
+                    if settings_service.update_github_tokens(
                         &github_service,
                         Some(&new_token_result.access_token),
                         new_token_result.refresh_token.as_deref(),
                         Some(new_token_result.expires_at),
-                    ).await {
+                    ).await.is_err() {
                         return Ok(Json(AuthValidationResponse {
                             valid: false,
                             reason: Some("token_refresh_failed".to_string()),

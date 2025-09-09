@@ -5,8 +5,6 @@ use axum::{
     routing::{get, post, delete},
     Router,
 };
-use uuid::Uuid;
-use chrono::Utc;
 use tracing::{info, error};
 
 use crate::{
@@ -29,6 +27,9 @@ pub fn routes() -> Router<AppState> {
 pub async fn list_sessions(
     State(state): State<AppState>
 ) -> Result<Json<ApiResponse<Vec<Session>>>, StatusCode> {
+    // Get active sessions from SessionManager and also query database for complete info
+    let active_sessions = state.session_manager.list_active_sessions().await;
+    
     match sqlx::query_as::<_, Session>(
         "SELECT * FROM sessions WHERE status != 'terminated' ORDER BY last_activity_at DESC"
     )
@@ -36,7 +37,7 @@ pub async fn list_sessions(
     .await
     {
         Ok(sessions) => {
-            info!("Retrieved {} active sessions", sessions.len());
+            info!("Retrieved {} database sessions and {} active sessions", sessions.len(), active_sessions.len());
             Ok(Json(ApiResponse::success(sessions)))
         }
         Err(err) => {
@@ -50,76 +51,42 @@ pub async fn create_session(
     State(state): State<AppState>,
     Json(request): Json<CreateSessionRequest>
 ) -> Result<Json<ApiResponse<Session>>, StatusCode> {
-    let session_id = Uuid::new_v4().to_string();
-    let now = Utc::now();
-    
-    // Generate a unique recovery token
-    let recovery_token = Uuid::new_v4().to_string();
-    
-    let session = Session {
-        id: session_id.clone(),
-        shell_pid: None,
-        socket_id: None,
-        status: "active".to_string(),
-        last_activity_at: now,
-        created_at: now,
-        ended_at: None,
-        session_name: request.session_name.unwrap_or_else(|| "Terminal".to_string()),
-        session_type: "terminal".to_string(),
-        is_default_session: false,
-        current_working_dir: None,
-        environment_vars: None,
-        shell_history: None,
-        terminal_size: Some(r#"{"cols": 80, "rows": 24}"#.to_string()),
-        last_command: None,
-        session_timeout: None,
-        recovery_token: Some(recovery_token),
-        can_recover: true,
-        max_idle_time: 1440, // 24 hours
-        auto_cleanup: true,
-        layout_id: None,
-        workspace_id: Some(request.workspace_id),
-    };
+    info!("Creating session for workspace: {:?}", request.workspace_id);
 
-    match sqlx::query(
-        r#"
-        INSERT INTO sessions (
-            id, shell_pid, socket_id, status, last_activity_at, created_at, ended_at,
-            session_name, session_type, is_default_session, current_working_dir,
-            environment_vars, shell_history, terminal_size, last_command,
-            session_timeout, recovery_token, can_recover, max_idle_time,
-            auto_cleanup, layout_id, workspace_id
-        ) VALUES (
-            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22
-        )
-        "#
-    )
-    .bind(&session.id)
-    .bind(session.shell_pid)
-    .bind(&session.socket_id)
-    .bind(&session.status)
-    .bind(&session.last_activity_at)
-    .bind(&session.created_at)
-    .bind(&session.ended_at)
-    .bind(&session.session_name)
-    .bind(&session.session_type)
-    .bind(session.is_default_session)
-    .bind(&session.current_working_dir)
-    .bind(&session.environment_vars)
-    .bind(&session.shell_history)
-    .bind(&session.terminal_size)
-    .bind(&session.last_command)
-    .bind(session.session_timeout)
-    .bind(&session.recovery_token)
-    .bind(session.can_recover)
-    .bind(session.max_idle_time)
-    .bind(session.auto_cleanup)
-    .bind(&session.layout_id)
-    .bind(&session.workspace_id)
-    .execute(state.db.pool())
-    .await
-    {
-        Ok(_) => {
+    // Use SessionManager to create the session
+    match state.session_manager.create_session(
+        Some(request.workspace_id.clone()),
+        request.session_name.clone(),
+        Some(80), // Default cols
+        Some(24)  // Default rows
+    ).await {
+        Ok(session_state) => {
+            // Convert SessionState to Session model for response
+            let session = Session {
+                id: session_state.session_id.clone(),
+                shell_pid: None,
+                socket_id: None,
+                status: "active".to_string(),
+                last_activity_at: session_state.last_activity,
+                created_at: session_state.created_at,
+                ended_at: None,
+                session_name: request.session_name.unwrap_or_else(|| "Terminal".to_string()),
+                session_type: "terminal".to_string(),
+                is_default_session: false,
+                current_working_dir: session_state.current_working_dir,
+                environment_vars: Some(serde_json::to_string(&session_state.environment_vars).unwrap_or_default()),
+                shell_history: Some(serde_json::to_string(&session_state.shell_history).unwrap_or_default()),
+                terminal_size: session_state.terminal_size.map(|size| serde_json::to_string(&size).unwrap_or_default()),
+                last_command: session_state.last_command,
+                session_timeout: None,
+                recovery_token: Some(session_state.recovery_token),
+                can_recover: session_state.is_recoverable,
+                max_idle_time: 1440, // 24 hours
+                auto_cleanup: true,
+                layout_id: None,
+                workspace_id: Some(request.workspace_id),
+            };
+
             info!("Created session: {} for workspace {:?}", session.id, session.workspace_id);
             Ok(Json(ApiResponse::success(session)))
         }
@@ -158,23 +125,12 @@ pub async fn terminate_session(
     State(state): State<AppState>,
     Path(session_id): Path<String>
 ) -> Result<Json<ApiResponse<()>>, StatusCode> {
-    let now = Utc::now();
+    info!("Terminating session: {}", session_id);
     
-    match sqlx::query(
-        "UPDATE sessions SET status = 'terminated', ended_at = ?1 WHERE id = ?2"
-    )
-    .bind(now)
-    .bind(&session_id)
-    .execute(state.db.pool())
-    .await
-    {
-        Ok(result) => {
-            if result.rows_affected() == 0 {
-                Err(StatusCode::NOT_FOUND)
-            } else {
-                info!("Terminated session: {}", &session_id);
-                Ok(Json(ApiResponse::success(())))
-            }
+    match state.session_manager.terminate_session(&session_id).await {
+        Ok(_) => {
+            info!("Successfully terminated session: {}", session_id);
+            Ok(Json(ApiResponse::success(())))
         }
         Err(err) => {
             error!("Failed to terminate session: {}", err);
@@ -185,23 +141,36 @@ pub async fn terminate_session(
 
 #[derive(Debug, Deserialize)]
 pub struct ResizeSessionRequest {
+    #[allow(dead_code)]
     pub cols: u16,
+    #[allow(dead_code)]
     pub rows: u16,
 }
 
 pub async fn resize_session(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(session_id): Path<String>,
-    Json(_request): Json<ResizeSessionRequest>
+    Json(request): Json<ResizeSessionRequest>
 ) -> Result<Json<ApiResponse<()>>, StatusCode> {
-    // TODO: Implement using SessionManager
-    info!("Resize request for session: {}", session_id);
-    Ok(Json(ApiResponse::success(())))
+    info!("Resize request for session: {} to {}x{}", session_id, request.cols, request.rows);
+    
+    match state.session_manager.resize_terminal(&session_id, request.cols, request.rows).await {
+        Ok(_) => {
+            info!("Successfully resized session: {}", session_id);
+            Ok(Json(ApiResponse::success(())))
+        }
+        Err(e) => {
+            error!("Failed to resize session {}: {}", session_id, e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
 pub struct RecoverSessionRequest {
+    #[allow(dead_code)]
     pub recovery_token: String,
+    #[allow(dead_code)]
     pub socket_id: Option<String>,
 }
 
@@ -214,18 +183,49 @@ pub struct RecoverSessionResponse {
 }
 
 pub async fn recover_session(
-    State(_state): State<AppState>,
-    Json(_request): Json<RecoverSessionRequest>
+    State(state): State<AppState>,
+    Json(request): Json<RecoverSessionRequest>
 ) -> Result<Json<ApiResponse<RecoverSessionResponse>>, StatusCode> {
-    // TODO: Implement using SessionManager
-    info!("Session recovery requested");
-    Err(StatusCode::NOT_IMPLEMENTED)
+    info!("Session recovery requested with token: {}", &request.recovery_token[..20]);
+    
+    match state.session_manager.recover_session(&request.recovery_token, request.socket_id.as_deref()).await {
+        Ok(session_state) => {
+            info!("Successfully recovered session: {}", session_state.session_id);
+            
+            let response = RecoverSessionResponse {
+                session_id: session_state.session_id,
+                workspace_id: session_state.workspace_id,
+                recovery_token: session_state.recovery_token,
+                terminal_size: session_state.terminal_size.map(|size| serde_json::json!({
+                    "cols": size.cols,
+                    "rows": size.rows
+                })),
+            };
+            
+            Ok(Json(ApiResponse::success(response)))
+        }
+        Err(e) => {
+            error!("Failed to recover session: {}", e);
+            Err(StatusCode::BAD_REQUEST)
+        }
+    }
 }
 
 pub async fn cleanup_sessions(
-    State(_state): State<AppState>
+    State(state): State<AppState>
 ) -> Result<Json<ApiResponse<serde_json::Value>>, StatusCode> {
-    // TODO: Implement using SessionManager
     info!("Session cleanup requested");
-    Ok(Json(ApiResponse::success(serde_json::json!({"cleaned": 0}))))
+    
+    match state.session_manager.cleanup_expired_sessions().await {
+        Ok(cleaned_count) => {
+            info!("Successfully cleaned up {} expired sessions", cleaned_count);
+            Ok(Json(ApiResponse::success(serde_json::json!({
+                "cleaned": cleaned_count
+            }))))
+        }
+        Err(e) => {
+            error!("Failed to cleanup sessions: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
 }

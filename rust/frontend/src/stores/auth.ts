@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed, readonly, onMounted, onUnmounted } from 'vue'
+import { ref, computed, readonly } from 'vue'
 import type { User } from '@/types'
 import { apiService } from '@/services/api'
 import { socketService } from '@/services/socket'

@@ -514,7 +514,7 @@ impl WorkspaceService {
 
             match status {
                 "??" => untracked_files.push(file.to_string()),
-                status if status.chars().next().unwrap() != ' ' => staged_files.push(file.to_string()),
+                status if !status.starts_with(' ') => staged_files.push(file.to_string()),
                 status if status.chars().nth(1).unwrap() != ' ' => unstaged_files.push(file.to_string()),
                 _ => {}
             }

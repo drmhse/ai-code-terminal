@@ -22,6 +22,7 @@ pub struct Claims {
 #[derive(Debug, Clone)]
 pub struct AuthenticatedUser {
     pub user_id: String,
+    #[allow(dead_code)]
     pub username: String,
 }
 
@@ -37,9 +38,11 @@ impl FromRequestParts<AppState> for AuthenticatedUser {
     }
 }
 
+#[allow(dead_code)]
 pub struct AuthMiddleware;
 
 impl AuthMiddleware {
+    #[allow(dead_code)]
     pub async fn verify_jwt(
         State(state): State<AppState>,
         headers: HeaderMap,
@@ -90,4 +93,6 @@ impl AuthMiddleware {
         request.extensions_mut().insert(auth_user);
         Ok(next.run(request).await)
     }
+
+
 }

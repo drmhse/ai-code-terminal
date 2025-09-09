@@ -1,22 +1,66 @@
 use crate::{
+    middleware::auth::{AuthenticatedUser, Claims},
     models::ApiResponse,
     services::theme::{ThemeService, ThemePreference},
     AppState,
 };
 use axum::{
     extract::State,
-    http::StatusCode,
+    http::{StatusCode, HeaderMap},
     response::Json,
     routing::{get, post},
     Router,
 };
+use jsonwebtoken::{decode, DecodingKey, Validation};
 use serde::Deserialize;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/current", get(get_current_theme))
         .route("/current", post(set_current_theme))
+}
+
+/// Helper function to extract authenticated user from JWT token
+async fn extract_authenticated_user(
+    headers: &HeaderMap,
+    state: &AppState,
+) -> Result<AuthenticatedUser, StatusCode> {
+    let token = match headers.get("authorization") {
+        Some(header) => {
+            let header_str = header.to_str().map_err(|_| {
+                warn!("Invalid authorization header format");
+                StatusCode::UNAUTHORIZED
+            })?;
+            
+            if let Some(token) = header_str.strip_prefix("Bearer ") {
+                token.to_string()
+            } else {
+                warn!("Authorization header missing Bearer prefix");
+                return Err(StatusCode::UNAUTHORIZED);
+            }
+        }
+        None => {
+            warn!("No authorization header found");
+            return Err(StatusCode::UNAUTHORIZED);
+        }
+    };
+    
+    // Verify JWT with secret from config
+    let secret = DecodingKey::from_secret(state.config.auth.jwt_secret.as_ref());
+    let validation = Validation::default();
+    let token_data = decode::<Claims>(&token, &secret, &validation)
+        .map_err(|e| {
+            warn!("JWT verification failed: {}", e);
+            StatusCode::UNAUTHORIZED
+        })?;
+    
+    let claims = token_data.claims;
+    
+    Ok(AuthenticatedUser {
+        user_id: claims.sub.clone(),
+        username: claims.github_username.clone(),
+    })
 }
 
 #[derive(Debug, Deserialize)]
@@ -28,9 +72,11 @@ pub struct SetThemeRequest {
 /// Get user's current theme preferences
 async fn get_current_theme(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
 ) -> Result<Json<ApiResponse<ThemePreference>>, StatusCode> {
+    let auth_user = extract_authenticated_user(&headers, &state).await?;
     let theme_service = ThemeService::new(state.db);
-    let user_id = "anonymous"; // TODO: Add proper authentication
+    let user_id = &auth_user.user_id;
     
     match theme_service.get_user_preferences(user_id).await {
         Ok(Some(preferences)) => {
@@ -61,10 +107,12 @@ async fn get_current_theme(
 /// Set user's theme preferences
 async fn set_current_theme(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     Json(request): Json<SetThemeRequest>,
 ) -> Result<Json<ApiResponse<()>>, StatusCode> {
+    let auth_user = extract_authenticated_user(&headers, &state).await?;
     let theme_service = ThemeService::new(state.db);
-    let user_id = "anonymous"; // TODO: Add proper authentication
+    let user_id = &auth_user.user_id;
     
     // Validate theme_id (basic validation - frontend manages available themes)
     if request.preferences.theme_id.trim().is_empty() {

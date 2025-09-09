@@ -18,6 +18,7 @@ use tracing::{info, error, debug};
 pub struct AppState {
     pub db: Database,
     pub config: Config,
+    pub session_manager: Arc<services::SessionManager>,
 }
 
 #[tokio::main]
@@ -73,8 +74,9 @@ async fn main() -> anyhow::Result<()> {
 
     // Create application state
     let state = AppState {
-        db: database,
+        db: database.clone(),
         config: config.clone(),
+        session_manager: session_manager.clone(),
     };
 
     // Create Socket.IO server

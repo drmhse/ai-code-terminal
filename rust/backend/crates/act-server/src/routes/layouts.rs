@@ -35,6 +35,7 @@ pub struct CreateLayoutRequest {
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateLayoutRequest {
+    #[allow(dead_code)]
     pub name: Option<String>,
     pub active_pane_id: Option<String>,
 }
@@ -43,6 +44,7 @@ pub struct UpdateLayoutRequest {
 pub struct AddPaneRequest {
     pub name: Option<String>,
     pub process_id: Option<String>,
+    #[allow(dead_code)]
     pub working_directory: Option<String>,
 }
 

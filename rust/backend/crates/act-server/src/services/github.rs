@@ -100,6 +100,7 @@ struct GitHubUserResponse {
 struct GitHubEmail {
     email: String,
     primary: bool,
+    #[allow(dead_code)]
     verified: bool,
 }
 
@@ -187,7 +188,7 @@ impl GitHubService {
             refresh_token: token_data.refresh_token,
             expires_at,
             token_type: token_data.token_type.unwrap_or_else(|| "bearer".to_string()),
-            scope: token_data.scope.unwrap_or_else(|| String::new()),
+            scope: token_data.scope.unwrap_or_default(),
             user: user_info,
             user_id,
         })
@@ -256,6 +257,34 @@ impl GitHubService {
 
     pub fn validate_tenant_user(&self, github_username: &str) -> bool {
         self.config.auth.tenant_github_usernames.contains(&github_username.to_string())
+    }
+
+    pub async fn revoke_token(&self, access_token: &str) -> anyhow::Result<()> {
+        // GitHub OAuth application revocation endpoint
+        let client_id = &self.config.auth.github_client_id;
+        let client_secret = &self.config.auth.github_client_secret;
+        
+        // Use the GitHub API to delete the authorization
+        let response = self.client
+            .delete(format!("https://api.github.com/applications/{}/token", client_id))
+            .basic_auth(client_id, Some(client_secret))
+            .header("User-Agent", "ai-coding-terminal")
+            .json(&serde_json::json!({
+                "access_token": access_token
+            }))
+            .send()
+            .await?;
+
+        if response.status().is_success() {
+            info!("Successfully revoked GitHub OAuth token");
+            Ok(())
+        } else {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            warn!("Failed to revoke GitHub token: {} - {}", status, error_text);
+            // Don't return error for logout flow - we still want to clear local tokens
+            Ok(())
+        }
     }
 
     pub fn encrypt_token(&self, token: &str) -> anyhow::Result<String> {
@@ -570,7 +599,7 @@ impl GitHubService {
             refresh_token: token_data.refresh_token,
             expires_at,
             token_type: token_data.token_type.unwrap_or_else(|| "bearer".to_string()),
-            scope: token_data.scope.unwrap_or_else(|| String::new()),
+            scope: token_data.scope.unwrap_or_default(),
             user: user_info,
             user_id: "single-tenant".to_string(),
         })

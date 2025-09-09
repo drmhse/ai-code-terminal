@@ -22,8 +22,7 @@ impl Database {
             if !parent.exists() {
                 info!("Creating database directory: {}", parent.display());
                 tokio::fs::create_dir_all(parent).await
-                    .map_err(|e| Error::Database(sqlx::Error::Io(std::io::Error::new(
-                        std::io::ErrorKind::Other,
+                    .map_err(|e| Error::Database(sqlx::Error::Io(std::io::Error::other(
                         format!("Failed to create database directory: {}", e)
                     ))))?;
             }

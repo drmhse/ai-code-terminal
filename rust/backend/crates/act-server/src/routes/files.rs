@@ -33,30 +33,30 @@ pub async fn list_directory(
     State(_state): State<AppState>
 ) -> Result<Json<ApiResponse<Vec<crate::services::filesystem::FileItem>>>, StatusCode> {
     let path = params.path.unwrap_or_else(|| "./".to_string());
-    
+
     info!("Directory listing requested for: {}", path);
-    
+
     // Create filesystem service with workspace root
     let workspace_root = std::path::PathBuf::from("./workspaces");
     let fs_service = FileSystemService::new(workspace_root);
-    
+
     match fs_service.list_directory(&path).await {
         Ok(listing) => {
             debug!("Directory listing successful: {} items", listing.total_count);
-            
+
             // Convert DirectoryListing to Vec<FileItem>
             let mut items: Vec<crate::services::filesystem::FileItem> = Vec::new();
-            
+
             // Add directories first
             for dir_entry in listing.directories {
                 items.push(dir_entry.into());
             }
-            
+
             // Add files
             for file_entry in listing.files {
                 items.push(file_entry.into());
             }
-            
+
             Ok(Json(ApiResponse::success(items)))
         }
         Err(e) => {
@@ -76,11 +76,11 @@ pub async fn read_file(
     State(_state): State<AppState>
 ) -> Result<Json<ApiResponse<String>>, StatusCode> {
     info!("File read requested for: {}", params.path);
-    
+
     // Create filesystem service with workspace root
     let workspace_root = std::path::PathBuf::from("./workspaces");
     let fs_service = FileSystemService::new(workspace_root);
-    
+
     match fs_service.read_file(&params.path).await {
         Ok(content) => {
             debug!("File read successful: {} bytes", content.content.len());
@@ -104,11 +104,11 @@ pub async fn save_file(
     Json(request): Json<SaveFileRequest>
 ) -> Result<Json<ApiResponse<()>>, StatusCode> {
     info!("File save requested for: {}", request.path);
-    
+
     // Create filesystem service with workspace root
     let workspace_root = std::path::PathBuf::from("./workspaces");
     let fs_service = FileSystemService::new(workspace_root);
-    
+
     match fs_service.write_file(&request.path, &request.content).await {
         Ok(_) => {
             info!("File save successful: {}", request.path);
@@ -133,11 +133,11 @@ pub async fn create_file(
     Json(request): Json<CreateFileRequest>
 ) -> Result<Json<ApiResponse<()>>, StatusCode> {
     info!("File creation requested for: {}", request.path);
-    
+
     // Create filesystem service with workspace root
     let workspace_root = std::path::PathBuf::from("./workspaces");
     let fs_service = FileSystemService::new(workspace_root);
-    
+
     if request.r#type == "directory" {
         match fs_service.create_directory(&request.path).await {
             Ok(_) => {
@@ -169,11 +169,11 @@ pub async fn delete_file(
     State(_state): State<AppState>
 ) -> Result<Json<ApiResponse<()>>, StatusCode> {
     info!("File deletion requested for: {}", params.path);
-    
+
     // Create filesystem service with workspace root
     let workspace_root = std::path::PathBuf::from("./workspaces");
     let fs_service = FileSystemService::new(workspace_root);
-    
+
     match fs_service.delete_item(&params.path).await {
         Ok(_) => {
             info!("File deletion successful: {}", params.path);
@@ -188,27 +188,27 @@ pub async fn delete_file(
 
 #[derive(Debug, Deserialize)]
 pub struct RenameFileRequest {
-    pub oldPath: String,
-    pub newPath: String,
+    pub old_path: String,
+    pub new_path: String,
 }
 
 pub async fn rename_file(
     State(_state): State<AppState>,
     Json(request): Json<RenameFileRequest>
 ) -> Result<Json<ApiResponse<()>>, StatusCode> {
-    info!("File rename requested: {} -> {}", request.oldPath, request.newPath);
-    
+    info!("File rename requested: {} -> {}", request.old_path, request.new_path);
+
     // Create filesystem service with workspace root
     let workspace_root = std::path::PathBuf::from("./workspaces");
     let fs_service = FileSystemService::new(workspace_root);
-    
-    match fs_service.rename_item(&request.oldPath, &request.newPath).await {
+
+    match fs_service.rename_item(&request.old_path, &request.new_path).await {
         Ok(_) => {
-            info!("File rename successful: {} -> {}", request.oldPath, request.newPath);
+            info!("File rename successful: {} -> {}", request.old_path, request.new_path);
             Ok(Json(ApiResponse::success(())))
         }
         Err(e) => {
-            error!("Failed to rename file {} -> {}: {}", request.oldPath, request.newPath, e);
+            error!("Failed to rename file {} -> {}: {}", request.old_path, request.new_path, e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
@@ -222,13 +222,13 @@ pub async fn list_directory_workspace(
     State(state): State<AppState>
 ) -> Result<Json<ApiResponse<Vec<crate::services::filesystem::FileItem>>>, StatusCode> {
     let path = params.path.unwrap_or_else(|| "./".to_string());
-    
+
     info!("Directory listing requested for workspace {}: {}", workspace_id, path);
-    
+
     // Get workspace details to find the actual path
     use crate::services::workspace::WorkspaceService;
     let workspace_service = WorkspaceService::new(state.db.clone(), std::path::PathBuf::from("./workspaces"));
-    
+
     let workspace = match workspace_service.get_workspace(&workspace_id).await {
         Ok(Some(ws)) => ws,
         Ok(None) => {
@@ -240,7 +240,7 @@ pub async fn list_directory_workspace(
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
     };
-    
+
     // Create filesystem service with specific workspace root
     let workspace_path = match std::path::PathBuf::from(&workspace.path).canonicalize() {
         Ok(path) => path,
@@ -250,24 +250,24 @@ pub async fn list_directory_workspace(
         }
     };
     let fs_service = FileSystemService::new(workspace_path);
-    
+
     match fs_service.list_directory(&path).await {
         Ok(listing) => {
             debug!("Directory listing successful: {} items", listing.total_count);
-            
+
             // Convert DirectoryListing to Vec<FileItem>
             let mut items: Vec<crate::services::filesystem::FileItem> = Vec::new();
-            
+
             // Add directories first
             for dir in listing.directories {
                 items.push(crate::services::filesystem::FileItem::from(dir));
             }
-            
+
             // Add files
             for file in listing.files {
                 items.push(crate::services::filesystem::FileItem::from(file));
             }
-            
+
             Ok(Json(ApiResponse::success(items)))
         }
         Err(e) => {
@@ -283,11 +283,11 @@ pub async fn read_file_workspace(
     State(state): State<AppState>
 ) -> Result<Json<ApiResponse<crate::services::filesystem::FileContent>>, StatusCode> {
     info!("File read requested for workspace {}: {}", workspace_id, params.path);
-    
+
     // Get workspace details
     use crate::services::workspace::WorkspaceService;
     let workspace_service = WorkspaceService::new(state.db.clone(), std::path::PathBuf::from("./workspaces"));
-    
+
     let workspace = match workspace_service.get_workspace(&workspace_id).await {
         Ok(Some(ws)) => ws,
         Ok(None) => {
@@ -299,7 +299,7 @@ pub async fn read_file_workspace(
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
     };
-    
+
     let workspace_path = match std::path::PathBuf::from(&workspace.path).canonicalize() {
         Ok(path) => path,
         Err(e) => {
@@ -308,7 +308,7 @@ pub async fn read_file_workspace(
         }
     };
     let fs_service = FileSystemService::new(workspace_path);
-    
+
     match fs_service.read_file(&params.path).await {
         Ok(content) => {
             debug!("File read successful: {} ({} bytes)", params.path, content.size);
@@ -327,11 +327,11 @@ pub async fn save_file_workspace(
     Json(request): Json<SaveFileRequest>
 ) -> Result<Json<ApiResponse<()>>, StatusCode> {
     info!("File save requested for workspace {}: {}", workspace_id, request.path);
-    
+
     // Get workspace details
     use crate::services::workspace::WorkspaceService;
     let workspace_service = WorkspaceService::new(state.db.clone(), std::path::PathBuf::from("./workspaces"));
-    
+
     let workspace = match workspace_service.get_workspace(&workspace_id).await {
         Ok(Some(ws)) => ws,
         Ok(None) => {
@@ -343,7 +343,7 @@ pub async fn save_file_workspace(
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
     };
-    
+
     let workspace_path = match std::path::PathBuf::from(&workspace.path).canonicalize() {
         Ok(path) => path,
         Err(e) => {
@@ -352,7 +352,7 @@ pub async fn save_file_workspace(
         }
     };
     let fs_service = FileSystemService::new(workspace_path);
-    
+
     match fs_service.write_file(&request.path, &request.content).await {
         Ok(_) => {
             info!("File save successful: {} ({} bytes)", request.path, request.content.len());
@@ -371,11 +371,11 @@ pub async fn create_file_workspace(
     Json(request): Json<CreateFileRequest>
 ) -> Result<Json<ApiResponse<()>>, StatusCode> {
     info!("File creation requested for workspace {}: {}", workspace_id, request.path);
-    
+
     // Get workspace details
     use crate::services::workspace::WorkspaceService;
     let workspace_service = WorkspaceService::new(state.db.clone(), std::path::PathBuf::from("./workspaces"));
-    
+
     let workspace = match workspace_service.get_workspace(&workspace_id).await {
         Ok(Some(ws)) => ws,
         Ok(None) => {
@@ -387,7 +387,7 @@ pub async fn create_file_workspace(
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
     };
-    
+
     let workspace_path = match std::path::PathBuf::from(&workspace.path).canonicalize() {
         Ok(path) => path,
         Err(e) => {
@@ -396,7 +396,7 @@ pub async fn create_file_workspace(
         }
     };
     let fs_service = FileSystemService::new(workspace_path);
-    
+
     match &request.r#type[..] {
         "file" => {
             match fs_service.write_file(&request.path, &request.content.unwrap_or_default()).await {
@@ -435,11 +435,11 @@ pub async fn delete_file_workspace(
     State(state): State<AppState>
 ) -> Result<Json<ApiResponse<()>>, StatusCode> {
     info!("File deletion requested for workspace {}: {}", workspace_id, params.path);
-    
+
     // Get workspace details
     use crate::services::workspace::WorkspaceService;
     let workspace_service = WorkspaceService::new(state.db.clone(), std::path::PathBuf::from("./workspaces"));
-    
+
     let workspace = match workspace_service.get_workspace(&workspace_id).await {
         Ok(Some(ws)) => ws,
         Ok(None) => {
@@ -451,7 +451,7 @@ pub async fn delete_file_workspace(
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
     };
-    
+
     let workspace_path = match std::path::PathBuf::from(&workspace.path).canonicalize() {
         Ok(path) => path,
         Err(e) => {
@@ -460,7 +460,7 @@ pub async fn delete_file_workspace(
         }
     };
     let fs_service = FileSystemService::new(workspace_path);
-    
+
     match fs_service.delete_item(&params.path).await {
         Ok(_) => {
             info!("File deletion successful: {}", params.path);
@@ -478,12 +478,12 @@ pub async fn rename_file_workspace(
     State(state): State<AppState>,
     Json(request): Json<RenameFileRequest>
 ) -> Result<Json<ApiResponse<()>>, StatusCode> {
-    info!("File rename requested for workspace {}: {} -> {}", workspace_id, request.oldPath, request.newPath);
-    
+    info!("File rename requested for workspace {}: {} -> {}", workspace_id, request.old_path, request.new_path);
+
     // Get workspace details
     use crate::services::workspace::WorkspaceService;
     let workspace_service = WorkspaceService::new(state.db.clone(), std::path::PathBuf::from("./workspaces"));
-    
+
     let workspace = match workspace_service.get_workspace(&workspace_id).await {
         Ok(Some(ws)) => ws,
         Ok(None) => {
@@ -495,7 +495,7 @@ pub async fn rename_file_workspace(
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
     };
-    
+
     let workspace_path = match std::path::PathBuf::from(&workspace.path).canonicalize() {
         Ok(path) => path,
         Err(e) => {
@@ -504,16 +504,15 @@ pub async fn rename_file_workspace(
         }
     };
     let fs_service = FileSystemService::new(workspace_path);
-    
-    match fs_service.rename_item(&request.oldPath, &request.newPath).await {
+
+    match fs_service.rename_item(&request.old_path, &request.new_path).await {
         Ok(_) => {
-            info!("File rename successful in workspace {}: {} -> {}", workspace_id, request.oldPath, request.newPath);
+            info!("File rename successful in workspace {}: {} -> {}", workspace_id, request.old_path, request.new_path);
             Ok(Json(ApiResponse::success(())))
         }
         Err(e) => {
-            error!("Failed to rename file {} -> {} in workspace {}: {}", request.oldPath, request.newPath, workspace_id, e);
+            error!("Failed to rename file {} -> {} in workspace {}: {}", request.old_path, request.new_path, workspace_id, e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
 }
-

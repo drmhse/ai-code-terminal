@@ -23,8 +23,10 @@ export interface Session {
   id: string
   workspace_id: string
   name: string
+  session_name: string
   created_at: string
   active: boolean
+  status: string
 }
 
 export interface TerminalSession {

@@ -10,6 +10,7 @@ pub struct Config {
     pub database: DatabaseConfig,
     pub auth: AuthConfig,
     pub cors: CorsConfig,
+    pub workspace: WorkspaceConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,6 +41,12 @@ pub struct CorsConfig {
     pub allowed_headers: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceConfig {
+    pub root_path: PathBuf,
+    pub auto_create: bool,
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -66,6 +73,10 @@ impl Default for Config {
                     "authorization".to_string(),
                     "x-requested-with".to_string(),
                 ],
+            },
+            workspace: WorkspaceConfig {
+                root_path: PathBuf::from("./workspaces"),
+                auto_create: true,
             },
         }
     }
@@ -125,10 +136,16 @@ impl Config {
             config.cors.allowed_origins = origins.split(',').map(|s| s.trim().to_string()).collect();
         }
         
+        // Handle workspace configuration
+        if let Ok(workspace_root) = std::env::var("ACT_WORKSPACE_ROOT_PATH") {
+            config.workspace.root_path = PathBuf::from(&workspace_root);
+        }
+        
         Ok(config)
     }
     
     /// Validate that required environment variables are present
+    #[allow(clippy::result_large_err)]
     pub fn validate_required_env_vars() -> Result<(), figment::Error> {
         let required_vars = [
             "ACT_AUTH_JWT_SECRET",
@@ -257,7 +274,7 @@ impl Config {
         }
         
         // Validate GitHub redirect URL is a valid URL
-        if let Err(_) = Url::parse(&self.auth.github_redirect_url) {
+        if Url::parse(&self.auth.github_redirect_url).is_err() {
             return Err(format!("Invalid GitHub redirect URL: {}", self.auth.github_redirect_url));
         }
         

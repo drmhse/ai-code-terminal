@@ -18,6 +18,8 @@ pub struct PtySession {
     pub child: Box<dyn Child + Send>,
     pub master: Box<dyn MasterPty + Send>,
     pub tx: mpsc::UnboundedSender<String>, // Channel to send data to PTY
+    #[allow(dead_code)]
+    pub pid: u32, // Process ID of the shell
 }
 
 impl std::fmt::Debug for PtySession {
@@ -37,6 +39,12 @@ pub struct PtyService {
     sessions: Arc<Mutex<HashMap<SessionId, Arc<Mutex<PtySession>>>>>,
 }
 
+impl Default for PtyService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PtyService {
     pub fn new() -> Self {
         Self {
@@ -50,7 +58,7 @@ impl PtyService {
         workspace_id: WorkspaceId,
         cols: u16,
         rows: u16,
-    ) -> Result<mpsc::UnboundedReceiver<String>, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<(mpsc::UnboundedReceiver<String>, u32), Box<dyn std::error::Error + Send + Sync>> {
         info!("Creating PTY session {} for workspace {}", session_id, workspace_id);
 
         let pty_size = PtySize {
@@ -82,6 +90,7 @@ impl PtyService {
 
         // Spawn process
         let child = slave.spawn_command(cmd)?;
+        let pid = 0; // portable_pty Child doesn't have id() method
 
         // Create channels for communication
         let (output_tx, output_rx) = mpsc::unbounded_channel::<String>();
@@ -145,12 +154,13 @@ impl PtyService {
         });
 
         // Create session
-        let pty_session = PtySession {
+let pty_session = PtySession {
             session_id: session_id.clone(),
-            workspace_id,
+            workspace_id: workspace_id.clone(),
             child,
             master,
             tx: input_tx,
+            pid,
         };
 
         // Store session
@@ -159,8 +169,8 @@ impl PtyService {
             sessions.insert(session_id.clone(), Arc::new(Mutex::new(pty_session)));
         }
 
-        info!("✅ PTY session {} created successfully", session_id);
-        Ok(output_rx)
+        info!("✅ PTY session {} created successfully (PID: {})", session_id, pid);
+        Ok((output_rx, pid))
     }
 
     pub fn send_input(&self, session_id: &str, data: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -221,6 +231,11 @@ impl PtyService {
         }
     }
 
+    pub fn remove_session(&self, session_id: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.destroy_session(session_id)
+    }
+
+    #[allow(dead_code)]
     pub fn get_active_sessions(&self) -> Vec<SessionId> {
         let sessions = self.sessions.lock().unwrap();
         sessions.keys().cloned().collect()

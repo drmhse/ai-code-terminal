@@ -76,6 +76,7 @@ impl ThemeService {
     }
 
     /// Initialize theme preferences table
+    #[allow(dead_code)]
     pub async fn initialize(&self) -> Result<()> {
         let query = r#"
             CREATE TABLE IF NOT EXISTS user_theme_preferences (

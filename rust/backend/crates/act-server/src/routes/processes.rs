@@ -187,12 +187,18 @@ pub async fn get_process_metrics(
 
 pub async fn get_process_logs(
     Path(process_id): Path<String>,
-    Query(_params): Query<ProcessLogsQuery>,
-    State(_state): State<AppState>
+    Query(params): Query<ProcessLogsQuery>,
+    State(state): State<AppState>
 ) -> Result<Json<ApiResponse<Vec<crate::services::process::ProcessLogEntry>>>, StatusCode> {
     info!("Process logs requested: {}", process_id);
     
-    // TODO: Implement process log retrieval
-    // For now, return empty logs
-    Ok(Json(ApiResponse::success(Vec::new())))
+    let process_supervisor = ProcessSupervisor::new(state.db.clone());
+    
+    match process_supervisor.get_process_logs(&process_id, params.limit, params.since, params.level).await {
+        Ok(logs) => Ok(Json(ApiResponse::success(logs))),
+        Err(e) => {
+            error!("Failed to get process logs for {}: {}", process_id, e);
+            Err(StatusCode::NOT_FOUND)
+        }
+    }
 }

@@ -204,6 +204,7 @@ impl<T> ApiResponse<T> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn error(message: impl Into<String>) -> Self {
         Self {
             success: false,
@@ -215,10 +216,12 @@ impl<T> ApiResponse<T> {
 
 // JSON field helper methods
 impl TerminalLayout {
+    #[allow(dead_code)]
     pub fn get_configuration(&self) -> Result<TerminalLayoutConfig, serde_json::Error> {
         serde_json::from_str(&self.configuration)
     }
 
+    #[allow(dead_code)]
     pub fn set_configuration(&mut self, config: &TerminalLayoutConfig) -> Result<(), serde_json::Error> {
         self.configuration = serde_json::to_string(config)?;
         Ok(())
@@ -226,6 +229,7 @@ impl TerminalLayout {
 }
 
 impl Session {
+    #[allow(dead_code)]
     pub fn get_environment_vars(&self) -> Result<Option<HashMap<String, String>>, serde_json::Error> {
         match &self.environment_vars {
             Some(env_vars) => Ok(Some(serde_json::from_str(env_vars)?)),
@@ -233,6 +237,7 @@ impl Session {
         }
     }
 
+    #[allow(dead_code)]
     pub fn set_environment_vars(&mut self, env_vars: Option<&HashMap<String, String>>) -> Result<(), serde_json::Error> {
         self.environment_vars = match env_vars {
             Some(env) => Some(serde_json::to_string(env)?),
@@ -241,6 +246,7 @@ impl Session {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn get_terminal_size(&self) -> Result<Option<TerminalSize>, serde_json::Error> {
         match &self.terminal_size {
             Some(size_str) => Ok(Some(serde_json::from_str(size_str)?)),
@@ -248,6 +254,7 @@ impl Session {
         }
     }
 
+    #[allow(dead_code)]
     pub fn set_terminal_size(&mut self, size: Option<&TerminalSize>) -> Result<(), serde_json::Error> {
         self.terminal_size = match size {
             Some(s) => Some(serde_json::to_string(s)?),
@@ -256,6 +263,7 @@ impl Session {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn get_shell_history(&self) -> Result<Option<Vec<String>>, serde_json::Error> {
         match &self.shell_history {
             Some(history_str) => Ok(Some(serde_json::from_str(history_str)?)),
@@ -263,6 +271,7 @@ impl Session {
         }
     }
 
+    #[allow(dead_code)]
     pub fn set_shell_history(&mut self, history: Option<&Vec<String>>) -> Result<(), serde_json::Error> {
         self.shell_history = match history {
             Some(h) => Some(serde_json::to_string(h)?),

@@ -158,11 +158,13 @@ pub struct StatsEvent {
 struct AuthenticatedSocket {
     pub user_id: String,
     pub username: String,
+    #[allow(dead_code)]
     pub authenticated_at: i64,
 }
 
 #[derive(Debug, Clone)]
 struct StatsSubscription {
+    #[allow(dead_code)]
     pub socket_id: String,
     pub interval: u64,
     pub last_sent: Option<i64>,
@@ -353,11 +355,11 @@ pub fn setup_socket_handlers(
                         80, // Default cols
                         24, // Default rows
                     ) {
-                        Ok(mut output_rx) => {
+                        Ok((mut output_rx, pid)) => {
                             // Emit creation success
                             let _ = socket.emit("terminal:created", TerminalCreatedEvent {
                                 session_id: session_id.clone(),
-                                pid: None, // TODO: Get actual PID from PTY
+                                pid: Some(pid as i32),
                                 shell,
                                 cwd,
                             });
@@ -552,13 +554,38 @@ pub fn setup_socket_handlers(
                     // Get active sessions
                     let sessions = session_manager.list_active_sessions().await;
                     
-                    // Filter by workspace_id if provided
-                    let filtered_sessions = if let Some(ws_id) = workspace_id {
+                    // Filter by workspace_id if provided and convert to SessionState
+                    let filtered_sessions: Vec<crate::services::session::SessionState> = if let Some(ws_id) = workspace_id {
                         sessions.into_iter()
                             .filter(|session| session.workspace_id.as_deref() == Some(&ws_id))
+                            .map(|active| crate::services::session::SessionState {
+                                session_id: active.id.clone(),
+                                workspace_id: active.workspace_id.clone(),
+                                current_working_dir: active.current_working_dir.clone(),
+                                environment_vars: std::collections::HashMap::new(), // Not stored in ActiveSession
+                                shell_history: active.shell_history.clone(),
+                                terminal_size: active.terminal_size.clone(),
+                                last_command: active.last_command.clone(),
+                                recovery_token: active.recovery_token.clone(),
+                                is_recoverable: true,
+                                created_at: active.created_at,
+                                last_activity: active.last_activity,
+                            })
                             .collect()
                     } else {
-                        sessions
+                        sessions.into_iter().map(|active| crate::services::session::SessionState {
+                            session_id: active.id.clone(),
+                            workspace_id: active.workspace_id.clone(),
+                            current_working_dir: active.current_working_dir.clone(),
+                            environment_vars: std::collections::HashMap::new(), // Not stored in ActiveSession
+                            shell_history: active.shell_history.clone(),
+                            terminal_size: active.terminal_size.clone(),
+                            last_command: active.last_command.clone(),
+                            recovery_token: active.recovery_token.clone(),
+                            is_recoverable: true,
+                            created_at: active.created_at,
+                            last_activity: active.last_activity,
+                        }).collect()
                     };
                     
                     let _ = socket.emit("session:list", SessionListEvent {
@@ -850,7 +877,7 @@ fn start_stats_broadcaster(io: SocketIo, stats_subscriptions: StatsSubscriptions
                 if should_send {
                     // Try to emit to socket via broadcast to specific socket ID
                     let stats_json = serde_json::to_value(&stats).unwrap_or_default();
-                    if let Err(_) = io.to(socket_id.clone()).emit("stats", stats_json) {
+                    if io.to(socket_id.clone()).emit("stats", stats_json).is_err() {
                         // Socket no longer exists, remove subscription
                         updated_subscriptions.remove(&socket_id);
                     } else {

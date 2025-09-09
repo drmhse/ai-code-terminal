@@ -280,8 +280,8 @@ impl LayoutManager {
         .bind(&config_json)
         .bind(false)
         .bind(&workspace_id)
-        .bind(&now)
-        .bind(&now)
+        .bind(now)
+        .bind(now)
         .execute(self.db.pool())
         .await?;
 
@@ -390,7 +390,7 @@ impl LayoutManager {
             "UPDATE terminal_layouts SET configuration = ?1, updated_at = ?2 WHERE id = ?3"
         )
         .bind(&config_json)
-        .bind(&now)
+        .bind(now)
         .bind(layout_id)
         .execute(self.db.pool())
         .await?;
@@ -400,6 +400,7 @@ impl LayoutManager {
     }
 
     /// Set default layout for workspace
+    #[allow(dead_code)]
     pub async fn set_default_layout(&self, workspace_id: &str, layout_id: &str) -> anyhow::Result<()> {
         // First, unset current default
         sqlx::query("UPDATE terminal_layouts SET is_default = 0 WHERE workspace_id = ?1")
@@ -419,6 +420,7 @@ impl LayoutManager {
     }
 
     /// Get default layout for workspace
+    #[allow(dead_code)]
     pub async fn get_default_layout(&self, workspace_id: &str) -> anyhow::Result<Option<TerminalLayout>> {
         let row = sqlx::query(
             "SELECT id, name, layout_type, configuration, is_default, workspace_id, created_at, updated_at 
@@ -507,6 +509,7 @@ impl LayoutManager {
     }
 
     /// Update pane in layout
+    #[allow(dead_code)]
     pub async fn update_pane_in_layout(
         &self,
         layout_id: &str,

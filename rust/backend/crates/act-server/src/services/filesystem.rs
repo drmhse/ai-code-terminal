@@ -1,9 +1,12 @@
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
+use std::fs::Metadata;
 use std::path::{Path, PathBuf};
 use tokio::fs as async_fs;
 use tracing::{debug, info, warn};
 use chrono;
+
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DirectoryListing {
@@ -90,11 +93,12 @@ impl FileSystemService {
             let relative_path = self.get_relative_path(&entry_path)?;
 
             if entry_path.is_dir() {
+                let permissions = self.format_permissions(&metadata);
                 directories.push(DirectoryEntry {
                     name: entry_name,
                     path: relative_path,
                     modified_time,
-                    permissions: None, // TODO: Add permission handling
+                    permissions: Some(permissions),
                 });
             } else {
                 let file_type = entry_path
@@ -102,13 +106,14 @@ impl FileSystemService {
                     .map(|ext| ext.to_string_lossy().to_string())
                     .unwrap_or_else(|| "unknown".to_string());
 
+                let permissions = self.format_permissions(&metadata);
                 files.push(FileEntry {
                     name: entry_name,
                     path: relative_path,
                     size: metadata.len(),
                     modified_time,
                     file_type,
-                    permissions: None, // TODO: Add permission handling
+                    permissions: Some(permissions),
                 });
             }
         }
@@ -255,6 +260,7 @@ impl FileSystemService {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub async fn copy_item(&self, from_path: &str, to_path: &str) -> Result<()> {
         let full_from_path = self.resolve_path(from_path)?;
         let full_to_path = self.resolve_path(to_path)?;
@@ -272,14 +278,48 @@ impl FileSystemService {
 
         if full_from_path.is_file() {
             async_fs::copy(&full_from_path, &full_to_path).await?;
+        } else if full_from_path.is_dir() {
+            self.copy_directory_recursive(&full_from_path, &full_to_path).await?;
         } else {
-            return Err(anyhow!("Directory copying not implemented yet"));
+            return Err(anyhow!("Unsupported file type for copying: {}", from_path));
         }
 
         info!("Item copied successfully: {} -> {}", from_path, to_path);
         Ok(())
     }
 
+    /// Recursively copy a directory and all its contents
+    #[allow(dead_code)]
+    async fn copy_directory_recursive(&self, from_path: &Path, to_path: &Path) -> Result<()> {
+        debug!("Recursively copying directory: {:?} -> {:?}", from_path, to_path);
+        
+        // Create the destination directory if it doesn't exist
+        async_fs::create_dir_all(to_path).await?;
+        
+        // Read the source directory
+        let mut entries = async_fs::read_dir(from_path).await?;
+        
+        while let Some(entry) = entries.next_entry().await? {
+            let entry_path = entry.path();
+            let entry_name = entry.file_name();
+            let dest_path = to_path.join(entry_name);
+            
+            if entry_path.is_dir() {
+                // Recursively copy subdirectories
+                Box::pin(self.copy_directory_recursive(&entry_path, &dest_path)).await?;
+            } else if entry_path.is_file() {
+                // Copy files
+                async_fs::copy(&entry_path, &dest_path).await?;
+            } else {
+                // Skip special files (symlinks, etc.)
+                warn!("Skipping special file during directory copy: {:?}", entry_path);
+            }
+        }
+        
+        Ok(())
+    }
+
+    #[allow(dead_code)]
     pub async fn search_files(&self, pattern: &str, _search_path: Option<&str>) -> Result<Vec<FileSearchResult>> {
         debug!("Searching for files with pattern: {}", pattern);
         
@@ -288,6 +328,7 @@ impl FileSystemService {
         Ok(Vec::new())
     }
 
+    #[allow(dead_code)]
     pub async fn search_content(&self, query: &str, _search_path: Option<&str>, _file_patterns: Option<Vec<String>>) -> Result<Vec<FileSearchResult>> {
         debug!("Searching for content with query: {}", query);
         
@@ -297,6 +338,37 @@ impl FileSystemService {
     }
 
     // Helper methods
+
+    /// Format file permissions as a Unix-style string (e.g., "rwxr-xr--")
+    fn format_permissions(&self, metadata: &Metadata) -> String {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = metadata.permissions().mode();
+            format!(
+                "{}{}{}{}{}{}{}{}{}",
+                if mode & 0o400 != 0 { 'r' } else { '-' },
+                if mode & 0o200 != 0 { 'w' } else { '-' },
+                if mode & 0o100 != 0 { 'x' } else { '-' },
+                if mode & 0o040 != 0 { 'r' } else { '-' },
+                if mode & 0o020 != 0 { 'w' } else { '-' },
+                if mode & 0o010 != 0 { 'x' } else { '-' },
+                if mode & 0o004 != 0 { 'r' } else { '-' },
+                if mode & 0o002 != 0 { 'w' } else { '-' },
+                if mode & 0o001 != 0 { 'x' } else { '-' },
+            )
+        }
+        
+        #[cfg(not(unix))]
+        {
+            // On non-Unix systems, provide a basic representation
+            if metadata.permissions().readonly() {
+                "r--r--r--".to_string()
+            } else {
+                "rw-rw-rw-".to_string()
+            }
+        }
+    }
 
     fn resolve_path(&self, path: &str) -> Result<PathBuf> {
         // Check for null bytes and other dangerous characters

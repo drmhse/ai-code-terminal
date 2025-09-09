@@ -197,6 +197,8 @@ fn create_error_response(status: u16, error: &str, message: &str) -> axum::respo
 pub struct CloneRequest {
     pub clone_url: String,
     pub name: String,
+    pub branch: Option<String>,
+    pub description: Option<String>,
 }
 
 /// Clone a repository and create a workspace
@@ -261,8 +263,8 @@ pub async fn clone_repository(
     let clone_request = WorkspaceCloneRequest {
         git_url: request.clone_url,
         name: request.name,
-        branch: None, // TODO: Allow specifying branch in request
-        description: None, // TODO: Allow specifying description in request
+        branch: request.branch,
+        description: request.description,
         owner_id: claims.sub, // Use actual user ID from JWT token
     };
     
