@@ -1,4 +1,6 @@
-use crate::{Database, services::PtyService};
+use act_core::Database;
+use crate::services::PtyService;
+use act_core::PtyEvent;
 use chrono::{DateTime, Utc, Duration};
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
@@ -48,7 +50,7 @@ pub struct SessionManager {
     db: Database,
     pty_service: Arc<Mutex<PtyService>>,
     active_sessions: Arc<Mutex<HashMap<String, ActiveSession>>>,
-    output_receivers: Arc<Mutex<HashMap<String, mpsc::UnboundedReceiver<String>>>>,
+    output_receivers: Arc<Mutex<HashMap<String, mpsc::UnboundedReceiver<PtyEvent>>>>,
     recovery_timeout: Duration,
 }
 
@@ -90,7 +92,7 @@ impl SessionManager {
                 ws_id.clone(),
                 terminal_size.as_ref().unwrap().cols,
                 terminal_size.as_ref().unwrap().rows
-            ).map_err(|e| anyhow::anyhow!("Failed to create PTY session: {}", e))?;
+            ).await.map_err(|e| anyhow::anyhow!("Failed to create PTY session: {}", e))?;
 
             // Store the output receiver for proper session management
             {
@@ -343,7 +345,7 @@ impl SessionManager {
     }
 
     /// Get output receiver for a session (for real-time output streaming)
-    pub async fn get_output_receiver(&self, session_id: &str) -> Option<mpsc::UnboundedReceiver<String>> {
+    pub async fn get_output_receiver(&self, session_id: &str) -> Option<mpsc::UnboundedReceiver<PtyEvent>> {
         let mut receivers = self.output_receivers.lock().await;
         receivers.remove(session_id)
     }
@@ -366,7 +368,7 @@ impl SessionManager {
 
         // Terminate PTY session
         let pty_service = self.pty_service.lock().await;
-        if let Err(e) = pty_service.destroy_session(session_id) {
+        if let Err(e) = pty_service.destroy_session(session_id).await {
             warn!("Failed to destroy PTY session {}: {}", session_id, e);
         }
 
@@ -430,7 +432,7 @@ impl SessionManager {
 
         // Resize PTY
         let pty_service = self.pty_service.lock().await;
-        pty_service.resize_session(session_id, cols, rows)
+        pty_service.resize_session(session_id, cols, rows).await
                 .map_err(|e| anyhow::anyhow!("Failed to resize PTY session: {}", e))?;
 
         // Update database

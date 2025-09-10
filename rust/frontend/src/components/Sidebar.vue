@@ -53,6 +53,21 @@
       <div class="sidebar-header">
         <h2>Files</h2>
         <div class="file-explorer-actions">
+          <button @click="openCreateItemModal" class="btn btn-small btn-icon" title="New File">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14,2H6A2,2 0,0,0,4,4V20A2,2 0,0,0,6,22H18A2,2 0,0,0,20,20V8L14,2M18,20H6V4H13V9H18V20Z"></path>
+              <polyline points="14,2 14,8 20,8"></polyline>
+              <line x1="12" y1="18" x2="12" y2="12"></line>
+              <line x1="9" y1="15" x2="15" y2="15"></line>
+            </svg>
+          </button>
+          <button @click="openCreateFolderModal" class="btn btn-small btn-icon" title="New Folder">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22,19A2,2 0,0,1,20,21H4A2,2 0,0,1,2,19V5A2,2 0,0,1,4,3H9L11,5H20A2,2 0,0,1,22,7V19Z"></path>
+              <line x1="12" y1="11" x2="12" y2="17"></line>
+              <line x1="9" y1="14" x2="15" y2="14"></line>
+            </svg>
+          </button>
           <button @click="fileStore.toggleHiddenFiles" class="btn btn-small btn-icon" 
                   :title="fileStore.showHiddenFiles ? 'Hide hidden files' : 'Show hidden files'">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -136,6 +151,14 @@ const selectWorkspace = async (workspace: Workspace) => {
 
 const handleFileSearch = () => {
   searchFiles(searchTerm.value)
+}
+
+const openCreateItemModal = () => {
+  uiStore.openCreateItemModal(fileStore.currentPath)
+}
+
+const openCreateFolderModal = () => {
+  uiStore.openCreateItemModal(fileStore.currentPath)
 }
 
 </script>

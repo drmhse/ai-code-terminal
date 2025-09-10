@@ -11,6 +11,35 @@ export interface FileItem {
   isHidden: boolean
   extension?: string
   path: string
+  language?: string
+}
+
+export interface EditorPosition {
+  line: number
+  column: number
+}
+
+export interface EditorSelection {
+  start: EditorPosition
+  end: EditorPosition
+}
+
+export interface EditorState {
+  path: string
+  content: string
+  language: string
+  is_modified: boolean
+  selection?: EditorSelection
+  cursor_position: EditorPosition
+}
+
+export interface FileTab {
+  id: string
+  path: string
+  name: string
+  language: string
+  is_modified: boolean
+  is_active: boolean
 }
 
 export interface DirectoryCacheItem {
@@ -55,6 +84,14 @@ export const useFileStore = defineStore('file', () => {
   const showDiscardModal = ref(false)
   const discardAction = ref<'exitEdit' | 'closeModal'>('exitEdit')
   const changesSummary = ref('')
+  
+  // Editor state
+  const openFiles = ref<Map<string, EditorState>>(new Map())
+  const fileTabs = ref<FileTab[]>([])
+  const activeTabId = ref<string | null>(null)
+  const showEditor = ref(false)
+  const editorLoading = ref(false)
+  const editorError = ref<string | null>(null)
 
   // Computed properties
   const filteredFiles = computed(() => {
@@ -87,6 +124,22 @@ export const useFileStore = defineStore('file', () => {
     }
     return null
   })
+  
+  // Editor computed properties
+  const activeFile = computed(() => {
+    if (!activeTabId.value) return null
+    return openFiles.value.get(activeTabId.value) || null
+  })
+  
+  const activeTab = computed(() => {
+    return fileTabs.value.find(tab => tab.id === activeTabId.value) || null
+  })
+  
+  const hasOpenFiles = computed(() => openFiles.value.size > 0)
+  const hasMultipleTabs = computed(() => fileTabs.value.length > 1)
+  const unsavedFiles = computed(() => 
+    Array.from(openFiles.value.values()).filter(state => state.is_modified)
+  )
 
   // Actions
   const clearFileError = () => {
@@ -355,6 +408,329 @@ export const useFileStore = defineStore('file', () => {
     }
   }
 
+  // Editor actions
+  const openFileInEditor = async (file: FileItem) => {
+    if (file.type !== 'file') return
+    
+    try {
+      editorLoading.value = true
+      editorError.value = null
+      
+      // Check if file is already open
+      if (openFiles.value.has(file.path)) {
+        setActiveTab(file.path)
+        showEditor.value = true
+        return
+      }
+      
+      const content = await apiService.getFileContent(file.path)
+      const language = getFileLanguage(file.name)
+      
+      const editorState: EditorState = {
+        path: file.path,
+        content,
+        language,
+        is_modified: false,
+        cursor_position: { line: 0, column: 0 }
+      }
+      
+      openFiles.value.set(file.path, editorState)
+      
+      // Create tab
+      const tab: FileTab = {
+        id: file.path,
+        path: file.path,
+        name: file.name,
+        language,
+        is_modified: false,
+        is_active: true
+      }
+      
+      fileTabs.value.push(tab)
+      setActiveTab(file.path)
+      showEditor.value = true
+      
+    } catch (err) {
+      editorError.value = err instanceof Error ? err.message : 'Failed to open file'
+      console.error('Failed to open file in editor:', err)
+    } finally {
+      editorLoading.value = false
+    }
+  }
+  
+  const closeFileInEditor = (path: string) => {
+    const editorState = openFiles.value.get(path)
+    if (editorState && editorState.is_modified) {
+      // Show discard modal
+      openDiscardModal('closeModal', `You have unsaved changes to ${path.split('/').pop() || path}`)
+      return
+    }
+    
+    doCloseFile(path)
+  }
+  
+  const doCloseFile = (path: string) => {
+    openFiles.value.delete(path)
+    
+    const tabIndex = fileTabs.value.findIndex(tab => tab.id === path)
+    if (tabIndex !== -1) {
+      fileTabs.value.splice(tabIndex, 1)
+      
+      // Update active tab if necessary
+      if (activeTabId.value === path) {
+        if (fileTabs.value.length > 0) {
+          setActiveTab(fileTabs.value[0].id)
+        } else {
+          activeTabId.value = null
+          showEditor.value = false
+        }
+      }
+    }
+  }
+  
+  const saveFile = async (path: string) => {
+    try {
+      const editorState = openFiles.value.get(path)
+      if (!editorState) return
+      
+      await apiService.saveFile(path, editorState.content)
+      
+      // Update editor state
+      editorState.is_modified = false
+      openFiles.value.set(path, { ...editorState })
+      
+      // Update tab state
+      const tab = fileTabs.value.find(t => t.id === path)
+      if (tab) {
+        tab.is_modified = false
+      }
+      
+    } catch (err) {
+      editorError.value = err instanceof Error ? err.message : 'Failed to save file'
+      console.error('Failed to save file:', err)
+      throw err
+    }
+  }
+  
+  const saveAllFiles = async () => {
+    const savePromises = Array.from(openFiles.value.entries())
+      .filter(([, state]) => state.is_modified)
+      .map(([path]) => saveFile(path))
+    
+    await Promise.all(savePromises)
+  }
+  
+  const setActiveTab = (path: string) => {
+    // Deactivate current tab
+    if (activeTabId.value) {
+      const currentTab = fileTabs.value.find(tab => tab.id === activeTabId.value)
+      if (currentTab) {
+        currentTab.is_active = false
+      }
+    }
+    
+    // Activate new tab
+    const newTab = fileTabs.value.find(tab => tab.id === path)
+    if (newTab) {
+      newTab.is_active = true
+      activeTabId.value = path
+    }
+  }
+  
+  const updateFileContent = (path: string, content: string) => {
+    const editorState = openFiles.value.get(path)
+    if (editorState) {
+      editorState.content = content
+      editorState.is_modified = true
+      openFiles.value.set(path, { ...editorState })
+      
+      // Update tab state
+      const tab = fileTabs.value.find(t => t.id === path)
+      if (tab) {
+        tab.is_modified = true
+      }
+    }
+  }
+  
+  const updateCursorPosition = (path: string, position: EditorPosition) => {
+    const editorState = openFiles.value.get(path)
+    if (editorState) {
+      editorState.cursor_position = position
+      openFiles.value.set(path, { ...editorState })
+    }
+  }
+  
+  const closeEditor = () => {
+    if (unsavedFiles.value.length > 0) {
+      openDiscardModal('exitEdit', 'You have unsaved changes in one or more files')
+      return
+    }
+    
+    doCloseAllFiles()
+  }
+  
+  const doCloseAllFiles = () => {
+    openFiles.value.clear()
+    fileTabs.value = []
+    activeTabId.value = null
+    showEditor.value = false
+  }
+  
+  const getFileLanguage = (filename: string): string => {
+    const extension = filename.split('.').pop()?.toLowerCase()
+    
+    const languageMap: Record<string, string> = {
+      // JavaScript/TypeScript
+      'js': 'javascript',
+      'jsx': 'javascript',
+      'ts': 'typescript',
+      'tsx': 'typescript',
+      'mjs': 'javascript',
+      'cjs': 'javascript',
+      
+      // Python
+      'py': 'python',
+      'pyw': 'python',
+      'pyi': 'python',
+      
+      // Rust
+      'rs': 'rust',
+      
+      // Go
+      'go': 'go',
+      
+      // Java
+      'java': 'java',
+      'class': 'java',
+      
+      // C/C++
+      'c': 'c',
+      'cpp': 'cpp',
+      'cc': 'cpp',
+      'cxx': 'cpp',
+      'h': 'cpp',
+      'hpp': 'cpp',
+      
+      // C#
+      'cs': 'csharp',
+      
+      // PHP
+      'php': 'php',
+      'phtml': 'php',
+      
+      // Ruby
+      'rb': 'ruby',
+      
+      // Shell/Bash
+      'sh': 'shell',
+      'bash': 'shell',
+      'zsh': 'shell',
+      'fish': 'shell',
+      
+      // HTML/CSS
+      'html': 'html',
+      'htm': 'html',
+      'css': 'css',
+      'scss': 'scss',
+      'sass': 'sass',
+      'less': 'less',
+      
+      // JSON
+      'json': 'json',
+      'jsonc': 'json',
+      'json5': 'json',
+      
+      // XML
+      'xml': 'xml',
+      'xhtml': 'xml',
+      'xsd': 'xml',
+      'xsl': 'xml',
+      
+      // YAML
+      'yaml': 'yaml',
+      'yml': 'yaml',
+      
+      // Markdown
+      'md': 'markdown',
+      'markdown': 'markdown',
+      
+      // SQL
+      'sql': 'sql',
+      
+      // Docker
+      'dockerfile': 'dockerfile',
+      'dockerignore': 'ignore',
+      
+      // Configuration files
+      'ini': 'ini',
+      'toml': 'toml',
+      'cfg': 'ini',
+      'conf': 'ini',
+      
+      // Git
+      'gitignore': 'ignore',
+      'gitattributes': 'gitattributes',
+      
+      // TypeScript definitions
+      'd.ts': 'typescript',
+      
+      // Vue
+      'vue': 'vue',
+      
+      // Svelte
+      'svelte': 'svelte',
+      
+      // Other
+      'txt': 'plaintext',
+      'log': 'plaintext',
+      'csv': 'csv',
+      'tsv': 'csv',
+    }
+    
+    return languageMap[extension || ''] || 'plaintext'
+}
+  
+  // const isTextFile = (filename: string): boolean => {
+  //   const textExtensions = [
+  //     'js', 'jsx', 'ts', 'tsx', 'mjs', 'cjs',
+  //     'py', 'pyw', 'pyi',
+  //     'rs',
+  //     'go',
+  //     'java', 'class',
+  //     'c', 'cpp', 'cc', 'cxx', 'h', 'hpp',
+  //     'cs',
+  //     'php', 'phtml',
+  //     'rb',
+  //     'sh', 'bash', 'zsh', 'fish',
+  //     'html', 'htm', 'css', 'scss', 'sass', 'less',
+  //     'json', 'jsonc', 'json5',
+  //     'xml', 'xhtml', 'xsd', 'xsl',
+  //     'yaml', 'yml',
+  //     'md', 'markdown',
+  //     'sql',
+  //     'dockerfile', 'dockerignore',
+  //     'ini', 'toml', 'cfg', 'conf',
+  //     'gitignore', 'gitattributes',
+  //     'd.ts',
+  //     'vue',
+  //     'txt', 'log',
+  //     'csv', 'tsv'
+  //   ]
+    
+  //   const extension = filename.split('.').pop()?.toLowerCase()
+  //   return textExtensions.includes(extension || '')
+  // }
+  
+  // Override discard modal handling
+  const handleDiscardConfirm = () => {
+    if (discardAction.value === 'exitEdit') {
+      doCloseAllFiles()
+    } else {
+      // Close modal without action
+    }
+    closeDiscardModal()
+  }
+
   // Cache management
   const clearCache = () => {
     directoryCache.value.clear()
@@ -393,12 +769,24 @@ export const useFileStore = defineStore('file', () => {
     showDiscardModal: readonly(showDiscardModal),
     discardAction: readonly(discardAction),
     changesSummary: readonly(changesSummary),
+    // Editor state
+    openFiles: readonly(openFiles),
+    fileTabs: readonly(fileTabs),
+    activeTabId: readonly(activeTabId),
+    showEditor: readonly(showEditor),
+    editorLoading: readonly(editorLoading),
+    editorError: readonly(editorError),
 
     // Computed
     filteredFiles,
     pathSegments,
     hasFiles,
     selectedFileData,
+    activeFile,
+    activeTab,
+    hasOpenFiles,
+    hasMultipleTabs,
+    unsavedFiles,
 
     // Actions
     clearFileError,
@@ -421,11 +809,21 @@ export const useFileStore = defineStore('file', () => {
     closeFilePreviewModal,
     openDiscardModal,
     closeDiscardModal,
+    handleDiscardConfirm,
     createFile,
     createDirectory,
     deleteFile,
     renameFile,
     handleFileNavigationKeys,
+    // Editor actions
+    openFileInEditor,
+    closeFileInEditor,
+    saveFile,
+    saveAllFiles,
+    setActiveTab,
+    updateFileContent,
+    updateCursorPosition,
+    closeEditor,
     clearCache,
     cleanupCache,
   }

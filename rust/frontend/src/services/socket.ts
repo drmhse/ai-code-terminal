@@ -1,5 +1,20 @@
 import { io, type Socket } from 'socket.io-client'
 import router from '@/router'
+import { Subject, BehaviorSubject, type Subscription } from '@/utils/reactive'
+import { 
+  ConnectionState,
+  type TerminalOutputEvent,
+  type TerminalCreatedEvent,
+  type TerminalDestroyedEvent,
+  type StatsDataEvent,
+  type WebSocketAuthErrorEvent,
+  type ConnectionStateEvent,
+  type SocketEventMap,
+  validateTerminalOutputEvent,
+  validateTerminalCreatedEvent,
+  validateTerminalDestroyedEvent,
+  validateStatsDataEvent
+} from '@/types/socket'
 
 export interface SocketEvents {
   // Terminal events
@@ -17,14 +32,23 @@ class SocketService {
   private reconnectAttempts = 0
   private maxReconnectAttempts = 5
 
+  public readonly connectionState$ = new BehaviorSubject<ConnectionState>(ConnectionState.DISCONNECTED)
+  public readonly terminalOutput$ = new Subject<TerminalOutputEvent>()
+  public readonly terminalCreated$ = new Subject<TerminalCreatedEvent>()
+  public readonly terminalDestroyed$ = new Subject<TerminalDestroyedEvent>()
+  public readonly statsData$ = new Subject<StatsDataEvent>()
+  public readonly authError$ = new Subject<WebSocketAuthErrorEvent>()
+
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       const token = localStorage.getItem('jwt_token')
       if (!token) {
+        this.connectionState$.next(ConnectionState.ERROR)
         reject(new Error('No authentication token available'))
         return
       }
 
+      this.connectionState$.next(ConnectionState.CONNECTING)
       const wsUrl = import.meta.env.VITE_WS_URL || 'http://localhost:3001'
       
       this.socket = io(wsUrl, {
@@ -38,24 +62,23 @@ class SocketService {
       this.socket.on('connect', () => {
         console.log('Connected to WebSocket server')
         this.reconnectAttempts = 0
+        this.connectionState$.next(ConnectionState.CONNECTED)
         
-        // Send explicit authentication after connection
         this.socket?.emit('authenticate', { token })
-        // Don't resolve here - wait for authentication confirmation
       })
 
       this.socket.on('disconnect', (reason) => {
         console.log('Disconnected from WebSocket server:', reason)
+        this.connectionState$.next(ConnectionState.DISCONNECTED)
         if (reason === 'io server disconnect') {
-          // Server disconnected, try to reconnect
           this.handleReconnection()
         }
       })
 
       this.socket.on('connect_error', (error) => {
         console.error('WebSocket connection error:', error)
+        this.connectionState$.next(ConnectionState.ERROR)
         if (error.message.includes('Authentication')) {
-          // Don't immediately clear tokens, let auth store handle it
           console.warn('WebSocket authentication failed, will retry')
         }
         reject(error)
@@ -63,22 +86,25 @@ class SocketService {
 
       this.socket.on('authenticated', (data) => {
         console.log('WebSocket authenticated successfully:', data)
-        // Resolve the promise now that authentication is confirmed
+        this.connectionState$.next(ConnectionState.AUTHENTICATED)
         resolve()
       })
 
       this.socket.on('auth_error', (error) => {
         console.error('WebSocket authentication error:', error)
-        // Don't immediately clear localStorage here
-        // Let the auth store handle token validation and cleanup
+        this.connectionState$.next(ConnectionState.ERROR)
+        
         if (error.code === 'JWT_EXPIRED' || error.code === 'JWT_INVALID') {
           console.warn('JWT token issue detected, will need re-authentication')
-          // Emit custom event for auth store to handle
-          window.dispatchEvent(new CustomEvent('websocket:auth_error', { detail: error }))
+          const authErrorEvent: WebSocketAuthErrorEvent = {
+            code: error.code,
+            message: error.message || 'Authentication error',
+            timestamp: Date.now()
+          }
+          this.authError$.next(authErrorEvent)
         }
       })
 
-      // Set up event listeners for terminal data and stats
       this.setupTerminalListeners()
       this.setupStatsListeners()
     })
@@ -87,26 +113,40 @@ class SocketService {
   private setupTerminalListeners(): void {
     if (!this.socket) return
 
-    this.socket.on('terminal:output', (data: { sessionId: string; output: string }) => {
-      // Emit custom event for components to listen to
-      window.dispatchEvent(new CustomEvent('terminal:output', { detail: data }))
+    this.socket.on('terminal:output', (data: unknown) => {
+      if (validateTerminalOutputEvent(data)) {
+        this.terminalOutput$.next(data)
+      } else {
+        console.warn('Invalid terminal output data received:', data)
+      }
     })
 
-    this.socket.on('terminal:created', (data: { sessionId: string; pid: number }) => {
-      window.dispatchEvent(new CustomEvent('terminal:created', { detail: data }))
+    this.socket.on('terminal:created', (data: unknown) => {
+      if (validateTerminalCreatedEvent(data)) {
+        this.terminalCreated$.next(data)
+      } else {
+        console.warn('Invalid terminal created data received:', data)
+      }
     })
 
-    this.socket.on('terminal:destroyed', (data: { sessionId: string }) => {
-      window.dispatchEvent(new CustomEvent('terminal:destroyed', { detail: data }))
+    this.socket.on('terminal:destroyed', (data: unknown) => {
+      if (validateTerminalDestroyedEvent(data)) {
+        this.terminalDestroyed$.next(data)
+      } else {
+        console.warn('Invalid terminal destroyed data received:', data)
+      }
     })
   }
 
   private setupStatsListeners(): void {
     if (!this.socket) return
 
-    this.socket.on('stats', (data: any) => {
-      // Emit custom event for components to listen to
-      window.dispatchEvent(new CustomEvent('stats:data', { detail: data }))
+    this.socket.on('stats', (data: unknown) => {
+      if (validateStatsDataEvent(data)) {
+        this.statsData$.next(data)
+      } else {
+        console.warn('Invalid stats data received:', data)
+      }
     })
 
     this.socket.on('stats:subscribed', (data: any) => {
@@ -125,14 +165,15 @@ class SocketService {
   private handleReconnection(): void {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++
-      const delay = Math.pow(2, this.reconnectAttempts) * 1000 // Exponential backoff
+      this.connectionState$.next(ConnectionState.RECONNECTING)
+      const delay = Math.pow(2, this.reconnectAttempts) * 1000
       setTimeout(() => {
         console.log(`Reconnection attempt ${this.reconnectAttempts}`)
         this.connect().catch(console.error)
       }, delay)
     } else {
       console.error('Max reconnection attempts reached')
-      // Redirect to login or show error message
+      this.connectionState$.next(ConnectionState.ERROR)
       router.push('/login')
     }
   }
@@ -142,9 +183,9 @@ class SocketService {
       this.socket.disconnect()
       this.socket = null
     }
+    this.connectionState$.next(ConnectionState.DISCONNECTED)
   }
 
-  // Terminal methods
   createTerminal(workspaceId: string, sessionId: string): void {
     this.socket?.emit('terminal:create', { workspaceId, sessionId })
   }
@@ -161,12 +202,10 @@ class SocketService {
     this.socket?.emit('terminal:destroy', { sessionId })
   }
 
-  // Workspace methods
   switchWorkspace(workspaceId: string): void {
     this.socket?.emit('workspace:switch', { workspaceId })
   }
 
-  // Stats methods
   subscribeToStats(interval: number = 5): void {
     this.socket?.emit('stats:subscribe', { interval })
   }
@@ -177,6 +216,35 @@ class SocketService {
 
   get isConnected(): boolean {
     return this.socket?.connected ?? false
+  }
+
+  subscribe<T extends keyof SocketEventMap>(
+    eventType: T,
+    callback: (data: SocketEventMap[T]) => void
+  ): Subscription {
+    switch (eventType) {
+      case 'terminal:output':
+        return this.terminalOutput$.subscribe(callback as any)
+      case 'terminal:created':
+        return this.terminalCreated$.subscribe(callback as any)
+      case 'terminal:destroyed':
+        return this.terminalDestroyed$.subscribe(callback as any)
+      case 'stats:data':
+        return this.statsData$.subscribe(callback as any)
+      case 'websocket:auth_error':
+        return this.authError$.subscribe(callback as any)
+      case 'connection:state':
+        return this.connectionState$.subscribe((state) => {
+          const event: ConnectionStateEvent = {
+            state,
+            timestamp: Date.now(),
+            reconnectAttempt: this.reconnectAttempts
+          }
+          ;(callback as any)(event)
+        })
+      default:
+        throw new Error(`Unknown event type: ${eventType}`)
+    }
   }
 }
 

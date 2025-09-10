@@ -144,6 +144,86 @@ impl ProcessSupervisor {
         }
     }
 
+    pub async fn reconcile_with_tmux_sessions(&self) -> Result<()> {
+        info!("Starting tmux session reconciliation");
+        
+        // Get list of running tmux sessions
+        let tmux_sessions = self.list_tmux_sessions().await?;
+        
+        // Load session data from database
+        let db_sessions = self.load_all_sessions_from_db().await?;
+        
+        // Update process states based on tmux session existence
+        for session in db_sessions {
+            let tmux_session_id = format!("act-{}", session.session_id.as_deref().unwrap_or(&session.id));
+            
+            if tmux_sessions.contains(&tmux_session_id) {
+                // Session exists, mark as running if it was stopped
+                if session.status != ProcessStatus::Running {
+                    let mut updated_session = session.clone();
+                    updated_session.status = ProcessStatus::Running;
+                    self.save_process_info(&updated_session).await?;
+                }
+            } else {
+                // Session doesn't exist, mark as terminated if it was running
+                if session.status == ProcessStatus::Running || session.status == ProcessStatus::Starting {
+                    let mut updated_session = session.clone();
+                    updated_session.status = ProcessStatus::Terminated;
+                    updated_session.end_time = Some(chrono::Utc::now().timestamp());
+                    self.save_process_info(&updated_session).await?;
+                }
+            }
+        }
+        
+        info!("Tmux session reconciliation completed");
+        Ok(())
+    }
+
+    async fn list_tmux_sessions(&self) -> Result<Vec<String>> {
+        let output = std::process::Command::new("tmux")
+            .arg("list-sessions")
+            .arg("-F")
+            .arg("#{session_name}")
+            .output();
+
+        match output {
+            Ok(output) if output.status.success() => {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let sessions: Vec<String> = stdout
+                    .lines()
+                    .filter(|line| line.starts_with("act-"))
+                    .map(|line| line.to_string())
+                    .collect();
+                Ok(sessions)
+            }
+            Ok(_) => {
+                warn!("No tmux sessions found or tmux not available");
+                Ok(vec![])
+            }
+            Err(e) => {
+                warn!("Failed to execute tmux list-sessions: {}", e);
+                Ok(vec![]) 
+            }
+        }
+    }
+
+    async fn load_all_sessions_from_db(&self) -> Result<Vec<ProcessInfo>> {
+        let rows = sqlx::query(
+            "SELECT data FROM process_info WHERE status != 'Terminated'"
+        )
+        .fetch_all(self.db.pool())
+        .await?;
+
+        let mut sessions = Vec::new();
+        for row in rows {
+            let info_json: String = row.get("data");
+            let info: ProcessInfo = serde_json::from_str(&info_json)?;
+            sessions.push(info);
+        }
+        
+        Ok(sessions)
+    }
+
     pub async fn start_process(
         &self,
         config: ProcessConfig,

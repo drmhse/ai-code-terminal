@@ -43,6 +43,18 @@ Website: [act.drmhse.com](https://act.drmhse.com)
 *Choose from 18 carefully crafted themes with live preview*
 *Consistent theming across terminals and interface elements*
 
+## ⚠️ Security Notice
+
+**ACT provides full shell access within a containerized environment.** This is a powerful feature that requires careful security considerations:
+
+-   **Container Isolation:** Each workspace runs in a separate Docker container with restricted resource limits
+-   **Network Security:** Containers run on a private bridge network with no external access by default
+-   **Filesystem Security:** Containers only have access to their designated workspace directories
+-   **User Authentication:** GitHub OAuth restricts access to authorized users only
+-   **Regular Updates:** Keep Docker images and dependencies updated for security patches
+
+**IMPORTANT:** This tool is designed for development environments and should be deployed behind proper authentication and network security measures. Do not expose it directly to the public internet without additional security layers.
+
 ## Philosophy
 
 -   **Terminal-First Development:** ACT combines the power of a full-featured IDE with the simplicity and speed of a terminal-based workflow. Integrated file management, code editing, and advanced terminal multiplexing in one lightweight package.

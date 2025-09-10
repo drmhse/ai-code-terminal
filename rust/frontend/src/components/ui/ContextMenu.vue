@@ -167,9 +167,11 @@
 import { useFileStore } from '@/stores/file'
 import { useFileOperations } from '@/composables/useFileOperations'
 import { useUIStore } from '@/stores/ui'
+import { useWorkspaceStore } from '@/stores/workspace'
 
 const fileStore = useFileStore()
 const uiStore = useUIStore()
+const workspaceStore = useWorkspaceStore()
 const fileOperations = useFileOperations()
 
 const previewFile = async () => {
@@ -300,27 +302,22 @@ const duplicateFile = async () => {
 const deleteFile = async () => {
   if (!fileStore.contextMenuFile) return
   
-  const confirmMessage = fileStore.contextMenuFile.type === 'directory'
-    ? `Are you sure you want to delete the folder "${fileStore.contextMenuFile.name}" and all its contents?`
-    : `Are you sure you want to delete "${fileStore.contextMenuFile.name}"?`
-  
-  if (confirm(confirmMessage)) {
-    try {
-      await fileStore.deleteFile(fileStore.contextMenuFile)
+  uiStore.openConfirmDeleteModal({
+    itemName: fileStore.contextMenuFile.name,
+    itemType: fileStore.contextMenuFile.type === 'directory' ? 'folder' : 'file',
+    additionalInfo: fileStore.contextMenuFile.type === 'directory' 
+      ? 'This will delete the folder and all its contents. This action cannot be undone.'
+      : 'This action cannot be undone.',
+    onConfirm: async () => {
+      await fileStore.deleteFile(fileStore.contextMenuFile!)
       
       uiStore.addResourceAlert({
         type: 'info',
-        title: 'File Deleted',
-        message: `Deleted ${fileStore.contextMenuFile.name}`
-      })
-    } catch (err) {
-      uiStore.addResourceAlert({
-        type: 'error',
-        title: 'Delete Failed',
-        message: err instanceof Error ? err.message : 'Failed to delete file'
+        title: 'Item Deleted',
+        message: `Deleted ${fileStore.contextMenuFile!.name}`
       })
     }
-  }
+  })
   
   fileStore.closeContextMenu()
 }

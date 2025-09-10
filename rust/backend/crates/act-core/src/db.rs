@@ -3,7 +3,7 @@ use std::time::Duration;
 use std::path::Path;
 use tracing::{info, error};
 
-use crate::{Error, Result};
+use crate::{CoreError as Error, Result};
 
 /// Database connection pool wrapper
 #[derive(Clone, Debug)]
@@ -22,16 +22,16 @@ impl Database {
             if !parent.exists() {
                 info!("Creating database directory: {}", parent.display());
                 tokio::fs::create_dir_all(parent).await
-                    .map_err(|e| Error::Database(sqlx::Error::Io(std::io::Error::other(
-                        format!("Failed to create database directory: {}", e)
-                    ))))?;
+                    .map_err(|e| Error::Database(format!("Failed to create database directory: {}", e)))?;
             }
         }
 
         // Create database if it doesn't exist
-        if !Sqlite::database_exists(database_url).await? {
+        if !Sqlite::database_exists(database_url).await
+            .map_err(|e| Error::Database(e.to_string()))? {
             info!("Creating database at {}", database_url);
-            Sqlite::create_database(database_url).await?;
+            Sqlite::create_database(database_url).await
+                .map_err(|e| Error::Database(e.to_string()))?;
         }
 
         // Create connection pool with options
@@ -43,7 +43,8 @@ impl Database {
                     .filename(database_url.strip_prefix("sqlite:").unwrap_or(database_url))
                     .create_if_missing(true)
                     .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
-            ).await?;
+            ).await
+                .map_err(|e| Error::Database(e.to_string()))?;
 
         info!("Database connection pool created successfully");
 
@@ -61,7 +62,7 @@ impl Database {
             }
             Err(err) => {
                 error!("Database migration failed: {}", err);
-                Err(Error::Migration(err))
+                Err(Error::Migration(err.to_string()))
             }
         }
     }

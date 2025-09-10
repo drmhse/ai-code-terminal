@@ -2,6 +2,14 @@ import { defineStore } from 'pinia'
 import { ref, computed, readonly } from 'vue'
 import type { TerminalSession } from '@/types'
 import { socketService } from '@/services/socket'
+import type { Subscription } from '@/utils/reactive'
+import { 
+  type LayoutType, 
+  type LayoutRecommendations,
+  getSupportedLayouts,
+  getRecommendedLayout,
+  getLayoutConfig 
+} from '@/types/layout'
 
 export interface TerminalTab {
   sessionId: string
@@ -23,19 +31,14 @@ export interface TerminalPane {
   }
 }
 
-export type LayoutType = 'single' | 'horizontal-split' | 'vertical-split' | 'grid-2x2' | 'three-pane'
-
 export const useTerminalStore = defineStore('terminal', () => {
-  // Original terminal state
   const panes = ref<TerminalPane[]>([])
   const activePane = ref<string | null>(null)
   const sessions = ref<Map<string, TerminalSession>>(new Map())
   
-  // Enhanced terminal management from original app
   const terminalTabs = ref<TerminalTab[]>([])
   const activeTabId = ref<string | null>(null)
   
-  // Drag and drop state
   const draggedTab = ref<TerminalTab | null>(null)
   const dragOverPane = ref<string | null>(null)
   const dragState = ref({
@@ -43,12 +46,59 @@ export const useTerminalStore = defineStore('terminal', () => {
     draggedTabId: null as string | null
   })
   
-  // Viewport and layout management
   const viewportWidth = ref(window.innerWidth)
-  const layoutRecommendations = ref({
-    supported: [] as LayoutType[],
-    recommended: 'single' as LayoutType
+  const layoutRecommendations = ref<LayoutRecommendations>({
+    supported: ['single'],
+    recommended: 'single'
   })
+
+  let socketSubscriptions: Subscription[] = []
+  let outputHandlers: ((sessionId: string, output: string) => void)[] = []
+
+  const initializeSocketSubscriptions = () => {
+    socketSubscriptions.push(
+      socketService.subscribe('terminal:output', (event) => {
+        appendOutput(event.sessionId, event.output)
+        // Notify all registered output handlers
+        outputHandlers.forEach(handler => {
+          try {
+            handler(event.sessionId, event.output)
+          } catch (error) {
+            console.error('Error in terminal output handler:', error)
+          }
+        })
+      }),
+      
+      socketService.subscribe('terminal:created', (event) => {
+        const tab = terminalTabs.value.find(t => t.sessionId === event.sessionId)
+        if (tab) {
+          tab.pid = event.pid
+        }
+      }),
+      
+      socketService.subscribe('terminal:destroyed', (event) => {
+        const pane = panes.value.find(p => p.sessionId === event.sessionId)
+        if (pane) {
+          closePane(pane.id)
+        }
+      })
+    )
+  }
+
+  const onTerminalOutput = (handler: (sessionId: string, output: string) => void) => {
+    outputHandlers.push(handler)
+    return () => {
+      const index = outputHandlers.indexOf(handler)
+      if (index !== -1) {
+        outputHandlers.splice(index, 1)
+      }
+    }
+  }
+
+  const cleanupSocketSubscriptions = () => {
+    socketSubscriptions.forEach(sub => sub.unsubscribe())
+    socketSubscriptions = []
+  }
 
   const activePaneData = computed(() => 
     panes.value.find(pane => pane.id === activePane.value) || null
@@ -181,12 +231,10 @@ export const useTerminalStore = defineStore('terminal', () => {
     }
   }
 
-  // Enhanced layout management
   const currentLayout = ref<LayoutType>('single')
   
   const activePaneId = computed(() => activePane.value || null)
   
-  // Enhanced computed properties
   const activeTab = computed(() => {
     return terminalTabs.value.find(tab => tab.sessionId === activeTabId.value) || null
   })
@@ -196,37 +244,14 @@ export const useTerminalStore = defineStore('terminal', () => {
   const canSplitHorizontally = computed(() => viewportWidth.value >= 768)
   const canSplitVertically = computed(() => viewportWidth.value >= 1024)
   
-  // Grid layout computed properties
   const gridTemplateColumns = computed(() => {
-    switch (currentLayout.value) {
-      case 'single':
-        return '1fr'
-      case 'horizontal-split':
-        return '1fr 1fr'
-      case 'vertical-split':
-        return '1fr'
-      case 'three-pane':
-        return '2fr 1fr'
-      case 'grid-2x2':
-        return '1fr 1fr'
-      default:
-        return '1fr'
-    }
+    const config = getLayoutConfig(currentLayout.value)
+    return config.gridTemplateColumns
   })
   
   const gridTemplateRows = computed(() => {
-    switch (currentLayout.value) {
-      case 'single':
-      case 'horizontal-split':
-        return '1fr'
-      case 'vertical-split':
-      case 'three-pane':
-        return '1fr 1fr'
-      case 'grid-2x2':
-        return '1fr 1fr'
-      default:
-        return '1fr'
-    }
+    const config = getLayoutConfig(currentLayout.value)
+    return config.gridTemplateRows
   })
 
   const createTerminal = async (workspaceId: string) => {
@@ -244,36 +269,25 @@ export const useTerminalStore = defineStore('terminal', () => {
   }
 
   const setLayout = async (layout: LayoutType) => {
+    // Enforce single layout on mobile
+    if (viewportWidth.value < 768) {
+      currentLayout.value = 'single'
+      return
+    }
+    
     if (layoutRecommendations.value.supported.includes(layout)) {
       currentLayout.value = layout
     }
   }
   
-  // Enhanced terminal management actions
   const updateViewportWidth = () => {
     viewportWidth.value = window.innerWidth
     updateLayoutRecommendations()
   }
   
   const updateLayoutRecommendations = () => {
-    const supported: LayoutType[] = ['single']
-    let recommended: LayoutType = 'single'
-
-    if (canSplitHorizontally.value) {
-      supported.push('horizontal-split')
-      if (hasMultipleTabs.value) {
-        recommended = 'horizontal-split'
-      }
-    }
-
-    if (canSplitVertically.value) {
-      supported.push('vertical-split', 'three-pane')
-      if (terminalTabs.value.length >= 3) {
-        supported.push('grid-2x2')
-        recommended = 'three-pane'
-      }
-    }
-
+    const supported = getSupportedLayouts(viewportWidth.value)
+    const recommended = getRecommendedLayout(viewportWidth.value, terminalTabs.value.length)
     layoutRecommendations.value = { supported, recommended }
   }
   
@@ -386,8 +400,13 @@ export const useTerminalStore = defineStore('terminal', () => {
   }
 
   const initialize = () => {
-    // Initialize terminal state
     console.log('Terminal store initialized')
+    initializeSocketSubscriptions()
+    updateLayoutRecommendations()
+  }
+
+  const cleanup = () => {
+    cleanupSocketSubscriptions()
   }
 
   return {
@@ -449,5 +468,7 @@ export const useTerminalStore = defineStore('terminal', () => {
     dropTab,
     clearDragState,
     convertLayout,
+    cleanup,
+    onTerminalOutput,
   }
 })

@@ -145,7 +145,7 @@ impl Config {
     }
     
     /// Validate that required environment variables are present
-    #[allow(clippy::result_large_err)]
+    #[allow(dead_code, clippy::result_large_err)]
     pub fn validate_required_env_vars() -> Result<(), figment::Error> {
         let required_vars = [
             "ACT_AUTH_JWT_SECRET",

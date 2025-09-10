@@ -4,9 +4,47 @@ import type { Repository } from '@/stores/workspace'
 import type { FileItem } from '@/stores/file'
 import type { ThemePreference } from '@/types/theme'
 import type { AppStats } from '@/stores/auth'
+import { useUIStore } from '@/stores/ui'
+
+interface ApiError {
+  code: string
+  message: string
+  details?: any
+  status?: number
+}
+
+interface EnhancedApiError extends Error {
+  code: string
+  details?: any
+  status?: number
+  isRetryable: boolean
+  userMessage: string
+}
+
+// Error categorization
+enum ErrorCategory {
+  NETWORK = 'network',
+  AUTHENTICATION = 'authentication',
+  AUTHORIZATION = 'authorization',
+  VALIDATION = 'validation',
+  NOT_FOUND = 'not_found',
+  SERVER = 'server',
+  RATE_LIMIT = 'rate_limit',
+  TIMEOUT = 'timeout',
+  UNKNOWN = 'unknown'
+}
+
+// Error severity levels
+enum ErrorSeverity {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  CRITICAL = 'critical'
+}
 
 class ApiService {
   private client: AxiosInstance
+  private uiStore = useUIStore()
 
   constructor() {
     this.client = axios.create({
@@ -25,27 +63,286 @@ class ApiService {
       return config
     })
 
-    // Response interceptor for error handling
+    // Response interceptor for enhanced error handling
     this.client.interceptors.response.use(
       (response) => {
         // Check if the API response indicates an error
         if (response.data && typeof response.data === 'object' && 'success' in response.data) {
           if (!response.data.success) {
-            throw new Error(response.data.error || 'API request failed')
+            const apiError = this.createErrorFromResponse(response.data)
+            this.handleApiError(apiError)
+            throw apiError
           }
         }
         return response
       },
       (error) => {
+        const enhancedError = this.enhanceError(error)
+        this.handleApiError(enhancedError)
+        
+        // Handle authentication errors
         if (error.response?.status === 401) {
-          // Clear token and redirect to login
-          localStorage.removeItem('jwt_token')
-          localStorage.removeItem('user')
-          window.location.href = '/login'
+          this.handleAuthenticationError()
         }
-        return Promise.reject(error)
+        
+        return Promise.reject(enhancedError)
       }
     )
+  }
+
+  // Create enhanced error from Axios error
+  private enhanceError(error: any): EnhancedApiError {
+    const uiStore = useUIStore()
+    
+    // Network errors
+    if (!error.response) {
+      if (error.code === 'ECONNABORTED') {
+        return this.createEnhancedError(
+          'TIMEOUT_ERROR',
+          'Request timeout',
+          ErrorCategory.TIMEOUT,
+          ErrorSeverity.MEDIUM,
+          'The request took too long to complete. Please try again.',
+          true
+        )
+      }
+      
+      if (error.message.includes('Network Error')) {
+        return this.createEnhancedError(
+          'NETWORK_ERROR',
+          'Network connection failed',
+          ErrorCategory.NETWORK,
+          ErrorSeverity.HIGH,
+          'Unable to connect to the server. Please check your internet connection.',
+          true
+        )
+      }
+    }
+
+    // HTTP errors
+    const status = error.response?.status
+    const data = error.response?.data || {}
+    
+    switch (status) {
+      case 400:
+        return this.createEnhancedError(
+          'VALIDATION_ERROR',
+          data.message || 'Invalid request',
+          ErrorCategory.VALIDATION,
+          ErrorSeverity.MEDIUM,
+          this.getValidationMessage(data),
+          false
+        )
+        
+      case 401:
+        return this.createEnhancedError(
+          'AUTHENTICATION_ERROR',
+          'Authentication required',
+          ErrorCategory.AUTHENTICATION,
+          ErrorSeverity.HIGH,
+          'Please log in to continue.',
+          false
+        )
+        
+      case 403:
+        return this.createEnhancedError(
+          'AUTHORIZATION_ERROR',
+          'Access denied',
+          ErrorCategory.AUTHORIZATION,
+          ErrorSeverity.HIGH,
+          'You do not have permission to perform this action.',
+          false
+        )
+        
+      case 404:
+        return this.createEnhancedError(
+          'NOT_FOUND_ERROR',
+          'Resource not found',
+          ErrorCategory.NOT_FOUND,
+          ErrorSeverity.MEDIUM,
+          'The requested resource could not be found.',
+          false
+        )
+        
+      case 429:
+        return this.createEnhancedError(
+          'RATE_LIMIT_ERROR',
+          'Too many requests',
+          ErrorCategory.RATE_LIMIT,
+          ErrorSeverity.MEDIUM,
+          'Too many requests. Please wait a moment before trying again.',
+          true
+        )
+        
+      case 500:
+        return this.createEnhancedError(
+          'SERVER_ERROR',
+          'Internal server error',
+          ErrorCategory.SERVER,
+          ErrorSeverity.HIGH,
+          'An internal server error occurred. Please try again later.',
+          true
+        )
+        
+      case 502:
+      case 503:
+      case 504:
+        return this.createEnhancedError(
+          'SERVICE_UNAVAILABLE',
+          'Service unavailable',
+          ErrorCategory.NETWORK,
+          ErrorSeverity.HIGH,
+          'The service is temporarily unavailable. Please try again later.',
+          true
+        )
+        
+      default:
+        return this.createEnhancedError(
+          'UNKNOWN_ERROR',
+          data.message || 'An unexpected error occurred',
+          ErrorCategory.UNKNOWN,
+          ErrorSeverity.MEDIUM,
+          'An unexpected error occurred. Please try again.',
+          true
+        )
+    }
+  }
+
+  // Create error from API response
+  private createErrorFromResponse(data: any): EnhancedApiError {
+    return this.createEnhancedError(
+      data.code || 'API_ERROR',
+      data.error || 'API request failed',
+      ErrorCategory.SERVER,
+      ErrorSeverity.MEDIUM,
+      data.message || 'The server returned an error. Please try again.',
+      false
+    )
+  }
+
+  // Create enhanced error with all properties
+  private createEnhancedError(
+    code: string,
+    message: string,
+    category: ErrorCategory,
+    severity: ErrorSeverity,
+    userMessage: string,
+    isRetryable: boolean,
+    details?: any
+  ): EnhancedApiError {
+    const error = new Error(message) as EnhancedApiError
+    error.code = code
+    error.name = code
+    error.details = details
+    error.status = this.getStatusFromCategory(category)
+    error.isRetryable = isRetryable
+    error.userMessage = userMessage
+    return error
+  }
+
+  // Get HTTP status from error category
+  private getStatusFromCategory(category: ErrorCategory): number {
+    switch (category) {
+      case ErrorCategory.VALIDATION:
+        return 400
+      case ErrorCategory.AUTHENTICATION:
+        return 401
+      case ErrorCategory.AUTHORIZATION:
+        return 403
+      case ErrorCategory.NOT_FOUND:
+        return 404
+      case ErrorCategory.RATE_LIMIT:
+        return 429
+      case ErrorCategory.SERVER:
+        return 500
+      case ErrorCategory.NETWORK:
+      case ErrorCategory.TIMEOUT:
+        return 0 // Network errors don't have HTTP status
+      default:
+        return 500
+    }
+  }
+
+  // Get user-friendly validation message
+  private getValidationMessage(data: any): string {
+    if (data.details) {
+      if (Array.isArray(data.details)) {
+        return data.details.join(', ')
+      }
+      if (typeof data.details === 'object') {
+        return Object.values(data.details).join(', ')
+      }
+      return String(data.details)
+    }
+    return data.message || 'Invalid request data'
+  }
+
+  // Handle API error with user notification
+  private handleApiError(error: EnhancedApiError): void {
+    const alertType = error.severity === ErrorSeverity.CRITICAL || error.severity === ErrorSeverity.HIGH 
+      ? 'error' 
+      : error.severity === ErrorSeverity.MEDIUM 
+        ? 'warning' 
+        : 'info'
+
+    this.uiStore.addResourceAlert({
+      type: alertType,
+      title: this.getErrorTitle(error),
+      message: error.userMessage
+    })
+
+    // Log error for debugging
+    console.error('API Error:', {
+      code: error.code,
+      message: error.message,
+      category: error.name,
+      severity: error.severity,
+      details: error.details,
+      stack: error.stack
+    })
+  }
+
+  // Get error title based on error type
+  private getErrorTitle(error: EnhancedApiError): string {
+    switch (error.code) {
+      case 'NETWORK_ERROR':
+        return 'Connection Error'
+      case 'TIMEOUT_ERROR':
+        return 'Request Timeout'
+      case 'AUTHENTICATION_ERROR':
+        return 'Authentication Required'
+      case 'AUTHORIZATION_ERROR':
+        return 'Access Denied'
+      case 'VALIDATION_ERROR':
+        return 'Invalid Input'
+      case 'NOT_FOUND_ERROR':
+        return 'Not Found'
+      case 'RATE_LIMIT_ERROR':
+        return 'Rate Limited'
+      case 'SERVER_ERROR':
+        return 'Server Error'
+      case 'SERVICE_UNAVAILABLE':
+        return 'Service Unavailable'
+      default:
+        return 'Error'
+    }
+  }
+
+  // Handle authentication error
+  private handleAuthenticationError(): void {
+    localStorage.removeItem('jwt_token')
+    localStorage.removeItem('user')
+    
+    this.uiStore.addResourceAlert({
+      type: 'error',
+      title: 'Session Expired',
+      message: 'Your session has expired. Please log in again.'
+    })
+    
+    // Redirect to login after a short delay
+    setTimeout(() => {
+      window.location.href = '/login'
+    }, 1500)
   }
 
   // Auth endpoints
@@ -77,6 +374,13 @@ class ApiService {
   async getSessions(workspaceId: string): Promise<Session[]> {
     const response: AxiosResponse<ApiResponse<Session[]>> = await this.client.get(
       `/api/v1/workspaces/${workspaceId}/sessions`
+    )
+    return response.data.data
+  }
+
+  async getSessionHistory(sessionId: string): Promise<string[]> {
+    const response: AxiosResponse<ApiResponse<string[]>> = await this.client.get(
+      `/api/v1/sessions/${sessionId}/history`
     )
     return response.data.data
   }

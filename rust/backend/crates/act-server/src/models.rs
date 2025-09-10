@@ -3,6 +3,9 @@ use sqlx::FromRow;
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
+// Import domain models for conversion
+use act_core::repository::{Workspace as DomainWorkspace, Session as DomainSession, SessionStatus as DomainSessionStatus, SessionType as DomainSessionType, TerminalSize as DomainTerminalSize};
+
 // JSON field types for proper handling
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TerminalLayoutConfig {
@@ -211,6 +214,74 @@ impl<T> ApiResponse<T> {
             data: None,
             error: Some(message.into()),
         }
+    }
+}
+
+// Conversion functions from domain models to server models
+#[allow(dead_code)]
+pub fn workspace_from_domain(domain: DomainWorkspace) -> Workspace {
+    Workspace {
+        id: domain.id,
+        name: domain.name,
+        github_repo: domain.github_repo,
+        github_url: domain.github_url,
+        local_path: domain.local_path,
+        is_active: domain.is_active,
+        last_sync_at: domain.last_sync_at,
+        created_at: domain.created_at,
+        updated_at: domain.updated_at,
+    }
+}
+
+pub fn session_from_domain(domain: DomainSession) -> Session {
+    Session {
+        id: domain.id,
+        shell_pid: domain.shell_pid,
+        socket_id: domain.socket_id,
+        status: session_status_to_string(domain.status),
+        last_activity_at: domain.last_activity_at,
+        created_at: domain.created_at,
+        ended_at: domain.ended_at,
+        session_name: domain.session_name,
+        session_type: session_type_to_string(domain.session_type),
+        is_default_session: domain.is_default_session,
+        current_working_dir: domain.current_working_dir,
+        environment_vars: domain.environment_vars.map(|env| serde_json::to_string(&env).unwrap_or_default()),
+        shell_history: domain.shell_history.map(|history| serde_json::to_string(&history).unwrap_or_default()),
+        terminal_size: domain.terminal_size.map(|size| serde_json::to_string(&size).unwrap_or_default()),
+        last_command: domain.last_command,
+        session_timeout: domain.session_timeout,
+        recovery_token: domain.recovery_token,
+        can_recover: domain.can_recover,
+        max_idle_time: domain.max_idle_time,
+        auto_cleanup: domain.auto_cleanup,
+        layout_id: domain.layout_id,
+        workspace_id: domain.workspace_id,
+    }
+}
+
+pub fn session_status_to_string(status: DomainSessionStatus) -> String {
+    match status {
+        DomainSessionStatus::Active => "active".to_string(),
+        DomainSessionStatus::Inactive => "inactive".to_string(),
+        DomainSessionStatus::Terminated => "terminated".to_string(),
+        DomainSessionStatus::Error => "error".to_string(),
+    }
+}
+
+pub fn session_type_to_string(session_type: DomainSessionType) -> String {
+    match session_type {
+        DomainSessionType::Terminal => "terminal".to_string(),
+        DomainSessionType::Editor => "editor".to_string(),
+        DomainSessionType::Debug => "debug".to_string(),
+        DomainSessionType::Custom(custom) => custom,
+    }
+}
+
+pub fn terminal_size_from_domain(domain: DomainTerminalSize) -> TerminalSize {
+    TerminalSize {
+        cols: domain.cols,
+        rows: domain.rows,
     }
 }
 

@@ -1,16 +1,13 @@
-use crate::{
-    models::ApiResponse,
-    services::FileSystemService,
-    AppState,
-};
+use crate::{models::ApiResponse, AppState, error::ServerError};
 use axum::{
-    extract::{Path, Query, State},
-    http::StatusCode,
+    extract::{Query, State},
     response::Json,
     routing::{get, post, put, patch, delete},
     Router,
 };
+use act_core::{DirectoryListing, CreateFileRequest, FileContent, CreateDirectoryRequest, MoveRequest};
 use serde::Deserialize;
+use std::path::PathBuf;
 use tracing::{debug, error, info};
 
 pub fn routes() -> Router<AppState> {
@@ -28,69 +25,9 @@ pub struct ListDirectoryQuery {
     pub path: Option<String>,
 }
 
-pub async fn list_directory(
-    Query(params): Query<ListDirectoryQuery>,
-    State(_state): State<AppState>
-) -> Result<Json<ApiResponse<Vec<crate::services::filesystem::FileItem>>>, StatusCode> {
-    let path = params.path.unwrap_or_else(|| "./".to_string());
-
-    info!("Directory listing requested for: {}", path);
-
-    // Create filesystem service with workspace root
-    let workspace_root = std::path::PathBuf::from("./workspaces");
-    let fs_service = FileSystemService::new(workspace_root);
-
-    match fs_service.list_directory(&path).await {
-        Ok(listing) => {
-            debug!("Directory listing successful: {} items", listing.total_count);
-
-            // Convert DirectoryListing to Vec<FileItem>
-            let mut items: Vec<crate::services::filesystem::FileItem> = Vec::new();
-
-            // Add directories first
-            for dir_entry in listing.directories {
-                items.push(dir_entry.into());
-            }
-
-            // Add files
-            for file_entry in listing.files {
-                items.push(file_entry.into());
-            }
-
-            Ok(Json(ApiResponse::success(items)))
-        }
-        Err(e) => {
-            error!("Failed to list directory {}: {}", path, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
-}
-
 #[derive(Debug, Deserialize)]
 pub struct ReadFileQuery {
     pub path: String,
-}
-
-pub async fn read_file(
-    Query(params): Query<ReadFileQuery>,
-    State(_state): State<AppState>
-) -> Result<Json<ApiResponse<String>>, StatusCode> {
-    info!("File read requested for: {}", params.path);
-
-    // Create filesystem service with workspace root
-    let workspace_root = std::path::PathBuf::from("./workspaces");
-    let fs_service = FileSystemService::new(workspace_root);
-
-    match fs_service.read_file(&params.path).await {
-        Ok(content) => {
-            debug!("File read successful: {} bytes", content.content.len());
-            Ok(Json(ApiResponse::success(content.content)))
-        }
-        Err(e) => {
-            error!("Failed to read file {}: {}", params.path, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -99,420 +36,162 @@ pub struct SaveFileRequest {
     pub content: String,
 }
 
-pub async fn save_file(
-    State(_state): State<AppState>,
-    Json(request): Json<SaveFileRequest>
-) -> Result<Json<ApiResponse<()>>, StatusCode> {
-    info!("File save requested for: {}", request.path);
+#[derive(Debug, Deserialize)]
+pub struct CreateFileRequestPayload {
+    pub path: String,
+    pub content: Option<String>,
+    pub is_directory: Option<bool>,
+}
 
-    // Create filesystem service with workspace root
-    let workspace_root = std::path::PathBuf::from("./workspaces");
-    let fs_service = FileSystemService::new(workspace_root);
+#[derive(Debug, Deserialize)]
+pub struct RenameFileRequest {
+    pub from_path: String,
+    pub to_path: String,
+}
 
-    match fs_service.write_file(&request.path, &request.content).await {
-        Ok(_) => {
-            info!("File save successful: {}", request.path);
-            Ok(Json(ApiResponse::success(())))
-        }
+#[derive(Debug, Deserialize)]
+pub struct DeleteFileQuery {
+    pub path: String,
+}
+
+pub async fn list_directory(
+    Query(params): Query<ListDirectoryQuery>,
+    State(state): State<AppState>
+) -> Result<Json<ApiResponse<DirectoryListing>>, ServerError> {
+    let path = PathBuf::from(params.path.unwrap_or_else(|| "./".to_string()));
+    info!("Directory listing requested for: {}", path.display());
+
+    match state.filesystem.list_directory(&path).await {
+        Ok(listing) => {
+            debug!("Directory listing successful");
+            Ok(Json(ApiResponse::success(listing)))
+        },
         Err(e) => {
-            error!("Failed to save file {}: {}", request.path, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            error!("Failed to list directory: {}", e);
+            Err(ServerError::from(e))
         }
     }
 }
 
-#[derive(Debug, Deserialize)]
-pub struct CreateFileRequest {
-    pub path: String,
-    pub content: Option<String>,
-    pub r#type: String,
+pub async fn read_file(
+    Query(params): Query<ReadFileQuery>,
+    State(state): State<AppState>
+) -> Result<Json<ApiResponse<FileContent>>, ServerError> {
+    let path = PathBuf::from(params.path);
+    info!("File read requested for: {}", path.display());
+
+    match state.filesystem.read_file(&path).await {
+        Ok(content) => Ok(Json(ApiResponse::success(content))),
+        Err(e) => {
+            error!("Failed to read file: {}", e);
+            Err(ServerError::from(e))
+        }
+    }
+}
+
+pub async fn save_file(
+    State(state): State<AppState>,
+    Json(request): Json<SaveFileRequest>
+) -> Result<Json<ApiResponse<()>>, ServerError> {
+    info!("File save requested for: {}", request.path);
+
+    let file_request = CreateFileRequest {
+        path: PathBuf::from(request.path),
+        content: request.content.into_bytes(),
+        create_parent_dirs: true,
+    };
+
+    match state.filesystem.write_file(file_request).await {
+        Ok(_) => Ok(Json(ApiResponse::success(()))),
+        Err(e) => {
+            error!("Failed to save file: {}", e);
+            Err(ServerError::from(e))
+        }
+    }
 }
 
 pub async fn create_file(
-    State(_state): State<AppState>,
-    Json(request): Json<CreateFileRequest>
-) -> Result<Json<ApiResponse<()>>, StatusCode> {
-    info!("File creation requested for: {}", request.path);
+    State(state): State<AppState>,
+    Json(request): Json<CreateFileRequestPayload>
+) -> Result<Json<ApiResponse<()>>, ServerError> {
+    info!("File/directory creation requested for: {}", request.path);
 
-    // Create filesystem service with workspace root
-    let workspace_root = std::path::PathBuf::from("./workspaces");
-    let fs_service = FileSystemService::new(workspace_root);
-
-    if request.r#type == "directory" {
-        match fs_service.create_directory(&request.path).await {
-            Ok(_) => {
-                info!("Directory creation successful: {}", request.path);
-                Ok(Json(ApiResponse::success(())))
-            }
+    if request.is_directory.unwrap_or(false) {
+        let dir_request = CreateDirectoryRequest {
+            path: PathBuf::from(request.path),
+            create_parent_dirs: true,
+        };
+        
+        match state.filesystem.create_directory(dir_request).await {
+            Ok(_) => Ok(Json(ApiResponse::success(()))),
             Err(e) => {
-                error!("Failed to create directory {}: {}", request.path, e);
-                Err(StatusCode::INTERNAL_SERVER_ERROR)
+                error!("Failed to create directory: {}", e);
+                Err(ServerError::from(e))
             }
         }
     } else {
-        let content = request.content.unwrap_or_default();
-        match fs_service.write_file(&request.path, &content).await {
-            Ok(_) => {
-                info!("File creation successful: {}", request.path);
-                Ok(Json(ApiResponse::success(())))
-            }
+        let file_request = CreateFileRequest {
+            path: PathBuf::from(request.path),
+            content: request.content.unwrap_or_default().into_bytes(),
+            create_parent_dirs: true,
+        };
+
+        match state.filesystem.write_file(file_request).await {
+            Ok(_) => Ok(Json(ApiResponse::success(()))),
             Err(e) => {
-                error!("Failed to create file {}: {}", request.path, e);
-                Err(StatusCode::INTERNAL_SERVER_ERROR)
+                error!("Failed to create file: {}", e);
+                Err(ServerError::from(e))
             }
         }
     }
 }
 
 pub async fn delete_file(
-    Query(params): Query<ReadFileQuery>,
-    State(_state): State<AppState>
-) -> Result<Json<ApiResponse<()>>, StatusCode> {
-    info!("File deletion requested for: {}", params.path);
-
-    // Create filesystem service with workspace root
-    let workspace_root = std::path::PathBuf::from("./workspaces");
-    let fs_service = FileSystemService::new(workspace_root);
-
-    match fs_service.delete_item(&params.path).await {
-        Ok(_) => {
-            info!("File deletion successful: {}", params.path);
-            Ok(Json(ApiResponse::success(())))
-        }
-        Err(e) => {
-            error!("Failed to delete file {}: {}", params.path, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
-}
-
-#[derive(Debug, Deserialize)]
-pub struct RenameFileRequest {
-    pub old_path: String,
-    pub new_path: String,
-}
-
-pub async fn rename_file(
-    State(_state): State<AppState>,
-    Json(request): Json<RenameFileRequest>
-) -> Result<Json<ApiResponse<()>>, StatusCode> {
-    info!("File rename requested: {} -> {}", request.old_path, request.new_path);
-
-    // Create filesystem service with workspace root
-    let workspace_root = std::path::PathBuf::from("./workspaces");
-    let fs_service = FileSystemService::new(workspace_root);
-
-    match fs_service.rename_item(&request.old_path, &request.new_path).await {
-        Ok(_) => {
-            info!("File rename successful: {} -> {}", request.old_path, request.new_path);
-            Ok(Json(ApiResponse::success(())))
-        }
-        Err(e) => {
-            error!("Failed to rename file {} -> {}: {}", request.old_path, request.new_path, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
-}
-
-// Workspace-scoped file handlers
-
-pub async fn list_directory_workspace(
-    Path(workspace_id): Path<String>,
-    Query(params): Query<ListDirectoryQuery>,
+    Query(params): Query<DeleteFileQuery>,
     State(state): State<AppState>
-) -> Result<Json<ApiResponse<Vec<crate::services::filesystem::FileItem>>>, StatusCode> {
-    let path = params.path.unwrap_or_else(|| "./".to_string());
+) -> Result<Json<ApiResponse<()>>, ServerError> {
+    let path = PathBuf::from(params.path);
+    info!("File deletion requested for: {}", path.display());
 
-    info!("Directory listing requested for workspace {}: {}", workspace_id, path);
-
-    // Get workspace details to find the actual path
-    use crate::services::workspace::WorkspaceService;
-    let workspace_service = WorkspaceService::new(state.db.clone(), std::path::PathBuf::from("./workspaces"));
-
-    let workspace = match workspace_service.get_workspace(&workspace_id).await {
-        Ok(Some(ws)) => ws,
-        Ok(None) => {
-            error!("Workspace not found: {}", workspace_id);
-            return Err(StatusCode::NOT_FOUND);
-        }
-        Err(e) => {
-            error!("Failed to get workspace {}: {}", workspace_id, e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
-
-    // Create filesystem service with specific workspace root
-    let workspace_path = match std::path::PathBuf::from(&workspace.path).canonicalize() {
-        Ok(path) => path,
-        Err(e) => {
-            error!("Failed to canonicalize workspace path {}: {}", workspace.path, e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
-    let fs_service = FileSystemService::new(workspace_path);
-
-    match fs_service.list_directory(&path).await {
-        Ok(listing) => {
-            debug!("Directory listing successful: {} items", listing.total_count);
-
-            // Convert DirectoryListing to Vec<FileItem>
-            let mut items: Vec<crate::services::filesystem::FileItem> = Vec::new();
-
-            // Add directories first
-            for dir in listing.directories {
-                items.push(crate::services::filesystem::FileItem::from(dir));
-            }
-
-            // Add files
-            for file in listing.files {
-                items.push(crate::services::filesystem::FileItem::from(file));
-            }
-
-            Ok(Json(ApiResponse::success(items)))
-        }
-        Err(e) => {
-            error!("Failed to list directory {} in workspace {}: {}", path, workspace_id, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
-}
-
-pub async fn read_file_workspace(
-    Path(workspace_id): Path<String>,
-    Query(params): Query<ReadFileQuery>,
-    State(state): State<AppState>
-) -> Result<Json<ApiResponse<crate::services::filesystem::FileContent>>, StatusCode> {
-    info!("File read requested for workspace {}: {}", workspace_id, params.path);
-
-    // Get workspace details
-    use crate::services::workspace::WorkspaceService;
-    let workspace_service = WorkspaceService::new(state.db.clone(), std::path::PathBuf::from("./workspaces"));
-
-    let workspace = match workspace_service.get_workspace(&workspace_id).await {
-        Ok(Some(ws)) => ws,
-        Ok(None) => {
-            error!("Workspace not found: {}", workspace_id);
-            return Err(StatusCode::NOT_FOUND);
-        }
-        Err(e) => {
-            error!("Failed to get workspace {}: {}", workspace_id, e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
-
-    let workspace_path = match std::path::PathBuf::from(&workspace.path).canonicalize() {
-        Ok(path) => path,
-        Err(e) => {
-            error!("Failed to canonicalize workspace path {}: {}", workspace.path, e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
-    let fs_service = FileSystemService::new(workspace_path);
-
-    match fs_service.read_file(&params.path).await {
-        Ok(content) => {
-            debug!("File read successful: {} ({} bytes)", params.path, content.size);
-            Ok(Json(ApiResponse::success(content)))
-        }
-        Err(e) => {
-            error!("Failed to read file {} in workspace {}: {}", params.path, workspace_id, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
-}
-
-pub async fn save_file_workspace(
-    Path(workspace_id): Path<String>,
-    State(state): State<AppState>,
-    Json(request): Json<SaveFileRequest>
-) -> Result<Json<ApiResponse<()>>, StatusCode> {
-    info!("File save requested for workspace {}: {}", workspace_id, request.path);
-
-    // Get workspace details
-    use crate::services::workspace::WorkspaceService;
-    let workspace_service = WorkspaceService::new(state.db.clone(), std::path::PathBuf::from("./workspaces"));
-
-    let workspace = match workspace_service.get_workspace(&workspace_id).await {
-        Ok(Some(ws)) => ws,
-        Ok(None) => {
-            error!("Workspace not found: {}", workspace_id);
-            return Err(StatusCode::NOT_FOUND);
-        }
-        Err(e) => {
-            error!("Failed to get workspace {}: {}", workspace_id, e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
-
-    let workspace_path = match std::path::PathBuf::from(&workspace.path).canonicalize() {
-        Ok(path) => path,
-        Err(e) => {
-            error!("Failed to canonicalize workspace path {}: {}", workspace.path, e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
-    let fs_service = FileSystemService::new(workspace_path);
-
-    match fs_service.write_file(&request.path, &request.content).await {
-        Ok(_) => {
-            info!("File save successful: {} ({} bytes)", request.path, request.content.len());
-            Ok(Json(ApiResponse::success(())))
-        }
-        Err(e) => {
-            error!("Failed to save file {} in workspace {}: {}", request.path, workspace_id, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
-}
-
-pub async fn create_file_workspace(
-    Path(workspace_id): Path<String>,
-    State(state): State<AppState>,
-    Json(request): Json<CreateFileRequest>
-) -> Result<Json<ApiResponse<()>>, StatusCode> {
-    info!("File creation requested for workspace {}: {}", workspace_id, request.path);
-
-    // Get workspace details
-    use crate::services::workspace::WorkspaceService;
-    let workspace_service = WorkspaceService::new(state.db.clone(), std::path::PathBuf::from("./workspaces"));
-
-    let workspace = match workspace_service.get_workspace(&workspace_id).await {
-        Ok(Some(ws)) => ws,
-        Ok(None) => {
-            error!("Workspace not found: {}", workspace_id);
-            return Err(StatusCode::NOT_FOUND);
-        }
-        Err(e) => {
-            error!("Failed to get workspace {}: {}", workspace_id, e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
-
-    let workspace_path = match std::path::PathBuf::from(&workspace.path).canonicalize() {
-        Ok(path) => path,
-        Err(e) => {
-            error!("Failed to canonicalize workspace path {}: {}", workspace.path, e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
-    let fs_service = FileSystemService::new(workspace_path);
-
-    match &request.r#type[..] {
-        "file" => {
-            match fs_service.write_file(&request.path, &request.content.unwrap_or_default()).await {
-                Ok(_) => {
-                    info!("File creation successful: {}", request.path);
-                    Ok(Json(ApiResponse::success(())))
-                }
+    // Check if it's a directory first and delete appropriately
+    match state.filesystem.is_directory(&path).await {
+        Ok(true) => {
+            match state.filesystem.delete_directory(&path, true).await {
+                Ok(_) => Ok(Json(ApiResponse::success(()))),
                 Err(e) => {
-                    error!("Failed to create file {} in workspace {}: {}", request.path, workspace_id, e);
-                    Err(StatusCode::INTERNAL_SERVER_ERROR)
-                }
-            }
-        }
-        "directory" => {
-            match fs_service.create_directory(&request.path).await {
-                Ok(_) => {
-                    info!("Directory creation successful: {}", request.path);
-                    Ok(Json(ApiResponse::success(())))
-                }
-                Err(e) => {
-                    error!("Failed to create directory {} in workspace {}: {}", request.path, workspace_id, e);
-                    Err(StatusCode::INTERNAL_SERVER_ERROR)
+                    error!("Failed to delete directory: {}", e);
+                    Err(ServerError::from(e))
                 }
             }
         }
         _ => {
-            error!("Invalid file type: {}", request.r#type);
-            Err(StatusCode::BAD_REQUEST)
+            match state.filesystem.delete_file(&path).await {
+                Ok(_) => Ok(Json(ApiResponse::success(()))),
+                Err(e) => {
+                    error!("Failed to delete file: {}", e);
+                    Err(ServerError::from(e))
+                }
+            }
         }
     }
 }
 
-pub async fn delete_file_workspace(
-    Path(workspace_id): Path<String>,
-    Query(params): Query<ReadFileQuery>,
-    State(state): State<AppState>
-) -> Result<Json<ApiResponse<()>>, StatusCode> {
-    info!("File deletion requested for workspace {}: {}", workspace_id, params.path);
-
-    // Get workspace details
-    use crate::services::workspace::WorkspaceService;
-    let workspace_service = WorkspaceService::new(state.db.clone(), std::path::PathBuf::from("./workspaces"));
-
-    let workspace = match workspace_service.get_workspace(&workspace_id).await {
-        Ok(Some(ws)) => ws,
-        Ok(None) => {
-            error!("Workspace not found: {}", workspace_id);
-            return Err(StatusCode::NOT_FOUND);
-        }
-        Err(e) => {
-            error!("Failed to get workspace {}: {}", workspace_id, e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
-
-    let workspace_path = match std::path::PathBuf::from(&workspace.path).canonicalize() {
-        Ok(path) => path,
-        Err(e) => {
-            error!("Failed to canonicalize workspace path {}: {}", workspace.path, e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
-    let fs_service = FileSystemService::new(workspace_path);
-
-    match fs_service.delete_item(&params.path).await {
-        Ok(_) => {
-            info!("File deletion successful: {}", params.path);
-            Ok(Json(ApiResponse::success(())))
-        }
-        Err(e) => {
-            error!("Failed to delete file {} in workspace {}: {}", params.path, workspace_id, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
-}
-
-pub async fn rename_file_workspace(
-    Path(workspace_id): Path<String>,
+pub async fn rename_file(
     State(state): State<AppState>,
     Json(request): Json<RenameFileRequest>
-) -> Result<Json<ApiResponse<()>>, StatusCode> {
-    info!("File rename requested for workspace {}: {} -> {}", workspace_id, request.old_path, request.new_path);
+) -> Result<Json<ApiResponse<()>>, ServerError> {
+    info!("File rename requested from {} to {}", request.from_path, request.to_path);
 
-    // Get workspace details
-    use crate::services::workspace::WorkspaceService;
-    let workspace_service = WorkspaceService::new(state.db.clone(), std::path::PathBuf::from("./workspaces"));
-
-    let workspace = match workspace_service.get_workspace(&workspace_id).await {
-        Ok(Some(ws)) => ws,
-        Ok(None) => {
-            error!("Workspace not found: {}", workspace_id);
-            return Err(StatusCode::NOT_FOUND);
-        }
-        Err(e) => {
-            error!("Failed to get workspace {}: {}", workspace_id, e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
+    let move_request = MoveRequest {
+        from: PathBuf::from(request.from_path),
+        to: PathBuf::from(request.to_path),
     };
 
-    let workspace_path = match std::path::PathBuf::from(&workspace.path).canonicalize() {
-        Ok(path) => path,
+    match state.filesystem.move_item(move_request).await {
+        Ok(_) => Ok(Json(ApiResponse::success(()))),
         Err(e) => {
-            error!("Failed to canonicalize workspace path {}: {}", workspace.path, e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
-    let fs_service = FileSystemService::new(workspace_path);
-
-    match fs_service.rename_item(&request.old_path, &request.new_path).await {
-        Ok(_) => {
-            info!("File rename successful in workspace {}: {} -> {}", workspace_id, request.old_path, request.new_path);
-            Ok(Json(ApiResponse::success(())))
-        }
-        Err(e) => {
-            error!("Failed to rename file {} -> {} in workspace {}: {}", request.old_path, request.new_path, workspace_id, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            error!("Failed to rename file: {}", e);
+            Err(ServerError::from(e))
         }
     }
 }

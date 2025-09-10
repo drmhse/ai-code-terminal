@@ -1,0 +1,27 @@
+[package]
+name = "act-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+act-core = { path = "../act-core" }
+act-domain = { path = "../act-domain" }
+act-persistence = { path = "../act-persistence" }
+
+tokio.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+async-trait.workspace = true
+clap = { version = "4.4", features = ["derive"] }
+
+[[bin]]
+name = "act-cli"
+path = "src/main.rs"

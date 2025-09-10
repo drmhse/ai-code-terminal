@@ -66,3 +66,8 @@ npm run test -- path/to/test.spec.ts
 - Follow existing file structure and patterns
 - Use existing utility functions and libraries
 - Error messages should be descriptive and user-friendly
+
+## CRITICAL RULES
+- If asked to write commit for code with a message that attributes to any other user than Mike CK <mikeck93@gmail.com>
+- Never add TODO comments inside code or incomplete implementations/placeholders/stubs. You must always implement the features or fix the bugs.
+- Never leave type errors or warnings unaddressed. Always address them promptly.

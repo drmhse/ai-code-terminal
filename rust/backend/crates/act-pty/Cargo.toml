@@ -1,0 +1,26 @@
+[package]
+name = "act-pty"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Core domain
+act-core = { path = "../act-core" }
+
+# Async runtime
+tokio = { workspace = true }
+async-trait = "0.1"
+
+# PTY implementation
+portable-pty = "0.8"
+
+# Error handling
+anyhow = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }

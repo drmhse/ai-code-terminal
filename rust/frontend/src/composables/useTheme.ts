@@ -1,6 +1,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import type { Theme, ThemePreference } from '@/types/theme'
 import { themeService } from '@/services/theme'
+import { apiService } from '@/services/api'
 
 /**
  * Theme composable for components to interact with the theme system
@@ -33,6 +34,12 @@ export function useTheme() {
     try {
       await themeService.switchToTheme(themeId)
       currentTheme.value = themeService.getCurrentTheme()
+      
+      // Persist theme preference to backend
+      const preferences = themeService.getThemePreferences()
+      if (preferences) {
+        await apiService.saveTheme(preferences)
+      }
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to switch theme'
       throw err
@@ -63,6 +70,12 @@ export function useTheme() {
     try {
       await themeService.setAutoSwitch(enabled)
       currentTheme.value = themeService.getCurrentTheme()
+      
+      // Persist theme preference to backend
+      const preferences = themeService.getThemePreferences()
+      if (preferences) {
+        await apiService.saveTheme(preferences)
+      }
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to set auto switch'
       throw err
@@ -83,7 +96,24 @@ export function useTheme() {
     error.value = null
     
     try {
-      await themeService.initialize()
+      // First, try to load saved theme preferences from backend
+      try {
+        const savedPreferences = await apiService.getCurrentTheme()
+        if (savedPreferences) {
+          // Apply saved preferences to local theme service
+          if (savedPreferences.themeId) {
+            await themeService.switchToTheme(savedPreferences.themeId)
+          }
+          if (savedPreferences.autoSwitch !== undefined) {
+            await themeService.setAutoSwitch(savedPreferences.autoSwitch)
+          }
+        }
+      } catch (backendError) {
+        console.warn('Failed to load theme preferences from backend, using defaults:', backendError)
+        // Fall back to local initialization
+        await themeService.initialize()
+      }
+      
       currentTheme.value = themeService.getCurrentTheme()
       isInitialized.value = true
     } catch (err) {

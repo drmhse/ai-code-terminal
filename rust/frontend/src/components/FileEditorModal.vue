@@ -95,6 +95,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { createUnifiedEditor } from '../utils/codemirror-editor'
+import { fileService } from '../services/file.service'
 import type { FileNode, EditorInstance } from '../types/editor'
 
 const props = defineProps<{
@@ -118,72 +119,6 @@ const hasChanges = ref(false)
 const originalContent = ref('')
 const currentContent = ref('')
 
-// Mock file content for now (will be replaced with actual API calls)
-const mockFileContents: Record<string, string> = {
-  '/src/main.ts': `import { createApp } from 'vue'
-import App from './App.vue'
-import router from './router'
-import { createPinia } from 'pinia'
-
-const app = createApp(App)
-
-app.use(createPinia())
-app.use(router)
-
-app.mount('#app')
-`,
-  '/package.json': `{
-  "name": "ai-code-terminal",
-  "version": "1.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "vue": "^3.5.0",
-    "vue-router": "^4.4.0",
-    "pinia": "^2.2.0"
-  }
-}`,
-  '/README.md': `# AI Code Terminal
-
-A modern web-based terminal and code editor for AI-powered development workflows.
-
-## Features
-
-- 🖥️ Full terminal access with multiple panes
-- 📝 Integrated code editor with syntax highlighting  
-- 📁 File tree navigation
-- 🔧 Git integration
-- 🤖 AI assistance
-
-## Getting Started
-
-1. Clone a repository
-2. Start coding!
-`,
-  '/src/style.css': `/* Global Styles */
-:root {
-  --primary: #1a1a1a;
-  --secondary: #2d2d2d;
-  --text-primary: #ffffff;
-  --text-secondary: #cccccc;
-  --accent-blue: #61afef;
-  --accent-green: #98c379;
-}
-
-body {
-  margin: 0;
-  padding: 0;
-  font-family: 'JetBrains Mono', monospace;
-  background: var(--primary);
-  color: var(--text-primary);
-}
-`
-}
-
 const loadFileContent = async () => {
   if (!props.file) return
 
@@ -191,26 +126,28 @@ const loadFileContent = async () => {
   error.value = null
 
   try {
-    // TODO: Replace with actual API call
-    await new Promise(resolve => setTimeout(resolve, 300))
+    console.log('📖 Loading file content:', props.file.path)
     
-    const content = mockFileContents[props.file.path] || `// File: ${props.file.name}
-// Path: ${props.file.path}
-
-// This is mock content for ${props.file.name}
-// In a real implementation, this would be loaded from the backend API.
-
-console.log('Hello from ${props.file.name}!');
-`
+    // Use actual file service to read file content
+    const fileContent = await fileService.readFile(props.file.path)
+    
+    // Extract content from FileContent object
+    let content: string
+    if (fileContent.encoding === 'base64') {
+      // Decode base64 content if needed
+      content = atob(fileContent.content)
+    } else {
+      content = fileContent.content
+    }
     
     originalContent.value = content
     currentContent.value = content
     hasChanges.value = false
     
-    console.log('📖 File content loaded:', props.file.path)
+    console.log('✅ File content loaded successfully:', props.file.path, `(${content.length} chars)`)
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to load file content'
-    console.error('Failed to load file content:', err)
+    console.error('❌ Failed to load file content:', err)
   } finally {
     loading.value = false
   }
@@ -271,17 +208,22 @@ const saveFile = async () => {
   error.value = null
 
   try {
-    // TODO: Replace with actual API call
-    await new Promise(resolve => setTimeout(resolve, 500))
+    console.log('💾 Saving file:', props.file.path)
     
-    emit('save', props.file, currentContent.value)
+    // Use actual file service to save file content
+    await fileService.saveFile(props.file.path, currentContent.value)
+    
+    // Update state after successful save
     originalContent.value = currentContent.value
     hasChanges.value = false
     
-    console.log('💾 File saved:', props.file.path)
+    // Emit save event for parent components
+    emit('save', props.file, currentContent.value)
+    
+    console.log('✅ File saved successfully:', props.file.path)
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to save file'
-    console.error('Failed to save file:', err)
+    console.error('❌ Failed to save file:', err)
   } finally {
     saving.value = false
   }

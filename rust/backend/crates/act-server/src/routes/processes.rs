@@ -1,6 +1,6 @@
 use crate::{
     models::ApiResponse,
-    services::process::{ProcessSupervisor, ProcessConfig, ProcessInfo, ProcessStatus, ProcessMetrics},
+    services::process::{ProcessConfig, ProcessInfo, ProcessStatus, ProcessMetrics},
     AppState,
 };
 use axum::{
@@ -57,7 +57,7 @@ pub async fn list_processes(
 ) -> Result<Json<ApiResponse<Vec<ProcessInfo>>>, StatusCode> {
     info!("Process list requested");
     
-    let process_supervisor = ProcessSupervisor::new(state.db.clone());
+    let process_supervisor = &state.process_supervisor;
     
     // Parse status filter
     let status_filter = params.status.and_then(|s| match s.as_str() {
@@ -90,7 +90,7 @@ pub async fn start_process(
 ) -> Result<Json<ApiResponse<String>>, StatusCode> {
     info!("Process start requested: {}", request.config.name);
     
-    let process_supervisor = ProcessSupervisor::new(state.db.clone());
+    let process_supervisor = &state.process_supervisor;
     
     match process_supervisor.start_process(
         request.config,
@@ -115,7 +115,7 @@ pub async fn get_process(
 ) -> Result<Json<ApiResponse<ProcessInfo>>, StatusCode> {
     info!("Process info requested: {}", process_id);
     
-    let process_supervisor = ProcessSupervisor::new(state.db.clone());
+    let process_supervisor = &state.process_supervisor;
     
     match process_supervisor.get_process_info(&process_id).await {
         Ok(Some(process_info)) => Ok(Json(ApiResponse::success(process_info))),
@@ -133,7 +133,7 @@ pub async fn stop_process(
 ) -> Result<Json<ApiResponse<()>>, StatusCode> {
     info!("Process stop requested: {}", process_id);
     
-    let process_supervisor = ProcessSupervisor::new(state.db.clone());
+    let process_supervisor = &state.process_supervisor;
     
     match process_supervisor.stop_process(&process_id).await {
         Ok(()) => {
@@ -153,7 +153,7 @@ pub async fn restart_process(
 ) -> Result<Json<ApiResponse<()>>, StatusCode> {
     info!("Process restart requested: {}", process_id);
     
-    let process_supervisor = ProcessSupervisor::new(state.db.clone());
+    let process_supervisor = &state.process_supervisor;
     
     match process_supervisor.restart_process(&process_id).await {
         Ok(()) => {
@@ -174,7 +174,7 @@ pub async fn get_process_metrics(
 ) -> Result<Json<ApiResponse<Vec<ProcessMetrics>>>, StatusCode> {
     info!("Process metrics requested: {}", process_id);
     
-    let process_supervisor = ProcessSupervisor::new(state.db.clone());
+    let process_supervisor = &state.process_supervisor;
     
     match process_supervisor.get_process_metrics(&process_id, params.limit).await {
         Ok(metrics) => Ok(Json(ApiResponse::success(metrics))),
@@ -192,7 +192,7 @@ pub async fn get_process_logs(
 ) -> Result<Json<ApiResponse<Vec<crate::services::process::ProcessLogEntry>>>, StatusCode> {
     info!("Process logs requested: {}", process_id);
     
-    let process_supervisor = ProcessSupervisor::new(state.db.clone());
+    let process_supervisor = &state.process_supervisor;
     
     match process_supervisor.get_process_logs(&process_id, params.limit, params.since, params.level).await {
         Ok(logs) => Ok(Json(ApiResponse::success(logs))),

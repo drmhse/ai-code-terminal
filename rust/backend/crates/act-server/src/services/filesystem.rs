@@ -1,24 +1,80 @@
-use anyhow::{anyhow, Result};
+use act_vfs::SandboxedFileSystem;
+use act_core::{
+    FileSystem as CoreFileSystem,
+    CreateFileRequest, CreateDirectoryRequest, MoveRequest, CopyRequest
+};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::fs::Metadata;
-use std::path::{Path, PathBuf};
-use tokio::fs as async_fs;
-use tracing::{debug, info, warn};
-use chrono;
+use std::path::PathBuf;
+use std::sync::Arc;
+use tracing::warn;
 
+// Re-export types for routes
+pub use act_core::{FileItem, FileContent};
 
+// Add conversion implementations for backward compatibility
+impl From<LegacyFileEntry> for FileItem {
+    fn from(legacy: LegacyFileEntry) -> Self {
+        use act_core::FilePermissions;
+        use chrono::{DateTime, Utc};
+        
+        let permissions = FilePermissions {
+            readable: legacy.permissions.as_ref().map_or(true, |p| p.contains('r')),
+            writable: legacy.permissions.as_ref().map_or(false, |p| p.contains('w')),
+            executable: legacy.permissions.as_ref().map_or(false, |p| p.contains('x')),
+        };
+        
+        let modified = legacy.modified_time
+            .and_then(|timestamp| DateTime::<Utc>::from_timestamp(timestamp, 0));
+        
+        FileItem {
+            name: legacy.name,
+            path: PathBuf::from(legacy.path),
+            is_directory: false,
+            size: Some(legacy.size),
+            modified,
+            permissions,
+        }
+    }
+}
 
+impl From<LegacyDirectoryEntry> for FileItem {
+    fn from(legacy: LegacyDirectoryEntry) -> Self {
+        use act_core::FilePermissions;
+        use chrono::{DateTime, Utc};
+        
+        let permissions = FilePermissions {
+            readable: legacy.permissions.as_ref().map_or(true, |p| p.contains('r')),
+            writable: legacy.permissions.as_ref().map_or(false, |p| p.contains('w')),
+            executable: legacy.permissions.as_ref().map_or(false, |p| p.contains('x')),
+        };
+        
+        let modified = legacy.modified_time
+            .and_then(|timestamp| DateTime::<Utc>::from_timestamp(timestamp, 0));
+        
+        FileItem {
+            name: legacy.name,
+            path: PathBuf::from(legacy.path),
+            is_directory: true,
+            size: None,
+            modified,
+            permissions,
+        }
+    }
+}
+
+// Legacy types for backward compatibility with existing routes
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DirectoryListing {
+pub struct LegacyDirectoryListing {
     pub path: String,
-    pub files: Vec<FileEntry>,
-    pub directories: Vec<DirectoryEntry>,
+    pub files: Vec<LegacyFileEntry>,
+    pub directories: Vec<LegacyDirectoryEntry>,
     pub total_count: usize,
     pub parent_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FileEntry {
+pub struct LegacyFileEntry {
     pub name: String,
     pub path: String,
     pub size: u64,
@@ -28,7 +84,7 @@ pub struct FileEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DirectoryEntry {
+pub struct LegacyDirectoryEntry {
     pub name: String,
     pub path: String,
     pub modified_time: Option<i64>,
@@ -36,7 +92,7 @@ pub struct DirectoryEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FileContent {
+pub struct LegacyFileContent {
     pub path: String,
     pub content: String,
     pub encoding: String,
@@ -54,63 +110,74 @@ pub struct FileSearchResult {
     pub match_end: Option<u32>,
 }
 
+#[derive(Debug, Clone)]
 pub struct FileSystemService {
-    workspace_root: PathBuf,
+    inner: Arc<SandboxedFileSystem>,
 }
 
 impl FileSystemService {
     pub fn new(workspace_root: PathBuf) -> Self {
-        Self { workspace_root }
+        let vfs = SandboxedFileSystem::new(workspace_root)
+            .with_max_file_size(100 * 1024 * 1024) // 100MB
+            .with_additional_blocked_paths(vec![
+                PathBuf::from("target"),
+                PathBuf::from("dist"),
+                PathBuf::from("build"),
+                PathBuf::from(".DS_Store"),
+            ]);
+        
+        Self {
+            inner: Arc::new(vfs),
+        }
     }
 
-    pub async fn list_directory(&self, path: &str) -> Result<DirectoryListing> {
-        let full_path = self.resolve_path(path)?;
-        debug!("Listing directory: {:?}", full_path);
+    // Legacy wrapper methods for backward compatibility
+    pub async fn list_directory(&self, path: &str) -> Result<LegacyDirectoryListing> {
+        let path_buf = PathBuf::from(path);
+        let listing = self.inner.list_directory(&path_buf).await
+            .map_err(|e| anyhow::anyhow!("Failed to list directory: {}", e))?;
 
-        if !full_path.exists() {
-            return Err(anyhow!("Directory does not exist: {}", path));
-        }
-
-        if !full_path.is_dir() {
-            return Err(anyhow!("Path is not a directory: {}", path));
-        }
-
+        // Convert to legacy format
         let mut files = Vec::new();
         let mut directories = Vec::new();
 
-        let mut entries = async_fs::read_dir(&full_path).await?;
-        while let Some(entry) = entries.next_entry().await? {
-            let entry_path = entry.path();
-            let entry_name = entry.file_name().to_string_lossy().to_string();
-            let metadata = entry.metadata().await?;
+        for item in listing.items {
+            let modified_time = item.modified.map(|dt| dt.timestamp());
+            let permissions = format!("r{}{}",
+                if item.permissions.writable { "w" } else { "-" },
+                if item.permissions.executable { "x" } else { "-" }
+            );
 
-            let modified_time = metadata
-                .modified()
-                .ok()
-                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                .map(|d| d.as_secs() as i64);
-
-            let relative_path = self.get_relative_path(&entry_path)?;
-
-            if entry_path.is_dir() {
-                let permissions = self.format_permissions(&metadata);
-                directories.push(DirectoryEntry {
-                    name: entry_name,
-                    path: relative_path,
+            if item.is_directory {
+                directories.push(LegacyDirectoryEntry {
+                    name: item.name,
+                    path: item.path.to_string_lossy().to_string(),
                     modified_time,
                     permissions: Some(permissions),
                 });
             } else {
-                let file_type = entry_path
-                    .extension()
-                    .map(|ext| ext.to_string_lossy().to_string())
-                    .unwrap_or_else(|| "unknown".to_string());
+                let extension = item.path.extension()
+                    .and_then(|ext| ext.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+                
+                let file_type = match extension.as_str() {
+                    "rs" => "rust".to_string(),
+                    "js" | "jsx" => "javascript".to_string(),
+                    "ts" | "tsx" => "typescript".to_string(),
+                    "py" => "python".to_string(),
+                    "json" => "json".to_string(),
+                    "md" => "markdown".to_string(),
+                    "txt" => "text".to_string(),
+                    "html" => "html".to_string(),
+                    "css" => "css".to_string(),
+                    _ => "text".to_string(),
+                };
 
-                let permissions = self.format_permissions(&metadata);
-                files.push(FileEntry {
-                    name: entry_name,
-                    path: relative_path,
-                    size: metadata.len(),
+                files.push(LegacyFileEntry {
+                    name: item.name,
+                    path: item.path.to_string_lossy().to_string(),
+                    size: item.size.unwrap_or(0),
                     modified_time,
                     file_type,
                     permissions: Some(permissions),
@@ -118,406 +185,233 @@ impl FileSystemService {
             }
         }
 
-        // Sort entries
-        files.sort_by(|a, b| a.name.cmp(&b.name));
-        directories.sort_by(|a, b| a.name.cmp(&b.name));
-
-        let parent_path = if path == "/" || path.is_empty() {
+        let parent_path = if path == "." || path.is_empty() {
             None
         } else {
-            Some(
-                full_path
-                    .parent()
-                    .and_then(|p| self.get_relative_path(p).ok())
-                    .unwrap_or_else(|| "/".to_string()),
-            )
+            PathBuf::from(path).parent()
+                .map(|p| p.to_string_lossy().to_string())
+                .filter(|p| !p.is_empty())
         };
 
-        Ok(DirectoryListing {
+        Ok(LegacyDirectoryListing {
             path: path.to_string(),
-            total_count: files.len() + directories.len(),
             files,
             directories,
+            total_count: listing.total_items,
             parent_path,
         })
     }
 
-    pub async fn read_file(&self, path: &str) -> Result<FileContent> {
-        let full_path = self.resolve_path(path)?;
-        debug!("Reading file: {:?}", full_path);
+    // Method that returns content as string for routes that need text
+    pub async fn read_file_as_string(&self, path: &str) -> Result<String> {
+        let path_buf = PathBuf::from(path);
+        let content = self.inner.read_file(&path_buf).await
+            .map_err(|e| anyhow::anyhow!("Failed to read file: {}", e))?;
 
-        if !full_path.exists() {
-            return Err(anyhow!("File does not exist: {}", path));
-        }
-
-        if !full_path.is_file() {
-            return Err(anyhow!("Path is not a file: {}", path));
-        }
-
-        let metadata = async_fs::metadata(&full_path).await?;
-        let modified_time = metadata
-            .modified()
-            .ok()
-            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-            .map(|d| d.as_secs() as i64);
-
-        // Check if file is likely binary
-        let is_binary = self.is_binary_file(&full_path).await?;
-
-        let content = if is_binary {
-            "[Binary file - content not displayed]".to_string()
-        } else {
-            match async_fs::read_to_string(&full_path).await {
-                Ok(content) => content,
+        // Convert bytes to string, handling binary content
+        if content.encoding == "utf-8" {
+            match String::from_utf8(content.content.clone()) {
+                Ok(text) => Ok(text),
                 Err(_) => {
-                    // Try reading as bytes if UTF-8 fails
-                    let bytes = async_fs::read(&full_path).await?;
-                    String::from_utf8_lossy(&bytes).to_string()
+                    // Fallback to base64 for binary content
+                    use base64::{Engine as _, engine::general_purpose::STANDARD};
+                    Ok(STANDARD.encode(&content.content))
                 }
             }
+        } else {
+            use base64::{Engine as _, engine::general_purpose::STANDARD};
+            Ok(STANDARD.encode(&content.content))
+        }
+    }
+
+    // Method that returns structured FileContent
+    pub async fn read_file(&self, path: &str) -> Result<FileContent> {
+        let path_buf = PathBuf::from(path);
+        let content = self.inner.read_file(&path_buf).await
+            .map_err(|e| anyhow::anyhow!("Failed to read file: {}", e))?;
+
+        // Convert bytes to string, handling binary content
+        let (content_str, is_binary) = if content.encoding == "utf-8" {
+            match String::from_utf8(content.content.clone()) {
+                Ok(text) => (text, false),
+                Err(_) => {
+                    // Fallback to base64 for binary content
+                    use base64::{Engine as _, engine::general_purpose::STANDARD};
+                    (STANDARD.encode(&content.content), true)
+                }
+            }
+        } else {
+            use base64::{Engine as _, engine::general_purpose::STANDARD};
+            (STANDARD.encode(&content.content), true)
         };
 
-        Ok(FileContent {
-            path: path.to_string(),
-            content,
-            encoding: "utf-8".to_string(),
-            size: metadata.len(),
-            modified_time,
-            is_binary,
-        })
+        // Get file metadata for modified time
+        let _modified_time = self.inner.get_file_info(&path_buf).await
+            .ok()
+            .and_then(|info| info.modified)
+            .map(|dt| dt.timestamp());
+
+        // Return the core FileContent directly
+        if is_binary {
+            Ok(content)
+        } else {
+            // Update content to be the string bytes for text files
+            Ok(act_core::FileContent {
+                path: content.path,
+                content: content_str.into_bytes(),
+                encoding: content.encoding,
+                size: content.size,
+            })
+        }
     }
 
     pub async fn write_file(&self, path: &str, content: &str) -> Result<()> {
-        let full_path = self.resolve_path(path)?;
-        debug!("Writing file: {:?}", full_path);
+        let path_buf = PathBuf::from(path);
+        let content_bytes = if content.starts_with("data:") {
+            // Handle base64 encoded content
+            let base64_part = content.split(',').nth(1)
+                .ok_or_else(|| anyhow::anyhow!("Invalid base64 data URL"))?;
+            use base64::{Engine as _, engine::general_purpose::STANDARD};
+            STANDARD.decode(base64_part)
+                .map_err(|e| anyhow::anyhow!("Failed to decode base64: {}", e))?
+        } else {
+            content.as_bytes().to_vec()
+        };
 
-        // Check file size limit (10MB)
-        const MAX_FILE_SIZE: usize = 10 * 1024 * 1024; // 10MB
-        if content.len() > MAX_FILE_SIZE {
-            return Err(anyhow!("File too large: {} bytes exceeds limit of {} bytes", 
-                             content.len(), MAX_FILE_SIZE));
-        }
+        let request = CreateFileRequest {
+            path: path_buf,
+            content: content_bytes,
+            create_parent_dirs: true,
+        };
 
-        // Check for binary content (simple heuristic)
-        if content.contains('\0') {
-            warn!("Attempting to write file with null bytes: {}", path);
-        }
+        self.inner.write_file(request).await
+            .map_err(|e| anyhow::anyhow!("Failed to write file: {}", e))?;
 
-        // Create parent directories if they don't exist
-        if let Some(parent) = full_path.parent() {
-            async_fs::create_dir_all(parent).await?;
-        }
-
-        async_fs::write(&full_path, content).await?;
-        info!("File written successfully: {} ({} bytes)", path, content.len());
         Ok(())
     }
 
     pub async fn create_directory(&self, path: &str) -> Result<()> {
-        let full_path = self.resolve_path(path)?;
-        debug!("Creating directory: {:?}", full_path);
+        let path_buf = PathBuf::from(path);
+        let request = CreateDirectoryRequest {
+            path: path_buf,
+            create_parent_dirs: true,
+        };
 
-        async_fs::create_dir_all(&full_path).await?;
-        info!("Directory created successfully: {}", path);
+        self.inner.create_directory(request).await
+            .map_err(|e| anyhow::anyhow!("Failed to create directory: {}", e))?;
+
         Ok(())
     }
 
-    pub async fn delete_item(&self, path: &str) -> Result<()> {
-        let full_path = self.resolve_path(path)?;
-        debug!("Deleting item: {:?}", full_path);
+    pub async fn delete_file(&self, path: &str) -> Result<()> {
+        let path_buf = PathBuf::from(path);
+        self.inner.delete_file(&path_buf).await
+            .map_err(|e| anyhow::anyhow!("Failed to delete file: {}", e))?;
 
-        if !full_path.exists() {
-            return Err(anyhow!("Item does not exist: {}", path));
-        }
-
-        if full_path.is_dir() {
-            async_fs::remove_dir_all(&full_path).await?;
-        } else {
-            async_fs::remove_file(&full_path).await?;
-        }
-
-        info!("Item deleted successfully: {}", path);
         Ok(())
     }
 
-    pub async fn rename_item(&self, from_path: &str, to_path: &str) -> Result<()> {
-        let full_from_path = self.resolve_path(from_path)?;
-        let full_to_path = self.resolve_path(to_path)?;
-        
-        debug!("Renaming item: {:?} -> {:?}", full_from_path, full_to_path);
+    pub async fn delete_directory(&self, path: &str, recursive: bool) -> Result<()> {
+        let path_buf = PathBuf::from(path);
+        self.inner.delete_directory(&path_buf, recursive).await
+            .map_err(|e| anyhow::anyhow!("Failed to delete directory: {}", e))?;
 
-        if !full_from_path.exists() {
-            return Err(anyhow!("Source item does not exist: {}", from_path));
-        }
-
-        // Create parent directory if it doesn't exist
-        if let Some(parent) = full_to_path.parent() {
-            async_fs::create_dir_all(parent).await?;
-        }
-
-        async_fs::rename(&full_from_path, &full_to_path).await?;
-        info!("Item renamed successfully: {} -> {}", from_path, to_path);
         Ok(())
     }
 
-    #[allow(dead_code)]
-    pub async fn copy_item(&self, from_path: &str, to_path: &str) -> Result<()> {
-        let full_from_path = self.resolve_path(from_path)?;
-        let full_to_path = self.resolve_path(to_path)?;
-        
-        debug!("Copying item: {:?} -> {:?}", full_from_path, full_to_path);
+    pub async fn move_item(&self, from_path: &str, to_path: &str) -> Result<()> {
+        let request = MoveRequest {
+            from: PathBuf::from(from_path),
+            to: PathBuf::from(to_path),
+        };
 
-        if !full_from_path.exists() {
-            return Err(anyhow!("Source item does not exist: {}", from_path));
-        }
+        self.inner.move_item(request).await
+            .map_err(|e| anyhow::anyhow!("Failed to move item: {}", e))?;
 
-        // Create parent directory if it doesn't exist
-        if let Some(parent) = full_to_path.parent() {
-            async_fs::create_dir_all(parent).await?;
-        }
-
-        if full_from_path.is_file() {
-            async_fs::copy(&full_from_path, &full_to_path).await?;
-        } else if full_from_path.is_dir() {
-            self.copy_directory_recursive(&full_from_path, &full_to_path).await?;
-        } else {
-            return Err(anyhow!("Unsupported file type for copying: {}", from_path));
-        }
-
-        info!("Item copied successfully: {} -> {}", from_path, to_path);
         Ok(())
     }
 
-    /// Recursively copy a directory and all its contents
-    #[allow(dead_code)]
-    async fn copy_directory_recursive(&self, from_path: &Path, to_path: &Path) -> Result<()> {
-        debug!("Recursively copying directory: {:?} -> {:?}", from_path, to_path);
-        
-        // Create the destination directory if it doesn't exist
-        async_fs::create_dir_all(to_path).await?;
-        
-        // Read the source directory
-        let mut entries = async_fs::read_dir(from_path).await?;
-        
-        while let Some(entry) = entries.next_entry().await? {
-            let entry_path = entry.path();
-            let entry_name = entry.file_name();
-            let dest_path = to_path.join(entry_name);
-            
-            if entry_path.is_dir() {
-                // Recursively copy subdirectories
-                Box::pin(self.copy_directory_recursive(&entry_path, &dest_path)).await?;
-            } else if entry_path.is_file() {
-                // Copy files
-                async_fs::copy(&entry_path, &dest_path).await?;
-            } else {
-                // Skip special files (symlinks, etc.)
-                warn!("Skipping special file during directory copy: {:?}", entry_path);
-            }
-        }
-        
+    pub async fn copy_item(&self, from_path: &str, to_path: &str, recursive: bool) -> Result<()> {
+        let request = CopyRequest {
+            from: PathBuf::from(from_path),
+            to: PathBuf::from(to_path),
+            recursive,
+        };
+
+        self.inner.copy_item(request).await
+            .map_err(|e| anyhow::anyhow!("Failed to copy item: {}", e))?;
+
         Ok(())
     }
 
-    #[allow(dead_code)]
-    pub async fn search_files(&self, pattern: &str, _search_path: Option<&str>) -> Result<Vec<FileSearchResult>> {
-        debug!("Searching for files with pattern: {}", pattern);
-        
-        // Simple implementation - just return empty results for now
+    pub async fn file_exists(&self, path: &str) -> Result<bool> {
+        let path_buf = PathBuf::from(path);
+        self.inner.exists(&path_buf).await
+            .map_err(|e| anyhow::anyhow!("Failed to check file existence: {}", e))
+    }
+
+    pub async fn is_directory(&self, path: &str) -> Result<bool> {
+        let path_buf = PathBuf::from(path);
+        self.inner.is_directory(&path_buf).await
+            .map_err(|e| anyhow::anyhow!("Failed to check if path is directory: {}", e))
+    }
+
+    pub async fn get_file_info(&self, path: &str) -> Result<FileItem> {
+        let path_buf = PathBuf::from(path);
+        self.inner.get_file_info(&path_buf).await
+            .map_err(|e| anyhow::anyhow!("Failed to get file info: {}", e))
+    }
+
+    // Simplified search - this can be enhanced later
+    pub async fn search_files(&self, _query: &str, _path: Option<&str>) -> Result<Vec<FileSearchResult>> {
+        // Placeholder implementation - would need proper text search
         warn!("File search not fully implemented yet");
         Ok(Vec::new())
     }
 
-    #[allow(dead_code)]
-    pub async fn search_content(&self, query: &str, _search_path: Option<&str>, _file_patterns: Option<Vec<String>>) -> Result<Vec<FileSearchResult>> {
-        debug!("Searching for content with query: {}", query);
-        
-        // Simple implementation - just return empty results for now
-        warn!("Content search not fully implemented yet");
-        Ok(Vec::new())
-    }
-
     // Helper methods
+    pub fn get_workspace_root(&self) -> &PathBuf {
+        self.inner.get_workspace_root()
+    }
 
-    /// Format file permissions as a Unix-style string (e.g., "rwxr-xr--")
-    fn format_permissions(&self, metadata: &Metadata) -> String {
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let mode = metadata.permissions().mode();
-            format!(
-                "{}{}{}{}{}{}{}{}{}",
-                if mode & 0o400 != 0 { 'r' } else { '-' },
-                if mode & 0o200 != 0 { 'w' } else { '-' },
-                if mode & 0o100 != 0 { 'x' } else { '-' },
-                if mode & 0o040 != 0 { 'r' } else { '-' },
-                if mode & 0o020 != 0 { 'w' } else { '-' },
-                if mode & 0o010 != 0 { 'x' } else { '-' },
-                if mode & 0o004 != 0 { 'r' } else { '-' },
-                if mode & 0o002 != 0 { 'w' } else { '-' },
-                if mode & 0o001 != 0 { 'x' } else { '-' },
-            )
-        }
-        
-        #[cfg(not(unix))]
-        {
-            // On non-Unix systems, provide a basic representation
-            if metadata.permissions().readonly() {
-                "r--r--r--".to_string()
-            } else {
-                "rw-rw-rw-".to_string()
-            }
+    pub fn resolve_path(&self, path: &str) -> Result<PathBuf> {
+        let path_buf = PathBuf::from(path);
+        if path_buf.is_absolute() {
+            Ok(path_buf)
+        } else {
+            Ok(self.inner.get_workspace_root().join(path_buf))
         }
     }
 
-    fn resolve_path(&self, path: &str) -> Result<PathBuf> {
-        // Check for null bytes and other dangerous characters
-        if path.contains('\0') {
-            return Err(anyhow!("Invalid path: contains null byte"));
-        }
-        
-        // Check for dangerous path components
-        if path.contains("..") {
-            return Err(anyhow!("Path traversal detected: path contains '..'"));
-        }
-        
-        let clean_path = if path.starts_with('/') {
-            path.strip_prefix('/').unwrap_or(path)
+    // Additional methods for backward compatibility
+    pub async fn delete_item(&self, path: &str) -> Result<()> {
+        // Determine if it's a file or directory and call appropriate method
+        if self.is_directory(path).await? {
+            self.delete_directory(path, false).await
         } else {
-            path
-        };
-
-        // Handle special case for root directory
-        let clean_path = if clean_path == "." || clean_path.is_empty() {
-            ""
-        } else {
-            clean_path
-        };
-
-        // Additional validation: check for excessive path length
-        if clean_path.len() > 4096 {
-            return Err(anyhow!("Path too long: exceeds 4096 characters"));
-        }
-
-        let full_path = self.workspace_root.join(clean_path);
-        
-        // Canonicalize both paths to resolve any remaining path traversal attempts
-        let canonical_workspace = self.workspace_root.canonicalize()
-            .map_err(|e| anyhow!("Failed to canonicalize workspace root: {}", e))?;
-        
-        let canonical_full = match full_path.canonicalize() {
-            Ok(path) => path,
-            Err(_) => {
-                // If canonicalize fails, the path might not exist yet (e.g., for file creation)
-                // Special case: if the full_path equals workspace_root, use canonical_workspace
-                if full_path == self.workspace_root {
-                    canonical_workspace.clone()
-                } else if let Some(parent) = full_path.parent() {
-                    let canonical_parent = parent.canonicalize()
-                        .map_err(|e| anyhow!("Failed to canonicalize parent directory: {}", e))?;
-                    canonical_parent.join(full_path.file_name().unwrap_or_default())
-                } else {
-                    return Err(anyhow!("Invalid path: no parent directory"));
-                }
-            }
-        };
-        
-        // Ensure the canonicalized path stays within the workspace
-        if !canonical_full.starts_with(&canonical_workspace) {
-            return Err(anyhow!("Path escapes workspace: {}", path));
-        }
-
-        debug!("Path resolved: {} -> {:?}", path, canonical_full);
-        Ok(canonical_full)
-    }
-
-    fn get_relative_path(&self, full_path: &Path) -> Result<String> {
-        // Use canonicalized workspace root for consistent comparison
-        let canonical_workspace = self.workspace_root.canonicalize()
-            .map_err(|e| anyhow!("Failed to canonicalize workspace root: {}", e))?;
-        
-        let relative = full_path.strip_prefix(&canonical_workspace)
-            .map_err(|_| anyhow!("Path is outside workspace"))?;
-        
-        if relative.as_os_str().is_empty() {
-            // Root directory case
-            Ok("/".to_string())
-        } else {
-            Ok(format!("/{}", relative.to_string_lossy()))
+            self.delete_file(path).await
         }
     }
 
-    async fn is_binary_file(&self, path: &Path) -> Result<bool> {
-        // Simple heuristic: check first 512 bytes for null bytes
-        let bytes = async_fs::read(path).await?;
-        let check_size = std::cmp::min(512, bytes.len());
-        
-        for &byte in &bytes[..check_size] {
-            if byte == 0 {
-                return Ok(true);
-            }
-        }
-        
-        Ok(false)
+    pub async fn rename_item(&self, from_path: &str, to_path: &str) -> Result<()> {
+        self.move_item(from_path, to_path).await
     }
 }
 
-// Unified file item type to match frontend expectations
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FileItem {
-    pub name: String,
-    pub r#type: String, // "file" | "directory"
-    pub size: Option<u64>,
-    pub modified: Option<String>,
-    pub permissions: Option<String>,
-    pub is_hidden: bool,
-    pub extension: Option<String>,
-    pub path: String,
-}
-
-impl From<FileEntry> for FileItem {
-    fn from(entry: FileEntry) -> Self {
-        let path = PathBuf::from(&entry.path);
-        let extension = path.extension()
-            .and_then(|ext| ext.to_str())
-            .map(|s| s.to_lowercase());
+impl From<LegacyFileContent> for FileContent {
+    fn from(legacy: LegacyFileContent) -> Self {
+        let content_bytes = if legacy.is_binary {
+            use base64::{Engine as _, engine::general_purpose::STANDARD};
+            STANDARD.decode(&legacy.content).unwrap_or_else(|_| legacy.content.into_bytes())
+        } else {
+            legacy.content.into_bytes()
+        };
         
-        let is_hidden = entry.name.starts_with('.');
-        
-        Self {
-            name: entry.name,
-            r#type: "file".to_string(),
-            size: Some(entry.size),
-            modified: entry.modified_time.map(|t| {
-                chrono::DateTime::from_timestamp(t, 0)
-                    .unwrap_or_default()
-                    .to_rfc3339()
-            }),
-            permissions: entry.permissions,
-            is_hidden,
-            extension,
-            path: entry.path,
-        }
-    }
-}
-
-impl From<DirectoryEntry> for FileItem {
-    fn from(entry: DirectoryEntry) -> Self {
-        let is_hidden = entry.name.starts_with('.');
-        
-        Self {
-            name: entry.name,
-            r#type: "directory".to_string(),
-            size: None,
-            modified: entry.modified_time.map(|t| {
-                chrono::DateTime::from_timestamp(t, 0)
-                    .unwrap_or_default()
-                    .to_rfc3339()
-            }),
-            permissions: entry.permissions,
-            is_hidden,
-            extension: None,
-            path: entry.path,
+        FileContent {
+            path: PathBuf::from(legacy.path),
+            content: content_bytes,
+            encoding: legacy.encoding,
+            size: legacy.size,
         }
     }
 }

@@ -81,6 +81,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { socketService } from '@/services/socket'
+import type { Subscription } from '@/utils/reactive'
 
 interface SystemStats {
   sessions?: { active: number }
@@ -114,44 +116,56 @@ const isMobile = computed(() => {
   return window.innerWidth < 768
 })
 
-// Mock stats for now - will be replaced with real API calls
-const updateStats = () => {
+let statsSubscription: Subscription | null = null
+
+const handleStatsData = (data: any) => {
   stats.value = {
-    sessions: { active: 1 },
-    workspaces: { active: 1 },
+    sessions: { active: data.sessions?.active || 0 },
+    workspaces: { active: data.workspaces?.active || 0 },
     resources: {
       memory: {
-        formatted: { used: '128 MB', limit: '512 MB' },
-        percentage: 25
+        formatted: { 
+          used: data.resources?.memory?.used || '0 B', 
+          limit: data.resources?.memory?.limit || '0 B' 
+        },
+        percentage: data.resources?.memory?.percentage || 0
       },
       cpu: {
-        percentage: 15,
-        formatted: { limit: '1 core' }
+        percentage: data.resources?.cpu?.percentage || 0,
+        formatted: { limit: data.resources?.cpu?.limit || 'unknown' }
       },
       disk: {
-        workspaces: { formatted: '45 MB' }
+        workspaces: { formatted: data.resources?.disk?.workspaces || '0 B' }
       }
     },
     system: {
-      uptimeFormatted: '2h 15m',
-      platform: 'Linux',
-      nodeVersion: '18.17.0',
-      containerized: true
+      uptimeFormatted: data.system?.uptime || '0m',
+      platform: data.system?.platform || 'unknown',
+      nodeVersion: data.system?.node_version || 'unknown',
+      containerized: data.system?.containerized || false
     }
   }
 }
 
-let statsInterval: number
-
 onMounted(() => {
-  updateStats()
-  // Update stats every 5 seconds
-  statsInterval = window.setInterval(updateStats, 5000)
+  // Subscribe to real-time stats
+  if (socketService.isConnected) {
+    socketService.subscribeToStats()
+  }
+  
+  // Listen for stats data events
+  statsSubscription = socketService.subscribe('stats:data', handleStatsData)
 })
 
 onBeforeUnmount(() => {
-  if (statsInterval) {
-    clearInterval(statsInterval)
+  // Clean up subscription
+  if (statsSubscription) {
+    statsSubscription.unsubscribe()
+  }
+  
+  // Unsubscribe from stats
+  if (socketService.isConnected) {
+    socketService.unsubscribeFromStats()
   }
 })
 </script>

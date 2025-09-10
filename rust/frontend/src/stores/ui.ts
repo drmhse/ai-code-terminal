@@ -38,6 +38,22 @@ export const useUIStore = defineStore('ui', () => {
   // Modal states
   const showDeleteModal = ref(false)
   const showDiscardModal = ref(false)
+  const showCreateItemModal = ref(false)
+  const showConfirmDeleteModal = ref(false)
+  
+  // Modal data
+  const createItemModalData = ref<{
+    parentPath: string
+  } | null>(null)
+  
+  const confirmDeleteModalData = ref<{
+    itemName: string
+    itemType: 'file' | 'folder' | 'workspace' | 'repository' | 'terminal'
+    additionalInfo?: string
+    showConfirmationInput?: boolean
+    confirmationText?: string
+    onConfirm: () => Promise<void> | void
+  } | null>(null)
   
   // Mobile actions menu
   const showMobileActionsMenu = ref(false)
@@ -190,6 +206,35 @@ export const useUIStore = defineStore('ui', () => {
   const closeThemeModal = () => {
     showThemeModal.value = false
   }
+  
+  // Create item modal
+  const openCreateItemModal = (parentPath: string) => {
+    createItemModalData.value = { parentPath }
+    showCreateItemModal.value = true
+  }
+  
+  const closeCreateItemModal = () => {
+    showCreateItemModal.value = false
+    createItemModalData.value = null
+  }
+  
+  // Confirm delete modal
+  const openConfirmDeleteModal = (data: {
+    itemName: string
+    itemType: 'file' | 'folder' | 'workspace' | 'repository' | 'terminal'
+    additionalInfo?: string
+    showConfirmationInput?: boolean
+    confirmationText?: string
+    onConfirm: () => Promise<void> | void
+  }) => {
+    confirmDeleteModalData.value = data
+    showConfirmDeleteModal.value = true
+  }
+  
+  const closeConfirmDeleteModal = () => {
+    showConfirmDeleteModal.value = false
+    confirmDeleteModalData.value = null
+  }
 
   // Mobile input management
   const openMobileInput = () => {
@@ -329,6 +374,10 @@ export const useUIStore = defineStore('ui', () => {
     showThemeModal: readonly(showThemeModal),
     showDeleteModal: readonly(showDeleteModal),
     showDiscardModal: readonly(showDiscardModal),
+    showCreateItemModal: readonly(showCreateItemModal),
+    showConfirmDeleteModal: readonly(showConfirmDeleteModal),
+    createItemModalData: readonly(createItemModalData),
+    confirmDeleteModalData: readonly(confirmDeleteModalData),
     showMobileActionsMenu: readonly(showMobileActionsMenu),
     showUtilityActions: readonly(showUtilityActions),
     showSecondaryFAB: readonly(showSecondaryFAB),
@@ -372,6 +421,10 @@ export const useUIStore = defineStore('ui', () => {
     toggleSecondaryFAB,
     openThemeModal,
     closeThemeModal,
+    openCreateItemModal,
+    closeCreateItemModal,
+    openConfirmDeleteModal,
+    closeConfirmDeleteModal,
     openMobileInput,
     closeMobileInput,
     updateMobileInputText,

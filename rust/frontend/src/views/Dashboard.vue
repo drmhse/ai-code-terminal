@@ -40,6 +40,24 @@
       <DeleteWorkspaceModal v-if="workspaceStore.showDeleteModal" />
       <FilePreviewModal v-if="fileStore.showFilePreviewModal" />
       <DiscardChangesModal v-if="fileStore.showDiscardModal" />
+      <CreateItemModal 
+        v-if="uiStore.showCreateItemModal" 
+        :is-open="uiStore.showCreateItemModal"
+        :parent-path="uiStore.createItemModalData?.parentPath || ''"
+        @close="uiStore.closeCreateItemModal"
+        @create="handleCreateItem"
+      />
+      <ConfirmDeleteModal 
+        v-if="uiStore.showConfirmDeleteModal"
+        :is-open="uiStore.showConfirmDeleteModal"
+        :item-name="uiStore.confirmDeleteModalData?.itemName || ''"
+        :item-type="uiStore.confirmDeleteModalData?.itemType || 'file'"
+        :additional-info="uiStore.confirmDeleteModalData?.additionalInfo"
+        :show-confirmation-input="uiStore.confirmDeleteModalData?.showConfirmationInput"
+        :confirmation-text="uiStore.confirmDeleteModalData?.confirmationText"
+        @close="uiStore.closeConfirmDeleteModal"
+        @confirm="handleConfirmDelete"
+      />
       
       <!-- Mobile Interface -->
       <MobileInterface v-if="uiStore.isMobile" />
@@ -72,9 +90,12 @@ import RepositoriesModal from '@/components/modals/RepositoriesModal.vue'
 import DeleteWorkspaceModal from '@/components/modals/DeleteWorkspaceModal.vue'
 import FilePreviewModal from '@/components/modals/FilePreviewModal.vue'
 import DiscardChangesModal from '@/components/modals/DiscardChangesModal.vue'
+import CreateItemModal from '@/components/CreateItemModal.vue'
+import ConfirmDeleteModal from '@/components/ConfirmDeleteModal.vue'
 import MobileInterface from '@/components/mobile/MobileInterface.vue'
 import ContextMenu from '@/components/ui/ContextMenu.vue'
 import ResourceAlerts from '@/components/ui/ResourceAlerts.vue'
+import { apiService } from '@/services/api'
 
 // Stores
 const authStore = useAuthStore()
@@ -98,6 +119,53 @@ useTheme()
 
 // GitHub auth URL
 const getGitHubAuthUrl = () => authStore.getGitHubAuthUrl()
+
+// Modal handlers
+const handleCreateItem = async (data: { name: string; type: 'file' | 'directory'; content?: string }) => {
+  if (!uiStore.createItemModalData) return
+  
+  try {
+    const parentPath = uiStore.createItemModalData.parentPath
+    
+    if (data.type === 'file') {
+      await apiService.createFile(parentPath, data.name, data.content || '')
+    } else {
+      await apiService.createDirectory(parentPath, data.name)
+    }
+    
+    // Refresh the file listing
+    await fileStore.loadDirectoryContents(fileStore.currentPath)
+    
+    uiStore.addResourceAlert({
+      type: 'info',
+      title: 'Item Created',
+      message: `${data.type === 'file' ? 'File' : 'Folder'} "${data.name}" created successfully`
+    })
+  } catch (error) {
+    uiStore.addResourceAlert({
+      type: 'error',
+      title: 'Creation Failed',
+      message: error instanceof Error ? error.message : `Failed to create ${data.type}`
+    })
+  }
+  
+  uiStore.closeCreateItemModal()
+}
+
+const handleConfirmDelete = async () => {
+  if (!uiStore.confirmDeleteModalData?.onConfirm) return
+  
+  try {
+    await uiStore.confirmDeleteModalData.onConfirm()
+    uiStore.closeConfirmDeleteModal()
+  } catch (error) {
+    uiStore.addResourceAlert({
+      type: 'error',
+      title: 'Delete Failed',
+      message: error instanceof Error ? error.message : 'Failed to delete item'
+    })
+  }
+}
 
 onMounted(async () => {
   console.log('🚀 Dashboard mounted, initializing application...')

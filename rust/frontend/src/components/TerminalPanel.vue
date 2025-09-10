@@ -17,6 +17,34 @@
       </button>
     </div>
 
+    <!-- Session Reconnection Screen -->
+    <div v-else-if="showSessionReconnect" class="session-reconnect">
+      <h2>Restore Terminal Sessions</h2>
+      <p>
+        We found {{ persistentSessions.length }} persistent terminal session(s) for this workspace.<br/>
+        Would you like to restore them or start fresh?
+      </p>
+      
+      <div class="sessions-list">
+        <div v-for="session in persistentSessions" :key="session.id" class="session-item">
+          <div class="session-info">
+            <span class="session-name">{{ session.session_name || 'Terminal Session' }}</span>
+            <span class="session-status">{{ session.status }}</span>
+            <span class="session-time">{{ new Date(session.created_at).toLocaleString() }}</span>
+          </div>
+          <button @click="reconnectToSession(session)" class="btn btn-primary">
+            Reconnect
+          </button>
+        </div>
+      </div>
+      
+      <div class="session-actions">
+        <button @click="createNewSession" class="btn btn-secondary">
+          Start Fresh Terminal
+        </button>
+      </div>
+    </div>
+
     <!-- Terminal Interface -->
     <template v-else>
       <!-- Layout Controls -->
@@ -39,71 +67,47 @@
           </button>
         </div>
 
-        <!-- Layout Switcher (simplified) -->
-        <div class="layout-switcher">
+        <!-- Layout Switcher -->
+        <div v-if="!uiStore.isMobile" class="layout-switcher">
           <button 
+            v-for="layout in terminalStore.layoutRecommendations.supported" 
+            :key="layout"
             class="layout-btn"
-            :class="{ active: terminalStore.currentLayout === 'single' }"
-            @click="switchLayout('single')"
-            title="Single pane"
+            :class="{ active: terminalStore.currentLayout === layout }"
+            @click="switchLayout(layout)"
+            :title="formatLayoutName(layout)"
           >
-            <div class="layout-preview single"></div>
-          </button>
-          <button 
-            class="layout-btn"
-            :class="{ active: terminalStore.currentLayout === 'horizontal-split' }"
-            @click="switchLayout('horizontal-split')"
-            title="Horizontal split"
-          >
-            <div class="layout-preview horizontal"></div>
-          </button>
-          <button 
-            class="layout-btn"
-            :class="{ active: terminalStore.currentLayout === 'vertical-split' }"
-            @click="switchLayout('vertical-split')"
-            title="Vertical split"
-          >
-            <div class="layout-preview vertical"></div>
+            <div :class="`layout-preview ${layout}`"></div>
           </button>
         </div>
       </div>
 
       <!-- Terminal Container -->
-      <div class="terminal-container" :class="`layout-${terminalStore.currentLayout}`">
-        <div 
+      <div 
+        class="terminal-container" 
+        :style="{
+          'grid-template-columns': terminalStore.gridTemplateColumns,
+          'grid-template-rows': terminalStore.gridTemplateRows
+        }"
+        @touchstart="handleTouchStart"
+        @touchmove="handleTouchMove"
+        @touchend="handleTouchEnd"
+      >
+        <TerminalPane
           v-for="pane in terminalStore.panes" 
           :key="pane.id"
-          class="terminal-pane"
-          :class="{ active: pane.id === terminalStore.activePaneId }"
-        >
-          <!-- Pane Header -->
-          <div class="pane-header">
-            <div class="pane-info">
-              <span class="pane-title">{{ pane.title || `Terminal ${pane.id}` }}</span>
-              <span class="pane-cwd">{{ pane.cwd || workspaceStore.selectedWorkspace?.path }}</span>
-            </div>
-            <button 
-              v-if="terminalStore.panes.length > 1"
-              @click="closeTerminal(pane.id)" 
-              class="close-btn"
-              title="Close terminal"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
-          </div>
-          
-          <!-- Terminal Content -->
-          <div class="terminal-content">
-            <div 
-              :id="`terminal-${pane.id}`" 
-              class="xterm-container"
-              @click="focusTerminal(pane.id)"
-            ></div>
-          </div>
-        </div>
+          ref="terminalPanes"
+          :pane="pane"
+          :is-active="pane.id === terminalStore.activePaneId"
+          :workspace-path="workspaceStore.selectedWorkspace?.path"
+          :can-split="terminalStore.panes.length < 4"
+          :show-close-button="terminalStore.panes.length > 1"
+          @focus="handleTerminalFocus"
+          @close="closeTerminal(pane.id)"
+          @split="handleSplit"
+          @data="handleTerminalData"
+          @resize="handleTerminalResize"
+        />
       </div>
     </template>
   </div>
@@ -111,52 +115,90 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
-import { Terminal } from '@xterm/xterm'
-import { FitAddon } from '@xterm/addon-fit'
-import { WebLinksAddon } from '@xterm/addon-web-links'
 import { useWorkspaceStore } from '../stores/workspace'
 import { useTerminalStore } from '../stores/terminal'
+import { useUIStore } from '../stores/ui'
 import { socketService } from '../services/socket'
 import { apiService } from '../services/api'
+import TerminalPane from './TerminalPane.vue'
 import type { TerminalTheme } from '../types/terminal'
 
 const workspaceStore = useWorkspaceStore()
 const terminalStore = useTerminalStore()
+const uiStore = useUIStore()
 const showRepositoriesModal = ref(false)
-
-// Terminal instances map
-const terminalInstances = new Map<string, { terminal: Terminal, fitAddon: FitAddon, sessionId: string }>()
 
 // Socket connection state
 const isConnected = ref(false)
 
-// Default terminal theme
-const defaultTheme: TerminalTheme = {
-  background: '#1a1a1a',
-  foreground: '#ffffff',
-  cursor: '#ffffff',
-  cursorAccent: '#000000',
-  selection: 'rgba(255, 255, 255, 0.3)',
-  black: '#000000',
-  red: '#e06c75',
-  green: '#98c379',
-  yellow: '#e5c07b',
-  blue: '#61afef',
-  magenta: '#c678dd',
-  cyan: '#56b6c2',
-  white: '#dcdfe4',
-  brightBlack: '#5c6370',
-  brightRed: '#e06c75',
-  brightGreen: '#98c379',
-  brightYellow: '#e5c07b',
-  brightBlue: '#61afef',
-  brightMagenta: '#c678dd',
-  brightCyan: '#56b6c2',
-  brightWhite: '#ffffff'
-}
+// Session management state
+const persistentSessions = ref<Session[]>([])
+const showSessionReconnect = ref(false)
+
+// Terminal pane references
+const terminalPanes = ref<InstanceType<typeof TerminalPane>[]>([])
+
+// Touch gesture state
+const touchStartX = ref(0)
+const touchStartY = ref(0)
+const touchEndX = ref(0)
+const touchEndY = ref(0)
+const minSwipeDistance = 50
+const maxVerticalDistance = 100
 
 const formatLayoutName = (layout: string) => {
   return layout.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())
+}
+
+const loadPersistentSessions = async () => {
+  if (!workspaceStore.selectedWorkspace) return
+  
+  try {
+    const sessions = await apiService.getSessions(workspaceStore.selectedWorkspace.id)
+    persistentSessions.value = sessions.filter(session => 
+      session.status === 'active' || session.status === 'disconnected'
+    )
+    showSessionReconnect.value = persistentSessions.value.length > 0
+  } catch (error) {
+    console.error('Failed to load persistent sessions:', error)
+  }
+}
+
+const reconnectToSession = async (session: Session) => {
+  try {
+    // Create a new pane for the reconnected session
+    const pane = await terminalStore.createTerminal(workspaceStore.selectedWorkspace!.id)
+    if (pane) {
+      // Update the pane to use the existing session ID
+      pane.sessionId = session.id
+      
+      await nextTick()
+      initializeTerminal(pane.id)
+      
+      // Load and display session history
+      try {
+        const history = await apiService.getSessionHistory(session.id)
+        const terminalInstance = terminalInstances.get(pane.id)
+        if (terminalInstance) {
+          // Display each command from history
+          history.forEach(command => {
+            terminalInstance.terminal.writeln(`\x1b[90m$ ${command}\x1b[0m`)
+          })
+        }
+      } catch (historyError) {
+        console.warn('Failed to load session history:', historyError)
+      }
+    }
+    
+    showSessionReconnect.value = false
+  } catch (error) {
+    console.error('Failed to reconnect to session:', error)
+  }
+}
+
+const createNewSession = async () => {
+  await createNewTerminal()
+  showSessionReconnect.value = false
 }
 
 const createNewTerminal = async () => {
@@ -169,93 +211,96 @@ const createNewTerminal = async () => {
   }
 }
 
-const initializeTerminal = (paneId: string) => {
-  const container = document.getElementById(`terminal-${paneId}`)
-  if (!container) {
-    console.error(`Terminal container not found: terminal-${paneId}`)
-    return
-  }
-
+const handleTerminalData = (paneId: string, data: string) => {
   const pane = terminalStore.panes.find(p => p.id === paneId)
-  if (!pane) {
-    console.error(`Terminal pane not found: ${paneId}`)
-    return
+  if (pane && isConnected.value) {
+    socketService.sendTerminalData(pane.sessionId, data)
   }
+}
 
-  // Create terminal instance
-  const terminal = new Terminal({
-    theme: defaultTheme,
-    fontSize: 14,
-    fontFamily: '"JetBrains Mono", "Fira Code", "SF Mono", Monaco, Consolas, monospace',
-    cursorBlink: true,
-    allowProposedApi: true,
-    scrollback: 1000,
-    convertEol: true
-  })
-
-  // Create addons
-  const fitAddon = new FitAddon()
-  const webLinksAddon = new WebLinksAddon()
-
-  // Load addons
-  terminal.loadAddon(fitAddon)
-  terminal.loadAddon(webLinksAddon)
-
-  // Open terminal in container
-  terminal.open(container)
-  fitAddon.fit()
-
-  // Store terminal instance with session mapping
-  terminalInstances.set(paneId, { 
-    terminal, 
-    fitAddon, 
-    sessionId: pane.sessionId 
-  })
-
-  // Show connection status
-  if (isConnected.value) {
-    terminal.writeln('\x1b[1;32m● Connected to AI Code Terminal\x1b[0m')
-    terminal.writeln('\x1b[90mInitializing terminal session...\x1b[0m')
-  } else {
-    terminal.writeln('\x1b[1;31m● Disconnected from server\x1b[0m')
-    terminal.writeln('\x1b[90mAttempting to connect...\x1b[0m')
+const handleTerminalResize = (paneId: string, cols: number, rows: number) => {
+  terminalStore.resizePane(paneId, cols, rows)
+  const pane = terminalStore.panes.find(p => p.id === paneId)
+  if (pane && isConnected.value) {
+    socketService.resizeTerminal(pane.sessionId, cols, rows)
   }
+}
 
-  // Handle terminal input - send to WebSocket
-  terminal.onData((data) => {
-    if (isConnected.value) {
-      socketService.sendTerminalData(pane.sessionId, data)
-    } else {
-      // Show disconnection message if not connected
-      terminal.write('\r\n\x1b[31mNot connected to server\x1b[0m\r\n')
+const handleTerminalFocus = (paneId: string) => {
+  terminalStore.setActivePane(paneId)
+}
+
+const handleSplit = async (direction: 'horizontal' | 'vertical') => {
+  if (!workspaceStore.selectedWorkspace) return
+  
+  // Determine new layout based on current layout and split direction
+  const currentLayout = terminalStore.currentLayout
+  let newLayout: typeof currentLayout = currentLayout
+  
+  if (currentLayout === 'single') {
+    newLayout = direction === 'horizontal' ? 'horizontal-split' : 'vertical-split'
+  } else if (currentLayout === 'horizontal-split' && direction === 'vertical') {
+    newLayout = 'grid-2x2'
+  } else if (currentLayout === 'vertical-split' && direction === 'horizontal') {
+    newLayout = 'grid-2x2'
+  }
+  
+  // Update layout if it changed
+  if (newLayout !== currentLayout) {
+    await terminalStore.setLayout(newLayout)
+  }
+  
+  // Create new terminal
+  await createNewTerminal()
+}
+
+// Touch gesture handlers for mobile terminal switching
+const handleTouchStart = (event: TouchEvent) => {
+  if (!uiStore.isMobile || terminalStore.panes.length <= 1) return
+  
+  touchStartX.value = event.touches[0].clientX
+  touchStartY.value = event.touches[0].clientY
+}
+
+const handleTouchMove = (event: TouchEvent) => {
+  if (!uiStore.isMobile || terminalStore.panes.length <= 1) return
+  
+  touchEndX.value = event.touches[0].clientX
+  touchEndY.value = event.touches[0].clientY
+}
+
+const handleTouchEnd = () => {
+  if (!uiStore.isMobile || terminalStore.panes.length <= 1) return
+  
+  const deltaX = touchEndX.value - touchStartX.value
+  const deltaY = Math.abs(touchEndY.value - touchStartY.value)
+  
+  // Check if it's a horizontal swipe and not too vertical
+  if (Math.abs(deltaX) > minSwipeDistance && deltaY < maxVerticalDistance) {
+    // Switch to next or previous terminal
+    const currentIndex = terminalStore.panes.findIndex(pane => pane.id === terminalStore.activePaneId)
+    if (currentIndex !== -1) {
+      let nextIndex
+      if (deltaX > 0) {
+        // Swipe right - go to previous terminal
+        nextIndex = currentIndex > 0 ? currentIndex - 1 : terminalStore.panes.length - 1
+      } else {
+        // Swipe left - go to next terminal
+        nextIndex = currentIndex < terminalStore.panes.length - 1 ? currentIndex + 1 : 0
+      }
+      
+      const nextPane = terminalStore.panes[nextIndex]
+      if (nextPane) {
+        terminalStore.setActivePane(nextPane.id)
+        
+        // Visual feedback - could add a swipe animation here
+        console.log(`Switched to terminal ${nextIndex + 1} of ${terminalStore.panes.length}`)
+      }
     }
-  })
-
-  // Handle terminal resize
-  terminal.onResize(({ cols, rows }) => {
-    terminalStore.resizePane(paneId, cols, rows)
-    if (isConnected.value) {
-      socketService.resizeTerminal(pane.sessionId, cols, rows)
-    }
-  })
-
-  // Handle container resize
-  const resizeObserver = new ResizeObserver(() => {
-    fitAddon.fit()
-  })
-  resizeObserver.observe(container)
-
-  console.log(`✅ Terminal initialized for pane ${paneId} with session ${pane.sessionId}`)
+  }
 }
 
 const closeTerminal = async (paneId: string) => {
-  // Clean up terminal instance
-  const instance = terminalInstances.get(paneId)
-  if (instance) {
-    instance.terminal.dispose()
-    terminalInstances.delete(paneId)
-  }
-  
   await terminalStore.closeTerminal(paneId)
 }
 
@@ -267,54 +312,7 @@ const focusTerminal = (paneId: string) => {
   terminalStore.setActivePane(paneId)
 }
 
-// WebSocket event handlers
-const setupSocketListeners = () => {
-  // Terminal output handler
-  const handleTerminalOutput = (event: CustomEvent) => {
-    const { sessionId, output } = event.detail
-    
-    // Find the terminal instance for this session
-    for (const [, instance] of terminalInstances) {
-      if (instance.sessionId === sessionId) {
-        instance.terminal.write(output)
-        terminalStore.appendOutput(sessionId, output)
-        break
-      }
-    }
-  }
-
-  // Terminal created handler
-  const handleTerminalCreated = (event: CustomEvent) => {
-    const { sessionId, pid } = event.detail
-    console.log(`✅ Terminal session created: ${sessionId} (PID: ${pid})`)
-    
-    // Find the terminal instance and update connection status
-    for (const [, instance] of terminalInstances) {
-      if (instance.sessionId === sessionId) {
-        instance.terminal.writeln(`\r\n\x1b[1;32m✅ Terminal session started (PID: ${pid})\x1b[0m`)
-        break
-      }
-    }
-  }
-
-  // Terminal destroyed handler
-  const handleTerminalDestroyed = (event: CustomEvent) => {
-    const { sessionId } = event.detail
-    console.log(`🔴 Terminal session destroyed: ${sessionId}`)
-  }
-
-  // Add event listeners
-  window.addEventListener('terminal:output', handleTerminalOutput as EventListener)
-  window.addEventListener('terminal:created', handleTerminalCreated as EventListener)
-  window.addEventListener('terminal:destroyed', handleTerminalDestroyed as EventListener)
-
-  // Return cleanup function
-  return () => {
-    window.removeEventListener('terminal:output', handleTerminalOutput as EventListener)
-    window.removeEventListener('terminal:created', handleTerminalCreated as EventListener)
-    window.removeEventListener('terminal:destroyed', handleTerminalDestroyed as EventListener)
-  }
-}
+// Terminal output is now handled via store subscription in onMounted
 
 // Initialize WebSocket connection
 const initializeSocketConnection = async () => {
@@ -339,65 +337,60 @@ const initializeSocketConnection = async () => {
 }
 
 onMounted(async () => {
-  // Set up socket event listeners first
-  const cleanupSocketListeners = setupSocketListeners()
+  // Initialize terminal store socket subscriptions
+  terminalStore.initialize()
+  
+  // Set up terminal output handlers
+  const cleanupOutputHandler = terminalStore.onTerminalOutput((sessionId: string, output: string) => {
+    // Find the terminal pane for this session and write output
+    const pane = terminalStore.panes.find(p => p.sessionId === sessionId)
+    if (pane) {
+      const terminalPane = terminalPanes.value.find(tp => {
+        return tp.$props.pane.id === pane.id
+      })
+      if (terminalPane) {
+        terminalPane.write(output)
+      }
+    }
+  })
   
   // Initialize WebSocket connection
   await initializeSocketConnection()
   
   // Initialize terminal when a workspace is selected
   if (workspaceStore.selectedWorkspace) {
-    // First, try to load existing sessions
-    try {
-      const existingSessions = await apiService.getSessions(workspaceStore.selectedWorkspace.id)
-      if (existingSessions.length > 0) {
-        console.log(`Found ${existingSessions.length} existing sessions, attempting to recover them`)
-        // TODO: Implement session recovery logic
-        // For now, just log the sessions
-        existingSessions.forEach(session => {
-          console.log(`Session: ${session.id}, Status: ${session.status}, Name: ${session.session_name}`)
-        })
-      }
-      
-      // If no existing sessions or panes, create a new terminal
-      if (terminalStore.panes.length === 0) {
-        await createNewTerminal()
-      }
-    } catch (error) {
-      console.warn('Failed to load existing sessions:', error)
-      // Fallback to creating new terminal
-      if (terminalStore.panes.length === 0) {
-        await createNewTerminal()
-      }
+    // Load persistent sessions for reconnection UI
+    await loadPersistentSessions()
+    
+    // If no persistent sessions or user chose to start fresh, create new terminal
+    if (!showSessionReconnect.value && terminalStore.panes.length === 0) {
+      await createNewTerminal()
     }
   }
 
-  // Initialize existing terminals
-  for (const pane of terminalStore.panes) {
-    await nextTick()
-    initializeTerminal(pane.id)
-  }
+  // Terminal initialization is now handled by TerminalPane components
 
   // Store cleanup function for unmount
   onUnmounted(() => {
-    // Clean up socket listeners
-    cleanupSocketListeners()
+    // Clean up output handler
+    cleanupOutputHandler()
+    
+    // Clean up terminal store subscriptions
+    terminalStore.cleanup()
     
     // Disconnect from WebSocket
     socketService.disconnect()
     
-    // Clean up all terminal instances
-    for (const [, instance] of terminalInstances) {
-      instance.terminal.dispose()
-    }
-    terminalInstances.clear()
+    // Clean up all terminal panes
+    terminalPanes.value.forEach(pane => {
+      pane.dispose()
+    })
   })
 })
 </script>
 
 <style>
-/* Import xterm.js CSS - must be unscoped */
-@import '@xterm/xterm/css/xterm.css';
+
 </style>
 
 <style scoped>
@@ -432,6 +425,114 @@ onMounted(async () => {
   line-height: 1.5;
   margin-bottom: 32px;
   max-width: 500px;
+}
+
+.session-reconnect {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.session-reconnect h2 {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+
+.session-reconnect p {
+  color: var(--text-secondary);
+  font-size: 16px;
+  line-height: 1.5;
+  margin-bottom: 32px;
+  max-width: 600px;
+}
+
+.sessions-list {
+  width: 100%;
+  max-width: 600px;
+  margin-bottom: 32px;
+}
+
+.session-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.session-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.session-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.session-status {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+.session-time {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.session-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--button-bg);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn:hover {
+  background: var(--button-hover);
+}
+
+.btn-primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+.btn-secondary {
+  background: transparent;
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+.btn-secondary:hover {
+  background: var(--button-hover);
+  color: var(--text-primary);
 }
 
 .layout-controls {
@@ -517,52 +618,51 @@ onMounted(async () => {
   border-right: 1px solid var(--text-muted);
 }
 
+.layout-preview.grid-2x2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 1px;
+}
+
+.layout-preview.grid-2x2::before,
+.layout-preview.grid-2x2::after {
+  content: '';
+  border: 1px solid var(--text-muted);
+}
+
+.layout-preview.three-pane {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 1px;
+}
+
+.layout-preview.three-pane::before,
+.layout-preview.three-pane::after {
+  content: '';
+  border: 1px solid var(--text-muted);
+}
+
 .layout-btn.active .layout-preview {
   border-color: white;
 }
 
 .terminal-container {
   flex: 1;
-  display: flex;
+  display: grid;
+  gap: 1px;
+  background: var(--border-color);
   overflow: hidden;
-}
-
-.terminal-container.layout-horizontal {
-  flex-direction: column;
-}
-
-.terminal-container.layout-vertical {
-  flex-direction: row;
 }
 
 .terminal-pane {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--border-color);
-  border-bottom: 1px solid var(--border-color);
+  background: var(--terminal-bg);
   overflow: hidden;
-}
-
-.terminal-pane:last-child {
-  border-right: none;
-  border-bottom: none;
-}
-
-.terminal-container.layout-horizontal .terminal-pane {
-  border-right: none;
-}
-
-.terminal-container.layout-vertical .terminal-pane {
-  border-bottom: none;
-}
-
-.terminal-container.layout-horizontal .terminal-pane:not(:last-child) {
-  border-bottom: 1px solid var(--border-color);
-}
-
-.terminal-container.layout-vertical .terminal-pane:not(:last-child) {
-  border-right: 1px solid var(--border-color);
+  min-height: 0;
+  min-width: 0;
 }
 
 .pane-header {
@@ -623,9 +723,7 @@ onMounted(async () => {
   padding: 8px;
 }
 
-.terminal-pane.active .pane-header {
-  background: var(--bg-secondary);
-}
+
 
 @media (max-width: 768px) {
   .layout-controls {

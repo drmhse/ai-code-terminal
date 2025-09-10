@@ -10,6 +10,10 @@ path = "src/main.rs"
 [dependencies]
 # Local crates
 act-core = { path = "../act-core" }
+act-pty = { path = "../act-pty" }
+act-vfs = { path = "../act-vfs" }
+act-domain = { path = "../act-domain" }
+act-persistence = { path = "../act-persistence" }
 
 # Async runtime
 tokio = { workspace = true }
@@ -49,6 +53,7 @@ anyhow = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
 bytes = { workspace = true }
+async-trait = { workspace = true }
 
 # HTTP client for GitHub API
 reqwest = { workspace = true }
@@ -66,4 +71,4 @@ urlencoding = { workspace = true }
 serde_json = { workspace = true }
 
 # System information
-sysinfo = "0.30"
+sysinfo = { workspace = true }

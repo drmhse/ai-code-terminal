@@ -240,21 +240,22 @@ export const useAuthStore = defineStore('auth', () => {
       }
     }
     
-    // Register listener for WebSocket stats events
-    window.addEventListener('stats:data', statsListener.value)
-    
-    // Also listen for WebSocket auth errors
-    window.addEventListener('websocket:auth_error', (event: Event) => {
-      const customEvent = event as CustomEvent
-      const error = customEvent.detail
-      console.warn('WebSocket authentication error received:', error)
+    if (socketService) {
+      socketService.subscribe('stats:data', (event) => {
+        if (statsListener.value) {
+          statsListener.value({ detail: event } as any)
+        }
+      })
       
-      // Only logout if JWT is actually invalid/expired
-      if (error.code === 'JWT_EXPIRED' || error.code === 'JWT_INVALID') {
-        console.log('JWT token is invalid, logging out')
-        logout()
-      }
-    })
+      socketService.subscribe('websocket:auth_error', (error) => {
+        console.warn('WebSocket authentication error received:', error)
+        
+        if (error.code === 'JWT_EXPIRED' || error.code === 'JWT_INVALID') {
+          console.log('JWT token is invalid, logging out')
+          logout()
+        }
+      })
+    }
   }
 
   // Keep loadStats for backward compatibility but make it a no-op
