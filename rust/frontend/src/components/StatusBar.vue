@@ -209,22 +209,38 @@ onBeforeUnmount(() => {
 
 @media (max-width: 768px) {
   .status-bar {
-    padding: 4px 12px;
-    font-size: 10px;
+    padding: 6px 16px;
+    font-size: 11px;
+    border-radius: 12px 12px 0 0;
   }
   
   .status-left,
   .status-right {
-    gap: 8px;
+    gap: 12px;
   }
   
   .status-right .status-item:nth-child(n+3) {
     display: none;
   }
+  
+  .status-item {
+    padding: 4px 8px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+  }
 }
 
 @media (max-width: 480px) {
+  .status-bar {
+    padding: 4px 12px;
+  }
+  
   .status-right .status-item:nth-child(n+2) {
+    display: none;
+  }
+  
+  .status-left .status-item:nth-child(n+2) {
     display: none;
   }
 }

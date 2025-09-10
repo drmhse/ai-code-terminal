@@ -42,17 +42,7 @@ pub struct TerminalSize {
     pub rows: u16,
 }
 
-// Settings model - single-tenant global settings
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct Settings {
-    pub id: String,
-    pub github_token: Option<String>,
-    pub github_refresh_token: Option<String>,
-    pub github_token_expires_at: Option<DateTime<Utc>>,
-    pub theme: Option<String>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
+// Settings model has been removed - replaced by user-scoped user_settings table
 
 // Workspace model
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]

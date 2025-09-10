@@ -12,19 +12,26 @@ import {
 } from '@/types/layout'
 
 export interface TerminalTab {
+  id: string
   sessionId: string
-  sessionName: string
+  name: string
+  isActive: boolean
+  order: number
+  buffer: string
+  cwd?: string
+  size: {
+    cols: number
+    rows: number
+  }
   pid?: number
-  isDefault?: boolean
 }
 
 export interface TerminalPane {
   id: string
-  sessionId: string
-  title: string
+  name: string
   isActive: boolean
-  buffer: string
-  cwd?: string
+  tabs: TerminalTab[]
+  activeTabId: string | null
   size: {
     cols: number
     rows: number
@@ -36,6 +43,7 @@ export const useTerminalStore = defineStore('terminal', () => {
   const activePane = ref<string | null>(null)
   const sessions = ref<Map<string, TerminalSession>>(new Map())
   
+  // Legacy tabs array for backward compatibility
   const terminalTabs = ref<TerminalTab[]>([])
   const activeTabId = ref<string | null>(null)
   
@@ -53,11 +61,12 @@ export const useTerminalStore = defineStore('terminal', () => {
   })
 
   let socketSubscriptions: Subscription[] = []
-  let outputHandlers: ((sessionId: string, output: string) => void)[] = []
+  const outputHandlers: ((sessionId: string, output: string) => void)[] = []
 
   const initializeSocketSubscriptions = () => {
     socketSubscriptions.push(
       socketService.subscribe('terminal:output', (event) => {
+        console.log(`📥 Terminal output received for session ${event.sessionId}:`, JSON.stringify(event.output))
         appendOutput(event.sessionId, event.output)
         // Notify all registered output handlers
         outputHandlers.forEach(handler => {
@@ -70,16 +79,25 @@ export const useTerminalStore = defineStore('terminal', () => {
       }),
       
       socketService.subscribe('terminal:created', (event) => {
-        const tab = terminalTabs.value.find(t => t.sessionId === event.sessionId)
-        if (tab) {
-          tab.pid = event.pid
+        console.log(`✅ Terminal created event received:`, event)
+        // Find the tab with this session ID across all panes
+        for (const pane of panes.value) {
+          const tab = pane.tabs.find(t => t.sessionId === event.sessionId)
+          if (tab) {
+            tab.pid = event.pid
+            break
+          }
         }
       }),
       
       socketService.subscribe('terminal:destroyed', (event) => {
-        const pane = panes.value.find(p => p.sessionId === event.sessionId)
-        if (pane) {
-          closePane(pane.id)
+        // Find the tab with this session ID across all panes
+        for (const pane of panes.value) {
+          const tab = pane.tabs.find(t => t.sessionId === event.sessionId)
+          if (tab) {
+            closeTabInPane(pane.id, tab.id)
+            break
+          }
         }
       })
     )
@@ -106,16 +124,15 @@ export const useTerminalStore = defineStore('terminal', () => {
 
   const hasPanes = computed(() => panes.value.length > 0)
 
-  const createPane = (workspaceId: string, title: string = 'Terminal') => {
+  const createPane = (workspaceId: string, name: string = 'Terminal') => {
     const paneId = `pane-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    const sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 
     const newPane: TerminalPane = {
       id: paneId,
-      sessionId,
-      title,
+      name,
       isActive: false,
-      buffer: '',
+      tabs: [],
+      activeTabId: null,
       size: { cols: 80, rows: 24 },
     }
 
@@ -123,13 +140,11 @@ export const useTerminalStore = defineStore('terminal', () => {
     
     // Set as active if it's the first pane
     if (panes.value.length === 1) {
-      setActivePane(paneId)
+      activePane.value = paneId
     }
 
-    // Create terminal session via WebSocket
-    if (socketService.isConnected) {
-      socketService.createTerminal(workspaceId, sessionId)
-    }
+    // Create first tab in the pane
+    createTabInPane(paneId, workspaceId, 'Terminal')
 
     return newPane
   }
@@ -138,13 +153,13 @@ export const useTerminalStore = defineStore('terminal', () => {
     const pane = panes.value.find(p => p.id === paneId)
     if (!pane) return
 
-    // Destroy terminal session
-    if (socketService.isConnected) {
-      socketService.destroyTerminal(pane.sessionId)
-    }
-
-    // Remove from sessions map
-    sessions.value.delete(pane.sessionId)
+    // Destroy all terminal sessions in the pane
+    pane.tabs.forEach(tab => {
+      if (socketService.isConnected) {
+        socketService.destroyTerminal(tab.sessionId)
+      }
+      sessions.value.delete(tab.sessionId)
+    })
 
     // Remove pane
     const index = panes.value.findIndex(p => p.id === paneId)
@@ -152,14 +167,13 @@ export const useTerminalStore = defineStore('terminal', () => {
       panes.value.splice(index, 1)
     }
 
-    // Switch active pane if necessary
+// Switch active pane if necessary
     if (activePane.value === paneId) {
       if (panes.value.length > 0) {
-        setActivePane(panes.value[0].id)
+        activePane.value = panes.value[0].id
       } else {
         activePane.value = null
       }
-    }
   }
 
   const setActivePane = (paneId: string) => {
@@ -179,21 +193,150 @@ export const useTerminalStore = defineStore('terminal', () => {
     }
   }
 
+  const createTabInPane = (paneId: string, workspaceId: string, name: string = 'Terminal') => {
+    const pane = panes.value.find(p => p.id === paneId)
+    if (!pane) return null
+
+    const sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    const tabId = `tab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
+    const newTab: TerminalTab = {
+      id: tabId,
+      sessionId,
+      name,
+      isActive: false,
+      order: pane.tabs.length,
+      buffer: '',
+      size: { cols: 80, rows: 24 },
+    }
+
+    pane.tabs.push(newTab)
+    
+    // Set as active tab if it's the first tab
+    if (pane.tabs.length === 1) {
+      setActiveTabInPane(paneId, tabId)
+    }
+
+    // Create terminal session via WebSocket
+    if (socketService.isConnected) {
+      socketService.createTerminal(workspaceId, sessionId)
+    }
+
+    return newTab
+  }
+
+  const closeTabInPane = (paneId: string, tabId: string) => {
+    const pane = panes.value.find(p => p.id === paneId)
+    if (!pane) return
+
+    const tabIndex = pane.tabs.findIndex(t => t.id === tabId)
+    if (tabIndex === -1) return
+
+    const tab = pane.tabs[tabIndex]
+
+    // Destroy terminal session
+    if (socketService.isConnected) {
+      socketService.destroyTerminal(tab.sessionId)
+    }
+
+    // Remove from sessions map
+    sessions.value.delete(tab.sessionId)
+
+    // Remove tab
+    pane.tabs.splice(tabIndex, 1)
+
+    // Update active tab if necessary
+    if (pane.activeTabId === tabId) {
+      if (pane.tabs.length > 0) {
+        // Activate the tab at the same position, or the last one
+        const newActiveIndex = Math.min(tabIndex, pane.tabs.length - 1)
+        setActiveTabInPane(paneId, pane.tabs[newActiveIndex].id)
+      } else {
+        pane.activeTabId = null
+        // If no tabs left, close the pane
+        closePane(paneId)
+      }
+    }
+
+    // Update tab orders
+    pane.tabs.forEach((tab, index) => {
+      tab.order = index
+    })
+  }
+
+  const setActiveTabInPane = (paneId: string, tabId: string) => {
+    const pane = panes.value.find(p => p.id === paneId)
+    if (!pane) return
+
+    // Deactivate current tab
+    if (pane.activeTabId) {
+      const currentTab = pane.tabs.find(t => t.id === pane.activeTabId)
+      if (currentTab) {
+        currentTab.isActive = false
+      }
+    }
+
+    // Activate new tab
+    const newTab = pane.tabs.find(t => t.id === tabId)
+    if (newTab) {
+      newTab.isActive = true
+      pane.activeTabId = tabId
+    }
+  }
+
+  const moveTabBetweenPanes = (sourcePaneId: string, targetPaneId: string, tabId: string, targetIndex?: number) => {
+    const sourcePane = panes.value.find(p => p.id === sourcePaneId)
+    const targetPane = panes.value.find(p => p.id === targetPaneId)
+    
+    if (!sourcePane || !targetPane) return
+
+    const tabIndex = sourcePane.tabs.findIndex(t => t.id === tabId)
+    if (tabIndex === -1) return
+
+    const [tab] = sourcePane.tabs.splice(tabIndex, 1)
+    
+    // Insert at target position or at the end
+    const insertIndex = targetIndex !== undefined ? Math.min(targetIndex, targetPane.tabs.length) : targetPane.tabs.length
+    targetPane.tabs.splice(insertIndex, 0, tab)
+
+    // Update orders
+    sourcePane.tabs.forEach((t, index) => t.order = index)
+    targetPane.tabs.forEach((t, index) => t.order = index)
+
+    // If source pane has no more tabs, close it
+    if (sourcePane.tabs.length === 0) {
+      closePane(sourcePaneId)
+    }
+
+    // If moving to a different pane, activate the tab in the target pane
+    if (sourcePaneId !== targetPaneId) {
+      setActiveTabInPane(targetPaneId, tabId)
+      setActivePane(targetPaneId)
+    }
+  }
+
   const sendInput = (paneId: string, data: string) => {
     const pane = panes.value.find(p => p.id === paneId)
-    if (pane && socketService.isConnected) {
-      socketService.sendTerminalData(pane.sessionId, data)
+    if (pane && pane.activeTabId && socketService.isConnected) {
+      const activeTab = pane.tabs.find(t => t.id === pane.activeTabId)
+      if (activeTab) {
+        socketService.sendTerminalData(activeTab.sessionId, data)
+      }
     }
   }
 
   const appendOutput = (sessionId: string, output: string) => {
-    const pane = panes.value.find(p => p.sessionId === sessionId)
-    if (pane) {
-      pane.buffer += output
-      
-      // Keep buffer size manageable (last 10000 characters)
-      if (pane.buffer.length > 10000) {
-        pane.buffer = pane.buffer.slice(-8000)
+    // Find the tab with this session ID across all panes
+    for (const pane of panes.value) {
+      const tab = pane.tabs.find(t => t.sessionId === sessionId)
+      if (tab) {
+        tab.buffer += output
+        
+        // Keep buffer size manageable (last 10000 characters)
+        if (tab.buffer.length > 10000) {
+          tab.buffer = tab.buffer.slice(-8000)
+        }
+        break
       }
     }
   }
@@ -203,9 +346,13 @@ export const useTerminalStore = defineStore('terminal', () => {
     if (pane) {
       pane.size = { cols, rows }
       
-      if (socketService.isConnected) {
-        socketService.resizeTerminal(pane.sessionId, cols, rows)
-      }
+      // Resize all tabs in the pane
+      pane.tabs.forEach(tab => {
+        tab.size = { cols, rows }
+        if (socketService.isConnected) {
+          socketService.resizeTerminal(tab.sessionId, cols, rows)
+        }
+      })
     }
   }
 
@@ -219,21 +366,22 @@ export const useTerminalStore = defineStore('terminal', () => {
 
   const clearBuffer = (paneId: string) => {
     const pane = panes.value.find(p => p.id === paneId)
-    if (pane) {
-      pane.buffer = ''
+    if (pane && pane.activeTabId) {
+      const activeTab = pane.tabs.find(t => t.id === pane.activeTabId)
+      if (activeTab) {
+        activeTab.buffer = ''
+      }
     }
   }
 
-  const renamePane = (paneId: string, newTitle: string) => {
+  const renamePane = (paneId: string, newName: string) => {
     const pane = panes.value.find(p => p.id === paneId)
     if (pane) {
-      pane.title = newTitle
+      pane.name = newName
     }
   }
 
-  const currentLayout = ref<LayoutType>('single')
-  
-  const activePaneId = computed(() => activePane.value || null)
+const currentLayout = ref<LayoutType>('single')
   
   const activeTab = computed(() => {
     return terminalTabs.value.find(tab => tab.sessionId === activeTabId.value) || null
@@ -256,14 +404,42 @@ export const useTerminalStore = defineStore('terminal', () => {
 
   const createTerminal = async (workspaceId: string) => {
     const pane = createPane(workspaceId)
-    socketService.createTerminal(workspaceId, pane.sessionId)
+    console.log(`Creating terminal session in pane ${pane.id} for workspace ${workspaceId}`)
+    
+    // The first tab is already created in createPane, so we just need to set up session mapping
+    if (pane.tabs.length > 0) {
+      const firstTab = pane.tabs[0]
+      const originalSessionId = firstTab.sessionId
+      
+      // Set up a one-time listener for the created event
+      const handleCreated = (event: any) => {
+        if (event.sessionId && event.sessionId !== originalSessionId) {
+          console.log(`🔄 Mapping session ID from ${originalSessionId} to ${event.sessionId}`)
+          const targetTab = pane.tabs.find(t => t.sessionId === originalSessionId)
+          if (targetTab) {
+            console.log(`✅ Found target tab ${targetTab.id}, updating session ID`)
+            targetTab.sessionId = event.sessionId
+          } else {
+            console.warn(`⚠️ Could not find tab with session ID ${originalSessionId}`)
+          }
+        }
+      }
+      
+      const subscription = socketService.subscribe('terminal:created', handleCreated)
+      
+      // Clean up after 5 seconds
+      setTimeout(() => {
+        subscription.unsubscribe()
+      }, 5000)
+    }
+    
     return pane
   }
 
   const closeTerminal = async (paneId: string) => {
     const pane = panes.value.find(p => p.id === paneId)
     if (pane) {
-      socketService.destroyTerminal(pane.sessionId)
+      console.log(`Closing terminal pane ${paneId} with ${pane.tabs.length} tabs`)
       closePane(paneId)
     }
   }
@@ -428,7 +604,6 @@ export const useTerminalStore = defineStore('terminal', () => {
     layoutRecommendations: readonly(layoutRecommendations),
     
     // Computed
-    activePaneId,
     activeTab,
     hasMultipleTabs,
     canSplitHorizontally,
@@ -451,6 +626,12 @@ export const useTerminalStore = defineStore('terminal', () => {
     closeTerminal,
     initialize,
     
+    // New tab management actions
+    createTabInPane,
+    closeTabInPane,
+    setActiveTabInPane,
+    moveTabBetweenPanes,
+    
     // Enhanced actions
     setLayout,
     updateViewportWidth,
@@ -470,5 +651,6 @@ export const useTerminalStore = defineStore('terminal', () => {
     convertLayout,
     cleanup,
     onTerminalOutput,
+  }
   }
 })

@@ -126,21 +126,13 @@
               </div>
             </div>
             
-            <!-- Code Editor (placeholder for CodeMirror) -->
-            <div class="code-editor" ref="editorRef">
-              <textarea 
-                v-model="editorContent" 
-                class="editor-textarea"
-                :disabled="editorStore.saving"
-                @input="handleEditorInput"
-                spellcheck="false"
-              ></textarea>
-            </div>
+            <!-- Code Editor -->
+            <div class="code-editor" ref="editorRef"></div>
           </div>
           
           <!-- Preview Mode -->
           <div v-else class="preview-container">
-            <pre class="code-preview"><code>{{ fileStore.previewData }}</code></pre>
+            <div class="code-preview" ref="previewEditorRef"></div>
           </div>
         </div>
         
@@ -195,10 +187,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useFileStore } from '@/stores/file'
 import { useEditorStore } from '@/stores/editor'
 import { useFileOperations } from '@/composables/useFileOperations'
+import { createUnifiedEditor } from '@/utils/codemirror-editor'
+import type { EditorInstance } from '@/types/editor'
 
 const fileStore = useFileStore()
 const editorStore = useEditorStore()
@@ -206,6 +200,9 @@ const fileOperations = useFileOperations()
 
 const editorRef = ref<HTMLElement>()
 const editorContent = ref('')
+const previewEditorRef = ref<HTMLElement>()
+const previewEditorInstance = ref<EditorInstance>()
+const editEditorInstance = ref<EditorInstance>()
 
 const closeModal = () => {
   if (editorStore.editMode && editorStore.hasChanges) {
@@ -231,16 +228,19 @@ const toggleEditMode = async () => {
   if (!fileStore.previewFile) return
   
   if (!editorStore.editMode) {
-    // Initialize editor with current file
+    // Entering edit mode: Initialize editor first, then toggle edit mode
     await fileOperations.initializeEditor(fileStore.previewFile, fileStore.previewData || '')
+    const result = await editorStore.toggleEditMode()
     editorContent.value = editorStore.currentFile?.content || ''
+    // Edit editor will be initialized by the watcher
   } else {
-    // Check for unsaved changes before exiting
-    const result = await fileOperations.toggleEditMode()
-    if (!result) {
-      // Has unsaved changes, discard modal will be shown
-      return
+    // Exiting edit mode: Use store's toggle method which handles unsaved changes
+    const result = await editorStore.toggleEditMode()
+    if (result?.hasChanges) {
+      // Show discard modal
+      fileStore.openDiscardModal('exitEdit', result.changesSummary)
     }
+    // Preview editor will be initialized by the watcher
   }
 }
 
@@ -250,13 +250,111 @@ const saveFile = async () => {
 
 const discardChanges = () => {
   fileOperations.discardChanges()
-  editorContent.value = editorStore.currentFile?.originalContent || ''
+  // Sync the CodeMirror editor content with the reverted content
+  if (editEditorInstance.value && editorStore.currentFile) {
+    editEditorInstance.value.setContent(editorStore.currentFile.content)
+  }
+  editorContent.value = editorStore.currentFile?.content || ''
 }
 
 const handleEditorInput = () => {
-  if (editorStore.currentFile) {
-    editorStore.updateContent(editorContent.value)
+  // This is now handled by the onChange callback in CodeMirror
+  // but we keep this function in case we need manual sync
+  if (editEditorInstance.value && editorStore.currentFile) {
+    const content = editEditorInstance.value.getContent()
+    editorStore.updateContent(content)
+    editorContent.value = content
   }
+}
+
+// Initialize preview editor with syntax highlighting
+const initializePreviewEditor = async () => {
+  if (!previewEditorRef.value || !fileStore.previewFile || !fileStore.previewData) return
+  
+  // Clean up existing editor
+  if (previewEditorInstance.value) {
+    previewEditorInstance.value.destroy()
+    previewEditorInstance.value = undefined
+  }
+  
+  // Create read-only editor for preview with syntax highlighting
+  previewEditorInstance.value = createUnifiedEditor(previewEditorRef.value, {
+    content: fileStore.previewData,
+    readonly: true,
+    fileExtension: fileStore.previewFile.extension || undefined,
+    theme: {
+      type: 'dark',
+      colors: {
+        primary: '#1a1a1a',
+        secondary: '#2d2d2d',
+        tertiary: '#3d3d3d',
+        sidebar: '#252525',
+        border: '#404040',
+        textPrimary: '#ffffff',
+        textSecondary: '#cccccc',
+        textMuted: '#888888',
+        accentBlue: '#61afef',
+        accentBlueHover: '#4d8ed7',
+        accentGreen: '#98c379',
+        accentGreenHover: '#7fb069',
+        accentRed: '#e06c75',
+        accentRedHover: '#d45862',
+        accentOrange: '#e5c07b',
+        accentPurple: '#c678dd',
+        terminalBg: '#1a1a1a'
+      }
+    },
+    onChange: () => {
+      // No changes allowed in preview mode
+    }
+  })
+}
+
+// Initialize edit editor with syntax highlighting
+const initializeEditEditor = async () => {
+  if (!editorRef.value || !fileStore.previewFile || !editorStore.currentFile) return
+  
+  // Clean up existing editor
+  if (editEditorInstance.value) {
+    editEditorInstance.value.destroy()
+    editEditorInstance.value = undefined
+  }
+  
+  // Create editable editor with syntax highlighting
+  editEditorInstance.value = createUnifiedEditor(editorRef.value, {
+    content: editorStore.currentFile.content,
+    readonly: false,
+    fileExtension: fileStore.previewFile.extension || undefined,
+    theme: {
+      type: 'dark',
+      colors: {
+        primary: '#1a1a1a',
+        secondary: '#2d2d2d',
+        tertiary: '#3d3d3d',
+        sidebar: '#252525',
+        border: '#404040',
+        textPrimary: '#ffffff',
+        textSecondary: '#cccccc',
+        textMuted: '#888888',
+        accentBlue: '#61afef',
+        accentBlueHover: '#4d8ed7',
+        accentGreen: '#98c379',
+        accentGreenHover: '#7fb069',
+        accentRed: '#e06c75',
+        accentRedHover: '#d45862',
+        accentOrange: '#e5c07b',
+        accentPurple: '#c678dd',
+        terminalBg: '#1a1a1a'
+      }
+    },
+    onChange: (content: string) => {
+      // Update editor store content
+      if (editorStore.currentFile) {
+        editorStore.updateContent(content)
+        editorContent.value = content
+      }
+    }
+  })
 }
 
 // Format file size
@@ -313,6 +411,47 @@ const handleKeydown = (e: KeyboardEvent) => {
 watch(() => editorStore.currentFile?.content, (newContent) => {
   if (newContent !== undefined && newContent !== editorContent.value) {
     editorContent.value = newContent
+    // Update CodeMirror editor if it exists and content differs
+    if (editEditorInstance.value && editEditorInstance.value.getContent() !== newContent) {
+      editEditorInstance.value.setContent(newContent)
+    }
+  }
+})
+
+// Watch for edit mode changes to sync content
+watch(() => editorStore.editMode, (isEditMode) => {
+  if (isEditMode && editorStore.currentFile) {
+    // Entering edit mode - sync content
+    editorContent.value = editorStore.currentFile.content
+  }
+})
+
+// Watch for preview data changes and initialize preview editor
+watch(() => fileStore.previewData, async (newData) => {
+  if (newData && !editorStore.editMode) {
+    await nextTick()
+    await initializePreviewEditor()
+  }
+}, { immediate: true })
+
+// Watch for edit mode changes
+watch(() => editorStore.editMode, async (isEditMode) => {
+  if (!isEditMode && fileStore.previewData) {
+    // Exiting edit mode - clean up edit editor and initialize preview editor
+    if (editEditorInstance.value) {
+      editEditorInstance.value.destroy()
+      editEditorInstance.value = undefined
+    }
+    await nextTick()
+    await initializePreviewEditor()
+  } else if (isEditMode && editorStore.currentFile) {
+    // Entering edit mode - clean up preview editor and initialize edit editor
+    if (previewEditorInstance.value) {
+      previewEditorInstance.value.destroy()
+      previewEditorInstance.value = undefined
+    }
+    await nextTick()
+    await initializeEditEditor()
   }
 })
 
@@ -327,6 +466,14 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
+  if (previewEditorInstance.value) {
+    previewEditorInstance.value.destroy()
+    previewEditorInstance.value = undefined
+  }
+  if (editEditorInstance.value) {
+    editEditorInstance.value.destroy()
+    editEditorInstance.value = undefined
+  }
 })
 </script>
 
@@ -604,38 +751,18 @@ onUnmounted(() => {
   position: relative;
 }
 
-.editor-textarea {
-  width: 100%;
-  height: 100%;
-  border: none;
-  outline: none;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Consolas', monospace;
-  font-size: 14px;
-  line-height: 1.5;
-  padding: 16px;
-  resize: none;
-  white-space: pre;
-  overflow: auto;
-}
+/* CodeMirror editor styles are handled by the editor itself */
 
 /* Preview Mode */
 .preview-container {
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
   background: var(--bg-primary);
 }
 
 .code-preview {
-  margin: 0;
-  padding: 16px;
-  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Consolas', monospace;
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--text-primary);
-  white-space: pre-wrap;
-  word-wrap: break-word;
+  height: 100%;
+  width: 100%;
 }
 
 /* Save Error */

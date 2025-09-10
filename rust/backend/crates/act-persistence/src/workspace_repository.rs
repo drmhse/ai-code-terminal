@@ -32,23 +32,24 @@ impl SqlWorkspaceRepository {
             last_sync_at: row.get("last_sync_at"),
             created_at: row.get("created_at"),
             updated_at: row.get("updated_at"),
+            user_id: row.get("user_id"),
         })
     }
 }
 
 #[async_trait]
 impl WorkspaceRepository for SqlWorkspaceRepository {
-    async fn create(&self, request: CreateWorkspaceRequest) -> Result<act_core::repository::Workspace, act_core::error::CoreError> {
+    async fn create(&self, user_id: &str, request: CreateWorkspaceRequest) -> Result<act_core::repository::Workspace, act_core::error::CoreError> {
         let workspace_id = uuid::Uuid::new_v4().to_string();
         let now = Utc::now();
-        let local_path = request.local_path.unwrap_or_else(|| format!("./workspaces/{}", workspace_id));
+        let local_path = request.local_path.unwrap_or_else(|| workspace_id.clone());
         
         let row = handle_db_error!(
             sqlx::query(
                 r#"
-                INSERT INTO workspaces (id, name, github_repo, github_url, local_path, is_active, created_at, updated_at)
-                VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
-                RETURNING id, name, github_repo, github_url, local_path, is_active, last_sync_at, created_at, updated_at
+                INSERT INTO workspaces (id, name, github_repo, github_url, local_path, is_active, user_id, created_at, updated_at)
+                VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+                RETURNING id, name, github_repo, github_url, local_path, is_active, last_sync_at, created_at, updated_at, user_id
                 "#
             )
             .bind(&workspace_id)
@@ -57,6 +58,7 @@ impl WorkspaceRepository for SqlWorkspaceRepository {
             .bind(&request.github_url)
             .bind(&local_path)
             .bind(true)
+            .bind(user_id)
             .bind(now)
             .bind(now)
             .fetch_one(&self.pool)
@@ -65,32 +67,34 @@ impl WorkspaceRepository for SqlWorkspaceRepository {
         Self::map_row_to_workspace(row).await.map_err(Into::into)
     }
 
-    async fn get_by_id(&self, id: &String) -> Result<act_core::repository::Workspace, act_core::error::CoreError> {
+    async fn get_by_id(&self, user_id: &str, id: &String) -> Result<act_core::repository::Workspace, act_core::error::CoreError> {
         let row = handle_db_error!(
             sqlx::query(
                 r#"
-                SELECT id, name, github_repo, github_url, local_path, is_active, last_sync_at, created_at, updated_at
+                SELECT id, name, github_repo, github_url, local_path, is_active, last_sync_at, created_at, updated_at, user_id
                 FROM workspaces
-                WHERE id = ?1
+                WHERE id = ?1 AND user_id = ?2
                 "#
             )
             .bind(id)
+            .bind(user_id)
             .fetch_one(&self.pool)
         );
 
         Self::map_row_to_workspace(row).await.map_err(Into::into)
     }
 
-    async fn get_by_github_repo(&self, repo: &str) -> Result<Option<act_core::repository::Workspace>, act_core::error::CoreError> {
+    async fn get_by_github_repo(&self, user_id: &str, repo: &str) -> Result<Option<act_core::repository::Workspace>, act_core::error::CoreError> {
         let row = handle_db_error!(
             sqlx::query(
                 r#"
-                SELECT id, name, github_repo, github_url, local_path, is_active, last_sync_at, created_at, updated_at
+                SELECT id, name, github_repo, github_url, local_path, is_active, last_sync_at, created_at, updated_at, user_id
                 FROM workspaces
-                WHERE github_repo = ?1
+                WHERE github_repo = ?1 AND user_id = ?2
                 "#
             )
             .bind(repo)
+            .bind(user_id)
             .fetch_optional(&self.pool)
         );
 
@@ -100,15 +104,17 @@ impl WorkspaceRepository for SqlWorkspaceRepository {
         }
     }
 
-    async fn list_all(&self) -> Result<Vec<act_core::repository::Workspace>, act_core::error::CoreError> {
+    async fn list_all(&self, user_id: &str) -> Result<Vec<act_core::repository::Workspace>, act_core::error::CoreError> {
         let rows = handle_db_error!(
             sqlx::query(
                 r#"
-                SELECT id, name, github_repo, github_url, local_path, is_active, last_sync_at, created_at, updated_at
+                SELECT id, name, github_repo, github_url, local_path, is_active, last_sync_at, created_at, updated_at, user_id
                 FROM workspaces
+                WHERE user_id = ?1
                 ORDER BY created_at DESC
                 "#
             )
+            .bind(user_id)
             .fetch_all(&self.pool)
         );
 
@@ -120,16 +126,17 @@ impl WorkspaceRepository for SqlWorkspaceRepository {
         Ok(workspaces)
     }
 
-    async fn list_active(&self) -> Result<Vec<act_core::repository::Workspace>, act_core::error::CoreError> {
+    async fn list_active(&self, user_id: &str) -> Result<Vec<act_core::repository::Workspace>, act_core::error::CoreError> {
         let rows = handle_db_error!(
             sqlx::query(
                 r#"
-                SELECT id, name, github_repo, github_url, local_path, is_active, last_sync_at, created_at, updated_at
+                SELECT id, name, github_repo, github_url, local_path, is_active, last_sync_at, created_at, updated_at, user_id
                 FROM workspaces
-                WHERE is_active = 1
+                WHERE is_active = 1 AND user_id = ?1
                 ORDER BY created_at DESC
                 "#
             )
+            .bind(user_id)
             .fetch_all(&self.pool)
         );
 
@@ -141,8 +148,8 @@ impl WorkspaceRepository for SqlWorkspaceRepository {
         Ok(workspaces)
     }
 
-    async fn update(&self, id: &String, request: UpdateWorkspaceRequest) -> Result<act_core::repository::Workspace, act_core::error::CoreError> {
-        let current = self.get_by_id(id).await?;
+    async fn update(&self, user_id: &str, id: &String, request: UpdateWorkspaceRequest) -> Result<act_core::repository::Workspace, act_core::error::CoreError> {
+        let current = self.get_by_id(user_id, id).await?;
         
         let mut query = sqlx::QueryBuilder::new("UPDATE workspaces SET updated_at = CURRENT_TIMESTAMP");
         let mut has_updates = false;
@@ -171,29 +178,33 @@ impl WorkspaceRepository for SqlWorkspaceRepository {
 
         query.push(" WHERE id = ");
         query.push_bind(id);
+        query.push(" AND user_id = ");
+        query.push_bind(user_id);
 
         handle_db_error!(query.build().execute(&self.pool));
 
         // Fetch the updated record
-        self.get_by_id(id).await
+        self.get_by_id(user_id, id).await
     }
 
-    async fn delete(&self, id: &String) -> Result<(), act_core::error::CoreError> {
+    async fn delete(&self, user_id: &str, id: &String) -> Result<(), act_core::error::CoreError> {
         handle_db_error!(
-            sqlx::query("DELETE FROM workspaces WHERE id = ?1")
+            sqlx::query("DELETE FROM workspaces WHERE id = ?1 AND user_id = ?2")
                 .bind(id)
+                .bind(user_id)
                 .execute(&self.pool)
         );
 
         Ok(())
     }
 
-    async fn set_active(&self, id: &String, active: bool) -> Result<(), act_core::error::CoreError> {
+    async fn set_active(&self, user_id: &str, id: &String, active: bool) -> Result<(), act_core::error::CoreError> {
         handle_db_error!(
             sqlx::query(
-                "UPDATE workspaces SET is_active = ?2, updated_at = CURRENT_TIMESTAMP WHERE id = ?1"
+                "UPDATE workspaces SET is_active = ?3, updated_at = CURRENT_TIMESTAMP WHERE id = ?1 AND user_id = ?2"
             )
             .bind(id)
+            .bind(user_id)
             .bind(active)
             .execute(&self.pool)
         );

@@ -77,9 +77,11 @@ import { useAuthStore } from '@/stores/auth'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useFileStore } from '@/stores/file'
 import { useUIStore } from '@/stores/ui'
+import { useLayoutStore } from '@/stores/layout'
 import { useAppCore } from '@/composables/useAppCore'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { useTheme } from '@/composables/useTheme'
+import { useAppInitialization } from '@/composables/useAppInitialization'
 import TitleBar from '@/components/TitleBar.vue'
 import MainContent from '@/components/MainContent.vue'
 import StatusBar from '@/components/StatusBar.vue'
@@ -102,6 +104,7 @@ const authStore = useAuthStore()
 const workspaceStore = useWorkspaceStore()
 const fileStore = useFileStore()
 const uiStore = useUIStore()
+const layoutStore = useLayoutStore()
 
 // Composables
 const { 
@@ -110,6 +113,8 @@ const {
   tryInitializeApp, 
   cleanup 
 } = useAppCore()
+
+const { isInitialized: isGlobalAppInitialized, resetInitialization } = useAppInitialization()
 
 // Setup keyboard shortcuts
 useKeyboardShortcuts()
@@ -168,16 +173,48 @@ const handleConfirmDelete = async () => {
 }
 
 onMounted(async () => {
-  console.log('🚀 Dashboard mounted, initializing application...')
+  console.log('🚀 TRACE: Dashboard.vue onMounted() called')
+  console.log('🚀 TRACE: isGlobalAppInitialized.value =', isGlobalAppInitialized.value)
+  console.log('🚀 TRACE: Dashboard mounted, initializing application...')
   
+  // Always ensure workspaces are loaded when dashboard mounts
+  if (authStore.isAuthenticated) {
+    const ownerId = authStore.user?.id || authStore.user?.login
+    console.log('🚀 TRACE: Loading workspaces for authenticated user:', ownerId)
+    try {
+      await workspaceStore.fetchWorkspaces(ownerId)
+      console.log('✅ TRACE: Workspaces loaded successfully')
+      
+      // If there's a selected workspace, fetch its layouts
+      if (workspaceStore.selectedWorkspace) {
+        await layoutStore.fetchLayouts(workspaceStore.selectedWorkspace.id)
+        console.log('✅ TRACE: Layouts loaded for selected workspace')
+      }
+    } catch (wsError) {
+      console.error('❌ TRACE: Failed to load workspaces on dashboard mount:', wsError)
+    }
+  }
+  
+  // Skip initialization if global app is already initialized
+  if (isGlobalAppInitialized.value) {
+    console.log('⚠️ TRACE: Global app already initialized, skipping Dashboard initialization')
+    return
+  }
+  
+  console.log('🚀 TRACE: Calling tryInitializeApp()...')
   // Initialize the application using the core composable
   // Theme system is automatically initialized by useTheme composable
   await tryInitializeApp()
+  console.log('🚀 TRACE: tryInitializeApp() completed')
 })
 
 onBeforeUnmount(() => {
   console.log('🧹 Dashboard unmounting, cleaning up...')
   cleanup()
+  
+  // Reset global initialization state if needed
+  // This allows re-initialization if the Dashboard component is remounted
+  resetInitialization()
   
   // Theme system cleanup is automatically handled by useTheme composable
 })
@@ -199,21 +236,35 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   height: 100vh;
-  gap: 20px;
+  gap: 24px;
+  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+}
+
+.app-loading p {
+  color: var(--text-secondary);
+  font-size: 16px;
+  animation: pulse 2s ease-in-out infinite alternate;
 }
 
 .loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid var(--border-color);
+  width: 48px;
+  height: 48px;
+  border: 3px solid transparent;
   border-top: 3px solid var(--primary);
+  border-right: 3px solid var(--primary);
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  animation: spin 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+  box-shadow: 0 0 20px rgba(0, 123, 204, 0.3);
 }
 
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  100% { opacity: 1; }
 }
 
 /* Error State */
@@ -271,12 +322,19 @@ onBeforeUnmount(() => {
 
 .login-container {
   text-align: center;
-  padding: 40px;
+  padding: 48px;
   background: var(--bg-secondary);
-  border-radius: 12px;
-  box-shadow: var(--shadow);
-  border: 1px solid var(--border-color);
-  max-width: 400px;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px var(--border-color);
+  backdrop-filter: blur(20px);
+  max-width: 420px;
+  transform: translateY(0);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.login-container:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2), 0 0 0 1px var(--border-color);
 }
 
 .login-container h2 {

@@ -1,14 +1,13 @@
 use std::sync::Arc;
 use async_trait::async_trait;
 use jsonwebtoken::{encode, decode, EncodingKey, DecodingKey, Header, Validation};
-use chrono::{DateTime, Utc};
 use act_core::{
     Result, CoreError,
     AuthenticatedUser, AuthToken, JwtClaims,
-    GitHubAuthService, JwtService, AuthRepository,
+    GitHubAuthService, JwtService,
 };
 use crate::config::Config;
-use crate::services::{GitHubService, SettingsService};
+use crate::services::GitHubService;
 
 pub struct ServerGitHubAuthService {
     github_service: GitHubService,
@@ -116,6 +115,7 @@ impl JwtService for ServerJwtService {
         
         let claims = JwtClaims {
             sub: user.user_id.clone(),
+            github_username: user.username.clone(),
             username: user.username.clone(),
             exp: exp.timestamp() as usize,
             iat: now.timestamp() as usize,
@@ -144,68 +144,3 @@ impl JwtService for ServerJwtService {
     }
 }
 
-pub struct ServerAuthRepository {
-    settings_service: SettingsService,
-    github_service: GitHubService,
-}
-
-impl ServerAuthRepository {
-    pub fn new(db: act_core::Database, config: Arc<Config>) -> Result<Self> {
-        let settings_service = SettingsService::new(db);
-        let github_service = GitHubService::new(config)
-            .map_err(|e| CoreError::Configuration(e.to_string()))?;
-            
-        Ok(Self {
-            settings_service,
-            github_service,
-        })
-    }
-}
-
-#[async_trait]
-impl AuthRepository for ServerAuthRepository {
-    async fn store_github_token(
-        &self,
-        _user_id: &str,
-        token: &str,
-        refresh_token: Option<&str>,
-        expires_at: DateTime<Utc>,
-    ) -> Result<()> {
-        self.settings_service.update_github_tokens(
-            &self.github_service,
-            Some(token),
-            refresh_token,
-            Some(expires_at),
-        ).await.map_err(|e| CoreError::Database(e.to_string()))
-    }
-
-    async fn get_github_token(&self, _user_id: &str) -> Result<Option<String>> {
-        self.settings_service.get_github_token(&self.github_service)
-            .await
-            .map_err(|e| CoreError::Database(e.to_string()))
-    }
-
-    async fn get_github_refresh_token(&self, _user_id: &str) -> Result<Option<String>> {
-        self.settings_service.get_github_refresh_token(&self.github_service)
-            .await
-            .map_err(|e| CoreError::Database(e.to_string()))
-    }
-
-    async fn is_github_token_expired(&self, _user_id: &str) -> Result<bool> {
-        self.settings_service.is_github_token_expired()
-            .await
-            .map_err(|e| CoreError::Database(e.to_string()))
-    }
-
-    async fn clear_github_tokens(&self, _user_id: &str) -> Result<()> {
-        self.settings_service.clear_github_tokens()
-            .await
-            .map_err(|e| CoreError::Database(e.to_string()))
-    }
-
-    async fn is_github_authenticated(&self, _user_id: &str) -> Result<bool> {
-        Ok(self.settings_service.is_github_authenticated()
-            .await
-            .unwrap_or(false))
-    }
-}

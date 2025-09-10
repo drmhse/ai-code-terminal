@@ -75,7 +75,9 @@ impl Default for Config {
                 ],
             },
             workspace: WorkspaceConfig {
-                root_path: PathBuf::from("./workspaces"),
+                root_path: std::env::current_dir()
+                    .unwrap_or_else(|_| PathBuf::from("."))
+                    .join("workspaces"),
                 auto_create: true,
             },
         }

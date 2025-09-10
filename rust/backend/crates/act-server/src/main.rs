@@ -42,10 +42,8 @@ async fn main() -> anyhow::Result<()> {
     
     info!("Application state initialized with domain services");
 
-    // Perform tmux session reconciliation
-    if let Err(e) = state.process_supervisor.reconcile_with_tmux_sessions().await {
-        tracing::warn!("Failed to reconcile tmux sessions on startup: {}", e);
-    }
+    // TODO: Session reconciliation will be implemented in Phase 2 through domain services
+    info!("Skipping session reconciliation (will be implemented in Phase 2)");
 
     // Create Socket.IO server
     let (socket_layer, io) = SocketIo::new_layer();

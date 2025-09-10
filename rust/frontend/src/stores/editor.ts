@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia'
 import { ref, computed, readonly } from 'vue'
-import { apiService } from '@/services/api'
 
 export interface EditorFile {
   path: string
@@ -41,6 +40,12 @@ export const useEditorStore = defineStore('editor', () => {
     foldGutter: true,
     gutters: ['CodeMirror-linenumbers', 'CodeMirror-foldgutter']
   })
+
+  // Lazy load apiService when needed
+  const getApiService = async () => {
+    const { apiService } = await import('@/services/api')
+    return apiService
+  }
 
   // Computed properties
   const isEditing = computed(() => editMode.value && currentFile.value !== null)
@@ -156,6 +161,7 @@ export const useEditorStore = defineStore('editor', () => {
     saveError.value = null
 
     try {
+      const apiService = await getApiService()
       await apiService.saveFile(currentFile.value.path, currentFile.value.content)
       
       // Update original content to match saved content

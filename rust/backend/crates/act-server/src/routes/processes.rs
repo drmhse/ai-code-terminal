@@ -1,204 +1,250 @@
 use crate::{
     models::ApiResponse,
-    services::process::{ProcessConfig, ProcessInfo, ProcessStatus, ProcessMetrics},
+    middleware::auth::AuthenticatedUser,
     AppState,
+    error::ServerError,
 };
+
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
     response::Json,
-    routing::{get, post, delete},
+    routing::{get, post},
     Router,
 };
-use serde::Deserialize;
-use tracing::{error, info};
+use serde::{Deserialize, Serialize};
+use tracing::{info, warn};
 
-pub fn routes() -> Router<AppState> {
-    Router::new()
-        .route("/", get(list_processes))
-        .route("/", post(start_process))
-        .route("/:process_id", get(get_process))
-        .route("/:process_id", delete(stop_process))
-        .route("/:process_id/restart", post(restart_process))
-        .route("/:process_id/metrics", get(get_process_metrics))
-        .route("/:process_id/logs", get(get_process_logs))
+#[derive(Debug, Deserialize)]
+pub struct CreateProcessRequest {
+    pub name: String,
+    pub command: String,
+    pub args: Option<Vec<String>>,
+    pub working_directory: String,
+    pub environment_variables: Option<std::collections::HashMap<String, String>>,
+    pub max_restarts: Option<i32>,
+    pub auto_restart: Option<bool>,
+    pub workspace_id: Option<String>,
+    pub session_id: Option<String>,
+    pub tags: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateProcessRequest {
+    pub name: Option<String>,
+    pub command: Option<String>,
+    pub args: Option<Vec<String>>,
+    pub working_directory: Option<String>,
+    pub environment_variables: Option<std::collections::HashMap<String, String>>,
+    pub max_restarts: Option<i32>,
+    pub auto_restart: Option<bool>,
+    pub tags: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ListProcessesQuery {
-    pub user_id: Option<String>,
     pub workspace_id: Option<String>,
+    pub session_id: Option<String>,
     pub status: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct StartProcessRequest {
-    pub config: ProcessConfig,
-    pub user_id: Option<String>,
+#[derive(Debug, Serialize)]
+pub struct ProcessResponse {
+    pub id: String,
+    pub name: String,
+    pub pid: Option<i32>,
+    pub command: String,
+    pub args: Option<Vec<String>>,
+    pub working_directory: String,
+    pub environment_variables: Option<std::collections::HashMap<String, String>>,
+    pub status: String,
+    pub exit_code: Option<i32>,
+    pub start_time: String,
+    pub end_time: Option<String>,
+    pub cpu_usage: f64,
+    pub memory_usage: u64,
+    pub restart_count: i32,
+    pub max_restarts: i32,
+    pub auto_restart: bool,
+    pub user_id: String,
     pub workspace_id: Option<String>,
     pub session_id: Option<String>,
+    pub tags: Option<Vec<String>>,
+    pub data: Option<serde_json::Value>,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ProcessMetricsQuery {
-    pub limit: Option<usize>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ProcessLogsQuery {
-    pub limit: Option<usize>,
-    pub since: Option<i64>,
-    pub level: Option<String>,
-}
-
-pub async fn list_processes(
-    Query(params): Query<ListProcessesQuery>,
-    State(state): State<AppState>
-) -> Result<Json<ApiResponse<Vec<ProcessInfo>>>, StatusCode> {
-    info!("Process list requested");
-    
-    let process_supervisor = &state.process_supervisor;
-    
-    // Parse status filter
-    let status_filter = params.status.and_then(|s| match s.as_str() {
-        "starting" => Some(ProcessStatus::Starting),
-        "running" => Some(ProcessStatus::Running),
-        "stopped" => Some(ProcessStatus::Stopped),
-        "failed" => Some(ProcessStatus::Failed),
-        "crashed" => Some(ProcessStatus::Crashed),
-        "restarting" => Some(ProcessStatus::Restarting),
-        "terminated" => Some(ProcessStatus::Terminated),
-        _ => None,
-    });
-    
-    match process_supervisor.list_processes(
-        params.user_id.as_deref(),
-        params.workspace_id.as_deref(),
-        status_filter,
-    ).await {
-        Ok(processes) => Ok(Json(ApiResponse::success(processes))),
-        Err(e) => {
-            error!("Failed to list processes: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+impl From<act_core::models::UserProcess> for ProcessResponse {
+    fn from(process: act_core::models::UserProcess) -> Self {
+        Self {
+            id: process.id,
+            name: process.name,
+            pid: process.pid,
+            command: process.command,
+            args: process.args,
+            working_directory: process.working_directory,
+            environment_variables: process.environment_variables,
+            status: format!("{:?}", process.status),
+            exit_code: process.exit_code,
+            start_time: process.start_time.to_rfc3339(),
+            end_time: process.end_time.map(|t| t.to_rfc3339()),
+            cpu_usage: process.cpu_usage,
+            memory_usage: process.memory_usage,
+            restart_count: process.restart_count,
+            max_restarts: process.max_restarts,
+            auto_restart: process.auto_restart,
+            user_id: process.user_id,
+            workspace_id: process.workspace_id,
+            session_id: process.session_id,
+            tags: process.tags,
+            data: process.data,
+            created_at: process.created_at.to_rfc3339(),
+            updated_at: process.updated_at.to_rfc3339(),
         }
     }
 }
 
-pub async fn start_process(
+pub fn routes() -> Router<AppState> {
+    Router::new()
+        .route("/", get(list_processes).post(create_process))
+        .route("/:id", get(get_process).put(update_process).delete(delete_process))
+        .route("/:id/stop", post(stop_process))
+        .route("/:id/restart", post(restart_process))
+        .route("/:id/output", get(get_process_output))
+}
+
+async fn list_processes(
     State(state): State<AppState>,
-    Json(request): Json<StartProcessRequest>
-) -> Result<Json<ApiResponse<String>>, StatusCode> {
-    info!("Process start requested: {}", request.config.name);
-    
-    let process_supervisor = &state.process_supervisor;
-    
-    match process_supervisor.start_process(
-        request.config,
-        request.user_id,
-        request.workspace_id,
-        request.session_id,
-    ).await {
-        Ok(process_id) => {
-            info!("Process started successfully: {}", process_id);
-            Ok(Json(ApiResponse::success(process_id)))
-        },
-        Err(e) => {
-            error!("Failed to start process: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
+    user: AuthenticatedUser,
+    Query(params): Query<ListProcessesQuery>,
+) -> Result<Json<ApiResponse<Vec<ProcessResponse>>>, ServerError> {
+    info!("Listing processes for user {}", user.user_id);
+
+    let processes = if let Some(workspace_id) = &params.workspace_id {
+        state.domain_services.process_service
+            .list_workspace_processes(&user.user_id, workspace_id)
+            .await
+    } else if let Some(session_id) = &params.session_id {
+        state.domain_services.process_service
+            .list_session_processes(&user.user_id, session_id)
+            .await
+    } else {
+        state.domain_services.process_service
+            .list_user_processes(&user.user_id)
+            .await
+    }?;
+
+    let process_responses: Vec<ProcessResponse> = processes.into_iter().map(ProcessResponse::from).collect();
+
+    Ok(Json(ApiResponse::success(process_responses)))
 }
 
-pub async fn get_process(
-    Path(process_id): Path<String>,
-    State(state): State<AppState>
-) -> Result<Json<ApiResponse<ProcessInfo>>, StatusCode> {
-    info!("Process info requested: {}", process_id);
-    
-    let process_supervisor = &state.process_supervisor;
-    
-    match process_supervisor.get_process_info(&process_id).await {
-        Ok(Some(process_info)) => Ok(Json(ApiResponse::success(process_info))),
-        Ok(None) => Err(StatusCode::NOT_FOUND),
-        Err(e) => {
-            error!("Failed to get process info {}: {}", process_id, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
+async fn create_process(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Json(request): Json<CreateProcessRequest>,
+) -> Result<Json<ApiResponse<ProcessResponse>>, ServerError> {
+    info!("Creating process '{}' for user {}", request.name, user.user_id);
+
+    let domain_request = act_core::repository::CreateProcessRequest {
+        name: request.name,
+        command: request.command,
+        args: request.args,
+        working_directory: request.working_directory,
+        environment_variables: request.environment_variables,
+        max_restarts: request.max_restarts,
+        auto_restart: request.auto_restart,
+        workspace_id: request.workspace_id,
+        session_id: request.session_id,
+        tags: request.tags,
+    };
+
+    let process = state.domain_services.process_service
+        .create_process(&user.user_id, domain_request)
+        .await?;
+
+    Ok(Json(ApiResponse::success(ProcessResponse::from(process))))
 }
 
-pub async fn stop_process(
-    Path(process_id): Path<String>,
-    State(state): State<AppState>
-) -> Result<Json<ApiResponse<()>>, StatusCode> {
-    info!("Process stop requested: {}", process_id);
-    
-    let process_supervisor = &state.process_supervisor;
-    
-    match process_supervisor.stop_process(&process_id).await {
-        Ok(()) => {
-            info!("Process stopped successfully: {}", process_id);
-            Ok(Json(ApiResponse::success(())))
-        },
-        Err(e) => {
-            error!("Failed to stop process {}: {}", process_id, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
+async fn get_process(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Path(id): Path<String>,
+) -> Result<Json<ApiResponse<ProcessResponse>>, ServerError> {
+    info!("Getting process {} for user {}", id, user.user_id);
+
+    let process = state.domain_services.process_service
+        .get_process(&user.user_id, &id)
+        .await?;
+
+    Ok(Json(ApiResponse::success(ProcessResponse::from(process))))
 }
 
-pub async fn restart_process(
-    Path(process_id): Path<String>,
-    State(state): State<AppState>
-) -> Result<Json<ApiResponse<()>>, StatusCode> {
-    info!("Process restart requested: {}", process_id);
-    
-    let process_supervisor = &state.process_supervisor;
-    
-    match process_supervisor.restart_process(&process_id).await {
-        Ok(()) => {
-            info!("Process restarted successfully: {}", process_id);
-            Ok(Json(ApiResponse::success(())))
-        },
-        Err(e) => {
-            error!("Failed to restart process {}: {}", process_id, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
+// Note: Update process is not implemented in the domain service yet
+async fn update_process(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Path(id): Path<String>,
+    _request: Json<UpdateProcessRequest>,
+) -> Result<Json<ApiResponse<ProcessResponse>>, ServerError> {
+    warn!("Update process not implemented for process {} for user {}", id, user.user_id);
+    Err(ServerError(act_core::error::CoreError::Validation("Update process not implemented".to_string())))
 }
 
-pub async fn get_process_metrics(
-    Path(process_id): Path<String>,
-    Query(params): Query<ProcessMetricsQuery>,
-    State(state): State<AppState>
-) -> Result<Json<ApiResponse<Vec<ProcessMetrics>>>, StatusCode> {
-    info!("Process metrics requested: {}", process_id);
-    
-    let process_supervisor = &state.process_supervisor;
-    
-    match process_supervisor.get_process_metrics(&process_id, params.limit).await {
-        Ok(metrics) => Ok(Json(ApiResponse::success(metrics))),
-        Err(e) => {
-            error!("Failed to get process metrics {}: {}", process_id, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
+async fn delete_process(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Path(id): Path<String>,
+) -> Result<Json<ApiResponse<()>>, ServerError> {
+    info!("Deleting process {} for user {}", id, user.user_id);
+
+    state.domain_services.process_service
+        .delete_process(&user.user_id, &id)
+        .await?;
+
+    Ok(Json(ApiResponse::success(())))
 }
 
-pub async fn get_process_logs(
-    Path(process_id): Path<String>,
-    Query(params): Query<ProcessLogsQuery>,
-    State(state): State<AppState>
-) -> Result<Json<ApiResponse<Vec<crate::services::process::ProcessLogEntry>>>, StatusCode> {
-    info!("Process logs requested: {}", process_id);
-    
-    let process_supervisor = &state.process_supervisor;
-    
-    match process_supervisor.get_process_logs(&process_id, params.limit, params.since, params.level).await {
-        Ok(logs) => Ok(Json(ApiResponse::success(logs))),
-        Err(e) => {
-            error!("Failed to get process logs for {}: {}", process_id, e);
-            Err(StatusCode::NOT_FOUND)
-        }
-    }
+async fn stop_process(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Path(id): Path<String>,
+) -> Result<Json<ApiResponse<()>>, ServerError> {
+    info!("Stopping process {} for user {}", id, user.user_id);
+
+    state.domain_services.process_service
+        .stop_process(&user.user_id, &id)
+        .await?;
+
+    Ok(Json(ApiResponse::success(())))
+}
+
+async fn restart_process(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Path(id): Path<String>,
+) -> Result<Json<ApiResponse<()>>, ServerError> {
+    info!("Restarting process {} for user {}", id, user.user_id);
+
+    state.domain_services.process_service
+        .restart_process(&user.user_id, &id)
+        .await?;
+
+    Ok(Json(ApiResponse::success(())))
+}
+
+async fn get_process_output(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Path(id): Path<String>,
+) -> Result<Json<ApiResponse<String>>, ServerError> {
+    info!("Getting output for process {} for user {}", id, user.user_id);
+
+    let (stdout, stderr) = state.domain_services.process_service
+        .get_process_output(&user.user_id, &id)
+        .await?;
+
+    let combined_output = format!("STDOUT:\n{}\n\nSTDERR:\n{}", stdout, stderr);
+
+    Ok(Json(ApiResponse::success(combined_output)))
 }

@@ -3,15 +3,18 @@ use act_core::{
     Database,
     filesystem::FileSystem,
     pty::PtyService,
-    GitHubAuthService, JwtService, AuthRepository, GitHubRepositoryService,
+    GitHubAuthService, JwtService, GitHubRepositoryService,
+    repository::{ProcessRunner},
 };
 use act_domain::{DomainServices, GitService, git_service::LocalGitService};
 use act_persistence::{create_repositories};
 use act_pty::TokioPtyService;
 use act_vfs::SandboxedFileSystem;
 use crate::config::Config;
-use crate::metrics_placeholder::{PlaceholderMetricsRepository, RealSystemMonitor};
-use crate::services::{ServerGitHubAuthService, ServerJwtService, ServerAuthRepository, GitHubService, GitHubRepositoryServiceAdapter, process::ProcessSupervisor};
+use crate::metrics_placeholder::RealSystemMonitor;
+use act_persistence::SqlxMetricsRepository;
+use crate::services::{ServerGitHubAuthService, ServerJwtService, GitHubService, GitHubRepositoryServiceAdapter};
+use act_process::TokioProcessRunner;
 
 /// Application state with dependency injection container
 #[derive(Clone)]
@@ -27,8 +30,6 @@ pub struct AppState {
     pub pty_service: Arc<dyn PtyService>,
     /// File system service
     pub filesystem: Arc<dyn FileSystem>,
-    /// Process supervisor for managing tmux sessions
-    pub process_supervisor: Arc<ProcessSupervisor>,
 }
 
 impl AppState {
@@ -51,13 +52,17 @@ impl AppState {
         
         // Create filesystem service
         let workspace_root = config.workspace.root_path.clone();
-        let filesystem: Arc<dyn FileSystem> = Arc::new(
-            SandboxedFileSystem::new(workspace_root.clone())
-        );
+        let mut sandboxed_fs = SandboxedFileSystem::new(workspace_root.clone());
+        
+        // Initialize the filesystem (create workspace directory if needed)
+        sandboxed_fs.initialize().await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+            
+        let filesystem: Arc<dyn FileSystem> = Arc::new(sandboxed_fs);
         
         // Create additional services
         let git_service: Arc<dyn GitService> = Arc::new(LocalGitService::new());
-        let metrics_repository: Arc<dyn act_domain::system_service::MetricsRepository> = Arc::new(PlaceholderMetricsRepository);
+        let metrics_repository: Arc<dyn act_domain::system_service::MetricsRepository> = Arc::new(SqlxMetricsRepository::new(Arc::new(pool.clone())));
         let system_monitor: Arc<dyn act_domain::system_service::SystemMonitor> = Arc::new(RealSystemMonitor::new());
         
         // Create auth services
@@ -67,9 +72,7 @@ impl AppState {
         let jwt_service: Arc<dyn JwtService> = Arc::new(
             ServerJwtService::new(config.auth.jwt_secret.clone())
         );
-        let auth_repository: Arc<dyn AuthRepository> = Arc::new(
-            ServerAuthRepository::new(database.clone(), Arc::new(config.clone()))?
-        );
+        let auth_repository = repositories.auth_repo();
         
         // Create GitHub service for repository operations
         let github_service = Arc::new(GitHubService::new(Arc::new(config.clone()))?);
@@ -77,13 +80,16 @@ impl AppState {
             GitHubRepositoryServiceAdapter::new(github_service)
         );
         
-        // Create process supervisor
-        let process_supervisor = Arc::new(ProcessSupervisor::new(database.clone()));
+        // Create process runner
+        let process_runner: Arc<dyn ProcessRunner> = Arc::new(TokioProcessRunner::new());
         
         // Create domain services
         let domain_services = Arc::new(DomainServices::new(
             repositories.workspace_repo(),
             repositories.session_repo(),
+            repositories.layout_repo(),
+            repositories.process_repo(),
+            process_runner.clone(),
             filesystem.clone(),
             pty_service.clone(),
             git_service,
@@ -102,7 +108,6 @@ impl AppState {
             domain_services,
             pty_service,
             filesystem,
-            process_supervisor,
         })
     }
 }

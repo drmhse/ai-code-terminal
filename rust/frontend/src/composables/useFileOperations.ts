@@ -231,19 +231,20 @@ export function useFileOperations() {
     })
   }
 
-  // Handle file double click (navigation or preview)
+  // Handle file double click - VS Code behavior
   const handleFileDoubleClick = async (file: FileItem) => {
     if (file.type === 'directory') {
-      // Navigate into directory
-      await fileStore.openDirectory(file)
+      // Toggle directory expansion in tree view (VS Code behavior)
+      fileStore.toggleDirectoryExpansion(file)
     } else {
-      // Preview file
+      // Open file for editing (VS Code behavior)
       await showFilePreview(file)
     }
   }
 
-  // Handle file single click (selection)
+  // Handle file single click - VS Code behavior (selection only)
   const handleFileClick = (file: FileItem, index?: number) => {
+    // Always just select the file/directory (VS Code behavior)
     fileStore.selectFile(file, index)
   }
 

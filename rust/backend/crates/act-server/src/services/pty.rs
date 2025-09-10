@@ -4,6 +4,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 
 pub type SessionId = String;
+#[allow(dead_code)]
 pub type WorkspaceId = String;
 
 // Note: PtyEvent is now imported directly from act_core in other modules
@@ -26,6 +27,7 @@ impl PtyService {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn create_session(
         &self,
         session_id: SessionId,
@@ -59,6 +61,7 @@ impl PtyService {
             .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
     }
 
+    #[allow(dead_code)]
     pub async fn resize_session(&self, session_id: &str, cols: u16, rows: u16) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let size = PtySize {
             cols,

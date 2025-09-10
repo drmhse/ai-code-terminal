@@ -32,6 +32,21 @@ impl SandboxedFileSystem {
         }
     }
 
+    pub async fn initialize(&mut self) -> Result<()> {
+        // Create the workspace root directory if it doesn't exist
+        if !self.workspace_root.exists() {
+            async_fs::create_dir_all(&self.workspace_root).await
+                .map_err(|e| CoreError::FileSystem(format!("Failed to create workspace directory: {}", e)))?;
+            info!("Created workspace directory: {:?}", self.workspace_root);
+        }
+        
+        // Canonicalize the workspace root to ensure consistent path comparisons
+        self.workspace_root = self.workspace_root.canonicalize()
+            .map_err(|e| CoreError::FileSystem(format!("Failed to canonicalize workspace root: {}", e)))?;
+        
+        Ok(())
+    }
+
     pub fn with_max_file_size(mut self, max_size: u64) -> Self {
         self.max_file_size = Some(max_size);
         self
@@ -51,19 +66,50 @@ impl SandboxedFileSystem {
         let resolved = if path.is_absolute() {
             // If path is absolute, it must be within workspace_root
             path.to_path_buf()
+        } else if path.as_os_str().is_empty() {
+            // Empty path means workspace root
+            self.workspace_root.clone()
         } else {
             // If path is relative, resolve it against workspace_root
             self.workspace_root.join(path)
         };
 
-        // Canonicalize to resolve .. and . components
-        let canonical = resolved.canonicalize()
-            .map_err(|e| CoreError::FileSystem(format!("Failed to canonicalize path {:?}: {}", resolved, e)))?;
+        // Get canonical workspace root first - but only if it exists
+        let canonical_workspace = if self.workspace_root.exists() {
+            self.workspace_root.canonicalize()
+                .map_err(|e| CoreError::FileSystem(format!("Failed to canonicalize workspace root {:?}: {}", self.workspace_root, e)))?
+        } else {
+            // If workspace root doesn't exist, use it as-is but ensure it's absolute
+            if self.workspace_root.is_absolute() {
+                self.workspace_root.clone()
+            } else {
+                std::env::current_dir()
+                    .map_err(|e| CoreError::FileSystem(format!("Failed to get current directory: {}", e)))?
+                    .join(&self.workspace_root)
+            }
+        };
 
-        // Ensure the path is within the workspace
-        if !canonical.starts_with(&self.workspace_root) {
+        // Try to canonicalize the resolved path, but handle the case where it doesn't exist
+        let canonical = if resolved.exists() {
+            resolved.canonicalize()
+                .map_err(|e| CoreError::FileSystem(format!("Failed to canonicalize path {:?}: {}", resolved, e)))?
+        } else {
+            // For non-existent paths, normalize the path without requiring it to exist
+            // This is simpler and more robust than manual component parsing
+            if resolved.is_absolute() {
+                resolved.clone()
+            } else {
+                canonical_workspace.join(path)
+            }
+        };
+
+        // Ensure the path is within the workspace (compare normalized paths)
+        let canonical_str = canonical.to_string_lossy();
+        let workspace_str = canonical_workspace.to_string_lossy();
+        
+        if !canonical_str.starts_with(&*workspace_str) {
             return Err(CoreError::PermissionDenied(format!(
-                "Path {:?} is outside workspace {:?}", canonical, self.workspace_root
+                "Path {:?} is outside workspace {:?}", canonical, canonical_workspace
             )));
         }
 
@@ -456,8 +502,12 @@ impl FileSystem for SandboxedFileSystem {
     }
 
     fn is_path_allowed(&self, path: &Path) -> bool {
+        // Normalize paths for comparison by converting to string
+        let path_str = path.to_string_lossy();
+        let workspace_str = self.workspace_root.to_string_lossy();
+        
         // Already resolved path should be within workspace
-        if !path.starts_with(&self.workspace_root) {
+        if !path_str.starts_with(&*workspace_str) {
             return false;
         }
 

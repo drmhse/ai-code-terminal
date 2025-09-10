@@ -4,6 +4,8 @@ pub mod system_service;
 pub mod git_service;
 pub mod auth_service;
 pub mod github_service;
+pub mod layout_service;
+pub mod process_service;
 
 pub use workspace_service::{
     WorkspaceService, GitService, WorkspaceSettings, GitStatus, GitCommit, CloneRequest
@@ -24,10 +26,13 @@ pub use auth_service::{AuthService, AuthResult, AuthStatus};
 
 pub use github_service::{GitHubService, RepositoryQuery};
 
+pub use layout_service::{LayoutService};
+pub use process_service::{ProcessService};
+
 use std::sync::Arc;
 
 use act_core::{
-    repository::{WorkspaceRepository, SessionRepository},
+    repository::{WorkspaceRepository, SessionRepository, LayoutRepository, ProcessRepository, ProcessRunner},
     filesystem::FileSystem,
     pty::PtyService,
     GitHubAuthService, JwtService, AuthRepository, GitHubRepositoryService,
@@ -39,6 +44,8 @@ pub struct DomainServices {
     pub system_service: SystemService,
     pub auth_service: AuthService,
     pub github_service: GitHubService,
+    pub layout_service: LayoutService,
+    pub process_service: ProcessService,
 }
 
 impl DomainServices {
@@ -46,6 +53,9 @@ impl DomainServices {
     pub fn new(
         workspace_repository: Arc<dyn WorkspaceRepository>,
         session_repository: Arc<dyn SessionRepository>,
+        layout_repository: Arc<dyn LayoutRepository>,
+        process_repository: Arc<dyn ProcessRepository>,
+        process_runner: Arc<dyn ProcessRunner>,
         filesystem: Arc<dyn FileSystem>,
         pty_service: Arc<dyn PtyService>,
         git_service: Arc<dyn GitService>,
@@ -86,12 +96,23 @@ impl DomainServices {
             auth_repository,
         );
 
+        let layout_service = LayoutService::new(
+            layout_repository,
+        );
+
+        let process_service = ProcessService::new(
+            process_repository,
+            process_runner,
+        );
+
         Self {
             workspace_service,
             session_service,
             system_service,
             auth_service,
             github_service,
+            layout_service,
+            process_service,
         }
     }
 }

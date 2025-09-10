@@ -142,15 +142,34 @@ const logout = async () => {
 
 @media (max-width: 768px) {
   .title-bar {
-    padding: 8px 12px;
+    padding: 10px 16px;
+    border-radius: 0 0 12px 12px;
   }
   
   .title-bar h1 {
-    font-size: 14px;
+    font-size: 15px;
+    font-weight: 700;
   }
   
   .user-info {
     display: none;
+  }
+  
+  .controls {
+    gap: 8px;
+  }
+  
+  .theme-button {
+    padding: 8px;
+    border-radius: 6px;
+  }
+  
+  .theme-button span {
+    display: none;
+  }
+  
+  .logout-button {
+    padding: 8px;
   }
 }
 </style>

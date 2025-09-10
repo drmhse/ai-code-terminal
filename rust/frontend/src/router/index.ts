@@ -39,6 +39,11 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const authStore = useAuthStore()
   
+  // Skip auth check for login and callback pages
+  if (to.name === 'login' || to.name === 'auth-callback') {
+    return true
+  }
+  
   // If not authenticated and route requires auth, try to initialize from localStorage
   if (to.meta.requiresAuth !== false && !authStore.isAuthenticated) {
     try {
@@ -47,13 +52,16 @@ router.beforeEach(async (to) => {
     } catch (error) {
       // If initialization fails, clear any invalid tokens and redirect to login
       console.warn('Auth initialization failed:', error)
+      // Don't redirect immediately, let the user see the error
     }
   }
   
   // Check if route requires authentication after initialization attempt
   if (to.meta.requiresAuth !== false && !authStore.isAuthenticated) {
-    // Redirect to login if not authenticated
-    return '/login'
+    // Only redirect to login if we're not already on the login page
+    if (to.name !== 'login') {
+      return '/login'
+    }
   }
   
   // Redirect to dashboard if already authenticated and trying to access login

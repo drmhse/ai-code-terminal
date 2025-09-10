@@ -107,7 +107,7 @@ impl WorkspaceService {
         }
     }
 
-    pub async fn create_workspace(&self, name: String, github_url: Option<String>, _description: Option<String>) -> Result<Workspace> {
+    pub async fn create_workspace(&self, user_id: &str, name: String, github_url: Option<String>, _description: Option<String>) -> Result<Workspace> {
         let workspace_id = Uuid::new_v4().to_string();
         let github_repo = self.extract_github_repo(&github_url, &name);
         let local_path = format!("{}/{}", self.workspace_root, workspace_id);
@@ -126,17 +126,17 @@ impl WorkspaceService {
             local_path: Some(local_path.clone()),
         };
 
-        let workspace = self.repository.create(request).await?;
+        let workspace = self.repository.create(user_id, request).await?;
         info!("Workspace created: {} at {}", workspace.id, local_path);
         Ok(workspace)
     }
 
-    pub async fn clone_repository(&self, request: CloneRequest, github_token: Option<&str>) -> Result<Workspace> {
+    pub async fn clone_repository(&self, user_id: &str, request: CloneRequest, github_token: Option<&str>) -> Result<Workspace> {
         info!("Cloning repository: {} -> {}", request.git_url, request.name);
 
         let github_repo = self.extract_github_repo(&Some(request.git_url.clone()), &request.name);
 
-        if let Some(_existing) = self.repository.get_by_github_repo(&github_repo).await? {
+        if let Some(_existing) = self.repository.get_by_github_repo(user_id, &github_repo).await? {
             return Err(CoreError::Conflict(format!("Repository {} is already cloned", github_repo)));
         }
 
@@ -175,25 +175,26 @@ impl WorkspaceService {
             local_path: Some(local_path),
         };
 
-        let workspace = self.repository.create(create_request).await?;
+        let workspace = self.repository.create(user_id, create_request).await?;
         info!("Repository cloned successfully: {}", workspace.id);
         Ok(workspace)
     }
 
-    pub async fn get_workspace(&self, workspace_id: &WorkspaceId) -> Result<Workspace> {
-        self.repository.get_by_id(workspace_id).await
+    pub async fn get_workspace(&self, user_id: &str, workspace_id: &WorkspaceId) -> Result<Workspace> {
+        self.repository.get_by_id(user_id, workspace_id).await
     }
 
-    pub async fn list_workspaces(&self, active_only: bool) -> Result<Vec<Workspace>> {
+    pub async fn list_workspaces(&self, user_id: &str, active_only: bool) -> Result<Vec<Workspace>> {
         if active_only {
-            self.repository.list_active().await
+            self.repository.list_active(user_id).await
         } else {
-            self.repository.list_all().await
+            self.repository.list_all(user_id).await
         }
     }
 
     pub async fn update_workspace(
         &self,
+        user_id: &str,
         workspace_id: &WorkspaceId,
         name: Option<String>,
         active: Option<bool>,
@@ -204,13 +205,13 @@ impl WorkspaceService {
             last_sync_at: Some(Utc::now()),
         };
 
-        self.repository.update(workspace_id, request).await
+        self.repository.update(user_id, workspace_id, request).await
     }
 
-    pub async fn delete_workspace(&self, workspace_id: &WorkspaceId) -> Result<()> {
-        let workspace = self.repository.get_by_id(workspace_id).await?;
+    pub async fn delete_workspace(&self, user_id: &str, workspace_id: &WorkspaceId) -> Result<()> {
+        let workspace = self.repository.get_by_id(user_id, workspace_id).await?;
         
-        self.repository.delete(workspace_id).await?;
+        self.repository.delete(user_id, workspace_id).await?;
 
         if let Err(e) = self.filesystem.delete_directory(&std::path::PathBuf::from(&workspace.local_path), true).await {
             warn!("Failed to remove workspace directory {}: {}", workspace.local_path, e);
@@ -220,17 +221,17 @@ impl WorkspaceService {
         Ok(())
     }
 
-    pub async fn set_active(&self, workspace_id: &WorkspaceId, active: bool) -> Result<()> {
-        self.repository.set_active(workspace_id, active).await
+    pub async fn set_active(&self, user_id: &str, workspace_id: &WorkspaceId, active: bool) -> Result<()> {
+        self.repository.set_active(user_id, workspace_id, active).await
     }
 
-    pub async fn get_git_status(&self, workspace_id: &WorkspaceId) -> Result<GitStatus> {
-        let workspace = self.repository.get_by_id(workspace_id).await?;
+    pub async fn get_git_status(&self, user_id: &str, workspace_id: &WorkspaceId) -> Result<GitStatus> {
+        let workspace = self.repository.get_by_id(user_id, workspace_id).await?;
         self.git_service.get_git_status(Path::new(&workspace.local_path)).await
     }
 
-    pub async fn get_git_history(&self, workspace_id: &WorkspaceId, limit: usize) -> Result<Vec<GitCommit>> {
-        let workspace = self.repository.get_by_id(workspace_id).await?;
+    pub async fn get_git_history(&self, user_id: &str, workspace_id: &WorkspaceId, limit: usize) -> Result<Vec<GitCommit>> {
+        let workspace = self.repository.get_by_id(user_id, workspace_id).await?;
         self.git_service.get_git_history(Path::new(&workspace.local_path), limit).await
     }
 

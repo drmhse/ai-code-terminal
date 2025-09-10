@@ -4,7 +4,7 @@ use socketioxide::{
     SocketIo,
 };
 use serde::{Deserialize, Serialize};
-use tracing::{info, error, debug};
+use tracing::{info, error, debug, warn};
 use jsonwebtoken::{decode, DecodingKey, Validation};
 
 
@@ -99,9 +99,48 @@ pub struct ErrorEvent {
     pub error: String,
 }
 
-// Simple session output forwarder
+// Enhanced session output forwarder that integrates with SessionService
 pub struct SessionOutputForwarder {
     socket: SocketRef,
+    session_id: String,
+    output_rx: Option<tokio::sync::mpsc::UnboundedReceiver<String>>,
+}
+
+// Session manager for tracking active terminal sessions per socket
+pub struct SocketSessionManager {
+    socket: SocketRef,
+    sessions: HashMap<String, SessionOutputForwarder>,
+}
+
+impl SocketSessionManager {
+    pub fn new(socket: SocketRef) -> Self {
+        Self {
+            socket,
+            sessions: HashMap::new(),
+        }
+    }
+
+    pub async fn add_session(&mut self, session_id: String, state: Arc<AppState>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let mut forwarder = SessionOutputForwarder::new(self.socket.clone(), session_id.clone());
+        forwarder.start(state.clone()).await?;
+        forwarder.send_welcome_message().await;
+        self.sessions.insert(session_id, forwarder);
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    pub async fn remove_session(&mut self, session_id: &str, state: Arc<AppState>) {
+        if let Some(forwarder) = self.sessions.remove(session_id) {
+            forwarder.stop(state).await;
+        }
+    }
+
+    pub async fn cleanup_all(&mut self, state: Arc<AppState>) {
+        for (session_id, forwarder) in self.sessions.drain() {
+            forwarder.stop(state.clone()).await;
+            info!("Cleaned up session {} for socket {}", session_id, self.socket.id);
+        }
+    }
 }
 
 // Stats subscription manager
@@ -183,39 +222,77 @@ impl StatsSubscription {
 }
 
 impl SessionOutputForwarder {
-    pub fn new(socket: SocketRef) -> Self {
-        Self { socket }
+    pub fn new(socket: SocketRef, session_id: String) -> Self {
+        Self { 
+            socket, 
+            session_id,
+            output_rx: None,
+        }
     }
 
-    pub async fn forward_output(&self, session_id: String, output: String) {
+    pub async fn start(&mut self, state: Arc<AppState>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // Register with SessionService for output forwarding
+        let output_rx = state.domain_services.session_service
+            .register_websocket_connection(&self.session_id).await;
+        
+        self.output_rx = Some(output_rx);
+        
+        // Start the output forwarding task
+        let socket = self.socket.clone();
+        let session_id = self.session_id.clone();
+        let mut rx = self.output_rx.take().unwrap();
+        
+        tokio::spawn(async move {
+            info!("✅ Started output forwarding task for session {}", session_id);
+            while let Some(output) = rx.recv().await {
+                info!("📤 Forwarding output for session {}: {:?}", session_id, output);
+                let event = TerminalOutputEvent {
+                    session_id: session_id.clone(),
+                    output,
+                };
+                if let Err(e) = socket.emit("terminal:output", event) {
+                    error!("Failed to forward terminal output for session {}: {}", session_id, e);
+                    break;
+                }
+            }
+            warn!("⚠️ Output forwarding ended for session {} - channel closed", session_id);
+        });
+        
+        Ok(())
+    }
+
+    pub async fn stop(&self, _state: Arc<AppState>) {
+        if let Some(rx) = &self.output_rx {
+            // Note: We can't clone the receiver, so we'll just drop it
+            // The session service will clean up when the channel is closed
+            let _ = rx;
+        }
+    }
+
+    pub async fn send_welcome_message(&self) {
         let event = TerminalOutputEvent {
-            session_id: session_id.clone(),
-            output,
+            session_id: self.session_id.clone(),
+            output: "\r\n\x1b[1;32m● Connected to AI Code Terminal\x1b[0m\r\n".to_string(),
         };
         if let Err(e) = self.socket.emit("terminal:output", event) {
-            error!("Failed to forward terminal output for session {}: {}", session_id, e);
+            error!("Failed to send welcome message for session {}: {}", self.session_id, e);
         }
     }
 }
 
-// JWT Claims structure
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Claims {
-    pub sub: String,
-    pub username: String,
-    pub exp: usize,
-    pub iat: usize,
-}
+use crate::middleware::auth::Claims;
 
 pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
     let stats_subscriptions = Arc::new(RwLock::new(HashMap::<String, StatsSubscription>::new()));
+    let session_managers = Arc::new(RwLock::new(HashMap::<String, SocketSessionManager>::new()));
     
     io.ns("/", move |socket: SocketRef| {
         let state = state.clone();
         let stats_subs = stats_subscriptions.clone();
+        let session_mgrs = session_managers.clone();
         info!("New socket connection: {}", socket.id);
 
-        // Authentication handler
+        // Authentication handler (for backward compatibility and primary auth method)
         socket.on("authenticate", {
             let state = state.clone();
             move |socket: SocketRef, Data::<AuthenticateRequest>(data)| {
@@ -224,6 +301,8 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                     match authenticate_user(&data.token).await {
                         Ok(claims) => {
                             info!("User {} authenticated via socket", claims.username);
+                            // Store user_id in socket extensions for future use
+                            socket.extensions.insert(claims.sub.clone());
                             socket.emit("authenticated", AuthenticatedEvent {
                                 user_id: claims.sub,
                                 username: claims.username,
@@ -243,49 +322,73 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
         // Create terminal session handler
         socket.on("terminal:create", {
             let state = state.clone();
-            let socket_clone = socket.clone();
+            let session_mgrs = session_mgrs.clone();
             move |socket: SocketRef, Data::<TerminalCreateRequest>(data)| {
                 let state = state.clone();
-                let socket_for_forward = socket_clone.clone();
+                let socket_id = socket.id.to_string();
+                let session_mgrs = session_mgrs.clone();
                 async move {
+                    info!("🔧 Received terminal create request: workspace_id={}, session_id={:?}", data.workspace_id, data.session_id);
+                    
+                    // Check authentication
+                    let user_id = match get_authenticated_user_id(&socket) {
+                        Some(user_id) => user_id,
+                        None => {
+                            error!("Terminal create request from unauthenticated socket");
+                            socket.emit("terminal:error", ErrorEvent {
+                                error: "Authentication required".to_string(),
+                            }).ok();
+                            return;
+                        }
+                    };
+                    
+                    // Get the actual workspace path for the working directory
+                    let workspace_path = match state.domain_services.workspace_service.get_workspace(&user_id, &data.workspace_id).await {
+                        Ok(workspace) => {
+                            info!("🔧 Using workspace path: {}", workspace.local_path);
+                            Some(workspace.local_path)
+                        }
+                        Err(e) => {
+                            error!("Failed to get workspace {}: {}", data.workspace_id, e);
+                            None
+                        }
+                    };
+                    
                     let options = CreateSessionOptions {
                         workspace_id: Some(data.workspace_id.clone()),
+                        session_id: data.session_id.clone(),
                         session_name: "Terminal".to_string(),
                         session_type: SessionType::Terminal,
                         terminal_size: Some(TerminalSize { cols: 80, rows: 24 }),
                         is_recoverable: true,
                         auto_cleanup: false,
                         max_idle_minutes: 30,
+                        working_directory: workspace_path,
                     };
 
-                    match state.domain_services.session_service.create_session(options).await {
+                    match state.domain_services.session_service.create_session(&user_id, options).await {
                         Ok(session_state) => {
                             info!("Created terminal session: {}", session_state.session_id);
                             
-                            // For now, send a simple welcome message to demonstrate output streaming
-                            let forwarder = SessionOutputForwarder::new(socket_for_forward);
-                            let session_id = session_state.session_id.clone();
-                            
-                            // Spawn a task to forward output (this is a simplified version)
-                            tokio::spawn(async move {
-                                // Send welcome message
-                                forwarder.forward_output(
-                                    session_id.clone(),
-                                    "\r\n\x1b[1;32m● Connected to AI Code Terminal\x1b[0m\r\n".to_string()
-                                ).await;
-                                
-                                // Send initial prompt
-                                forwarder.forward_output(
-                                    session_id.clone(),
-                                    "\x1b[36muser@act-terminal:~$ \x1b[0m".to_string()
-                                ).await;
+                            // Add session to socket manager
+                            let mut session_managers = session_mgrs.write().await;
+                            let session_manager = session_managers.entry(socket_id.clone()).or_insert_with(|| {
+                                SocketSessionManager::new(socket.clone())
                             });
                             
-                            socket.emit("terminal:created", SessionCreatedEvent {
-                                session_id: session_state.session_id,
-                                workspace_id: data.workspace_id,
-                                success: true,
-                            }).ok();
+                            if let Err(e) = session_manager.add_session(session_state.session_id.clone(), state.clone()).await {
+                                error!("Failed to add session to socket manager: {}", e);
+                                socket.emit("terminal:error", ErrorEvent {
+                                    error: format!("Failed to setup session: {}", e),
+                                }).ok();
+                                return;
+                            }
+                            
+                            // Send the correct format that frontend expects
+                            socket.emit("terminal:created", serde_json::json!({
+                                "sessionId": session_state.session_id,
+                                "pid": 0  // portable-pty doesn't expose PID, use 0 as placeholder
+                            })).ok();
                         }
                         Err(err) => {
                             error!("Failed to create terminal session: {}", err);
@@ -304,6 +407,15 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
             move |socket: SocketRef, Data::<TerminalDataRequest>(data)| {
                 let state = state.clone();
                 async move {
+                    // Check authentication
+                    let _user_id = match get_authenticated_user_id(&socket) {
+                        Some(user_id) => user_id,
+                        None => {
+                            error!("Terminal data request from unauthenticated socket");
+                            return;
+                        }
+                    };
+                    
                     match state.domain_services.session_service.send_input(&data.session_id, data.data.as_bytes()).await {
                         Ok(_) => {
                             debug!("Wrote data to session {}", data.session_id);
@@ -325,7 +437,16 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
             move |socket: SocketRef, Data::<TerminalResizeRequest>(data)| {
                 let state = state.clone();
                 async move {
-                    match state.domain_services.session_service.resize_terminal(&data.session_id, data.cols, data.rows).await {
+                    // Check authentication
+                    let user_id = match get_authenticated_user_id(&socket) {
+                        Some(user_id) => user_id,
+                        None => {
+                            error!("Terminal resize request from unauthenticated socket");
+                            return;
+                        }
+                    };
+                    
+                    match state.domain_services.session_service.resize_terminal(&user_id, &data.session_id, data.cols, data.rows).await {
                         Ok(_) => {
                             debug!("Resized session {} to {}x{}", data.session_id, data.cols, data.rows);
                         }
@@ -346,7 +467,16 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
             move |socket: SocketRef, Data::<SessionListRequest>(data)| {
                 let state = state.clone();
                 async move {
-                    match state.domain_services.session_service.list_active_sessions().await {
+                    // Check authentication
+                    let user_id = match get_authenticated_user_id(&socket) {
+                        Some(user_id) => user_id,
+                        None => {
+                            error!("Session list request from unauthenticated socket");
+                            return;
+                        }
+                    };
+                    
+                    match state.domain_services.session_service.list_active_sessions(&user_id).await {
                         Ok(sessions) => {
                             let workspace_sessions: Vec<_> = sessions
                                 .into_iter()
@@ -378,12 +508,39 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
         // Session recovery handler
         socket.on("session:recover", {
             let state = state.clone();
+            let session_mgrs = session_mgrs.clone();
             move |socket: SocketRef, Data::<SessionRecoveryRequest>(data)| {
                 let state = state.clone();
+                let socket_id = socket.id.to_string();
+                let session_mgrs = session_mgrs.clone();
                 async move {
-                    match state.domain_services.session_service.recover_session(&data.recovery_token).await {
+                    // Check authentication
+                    let user_id = match get_authenticated_user_id(&socket) {
+                        Some(user_id) => user_id,
+                        None => {
+                            error!("Session recovery request from unauthenticated socket");
+                            return;
+                        }
+                    };
+                    
+                    match state.domain_services.session_service.recover_session(&user_id, &data.recovery_token).await {
                         Ok(session_state) => {
                             info!("Recovered session: {}", session_state.session_id);
+                            
+                            // Add recovered session to socket manager
+                            let mut session_managers = session_mgrs.write().await;
+                            let session_manager = session_managers.entry(socket_id.clone()).or_insert_with(|| {
+                                SocketSessionManager::new(socket.clone())
+                            });
+                            
+                            if let Err(e) = session_manager.add_session(session_state.session_id.clone(), state.clone()).await {
+                                error!("Failed to add recovered session to socket manager: {}", e);
+                                socket.emit("terminal-error", ErrorEvent {
+                                    error: format!("Failed to setup recovered session: {}", e),
+                                }).ok();
+                                return;
+                            }
+                            
                             socket.emit("session-recovered", serde_json::json!({
                                 "sessionId": session_state.session_id,
                                 "success": true
@@ -393,6 +550,40 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                             error!("Failed to recover session: {}", err);
                             socket.emit("terminal-error", ErrorEvent {
                                 error: format!("Failed to recover session: {}", err),
+                            }).ok();
+                        }
+                    }
+                }
+            }
+        });
+
+        // Session termination handler
+        socket.on("terminal:terminate", {
+            let state = state.clone();
+            move |socket: SocketRef, Data::<TerminalDataRequest>(data)| {
+                let state = state.clone();
+                async move {
+                    // Check authentication
+                    let user_id = match get_authenticated_user_id(&socket) {
+                        Some(user_id) => user_id,
+                        None => {
+                            error!("Session termination request from unauthenticated socket");
+                            return;
+                        }
+                    };
+                    
+                    match state.domain_services.session_service.terminate_session(&user_id, &data.session_id).await {
+                        Ok(_) => {
+                            info!("Terminated session: {}", data.session_id);
+                            socket.emit("terminal:terminated", serde_json::json!({
+                                "sessionId": data.session_id,
+                                "success": true
+                            })).ok();
+                        }
+                        Err(err) => {
+                            error!("Failed to terminate session: {}", err);
+                            socket.emit("terminal-error", ErrorEvent {
+                                error: format!("Failed to terminate session: {}", err),
                             }).ok();
                         }
                     }
@@ -456,8 +647,10 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
         // Disconnect handler
         socket.on_disconnect({
             let stats_subs = stats_subs.clone();
+            let session_mgrs = session_mgrs.clone();
             move |socket: SocketRef| {
                 let subs = stats_subs.clone();
+                let session_mgrs = session_mgrs.clone();
                 async move {
                     let socket_id = socket.id.to_string();
                     
@@ -467,9 +660,13 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                         subscription.stop().await;
                     }
                     
+                    // Clean up session manager and all associated sessions
+                    let mut session_managers = session_mgrs.write().await;
+                    if let Some(mut session_manager) = session_managers.remove(&socket_id) {
+                        session_manager.cleanup_all(state.clone()).await;
+                    }
+                    
                     info!("Socket disconnected: {}", socket.id);
-                    // Note: In a real implementation, we would call domain service to handle cleanup
-                    // For now, sessions remain active and can be recovered
                 }
             }
         });
@@ -477,12 +674,17 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
 }
 
 async fn authenticate_user(token: &str) -> Result<Claims, Box<dyn std::error::Error + Send + Sync>> {
-    // In a real implementation, this would validate the JWT token
-    // For now, we'll create a simple placeholder
+    // Validate the JWT token using the proper environment variable
     let validation = Validation::new(jsonwebtoken::Algorithm::HS256);
-    let secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "default-secret".to_string());
+    let secret = std::env::var("ACT_AUTH_JWT_SECRET")
+        .unwrap_or_else(|_| "default-secret".to_string());
     let key = DecodingKey::from_secret(secret.as_bytes());
     
     let token_data = decode::<Claims>(token, &key, &validation)?;
     Ok(token_data.claims)
+}
+
+// Helper function to extract user_id from socket extensions
+fn get_authenticated_user_id(socket: &SocketRef) -> Option<String> {
+    socket.extensions.get::<String>().map(|s| s.clone())
 }

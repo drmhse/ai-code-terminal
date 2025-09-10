@@ -13,6 +13,7 @@ rust-version.workspace = true
 
 [dependencies]
 act-core = { path = "../act-core" }
+act-domain = { path = "../act-domain" }
 sqlx = { workspace = true, features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono", "migrate"] }
 uuid = { workspace = true, features = ["serde", "v4"] }
 chrono = { workspace = true, features = ["serde"] }

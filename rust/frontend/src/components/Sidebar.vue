@@ -125,6 +125,7 @@ import { ref } from 'vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useFileStore } from '@/stores/file'
 import { useUIStore } from '@/stores/ui'
+import { useLayoutStore } from '@/stores/layout'
 import { useFileOperations } from '@/composables/useFileOperations'
 import type { Workspace } from '@/types'
 import FileTree from './FileTree.vue'
@@ -132,6 +133,7 @@ import FileTree from './FileTree.vue'
 const workspaceStore = useWorkspaceStore()
 const fileStore = useFileStore()
 const uiStore = useUIStore()
+const layoutStore = useLayoutStore()
 
 // File operations composable
 const { refreshFiles, searchFiles, clearFileSearch } = useFileOperations()
@@ -144,6 +146,8 @@ const selectWorkspace = async (workspace: Workspace) => {
     await workspaceStore.switchWorkspace(workspace)
     // After switching workspace, refresh files
     await refreshFiles()
+    // Fetch layouts for the selected workspace
+    await layoutStore.fetchLayouts(workspace.id)
   } catch (err) {
     console.error('Failed to select workspace:', err)
   }
@@ -178,15 +182,18 @@ const openCreateFolderModal = () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 16px;
   border-bottom: 1px solid var(--border-color);
+  background: linear-gradient(180deg, var(--bg-sidebar) 0%, rgba(24, 24, 24, 0.95) 100%);
+  backdrop-filter: blur(10px);
 }
 
 .sidebar-header h2 {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
   color: var(--text-primary);
   margin: 0;
+  letter-spacing: 0.02em;
 }
 
 .btn-small {
@@ -208,14 +215,19 @@ const openCreateFolderModal = () => {
 }
 
 .empty-state {
-  padding: 24px 16px;
+  padding: 32px 20px;
   text-align: center;
   color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  margin: 12px;
+  border: 1px dashed var(--border-color);
 }
 
 .empty-state p {
-  margin-bottom: 16px;
-  font-size: 13px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  line-height: 1.4;
 }
 
 .workspace-item {
@@ -223,19 +235,40 @@ const openCreateFolderModal = () => {
   align-items: center;
   background: var(--sidebar-item-bg);
   border: 1px solid transparent;
-  border-radius: 6px;
-  margin-bottom: 4px;
-  transition: all 0.15s ease;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.workspace-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 3px;
+  background: var(--primary);
+  transform: scaleY(0);
+  transition: transform 0.2s ease;
 }
 
 .workspace-item:hover {
   background: var(--sidebar-item-hover-bg);
   border-color: var(--border-color);
+  transform: translateX(2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .workspace-item.selected {
-  background: var(--primary);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
   color: white;
+  box-shadow: 0 4px 12px rgba(0, 123, 204, 0.3);
+}
+
+.workspace-item.selected::before {
+  transform: scaleY(1);
 }
 
 .workspace-content {
@@ -328,19 +361,27 @@ const openCreateFolderModal = () => {
 
 .file-search-input {
   width: 100%;
-  padding: 8px 12px;
-  padding-right: 32px;
+  padding: 10px 14px;
+  padding-right: 36px;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: 8px;
   background: var(--input-bg);
   color: var(--text-primary);
   font-size: 13px;
   outline: none;
-  transition: border-color 0.2s;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .file-search-input:focus {
   border-color: var(--primary);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1), 0 0 0 3px rgba(0, 123, 204, 0.1);
+  transform: translateY(-1px);
+}
+
+.file-search-input::placeholder {
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 .search-clear {

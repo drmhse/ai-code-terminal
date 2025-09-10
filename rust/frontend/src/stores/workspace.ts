@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Workspace, Session } from '@/types'
-import { apiService } from '@/services/api'
 import { socketService } from '@/services/socket'
+import { useLayoutStore } from '@/stores/layout'
 
 export interface Repository {
   id: number | string
@@ -75,6 +75,12 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const deleteFiles = ref(false)
   const deletingWorkspace = ref(false)
 
+  // Lazy load apiService when needed
+  const getApiService = async () => {
+    const { apiService } = await import('@/services/api')
+    return apiService
+  }
+
   const hasWorkspaces = computed(() => workspaces.value.length > 0)
   const hasRepositories = computed(() => repositories.value.length > 0)
   const filteredRepositories = computed((): Repository[] => {
@@ -91,20 +97,31 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const selectedWorkspace = computed(() => currentWorkspace.value) // Alias for compatibility
 
   const fetchWorkspaces = async (ownerId?: string) => {
+    console.log('🚀 fetchWorkspaces called with ownerId:', ownerId)
     loading.value = true
     error.value = null
 
     try {
+      const apiService = await getApiService()
+      console.log('🔄 Making API call to getWorkspaces...')
       const data = await apiService.getWorkspaces(ownerId)
+      console.log('✅ API call successful, received:', data)
       workspaces.value = data
       
       // Set current workspace if none selected and workspaces exist
       if (!currentWorkspace.value && data.length > 0) {
         currentWorkspace.value = data[0]
+        console.log('✅ Set current workspace to:', currentWorkspace.value.name)
       }
     } catch (err) {
       error.value = 'Failed to fetch workspaces'
-      console.error('Failed to fetch workspaces:', err)
+      console.error('❌ Failed to fetch workspaces:', err)
+      console.error('Error details:', {
+        error: err,
+        ownerId,
+        hasToken: !!localStorage.getItem('jwt_token'),
+        apiUrl: import.meta.env.VITE_API_BASE_URL
+      })
     } finally {
       loading.value = false
     }
@@ -115,6 +132,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     error.value = null
 
     try {
+      const apiService = await getApiService()
       const newWorkspace = await apiService.createWorkspace(name, path)
       workspaces.value.push(newWorkspace)
       
@@ -138,6 +156,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     error.value = null
 
     try {
+      const apiService = await getApiService()
       await apiService.deleteWorkspace(id)
       
       // Remove from local state
@@ -165,6 +184,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const switchWorkspace = async (workspace: Workspace) => {
     currentWorkspace.value = workspace
     
+    // Clear existing sessions
+    sessions.value = []
+    
     // Notify WebSocket server about workspace switch
     if (socketService.isConnected) {
       socketService.switchWorkspace(workspace.id)
@@ -172,22 +194,46 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     
     // Fetch sessions for the new workspace
     await fetchSessions(workspace.id)
+    
+    // Fetch layouts for the new workspace
+    await fetchLayoutsForWorkspace(workspace.id)
   }
 
-  const fetchSessions = async (workspaceId: string) => {
-    loading.value = true
-    error.value = null
-
-    try {
-      const data = await apiService.getSessions(workspaceId)
-      sessions.value = data
-    } catch (err) {
-      error.value = 'Failed to fetch sessions'
-      console.error('Failed to fetch sessions:', err)
-    } finally {
-      loading.value = false
-    }
+const fetchSessions = async (workspaceId: string) => {
+  if (!workspaceId) {
+    console.warn('No workspace ID provided for fetchSessions')
+    return
   }
+  
+  loading.value = true
+  error.value = null
+
+  try {
+    const apiService = await getApiService()
+    const data = await apiService.getSessions(workspaceId)
+    sessions.value = data
+  } catch (err) {
+    error.value = 'Failed to fetch sessions'
+    console.error('Failed to fetch sessions:', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+const fetchLayoutsForWorkspace = async (workspaceId: string) => {
+  if (!workspaceId) {
+    console.warn('No workspace ID provided for fetchLayoutsForWorkspace')
+    return
+  }
+
+  try {
+    const layoutStore = useLayoutStore()
+    await layoutStore.fetchLayouts(workspaceId)
+  } catch (err) {
+    console.error('Failed to fetch layouts for workspace:', err)
+    // Don't throw here - layouts are not critical for workspace functionality
+  }
+}
 
   const clearError = () => {
     error.value = null
@@ -223,6 +269,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     repositoryError.value = null
     
     try {
+      const apiService = await getApiService()
       const data = await apiService.getRepositories(page, repositorySearchTerm.value)
       
       if (append && page > 1) {
@@ -271,6 +318,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }
     
     try {
+      const apiService = await getApiService()
       const workspace = await apiService.cloneRepository(repository.clone_url, repository.name)
       
       // Update progress
@@ -281,7 +329,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         message: 'Clone complete!'
       }
       
-      // Add to workspaces
+      // Add to workspaces  
       workspaces.value.push(workspace)
       
       // Auto-select the new workspace

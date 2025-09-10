@@ -8,6 +8,7 @@ use tracing::info;
 
 use crate::{
     models::{Session, ApiResponse, session_from_domain},
+    middleware::auth::AuthenticatedUser,
     AppState,
     error::ServerError,
 };
@@ -37,19 +38,21 @@ pub fn routes() -> Router<AppState> {
 }
 
 pub async fn list_sessions(
+    auth_user: AuthenticatedUser,
     State(state): State<AppState>
 ) -> Result<Json<ApiResponse<Vec<Session>>>, ServerError> {
     let domain_sessions = state.domain_services.session_service
-        .list_active_sessions()
+        .list_active_sessions(&auth_user.user_id)
         .await?;
     
     let sessions: Vec<Session> = domain_sessions.into_iter().map(session_from_domain).collect();
     
-    info!("Retrieved {} active sessions", sessions.len());
+    info!("Retrieved {} active sessions for user {}", sessions.len(), auth_user.user_id);
     Ok(Json(ApiResponse::success(sessions)))
 }
 
 pub async fn create_session(
+    auth_user: AuthenticatedUser,
     State(state): State<AppState>,
     Json(request): Json<CreateSessionRequest>
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
@@ -57,6 +60,7 @@ pub async fn create_session(
     
     let options = CreateSessionOptions {
         workspace_id: Some(request.workspace_id),
+        session_id: None,
         session_name: request.session_name.unwrap_or_else(|| "Terminal".to_string()),
         session_type: SessionType::Terminal,
         terminal_size: request.terminal_size.map(|size| DomainTerminalSize {
@@ -66,10 +70,11 @@ pub async fn create_session(
         is_recoverable: true,
         auto_cleanup: false,
         max_idle_minutes: 30,
+        working_directory: None,
     };
     
     let _session_state = state.domain_services.session_service
-        .create_session(options)
+        .create_session(&auth_user.user_id, options)
         .await?;
     
     info!("Session created successfully");
@@ -77,13 +82,14 @@ pub async fn create_session(
 }
 
 pub async fn get_session(
+    auth_user: AuthenticatedUser,
     Path(session_id): Path<String>,
     State(state): State<AppState>
 ) -> Result<Json<ApiResponse<Session>>, ServerError> {
     info!("Session details requested: {}", session_id);
     
     let domain_session = state.domain_services.session_service
-        .get_session(&session_id)
+        .get_session(&auth_user.user_id, &session_id)
         .await?;
     
     let session = session_from_domain(domain_session);
@@ -91,13 +97,14 @@ pub async fn get_session(
 }
 
 pub async fn terminate_session(
+    auth_user: AuthenticatedUser,
     Path(session_id): Path<String>,
     State(state): State<AppState>
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
     info!("Session termination requested: {}", session_id);
     
     state.domain_services.session_service
-        .terminate_session(&session_id)
+        .terminate_session(&auth_user.user_id, &session_id)
         .await?;
     
     info!("Session terminated successfully: {}", session_id);
@@ -112,13 +119,14 @@ pub struct RecoverSessionRequest {
 }
 
 pub async fn recover_session(
+    auth_user: AuthenticatedUser,
     State(state): State<AppState>,
     Json(request): Json<RecoverSessionRequest>
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
     info!("Session recovery requested: {}", request.recovery_token);
     
     let _session_state = state.domain_services.session_service
-        .recover_session(&request.recovery_token)
+        .recover_session(&auth_user.user_id, &request.recovery_token)
         .await?;
     
     // For now, return success without session details
@@ -133,6 +141,7 @@ pub struct ResizeRequest {
 }
 
 pub async fn resize_session(
+    auth_user: AuthenticatedUser,
     Path(session_id): Path<String>,
     State(state): State<AppState>,
     Json(request): Json<ResizeRequest>
@@ -140,7 +149,7 @@ pub async fn resize_session(
     info!("Session resize requested: {} -> {}x{}", session_id, request.cols, request.rows);
     
     state.domain_services.session_service
-        .resize_terminal(&session_id, request.cols, request.rows)
+        .resize_terminal(&auth_user.user_id, &session_id, request.cols, request.rows)
         .await?;
     
     info!("Session resized successfully: {}", session_id);
@@ -153,12 +162,13 @@ pub struct CleanupResult {
 }
 
 pub async fn cleanup_sessions(
+    auth_user: AuthenticatedUser,
     State(state): State<AppState>
 ) -> Result<Json<ApiResponse<CleanupResult>>, ServerError> {
     info!("Session cleanup requested");
     
     let cleaned_count = state.domain_services.session_service
-        .cleanup_expired_sessions()
+        .cleanup_expired_sessions(&auth_user.user_id)
         .await?;
     
     info!("Session cleanup completed: {} sessions cleaned", cleaned_count);
@@ -166,13 +176,14 @@ pub async fn cleanup_sessions(
 }
 
 pub async fn get_session_history(
+    auth_user: AuthenticatedUser,
     Path(session_id): Path<String>,
     State(state): State<AppState>
 ) -> Result<Json<ApiResponse<Vec<String>>>, ServerError> {
     info!("Session history requested: {}", session_id);
     
     let domain_session = state.domain_services.session_service
-        .get_session(&session_id)
+        .get_session(&auth_user.user_id, &session_id)
         .await?;
     
     // Extract shell history from the session

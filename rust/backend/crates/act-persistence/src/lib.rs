@@ -5,20 +5,32 @@
 
 pub mod workspace_repository;
 pub mod session_repository;
+pub mod auth_repository;
+pub mod layout_repository;
+pub mod process_repository;
+pub mod metrics_repository;
 pub mod error;
 
 pub use workspace_repository::SqlWorkspaceRepository;
 pub use session_repository::SqlSessionRepository;
+pub use auth_repository::SqlAuthRepository;
+pub use layout_repository::SqlLayoutRepository;
+pub use process_repository::SqlProcessRepository;
+pub use metrics_repository::SqlxMetricsRepository;
 pub use error::PersistenceError;
 
-use act_core::repository::{WorkspaceRepository, SessionRepository};
+use act_core::repository::{WorkspaceRepository, SessionRepository, LayoutRepository, ProcessRepository};
+use act_core::auth::AuthRepository;
 use sqlx::SqlitePool;
 
 /// Factory function to create all repositories with a shared database pool
 pub fn create_repositories(pool: SqlitePool) -> Repositories {
     Repositories {
         workspace: SqlWorkspaceRepository::new(pool.clone()),
-        session: SqlSessionRepository::new(pool),
+        session: SqlSessionRepository::new(pool.clone()),
+        auth: SqlAuthRepository::new(pool.clone()),
+        layout: SqlLayoutRepository::new(pool.clone()),
+        process: SqlProcessRepository::new(pool),
     }
 }
 
@@ -26,6 +38,9 @@ pub fn create_repositories(pool: SqlitePool) -> Repositories {
 pub struct Repositories {
     pub workspace: SqlWorkspaceRepository,
     pub session: SqlSessionRepository,
+    pub auth: SqlAuthRepository,
+    pub layout: SqlLayoutRepository,
+    pub process: SqlProcessRepository,
 }
 
 impl Repositories {
@@ -37,6 +52,21 @@ impl Repositories {
     /// Get session repository as trait object
     pub fn session_repo(&self) -> Arc<dyn SessionRepository> {
         Arc::new(self.session.clone())
+    }
+
+    /// Get auth repository as trait object
+    pub fn auth_repo(&self) -> Arc<dyn AuthRepository> {
+        Arc::new(self.auth.clone())
+    }
+
+    /// Get layout repository as trait object
+    pub fn layout_repo(&self) -> Arc<dyn LayoutRepository> {
+        Arc::new(self.layout.clone())
+    }
+
+    /// Get process repository as trait object
+    pub fn process_repo(&self) -> Arc<dyn ProcessRepository> {
+        Arc::new(self.process.clone())
     }
 }
 

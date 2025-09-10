@@ -70,14 +70,15 @@ impl SqlSessionRepository {
             auto_cleanup: row.get("auto_cleanup"),
             layout_id: row.get("layout_id"),
             workspace_id: row.get("workspace_id"),
+            user_id: row.get("user_id"),
         })
     }
 }
 
 #[async_trait]
 impl SessionRepository for SqlSessionRepository {
-    async fn create(&self, request: CreateSessionRequest) -> Result<act_core::repository::Session, act_core::error::CoreError> {
-        let session_id = uuid::Uuid::new_v4().to_string();
+    async fn create(&self, user_id: &str, request: CreateSessionRequest) -> Result<act_core::repository::Session, act_core::error::CoreError> {
+        let session_id = request.session_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         let now = Utc::now();
 
         let size_json = if let Some(size) = &request.terminal_size {
@@ -91,12 +92,12 @@ impl SessionRepository for SqlSessionRepository {
                 r#"
                 INSERT INTO sessions (id, session_name, session_type, workspace_id, terminal_size, status, 
                                      last_activity_at, created_at, is_default_session, can_recover, 
-                                     max_idle_time, auto_cleanup)
-                VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+                                     max_idle_time, auto_cleanup, user_id)
+                VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
                 RETURNING id, shell_pid, socket_id, status, last_activity_at, created_at, ended_at,
                           session_name, session_type, is_default_session, current_working_dir,
                           environment_vars, shell_history, terminal_size, last_command, session_timeout,
-                          recovery_token, can_recover, max_idle_time, auto_cleanup, layout_id, workspace_id
+                          recovery_token, can_recover, max_idle_time, auto_cleanup, layout_id, workspace_id, user_id
                 "#
             )
             .bind(&session_id)
@@ -111,45 +112,48 @@ impl SessionRepository for SqlSessionRepository {
             .bind(true)
             .bind(1440) // 24 hours
             .bind(true)
+            .bind(user_id)
             .fetch_one(&self.pool)
         );
 
         Self::map_row_to_session(row).await.map_err(Into::into)
     }
 
-    async fn get_by_id(&self, id: &String) -> Result<act_core::repository::Session, act_core::error::CoreError> {
+    async fn get_by_id(&self, user_id: &str, id: &String) -> Result<act_core::repository::Session, act_core::error::CoreError> {
         let row = handle_db_error!(
             sqlx::query(
                 r#"
                 SELECT id, shell_pid, socket_id, status, last_activity_at, created_at, ended_at,
                        session_name, session_type, is_default_session, current_working_dir,
                        environment_vars, shell_history, terminal_size, last_command, session_timeout,
-                       recovery_token, can_recover, max_idle_time, auto_cleanup, layout_id, workspace_id
+                       recovery_token, can_recover, max_idle_time, auto_cleanup, layout_id, workspace_id, user_id
                 FROM sessions
-                WHERE id = ?1
+                WHERE id = ?1 AND user_id = ?2
                 "#
             )
             .bind(id)
+            .bind(user_id)
             .fetch_one(&self.pool)
         );
 
         Self::map_row_to_session(row).await.map_err(Into::into)
     }
 
-    async fn list_by_workspace(&self, workspace_id: &String) -> Result<Vec<act_core::repository::Session>, act_core::error::CoreError> {
+    async fn list_by_workspace(&self, user_id: &str, workspace_id: &String) -> Result<Vec<act_core::repository::Session>, act_core::error::CoreError> {
         let rows = handle_db_error!(
             sqlx::query(
                 r#"
                 SELECT id, shell_pid, socket_id, status, last_activity_at, created_at, ended_at,
                        session_name, session_type, is_default_session, current_working_dir,
                        environment_vars, shell_history, terminal_size, last_command, session_timeout,
-                       recovery_token, can_recover, max_idle_time, auto_cleanup, layout_id, workspace_id
+                       recovery_token, can_recover, max_idle_time, auto_cleanup, layout_id, workspace_id, user_id
                 FROM sessions
-                WHERE workspace_id = ?1
+                WHERE workspace_id = ?1 AND user_id = ?2
                 ORDER BY created_at DESC
                 "#
             )
             .bind(workspace_id)
+            .bind(user_id)
             .fetch_all(&self.pool)
         );
 
@@ -161,19 +165,20 @@ impl SessionRepository for SqlSessionRepository {
         Ok(sessions)
     }
 
-    async fn list_active(&self) -> Result<Vec<act_core::repository::Session>, act_core::error::CoreError> {
+    async fn list_active(&self, user_id: &str) -> Result<Vec<act_core::repository::Session>, act_core::error::CoreError> {
         let rows = handle_db_error!(
             sqlx::query(
                 r#"
                 SELECT id, shell_pid, socket_id, status, last_activity_at, created_at, ended_at,
                        session_name, session_type, is_default_session, current_working_dir,
                        environment_vars, shell_history, terminal_size, last_command, session_timeout,
-                       recovery_token, can_recover, max_idle_time, auto_cleanup, layout_id, workspace_id
+                       recovery_token, can_recover, max_idle_time, auto_cleanup, layout_id, workspace_id, user_id
                 FROM sessions
-                WHERE status = 'active'
+                WHERE status = 'active' AND user_id = ?1
                 ORDER BY created_at DESC
                 "#
             )
+            .bind(user_id)
             .fetch_all(&self.pool)
         );
 
@@ -185,7 +190,7 @@ impl SessionRepository for SqlSessionRepository {
         Ok(sessions)
     }
 
-    async fn list_by_status(&self, status: SessionStatus) -> Result<Vec<act_core::repository::Session>, act_core::error::CoreError> {
+    async fn list_by_status(&self, user_id: &str, status: SessionStatus) -> Result<Vec<act_core::repository::Session>, act_core::error::CoreError> {
         let status_str = match status {
             SessionStatus::Active => "active",
             SessionStatus::Inactive => "inactive",
@@ -199,13 +204,14 @@ impl SessionRepository for SqlSessionRepository {
                 SELECT id, shell_pid, socket_id, status, last_activity_at, created_at, ended_at,
                        session_name, session_type, is_default_session, current_working_dir,
                        environment_vars, shell_history, terminal_size, last_command, session_timeout,
-                       recovery_token, can_recover, max_idle_time, auto_cleanup, layout_id, workspace_id
+                       recovery_token, can_recover, max_idle_time, auto_cleanup, layout_id, workspace_id, user_id
                 FROM sessions
-                WHERE status = ?1
+                WHERE status = ?1 AND user_id = ?2
                 ORDER BY created_at DESC
                 "#
             )
             .bind(status_str)
+            .bind(user_id)
             .fetch_all(&self.pool)
         );
 
@@ -217,8 +223,8 @@ impl SessionRepository for SqlSessionRepository {
         Ok(sessions)
     }
 
-    async fn update(&self, id: &String, request: UpdateSessionRequest) -> Result<act_core::repository::Session, act_core::error::CoreError> {
-        let mut query = sqlx::QueryBuilder::new("UPDATE sessions SET updated_at = CURRENT_TIMESTAMP");
+    async fn update(&self, user_id: &str, id: &String, request: UpdateSessionRequest) -> Result<act_core::repository::Session, act_core::error::CoreError> {
+        let mut query = sqlx::QueryBuilder::new("UPDATE sessions SET last_activity_at = CURRENT_TIMESTAMP");
         let mut has_updates = false;
 
         if let Some(status) = &request.status {
@@ -266,46 +272,51 @@ impl SessionRepository for SqlSessionRepository {
         }
 
         if !has_updates {
-            return self.get_by_id(id).await;
+            return self.get_by_id(user_id, id).await;
         }
 
         query.push(" WHERE id = ");
         query.push_bind(id);
+        query.push(" AND user_id = ");
+        query.push_bind(user_id);
 
         handle_db_error!(query.build().execute(&self.pool));
 
         // Fetch the updated record
-        self.get_by_id(id).await
+        self.get_by_id(user_id, id).await
     }
 
-    async fn delete(&self, id: &String) -> Result<(), act_core::error::CoreError> {
+    async fn delete(&self, user_id: &str, id: &String) -> Result<(), act_core::error::CoreError> {
         handle_db_error!(
-            sqlx::query("DELETE FROM sessions WHERE id = ?1")
+            sqlx::query("DELETE FROM sessions WHERE id = ?1 AND user_id = ?2")
                 .bind(id)
+                .bind(user_id)
                 .execute(&self.pool)
         );
 
         Ok(())
     }
 
-    async fn cleanup_inactive(&self, older_than: chrono::DateTime<chrono::Utc>) -> Result<usize, act_core::error::CoreError> {
+    async fn cleanup_inactive(&self, user_id: &str, older_than: chrono::DateTime<chrono::Utc>) -> Result<usize, act_core::error::CoreError> {
         let result = handle_db_error!(
             sqlx::query(
-                "DELETE FROM sessions WHERE status = 'inactive' AND last_activity_at < ?1"
+                "DELETE FROM sessions WHERE status = 'inactive' AND last_activity_at < ?1 AND user_id = ?2"
             )
             .bind(older_than)
+            .bind(user_id)
             .execute(&self.pool)
         );
 
         Ok(result.rows_affected() as usize)
     }
 
-    async fn set_shell_pid(&self, id: &String, pid: Option<i32>) -> Result<(), act_core::error::CoreError> {
+    async fn set_shell_pid(&self, user_id: &str, id: &String, pid: Option<i32>) -> Result<(), act_core::error::CoreError> {
         handle_db_error!(
             sqlx::query(
-                "UPDATE sessions SET shell_pid = ?2, updated_at = CURRENT_TIMESTAMP WHERE id = ?1"
+                "UPDATE sessions SET shell_pid = ?3, last_activity_at = CURRENT_TIMESTAMP WHERE id = ?1 AND user_id = ?2"
             )
             .bind(id)
+            .bind(user_id)
             .bind(pid)
             .execute(&self.pool)
         );
@@ -313,12 +324,13 @@ impl SessionRepository for SqlSessionRepository {
         Ok(())
     }
 
-    async fn update_activity(&self, id: &String) -> Result<(), act_core::error::CoreError> {
+    async fn update_activity(&self, user_id: &str, id: &String) -> Result<(), act_core::error::CoreError> {
         handle_db_error!(
             sqlx::query(
-                "UPDATE sessions SET last_activity_at = CURRENT_TIMESTAMP WHERE id = ?1"
+                "UPDATE sessions SET last_activity_at = CURRENT_TIMESTAMP WHERE id = ?1 AND user_id = ?2"
             )
             .bind(id)
+            .bind(user_id)
             .execute(&self.pool)
         );
 

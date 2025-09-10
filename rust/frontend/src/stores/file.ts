@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia'
 import { ref, computed, readonly } from 'vue'
-import { apiService } from '@/services/api'
 
 export interface FileItem {
   name: string
@@ -12,6 +11,11 @@ export interface FileItem {
   extension?: string
   path: string
   language?: string
+  // Tree structure support (VS Code-like)
+  children?: FileItem[]
+  isExpanded?: boolean
+  isLoading?: boolean
+  parentPath?: string
 }
 
 export interface EditorPosition {
@@ -58,6 +62,12 @@ export const useFileStore = defineStore('file', () => {
   const fileError = ref<string | null>(null)
   const showHiddenFiles = ref(false)
   
+  // Tree structure state (VS Code-like)
+  const fileTree = ref<FileItem[]>([])
+  const expandedDirectories = ref<Set<string>>(new Set())
+  
+  
+  
   // Directory caching
   const directoryCache = ref<Map<string, DirectoryCacheItem>>(new Map())
   const cacheTimeout = ref(5 * 60 * 1000) // 5 minutes
@@ -92,6 +102,31 @@ export const useFileStore = defineStore('file', () => {
   const showEditor = ref(false)
   const editorLoading = ref(false)
   const editorError = ref<string | null>(null)
+
+  // Lazy load apiService when needed
+  const getApiService = async () => {
+    const { apiService } = await import('@/services/api')
+    return apiService
+  }
+
+  // Single source of truth for workspace-aware file operations
+  const getWorkspaceContext = async () => {
+    const { useWorkspaceStore } = await import('@/stores/workspace')
+    const workspaceStore = useWorkspaceStore()
+    return workspaceStore.currentWorkspace
+  }
+
+  // Workspace-aware file content getter
+  const getFileContentWorkspaceAware = async (filePath: string): Promise<string> => {
+    const apiService = await getApiService()
+    const workspace = await getWorkspaceContext()
+    
+    if (workspace) {
+      return await apiService.getWorkspaceFileContent(workspace.id, filePath)
+    } else {
+      return await apiService.getFileContent(filePath)
+    }
+  }
 
   // Computed properties
   const filteredFiles = computed(() => {
@@ -146,7 +181,7 @@ export const useFileStore = defineStore('file', () => {
     fileError.value = null
   }
   
-  const clearPreviewError = () => {
+const clearPreviewError = () => {
     previewError.value = null
   }
 
@@ -168,20 +203,22 @@ export const useFileStore = defineStore('file', () => {
 
     try {
       // Use workspace-specific endpoint if workspaceId is provided
+      const apiService = await getApiService()
       const files = workspaceId 
         ? await apiService.getWorkspaceDirectoryContents(workspaceId, targetPath)
         : await apiService.getDirectoryContents(targetPath)
       
-      // Process files
+// Process files
       const processedFiles: FileItem[] = files.map((file: any) => ({
         name: file.name,
-        type: file.isDirectory ? 'directory' as const : 'file' as const,
+        type: file.is_directory ? 'directory' as const : 'file' as const,
         size: file.size,
-        modified: file.mtime,
-        permissions: file.mode,
+        modified: file.modified,
+        permissions: file.permissions,
         isHidden: file.name.startsWith('.'),
-        extension: file.isDirectory ? undefined : file.name.split('.').pop()?.toLowerCase(),
-        path: `${targetPath}/${file.name}`.replace(/^\.\//, '')
+        extension: file.is_directory ? undefined : file.name.split('.').pop()?.toLowerCase(),
+        path: file.name, // Use just the filename for relative paths
+        language: file.is_directory ? undefined : getFileLanguage(file.name)
       }))
 
       // Sort: directories first, then files, alphabetically
@@ -194,6 +231,11 @@ export const useFileStore = defineStore('file', () => {
 
       currentFiles.value = processedFiles
       currentPath.value = targetPath
+      
+      // Build tree structure for root level
+      if (targetPath === '.' || targetPath === '') {
+        fileTree.value = buildTreeFromFiles(processedFiles, targetPath)
+      }
       
       // Update cache
       directoryCache.value.set(targetPath, {
@@ -233,6 +275,78 @@ export const useFileStore = defineStore('file', () => {
     
     const newPath = directory.path
     await navigateToPath(newPath)
+  }
+
+  // Tree structure methods (VS Code-like)
+  const toggleDirectoryExpansion = async (directory: FileItem) => {
+    if (directory.type !== 'directory') return
+    
+    const fullPath = directory.path
+    
+    if (expandedDirectories.value.has(fullPath)) {
+      // Collapse directory
+      expandedDirectories.value.delete(fullPath)
+      directory.isExpanded = false
+      directory.children = undefined
+    } else {
+      // Expand directory
+      expandedDirectories.value.add(fullPath)
+      directory.isExpanded = true
+      directory.isLoading = true
+      
+      try {
+        // Load directory contents
+        const apiService = await getApiService()
+        const workspace = await getWorkspaceContext()
+        
+        const files = workspace 
+          ? await apiService.getWorkspaceDirectoryContents(workspace.id, fullPath)
+          : await apiService.getDirectoryContents(fullPath)
+        
+        // Process children
+        const processedChildren: FileItem[] = files.map((file: any) => ({
+          name: file.name,
+          type: file.is_directory ? 'directory' as const : 'file' as const,
+          size: file.size,
+          modified: file.modified,
+          permissions: file.permissions,
+          isHidden: file.name.startsWith('.'),
+          extension: file.is_directory ? undefined : file.name.split('.').pop()?.toLowerCase(),
+          path: fullPath === '.' ? file.name : `${fullPath}/${file.name}`.replace(/\/+/g, '/'),
+          language: file.is_directory ? undefined : getFileLanguage(file.name),
+          parentPath: fullPath,
+          isExpanded: false
+        }))
+        
+        // Sort: directories first, then files, alphabetically
+        processedChildren.sort((a, b) => {
+          if (a.type !== b.type) {
+            return a.type === 'directory' ? -1 : 1
+          }
+          return a.name.localeCompare(b.name, undefined, { numeric: true })
+        })
+        
+        directory.children = processedChildren
+      } catch (err) {
+        console.error('Failed to load directory contents:', err)
+        fileError.value = err instanceof Error ? err.message : 'Failed to load directory'
+        // Revert expansion state on error
+        expandedDirectories.value.delete(fullPath)
+        directory.isExpanded = false
+      } finally {
+        directory.isLoading = false
+      }
+    }
+  }
+
+  const buildTreeFromFiles = (files: FileItem[], basePath = '.'): FileItem[] => {
+    return files.map(file => ({
+      ...file,
+      path: basePath === '.' ? file.name : `${basePath}/${file.name}`,
+      parentPath: basePath,
+      isExpanded: false,
+      children: undefined
+    }))
   }
 
   const selectFile = (file: FileItem, index?: number) => {
@@ -294,7 +408,7 @@ export const useFileStore = defineStore('file', () => {
     showFilePreviewModal.value = true
 
     try {
-      const content = await apiService.getFileContent(file.path)
+      const content = await getFileContentWorkspaceAware(file.path)
       previewData.value = content
     } catch (err) {
       previewError.value = err instanceof Error ? err.message : 'Failed to load file'
@@ -332,6 +446,7 @@ export const useFileStore = defineStore('file', () => {
   // File operations
   const createFile = async (name: string, content = '') => {
     try {
+      const apiService = await getApiService()
       await apiService.createFile(currentPath.value, name, content)
       await refreshFiles(currentPath.value, false) // Don't use cache
     } catch (err) {
@@ -342,6 +457,7 @@ export const useFileStore = defineStore('file', () => {
 
   const createDirectory = async (name: string) => {
     try {
+      const apiService = await getApiService()
       await apiService.createDirectory(currentPath.value, name)
       await refreshFiles(currentPath.value, false) // Don't use cache
     } catch (err) {
@@ -352,6 +468,7 @@ export const useFileStore = defineStore('file', () => {
 
   const deleteFile = async (file: FileItem) => {
     try {
+      const apiService = await getApiService()
       await apiService.deleteFile(file.path)
       await refreshFiles(currentPath.value, false) // Don't use cache
     } catch (err) {
@@ -362,6 +479,7 @@ export const useFileStore = defineStore('file', () => {
 
   const renameFile = async (file: FileItem, newName: string) => {
     try {
+      const apiService = await getApiService()
       await apiService.renameFile(file.path, newName)
       await refreshFiles(currentPath.value, false) // Don't use cache
     } catch (err) {
@@ -423,7 +541,7 @@ export const useFileStore = defineStore('file', () => {
         return
       }
       
-      const content = await apiService.getFileContent(file.path)
+      const content = await getFileContentWorkspaceAware(file.path)
       const language = getFileLanguage(file.name)
       
       const editorState: EditorState = {
@@ -493,6 +611,7 @@ export const useFileStore = defineStore('file', () => {
       const editorState = openFiles.value.get(path)
       if (!editorState) return
       
+      const apiService = await getApiService()
       await apiService.saveFile(path, editorState.content)
       
       // Update editor state
@@ -769,6 +888,9 @@ export const useFileStore = defineStore('file', () => {
     showDiscardModal: readonly(showDiscardModal),
     discardAction: readonly(discardAction),
     changesSummary: readonly(changesSummary),
+    // Tree structure state
+    fileTree: readonly(fileTree),
+    expandedDirectories: readonly(expandedDirectories),
     // Editor state
     openFiles: readonly(openFiles),
     fileTabs: readonly(fileTabs),
@@ -796,6 +918,8 @@ export const useFileStore = defineStore('file', () => {
     navigateUp,
     navigateToSegment,
     openDirectory,
+    toggleDirectoryExpansion,
+    buildTreeFromFiles,
     selectFile,
     clearSelection,
     searchFiles,

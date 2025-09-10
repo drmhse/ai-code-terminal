@@ -2,6 +2,8 @@ pub use crate::repository::{
     Workspace, Session, SessionStatus, SessionType, TerminalSize,
     CreateWorkspaceRequest, UpdateWorkspaceRequest, 
     CreateSessionRequest, UpdateSessionRequest,
+    CreateLayoutRequest, UpdateLayoutRequest,
+    CreateProcessRequest, UpdateProcessRequest,
     WorkspaceId, SessionId, LayoutId, UserId
 };
 
@@ -37,6 +39,7 @@ pub struct TerminalLayout {
     pub configuration: TerminalLayoutConfig,
     pub is_default: bool,
     pub workspace_id: WorkspaceId,
+    pub user_id: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -44,21 +47,32 @@ pub struct TerminalLayout {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TerminalLayoutConfig {
     pub layout_type: String,
-    pub panels: Vec<PanelConfig>,
-    pub active_panel: Option<String>,
+    pub panes: Vec<PaneConfig>,
+    pub active_pane: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PanelConfig {
+pub struct PaneConfig {
     pub id: String,
     pub name: String,
-    pub panel_type: PanelType,
+    pub pane_type: PaneType,
+    pub tabs: Vec<TabConfig>,
+    pub active_tab: Option<String>,
     pub size: Option<PanelSize>,
     pub position: Option<PanelPosition>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum PanelType {
+pub struct TabConfig {
+    pub id: String,
+    pub session_id: String,
+    pub name: String,
+    pub is_active: bool,
+    pub order: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum PaneType {
     Terminal,
     Editor,
     Split,
@@ -81,27 +95,39 @@ pub struct PanelPosition {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserProcess {
     pub id: String,
-    pub pid: i32,
+    pub name: String,
+    pub pid: Option<i32>,
     pub command: String,
     pub args: Option<Vec<String>>,
-    pub cwd: String,
+    pub working_directory: String,
+    pub environment_variables: Option<std::collections::HashMap<String, String>>,
     pub status: ProcessStatus,
     pub exit_code: Option<i32>,
-    pub started_at: DateTime<Utc>,
-    pub ended_at: Option<DateTime<Utc>>,
-    pub last_seen: DateTime<Utc>,
-    pub auto_restart: bool,
+    pub start_time: DateTime<Utc>,
+    pub end_time: Option<DateTime<Utc>>,
+    pub cpu_usage: f64,
+    pub memory_usage: u64,
     pub restart_count: i32,
-    pub session_id: Option<SessionId>,
+    pub max_restarts: i32,
+    pub auto_restart: bool,
+    pub user_id: String,
     pub workspace_id: Option<WorkspaceId>,
+    pub session_id: Option<SessionId>,
+    pub tags: Option<Vec<String>>,
+    pub data: Option<serde_json::Value>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ProcessStatus {
+    Starting,
     Running,
     Stopped,
-    Terminated,
     Failed,
+    Crashed,
+    Restarting,
+    Terminated,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -22,7 +22,10 @@ export function useAppCore() {
 
   // Core application initialization (migrated from mounted() method)
   const initializeApp = async () => {
-    if (initializing.value) return
+    if (initializing.value) {
+      console.log('⚠️ Application already initializing, skipping...')
+      return false
+    }
     
     initializing.value = true
     initializationError.value = null
@@ -72,8 +75,21 @@ export function useAppCore() {
 
       // 5. Load workspaces and repositories
       const ownerId = authStore.user?.id || authStore.user?.login
-      await workspaceStore.fetchWorkspaces(ownerId)
-      console.log('✅ Workspaces loaded')
+      console.log('🔄 Loading workspaces for user:', ownerId, 'User object:', authStore.user)
+      try {
+        await workspaceStore.fetchWorkspaces(ownerId)
+        console.log('✅ Workspaces loaded successfully:', workspaceStore.workspaces.length, 'workspaces found')
+        console.log('Workspaces data:', workspaceStore.workspaces)
+      } catch (wsError) {
+        console.error('❌ Failed to load workspaces:', wsError)
+        // Don't fail initialization if workspace loading fails - this allows manual debugging
+        console.error('Workspace error details:', {
+          error: wsError,
+          ownerId,
+          user: authStore.user,
+          hasToken: !!localStorage.getItem('jwt_token')
+        })
+      }
 
       // 6. Initialize terminal system
       terminalStore.updateLayoutRecommendations()
@@ -85,8 +101,15 @@ export function useAppCore() {
 
       // 8. Initialize WebSocket connection if not already connected
       if (!socketService.isConnected) {
-        await authStore.connectWebSocket()
-        console.log('✅ WebSocket connected')
+        try {
+          await authStore.connectWebSocket()
+          console.log('✅ WebSocket connected')
+        } catch (wsError) {
+          console.warn('⚠️ WebSocket connection failed, but continuing initialization:', wsError)
+          // Don't fail initialization if WebSocket fails
+        }
+      } else {
+        console.log('✅ WebSocket already connected')
       }
 
       console.log('🎉 Application initialization complete')

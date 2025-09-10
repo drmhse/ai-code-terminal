@@ -15,6 +15,8 @@ export interface TerminalOutputEvent {
 export interface TerminalCreatedEvent {
   sessionId: string
   pid: number
+  success?: boolean
+  workspaceId?: string
 }
 
 export interface TerminalDestroyedEvent {
@@ -22,25 +24,15 @@ export interface TerminalDestroyedEvent {
 }
 
 export interface StatsDataEvent {
+  cpu_usage: number
+  memory_usage: number
+  memory_total: number
+  disk_usage: number
+  disk_total: number
+  uptime: number
+  load_average: number
+  processes: number
   timestamp: number
-  cpu: {
-    usage: number
-    cores: number
-  }
-  memory: {
-    used: number
-    total: number
-    usage: number
-  }
-  disk: {
-    used: number
-    total: number
-    usage: number
-  }
-  network?: {
-    rx: number
-    tx: number
-  }
 }
 
 export interface WebSocketAuthErrorEvent {
@@ -82,7 +74,9 @@ export function validateTerminalCreatedEvent(data: unknown): data is TerminalCre
     typeof data === 'object' &&
     data !== null &&
     typeof (data as any).sessionId === 'string' &&
-    typeof (data as any).pid === 'number'
+    typeof (data as any).pid === 'number' &&
+    ((data as any).success === undefined || typeof (data as any).success === 'boolean') &&
+    ((data as any).workspaceId === undefined || typeof (data as any).workspaceId === 'string')
   )
 }
 
@@ -99,18 +93,15 @@ export function validateStatsDataEvent(data: unknown): data is StatsDataEvent {
   
   const event = data as any
   return (
-    typeof event.timestamp === 'number' &&
-    typeof event.cpu === 'object' &&
-    typeof event.cpu.usage === 'number' &&
-    typeof event.cpu.cores === 'number' &&
-    typeof event.memory === 'object' &&
-    typeof event.memory.used === 'number' &&
-    typeof event.memory.total === 'number' &&
-    typeof event.memory.usage === 'number' &&
-    typeof event.disk === 'object' &&
-    typeof event.disk.used === 'number' &&
-    typeof event.disk.total === 'number' &&
-    typeof event.disk.usage === 'number'
+    typeof event.cpu_usage === 'number' &&
+    typeof event.memory_usage === 'number' &&
+    typeof event.memory_total === 'number' &&
+    typeof event.disk_usage === 'number' &&
+    typeof event.disk_total === 'number' &&
+    typeof event.uptime === 'number' &&
+    typeof event.load_average === 'number' &&
+    typeof event.processes === 'number' &&
+    typeof event.timestamp === 'number'
   )
 }
 

@@ -6,9 +6,8 @@ pub mod health;
 pub mod workspaces;
 pub mod sessions;
 pub mod layouts;
-pub mod themes;
-// pub mod metrics;   // TODO: Fix after refactoring to domain services
 pub mod processes;
+// pub mod metrics;   // TODO: Fix after refactoring to domain services
 // pub mod system;    // TODO: Fix after refactoring to domain services
 
 use axum::Router;
@@ -23,9 +22,8 @@ pub fn api_routes() -> Router<AppState> {
         .nest("/workspaces", workspaces::routes())
         .nest("/sessions", sessions::routes())
         .nest("/layouts", layouts::routes())
-        .nest("/themes", themes::routes())
-        // .nest("/metrics", metrics::routes())   // TODO: Re-enable after refactoring
         .nest("/processes", processes::routes())
+        // .nest("/metrics", metrics::routes())   // TODO: Re-enable after refactoring
         // .nest("/system", system::routes())     // TODO: Re-enable after refactoring
 }
 

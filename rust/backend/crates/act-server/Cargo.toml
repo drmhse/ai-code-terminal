@@ -14,6 +14,7 @@ act-pty = { path = "../act-pty" }
 act-vfs = { path = "../act-vfs" }
 act-domain = { path = "../act-domain" }
 act-persistence = { path = "../act-persistence" }
+act-process = { path = "../act-process" }
 
 # Async runtime
 tokio = { workspace = true }

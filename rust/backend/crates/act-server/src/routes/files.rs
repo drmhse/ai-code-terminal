@@ -6,9 +6,19 @@ use axum::{
     Router,
 };
 use act_core::{DirectoryListing, CreateFileRequest, FileContent, CreateDirectoryRequest, MoveRequest};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tracing::{debug, error, info};
+
+// Response wrapper for file content that properly encodes content as string
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FileContentResponse {
+    pub path: String,
+    pub content: String,
+    pub encoding: String,
+    pub size: u64,
+    pub is_binary: bool,
+}
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -58,7 +68,14 @@ pub async fn list_directory(
     Query(params): Query<ListDirectoryQuery>,
     State(state): State<AppState>
 ) -> Result<Json<ApiResponse<DirectoryListing>>, ServerError> {
-    let path = PathBuf::from(params.path.unwrap_or_else(|| "./".to_string()));
+    // Handle root directory requests
+    let path_str = params.path.unwrap_or_else(|| ".".to_string());
+    let path = if path_str == "." || path_str == "./" || path_str.is_empty() {
+        PathBuf::from("") // Empty path means workspace root
+    } else {
+        PathBuf::from(path_str)
+    };
+    
     info!("Directory listing requested for: {}", path.display());
 
     match state.filesystem.list_directory(&path).await {
@@ -76,16 +93,45 @@ pub async fn list_directory(
 pub async fn read_file(
     Query(params): Query<ReadFileQuery>,
     State(state): State<AppState>
-) -> Result<Json<ApiResponse<FileContent>>, ServerError> {
+) -> Result<Json<ApiResponse<FileContentResponse>>, ServerError> {
     let path = PathBuf::from(params.path);
     info!("File read requested for: {}", path.display());
 
     match state.filesystem.read_file(&path).await {
-        Ok(content) => Ok(Json(ApiResponse::success(content))),
+        Ok(content) => {
+            // Convert FileContent to FileContentResponse with proper string encoding
+            let response = convert_file_content_to_response(content);
+            Ok(Json(ApiResponse::success(response)))
+        },
         Err(e) => {
             error!("Failed to read file: {}", e);
             Err(ServerError::from(e))
         }
+    }
+}
+
+// Helper function to convert FileContent to FileContentResponse
+fn convert_file_content_to_response(content: FileContent) -> FileContentResponse {
+    let (content_str, is_binary) = if content.encoding == "utf-8" {
+        match String::from_utf8(content.content.clone()) {
+            Ok(text) => (text, false),
+            Err(_) => {
+                // Fallback to base64 for binary content
+                use base64::{Engine as _, engine::general_purpose::STANDARD};
+                (STANDARD.encode(&content.content), true)
+            }
+        }
+    } else {
+        use base64::{Engine as _, engine::general_purpose::STANDARD};
+        (STANDARD.encode(&content.content), true)
+    };
+
+    FileContentResponse {
+        path: content.path.to_string_lossy().to_string(),
+        content: content_str,
+        encoding: content.encoding,
+        size: content.size,
+        is_binary,
     }
 }
 

@@ -5,9 +5,13 @@ members = [
     "crates/act-vfs",
     "crates/act-domain",
     "crates/act-persistence",
+    "crates/act-process",
     "crates/act-server",
     "crates/act-cli",
 ]
+
+# Set act-server as the default package for cargo run
+default-members = ["crates/act-server"]
 resolver = "2"
 
 [workspace.package]

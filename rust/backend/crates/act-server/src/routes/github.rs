@@ -154,7 +154,7 @@ pub async fn clone_repository(
     let token = extract_bearer_token(&headers)?;
     
     match state.domain_services.auth_service.get_current_user(&token).await {
-        Ok(_user) => {
+        Ok(user) => {
             // Get the user's GitHub token for authenticated cloning - this is done automatically by the workspace service
             // as it uses the auth repository to get the token when needed
             let github_token: Option<String> = None; // Let the workspace service handle token retrieval
@@ -166,7 +166,7 @@ pub async fn clone_repository(
                 description: request.description,
             };
 
-            match state.domain_services.workspace_service.clone_repository(clone_request, github_token.as_deref()).await {
+            match state.domain_services.workspace_service.clone_repository(&user.user_id, clone_request, github_token.as_deref()).await {
                 Ok(workspace) => {
                     let workspace_json = serde_json::to_value(&workspace).unwrap_or(serde_json::Value::Null);
                     

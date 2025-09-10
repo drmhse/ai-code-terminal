@@ -1,8 +1,16 @@
-import { apiService } from './api'
 import type { FileContent, DirectoryListing } from '@/types'
 
 export class FileService {
   private static instance: FileService
+  private apiService: any = null
+
+  private async getApiService() {
+    if (!this.apiService) {
+      const { apiService } = await import('./api')
+      this.apiService = apiService
+    }
+    return this.apiService
+  }
 
   public static getInstance(): FileService {
     if (!FileService.instance) {
@@ -12,6 +20,7 @@ export class FileService {
   }
 
   async listDirectory(path: string = './'): Promise<DirectoryListing> {
+    const apiService = await this.getApiService()
     const response = await apiService.getDirectoryContents(path)
     // Convert from API FileItem[] to types FileItem[]
     const items: import('@/types').FileItem[] = response.map(item => ({
@@ -31,6 +40,7 @@ export class FileService {
   }
 
   async readFile(path: string): Promise<FileContent> {
+    const apiService = await this.getApiService()
     const content = await apiService.getFileContent(path)
     // Convert string to FileContent format
     return {
@@ -42,10 +52,12 @@ export class FileService {
   }
 
   async saveFile(path: string, content: string): Promise<void> {
+    const apiService = await this.getApiService()
     await apiService.saveFile(path, content)
   }
 
   async createFile(path: string, content: string = '', isDirectory: boolean = false): Promise<void> {
+    const apiService = await this.getApiService()
     if (isDirectory) {
       const parentPath = path.split('/').slice(0, -1).join('/') || '.'
       const name = path.split('/').pop() || ''
@@ -58,10 +70,12 @@ export class FileService {
   }
 
   async deleteFile(path: string): Promise<void> {
+    const apiService = await this.getApiService()
     await apiService.deleteFile(path)
   }
 
   async renameFile(fromPath: string, toPath: string): Promise<void> {
+    const apiService = await this.getApiService()
     await apiService.renameFile(fromPath, toPath)
   }
 

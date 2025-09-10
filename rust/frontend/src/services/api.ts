@@ -13,6 +13,90 @@ interface ApiError {
   status?: number
 }
 
+interface DirectoryListing {
+  path: string
+  items: FileItem[]
+  total_items: number
+  hidden_items: number
+}
+
+// Layout types
+interface CreateLayoutRequest {
+  name: string
+  layout_type: string
+  configuration: any
+  is_default?: boolean
+  workspace_id: string
+}
+
+interface UpdateLayoutRequest {
+  name?: string
+  configuration?: any
+  is_default?: boolean
+}
+
+interface LayoutResponse {
+  id: string
+  name: string
+  layout_type: string
+  configuration: any
+  is_default: boolean
+  workspace_id: string
+  created_at: string
+  updated_at: string
+}
+
+// Process types
+interface CreateProcessRequest {
+  name: string
+  command: string
+  args?: string[]
+  working_directory: string
+  environment_variables?: Record<string, string>
+  max_restarts?: number
+  auto_restart?: boolean
+  workspace_id?: string
+  session_id?: string
+  tags?: string[]
+}
+
+interface UpdateProcessRequest {
+  name?: string
+  command?: string
+  args?: string[]
+  working_directory?: string
+  environment_variables?: Record<string, string>
+  max_restarts?: number
+  auto_restart?: boolean
+  tags?: string[]
+}
+
+interface ProcessResponse {
+  id: string
+  name: string
+  pid?: number
+  command: string
+  args?: string[]
+  working_directory: string
+  environment_variables?: Record<string, string>
+  status: string
+  exit_code?: number
+  start_time: string
+  end_time?: string
+  cpu_usage: number
+  memory_usage: number
+  restart_count: number
+  max_restarts: number
+  auto_restart: boolean
+  user_id: string
+  workspace_id?: string
+  session_id?: string
+  tags?: string[]
+  data?: any
+  created_at: string
+  updated_at: string
+}
+
 interface EnhancedApiError extends Error {
   code: string
   details?: any
@@ -44,7 +128,7 @@ enum ErrorSeverity {
 
 class ApiService {
   private client: AxiosInstance
-  private uiStore = useUIStore()
+  private uiStore: ReturnType<typeof useUIStore> | null = null
 
   constructor() {
     this.client = axios.create({
@@ -92,7 +176,7 @@ class ApiService {
 
   // Create enhanced error from Axios error
   private enhanceError(error: any): EnhancedApiError {
-    const uiStore = useUIStore()
+    const uiStore = this.getUIStore()
     
     // Network errors
     if (!error.response) {
@@ -285,7 +369,7 @@ class ApiService {
         ? 'warning' 
         : 'info'
 
-    this.uiStore.addResourceAlert({
+    this.getUIStore().addResourceAlert({
       type: alertType,
       title: this.getErrorTitle(error),
       message: error.userMessage
@@ -328,12 +412,20 @@ class ApiService {
     }
   }
 
+  // Lazy load the UI store when needed
+  private getUIStore(): ReturnType<typeof useUIStore> {
+    if (!this.uiStore) {
+      this.uiStore = useUIStore()
+    }
+    return this.uiStore
+  }
+
   // Handle authentication error
   private handleAuthenticationError(): void {
     localStorage.removeItem('jwt_token')
     localStorage.removeItem('user')
     
-    this.uiStore.addResourceAlert({
+    this.getUIStore().addResourceAlert({
       type: 'error',
       title: 'Session Expired',
       message: 'Your session has expired. Please log in again.'
@@ -353,8 +445,12 @@ class ApiService {
 
   // Workspace endpoints
   async getWorkspaces(ownerId?: string): Promise<Workspace[]> {
+    console.log('🚀 API: getWorkspaces called with ownerId:', ownerId)
     const params = ownerId ? { owner_id: ownerId } : undefined
+    console.log('🔄 API: Making request to /api/v1/workspaces with params:', params)
+    
     const response: AxiosResponse<ApiResponse<Workspace[]>> = await this.client.get('/api/v1/workspaces', { params })
+    console.log('✅ API: Received response:', response.data)
     return response.data.data
   }
 
@@ -372,6 +468,10 @@ class ApiService {
 
   // Session endpoints
   async getSessions(workspaceId: string): Promise<Session[]> {
+    if (!workspaceId) {
+      throw new Error('Workspace ID is required for getSessions')
+    }
+    
     const response: AxiosResponse<ApiResponse<Session[]>> = await this.client.get(
       `/api/v1/workspaces/${workspaceId}/sessions`
     )
@@ -403,31 +503,53 @@ class ApiService {
   }
 
   async cloneRepository(cloneUrl: string, name: string): Promise<Workspace> {
-    const response: AxiosResponse<ApiResponse<Workspace>> = await this.client.post('/api/v1/github/clone', {
-      clone_url: cloneUrl,
+    interface CloneResponse {
+      success: boolean
+      workspace: Workspace | null
+      message: string | null
+    }
+    
+    const response: AxiosResponse<ApiResponse<CloneResponse>> = await this.client.post('/api/v1/github/clone', {
+      git_url: cloneUrl,
       name
     })
-    return response.data.data
+    
+    const cloneResult = response.data.data
+    if (!cloneResult.success || !cloneResult.workspace) {
+      throw new Error(cloneResult.message || 'Failed to clone repository')
+    }
+    
+    return cloneResult.workspace
   }
 
   // File system endpoints
   async getDirectoryContents(path: string): Promise<FileItem[]> {
-    const response: AxiosResponse<ApiResponse<FileItem[]>> = await this.client.get('/api/v1/files', {
+    const response: AxiosResponse<ApiResponse<DirectoryListing>> = await this.client.get('/api/v1/files', {
       params: { path }
     })
-    return response.data.data
+    // Extract items from DirectoryListing structure
+    return response.data.data.items || []
   }
 
   // Workspace-specific file system endpoints
   async getWorkspaceDirectoryContents(workspaceId: string, path: string = ''): Promise<FileItem[]> {
-    const response: AxiosResponse<ApiResponse<FileItem[]>> = await this.client.get(`/api/v1/workspaces/${workspaceId}/files`, {
+    const response: AxiosResponse<ApiResponse<DirectoryListing>> = await this.client.get(`/api/v1/workspaces/${workspaceId}/files`, {
       params: { path }
     })
-    return response.data.data
+    // Extract items from DirectoryListing structure
+    return response.data.data.items || []
   }
 
   async getFileContent(path: string): Promise<string> {
     const response: AxiosResponse<ApiResponse<{ content: string }>> = await this.client.get('/api/v1/files/content', {
+      params: { path }
+    })
+    return response.data.data.content
+  }
+
+  // Workspace-specific file content endpoint
+  async getWorkspaceFileContent(workspaceId: string, path: string): Promise<string> {
+    const response: AxiosResponse<ApiResponse<{ content: string }>> = await this.client.get(`/api/v1/workspaces/${workspaceId}/files/content`, {
       params: { path }
     })
     return response.data.data.content
@@ -502,6 +624,84 @@ class ApiService {
   // Logout endpoint
   async logout(): Promise<void> {
     await this.client.post('/api/v1/auth/logout')
+  }
+
+  // Layout endpoints
+  async getLayouts(workspaceId?: string): Promise<LayoutResponse[]> {
+    const params = workspaceId ? { workspace_id: workspaceId } : undefined
+    const response: AxiosResponse<ApiResponse<LayoutResponse[]>> = await this.client.get('/api/v1/layouts', { params })
+    return response.data.data
+  }
+
+  async createLayout(layout: CreateLayoutRequest): Promise<LayoutResponse> {
+    const response: AxiosResponse<ApiResponse<LayoutResponse>> = await this.client.post('/api/v1/layouts', layout)
+    return response.data.data
+  }
+
+  async getLayout(id: string): Promise<LayoutResponse> {
+    const response: AxiosResponse<ApiResponse<LayoutResponse>> = await this.client.get(`/api/v1/layouts/${id}`)
+    return response.data.data
+  }
+
+  async updateLayout(id: string, layout: UpdateLayoutRequest): Promise<LayoutResponse> {
+    const response: AxiosResponse<ApiResponse<LayoutResponse>> = await this.client.put(`/api/v1/layouts/${id}`, layout)
+    return response.data.data
+  }
+
+  async deleteLayout(id: string): Promise<void> {
+    await this.client.delete(`/api/v1/layouts/${id}`)
+  }
+
+  async setDefaultLayout(id: string): Promise<void> {
+    await this.client.post(`/api/v1/layouts/${id}/default`)
+  }
+
+  async duplicateLayout(id: string, name?: string): Promise<LayoutResponse> {
+    const response: AxiosResponse<ApiResponse<LayoutResponse>> = await this.client.post(`/api/v1/layouts/${id}/duplicate`, { name })
+    return response.data.data
+  }
+
+  // Process endpoints (will be implemented when backend routes are ready)
+  async getProcesses(workspaceId?: string, sessionId?: string, status?: string): Promise<ProcessResponse[]> {
+    const params: any = {}
+    if (workspaceId) params.workspace_id = workspaceId
+    if (sessionId) params.session_id = sessionId
+    if (status) params.status = status
+    
+    const response: AxiosResponse<ApiResponse<ProcessResponse[]>> = await this.client.get('/api/v1/processes', { params })
+    return response.data.data
+  }
+
+  async createProcess(process: CreateProcessRequest): Promise<ProcessResponse> {
+    const response: AxiosResponse<ApiResponse<ProcessResponse>> = await this.client.post('/api/v1/processes', process)
+    return response.data.data
+  }
+
+  async getProcess(id: string): Promise<ProcessResponse> {
+    const response: AxiosResponse<ApiResponse<ProcessResponse>> = await this.client.get(`/api/v1/processes/${id}`)
+    return response.data.data
+  }
+
+  async updateProcess(id: string, process: UpdateProcessRequest): Promise<ProcessResponse> {
+    const response: AxiosResponse<ApiResponse<ProcessResponse>> = await this.client.put(`/api/v1/processes/${id}`, process)
+    return response.data.data
+  }
+
+  async deleteProcess(id: string): Promise<void> {
+    await this.client.delete(`/api/v1/processes/${id}`)
+  }
+
+  async stopProcess(id: string): Promise<void> {
+    await this.client.post(`/api/v1/processes/${id}/stop`)
+  }
+
+  async restartProcess(id: string): Promise<void> {
+    await this.client.post(`/api/v1/processes/${id}/restart`)
+  }
+
+  async getProcessOutput(id: string): Promise<string> {
+    const response: AxiosResponse<ApiResponse<{ output: string }>> = await this.client.get(`/api/v1/processes/${id}/output`)
+    return response.data.data.output
   }
 }
 

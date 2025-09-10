@@ -1,57 +1,33 @@
 use crate::{
     models::ApiResponse,
-    services::layout::{LayoutManager, LayoutType, LayoutPane, PanePosition, PaneSize, PaneType},
+    middleware::auth::AuthenticatedUser,
     AppState,
+    error::ServerError,
 };
+
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
     response::Json,
-    routing::{get, post, put, delete},
+    routing::{get, post},
     Router,
 };
-use serde::Deserialize;
-use tracing::{error, info};
-
-pub fn routes() -> Router<AppState> {
-    Router::new()
-        .route("/", get(list_layouts))
-        .route("/", post(create_layout))
-        .route("/:layout_id", get(get_layout))
-        .route("/:layout_id", put(update_layout))
-        .route("/:layout_id", delete(delete_layout))
-        .route("/:layout_id/panes", post(add_pane))
-        .route("/:layout_id/panes/:pane_id", delete(remove_pane))
-        .route("/:layout_id/panes/:pane_id/activate", post(activate_pane))
-        .route("/:layout_id/resize", post(resize_layout))
-}
+use serde::{Deserialize, Serialize};
+use tracing::{info, error};
 
 #[derive(Debug, Deserialize)]
 pub struct CreateLayoutRequest {
     pub name: String,
-    pub layout_type: LayoutType,
-    pub workspace_id: Option<String>,
+    pub layout_type: String,
+    pub configuration: serde_json::Value,
+    pub is_default: Option<bool>,
+    pub workspace_id: String,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateLayoutRequest {
-    #[allow(dead_code)]
     pub name: Option<String>,
-    pub active_pane_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct AddPaneRequest {
-    pub name: Option<String>,
-    pub process_id: Option<String>,
-    #[allow(dead_code)]
-    pub working_directory: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ResizeLayoutRequest {
-    pub width: u16,
-    pub height: u16,
+    pub configuration: Option<serde_json::Value>,
+    pub is_default: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -59,222 +35,187 @@ pub struct ListLayoutsQuery {
     pub workspace_id: Option<String>,
 }
 
-pub async fn list_layouts(
+#[derive(Debug, Serialize)]
+pub struct LayoutResponse {
+    pub id: String,
+    pub name: String,
+    pub layout_type: String,
+    pub configuration: serde_json::Value,
+    pub is_default: bool,
+    pub workspace_id: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl From<act_core::models::TerminalLayout> for LayoutResponse {
+    fn from(layout: act_core::models::TerminalLayout) -> Self {
+        Self {
+            id: layout.id,
+            name: layout.name,
+            layout_type: layout.layout_type,
+            configuration: serde_json::to_value(layout.configuration).unwrap_or_default(),
+            is_default: layout.is_default,
+            workspace_id: layout.workspace_id,
+            created_at: layout.created_at.to_rfc3339(),
+            updated_at: layout.updated_at.to_rfc3339(),
+        }
+    }
+}
+
+pub fn routes() -> Router<AppState> {
+    Router::new()
+        .route("/", get(list_layouts).post(create_layout))
+        .route("/:id", get(get_layout).put(update_layout).delete(delete_layout))
+        .route("/:id/default", post(set_default_layout))
+        .route("/:id/duplicate", post(duplicate_layout))
+}
+
+async fn list_layouts(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
     Query(params): Query<ListLayoutsQuery>,
-    State(state): State<AppState>
-) -> Result<Json<ApiResponse<Vec<crate::services::layout::TerminalLayout>>>, StatusCode> {
-    info!("Layout list requested for workspace: {:?}", params.workspace_id);
-    
-    let layout_manager = LayoutManager::new(state.db.clone());
-    
-    match layout_manager.list_layouts_for_workspace(&params.workspace_id.unwrap_or_default()).await {
-        Ok(layouts) => Ok(Json(ApiResponse::success(layouts))),
-        Err(e) => {
-            error!("Failed to list layouts: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
+) -> Result<Json<ApiResponse<Vec<LayoutResponse>>>, ServerError> {
+    info!("Listing layouts for user {}", user.user_id);
+
+    let layouts = if let Some(workspace_id) = &params.workspace_id {
+        state.domain_services.layout_service
+            .list_workspace_layouts(&user.user_id, workspace_id)
+            .await
+    } else {
+        state.domain_services.layout_service
+            .list_all_layouts(&user.user_id)
+            .await
+    }?;
+
+    let layout_responses: Vec<LayoutResponse> = layouts.into_iter().map(LayoutResponse::from).collect();
+
+    Ok(Json(ApiResponse::success(layout_responses)))
 }
 
-pub async fn create_layout(
+async fn create_layout(
     State(state): State<AppState>,
-    Json(request): Json<CreateLayoutRequest>
-) -> Result<Json<ApiResponse<crate::services::layout::TerminalLayout>>, StatusCode> {
-    info!("Layout creation requested: {} (type: {:?})", request.name, request.layout_type);
-    
-    let layout_manager = LayoutManager::new(state.db.clone());
-    
-    match layout_manager.create_layout(
-        request.name, 
-        request.layout_type,
-        request.workspace_id.unwrap_or_default(),
-        None
-    ).await {
-        Ok(layout) => {
-            info!("Layout created successfully: {}", layout.id);
-            Ok(Json(ApiResponse::success(layout)))
-        },
-        Err(e) => {
-            error!("Failed to create layout: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
-}
+    user: AuthenticatedUser,
+    Json(request): Json<CreateLayoutRequest>,
+) -> Result<Json<ApiResponse<LayoutResponse>>, ServerError> {
+    info!("Creating layout '{}' for user {}", request.name, user.user_id);
 
-pub async fn get_layout(
-    Path(layout_id): Path<String>,
-    State(state): State<AppState>
-) -> Result<Json<ApiResponse<crate::services::layout::TerminalLayout>>, StatusCode> {
-    info!("Layout details requested: {}", layout_id);
-    
-    let layout_manager = LayoutManager::new(state.db.clone());
-    
-    match layout_manager.get_layout(&layout_id).await {
-        Ok(Some(layout)) => Ok(Json(ApiResponse::success(layout))),
-        Ok(None) => Err(StatusCode::NOT_FOUND),
-        Err(e) => {
-            error!("Failed to get layout {}: {}", layout_id, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
-}
+    // Convert the JSON configuration to the domain model
+    let configuration: act_core::models::TerminalLayoutConfig = serde_json::from_value(request.configuration.clone())
+        .map_err(|e| {
+            error!("Failed to parse layout configuration: {}", e);
+            ServerError(act_core::error::CoreError::Validation(format!("Invalid layout configuration: {}", e)))
+        })?;
 
-pub async fn update_layout(
-    Path(layout_id): Path<String>,
-    State(state): State<AppState>,
-    Json(request): Json<UpdateLayoutRequest>
-) -> Result<Json<ApiResponse<crate::services::layout::TerminalLayout>>, StatusCode> {
-    info!("Layout update requested: {}", layout_id);
-    
-    let layout_manager = LayoutManager::new(state.db.clone());
-    
-    // Get the existing layout first
-    match layout_manager.get_layout(&layout_id).await {
-        Ok(Some(layout)) => {
-            // Update active pane if provided
-            if let Some(active_pane_id) = request.active_pane_id {
-                match layout_manager.set_active_pane(&layout_id, &active_pane_id).await {
-                    Ok(_) => {
-                        info!("Layout updated successfully: {}", layout_id);
-                        Ok(Json(ApiResponse::success(layout)))
-                    },
-                    Err(e) => {
-                        error!("Failed to update layout {}: {}", layout_id, e);
-                        Err(StatusCode::INTERNAL_SERVER_ERROR)
-                    }
-                }
-            } else {
-                Ok(Json(ApiResponse::success(layout)))
-            }
-        },
-        Ok(None) => Err(StatusCode::NOT_FOUND),
-        Err(e) => {
-            error!("Failed to update layout {}: {}", layout_id, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
-}
-
-pub async fn delete_layout(
-    Path(layout_id): Path<String>,
-    State(state): State<AppState>
-) -> Result<Json<ApiResponse<()>>, StatusCode> {
-    info!("Layout deletion requested: {}", layout_id);
-    
-    let layout_manager = LayoutManager::new(state.db.clone());
-    
-    match layout_manager.delete_layout(&layout_id).await {
-        Ok(()) => {
-            info!("Layout deleted successfully: {}", layout_id);
-            Ok(Json(ApiResponse::success(())))
-        },
-        Err(e) => {
-            error!("Failed to delete layout {}: {}", layout_id, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
-}
-
-pub async fn add_pane(
-    Path(layout_id): Path<String>,
-    State(state): State<AppState>,
-    Json(request): Json<AddPaneRequest>
-) -> Result<Json<ApiResponse<crate::services::layout::TerminalPane>>, StatusCode> {
-    info!("Pane addition requested for layout: {}", layout_id);
-    
-    let layout_manager = LayoutManager::new(state.db.clone());
-    
-    let layout_pane = LayoutPane {
-        id: uuid::Uuid::new_v4().to_string(),
-        session_id: request.process_id,
-        position: PanePosition { x: 0, y: 0, row: None, col: None },
-        size: PaneSize { width: 80, height: 24, min_width: None, min_height: None },
-        title: request.name.clone().unwrap_or_else(|| "Terminal".to_string()),
-        is_active: true,
-        pane_type: PaneType::Terminal,
+    let domain_request = act_core::repository::CreateLayoutRequest {
+        name: request.name,
+        layout_type: request.layout_type,
+        configuration,
+        is_default: request.is_default,
+        workspace_id: request.workspace_id,
     };
-    
-    match layout_manager.add_pane_to_layout(&layout_id, layout_pane.clone()).await {
-        Ok(_) => {
-            info!("Pane added successfully to layout {}", layout_id);
-            // Create a default TerminalPane to return
-            let terminal_pane = crate::services::layout::TerminalPane {
-                id: layout_pane.id.clone(),
-                session_id: layout_pane.session_id.clone(),
-                name: Some(layout_pane.title.clone()),
-                process_id: layout_pane.session_id.clone(),
-                working_directory: None,
-                shell: None,
-                position: layout_pane.position.clone(),
-                size: layout_pane.size.clone(),
-                is_active: layout_pane.is_active,
-            };
-            Ok(Json(ApiResponse::success(terminal_pane)))
-        },
-        Err(e) => {
-            error!("Failed to add pane to layout {}: {}", layout_id, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
+
+    let layout = state.domain_services.layout_service
+        .create_layout(&user.user_id, domain_request)
+        .await?;
+
+    Ok(Json(ApiResponse::success(LayoutResponse::from(layout))))
 }
 
-pub async fn remove_pane(
-    Path((layout_id, pane_id)): Path<(String, String)>,
-    State(state): State<AppState>
-) -> Result<Json<ApiResponse<()>>, StatusCode> {
-    info!("Pane removal requested: {} from layout {}", pane_id, layout_id);
-    
-    let layout_manager = LayoutManager::new(state.db.clone());
-    
-    match layout_manager.remove_pane_from_layout(&layout_id, &pane_id).await {
-        Ok(()) => {
-            info!("Pane removed successfully: {} from layout {}", pane_id, layout_id);
-            Ok(Json(ApiResponse::success(())))
-        },
-        Err(e) => {
-            error!("Failed to remove pane {} from layout {}: {}", pane_id, layout_id, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
-}
-
-pub async fn activate_pane(
-    Path((layout_id, pane_id)): Path<(String, String)>,
-    State(state): State<AppState>
-) -> Result<Json<ApiResponse<()>>, StatusCode> {
-    info!("Pane activation requested: {} in layout {}", pane_id, layout_id);
-    
-    let layout_manager = LayoutManager::new(state.db.clone());
-    
-    match layout_manager.set_active_pane(&layout_id, &pane_id).await {
-        Ok(()) => {
-            info!("Pane activated successfully: {} in layout {}", pane_id, layout_id);
-            Ok(Json(ApiResponse::success(())))
-        },
-        Err(e) => {
-            error!("Failed to activate pane {} in layout {}: {}", pane_id, layout_id, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
-}
-
-pub async fn resize_layout(
-    Path(layout_id): Path<String>,
+async fn get_layout(
     State(state): State<AppState>,
-    Json(request): Json<ResizeLayoutRequest>
-) -> Result<Json<ApiResponse<()>>, StatusCode> {
-    info!("Layout resize requested: {} ({}x{})", layout_id, request.width, request.height);
-    
-    let layout_manager = LayoutManager::new(state.db.clone());
-    
-    match layout_manager.resize_layout(&layout_id, request.width, request.height).await {
-        Ok(()) => {
-            info!("Layout resized successfully: {}", layout_id);
-            Ok(Json(ApiResponse::success(())))
-        },
-        Err(e) => {
-            error!("Failed to resize layout {}: {}", layout_id, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
+    user: AuthenticatedUser,
+    Path(id): Path<String>,
+) -> Result<Json<ApiResponse<LayoutResponse>>, ServerError> {
+    info!("Getting layout {} for user {}", id, user.user_id);
+
+    let layout = state.domain_services.layout_service
+        .get_layout(&user.user_id, &id)
+        .await?;
+
+    Ok(Json(ApiResponse::success(LayoutResponse::from(layout))))
+}
+
+async fn update_layout(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Path(id): Path<String>,
+    Json(request): Json<UpdateLayoutRequest>,
+) -> Result<Json<ApiResponse<LayoutResponse>>, ServerError> {
+    info!("Updating layout {} for user {}", id, user.user_id);
+
+    let configuration = if let Some(config) = &request.configuration {
+        Some(serde_json::from_value(config.clone())
+            .map_err(|e| {
+                error!("Failed to parse layout configuration: {}", e);
+                ServerError(act_core::error::CoreError::Validation(format!("Invalid layout configuration: {}", e)))
+            })?)
+    } else {
+        None
+    };
+
+    let domain_request = act_core::repository::UpdateLayoutRequest {
+        name: request.name,
+        configuration,
+        is_default: request.is_default,
+    };
+
+    let layout = state.domain_services.layout_service
+        .update_layout(&user.user_id, &id, domain_request)
+        .await?;
+
+    Ok(Json(ApiResponse::success(LayoutResponse::from(layout))))
+}
+
+async fn delete_layout(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Path(id): Path<String>,
+) -> Result<Json<ApiResponse<()>>, ServerError> {
+    info!("Deleting layout {} for user {}", id, user.user_id);
+
+    state.domain_services.layout_service
+        .delete_layout(&user.user_id, &id)
+        .await?;
+
+    Ok(Json(ApiResponse::success(())))
+}
+
+async fn set_default_layout(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Path(id): Path<String>,
+) -> Result<Json<ApiResponse<()>>, ServerError> {
+    info!("Setting layout {} as default for user {}", id, user.user_id);
+
+    // First, get the layout to find its workspace_id
+    let layout = state.domain_services.layout_service
+        .get_layout(&user.user_id, &id)
+        .await?;
+
+    state.domain_services.layout_service
+        .set_default_layout(&user.user_id, &id, &layout.workspace_id)
+        .await?;
+
+    Ok(Json(ApiResponse::success(())))
+}
+
+async fn duplicate_layout(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Path(id): Path<String>,
+    Json(request): Json<serde_json::Value>, // Optional new_name in request body
+) -> Result<Json<ApiResponse<LayoutResponse>>, ServerError> {
+    info!("Duplicating layout {} for user {}", id, user.user_id);
+
+    let new_name = if let Some(name) = request.get("name").and_then(|v| v.as_str()) {
+        Some(name.to_string())
+    } else {
+        None
+    };
+
+    let layout = state.domain_services.layout_service
+        .duplicate_layout(&user.user_id, &id, new_name)
+        .await?;
+
+    Ok(Json(ApiResponse::success(LayoutResponse::from(layout))))
 }

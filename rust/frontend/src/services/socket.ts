@@ -31,6 +31,7 @@ class SocketService {
   private socket: Socket | null = null
   private reconnectAttempts = 0
   private maxReconnectAttempts = 5
+  private isConnecting = false
 
   public readonly connectionState$ = new BehaviorSubject<ConnectionState>(ConnectionState.DISCONNECTED)
   public readonly terminalOutput$ = new Subject<TerminalOutputEvent>()
@@ -41,6 +42,13 @@ class SocketService {
 
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
+      // Prevent multiple simultaneous connections
+      if (this.isConnecting || this.isConnected) {
+        console.log('Socket already connecting or connected, skipping')
+        if (this.isConnected) resolve()
+        return
+      }
+
       const token = localStorage.getItem('jwt_token')
       if (!token) {
         this.connectionState$.next(ConnectionState.ERROR)
@@ -48,6 +56,7 @@ class SocketService {
         return
       }
 
+      this.isConnecting = true
       this.connectionState$.next(ConnectionState.CONNECTING)
       const wsUrl = import.meta.env.VITE_WS_URL || 'http://localhost:3001'
       
@@ -62,6 +71,7 @@ class SocketService {
       this.socket.on('connect', () => {
         console.log('Connected to WebSocket server')
         this.reconnectAttempts = 0
+        this.isConnecting = false
         this.connectionState$.next(ConnectionState.CONNECTED)
         
         this.socket?.emit('authenticate', { token })
@@ -77,11 +87,20 @@ class SocketService {
 
       this.socket.on('connect_error', (error) => {
         console.error('WebSocket connection error:', error)
+        this.isConnecting = false
         this.connectionState$.next(ConnectionState.ERROR)
-        if (error.message.includes('Authentication')) {
-          console.warn('WebSocket authentication failed, will retry')
+        
+        // Handle authentication errors more gracefully
+        if (error.message.includes('Authentication') || 
+            error.message.includes('Unauthorized') || 
+            error.message.includes('JWT')) {
+          console.warn('WebSocket authentication failed, but continuing connection')
+          // Don't reject for auth errors - allow the connection to continue
+          // This prevents redirect loops while still showing authentication issues
+        } else {
+          // For non-auth errors, reject the connection promise
+          reject(error)
         }
-        reject(error)
       })
 
       this.socket.on('authenticated', (data) => {
@@ -141,7 +160,7 @@ class SocketService {
   private setupStatsListeners(): void {
     if (!this.socket) return
 
-    this.socket.on('stats', (data: unknown) => {
+    this.socket.on('stats:data', (data: unknown) => {
       if (validateStatsDataEvent(data)) {
         this.statsData$.next(data)
       } else {
@@ -183,6 +202,7 @@ class SocketService {
       this.socket.disconnect()
       this.socket = null
     }
+    this.isConnecting = false
     this.connectionState$.next(ConnectionState.DISCONNECTED)
   }
 
@@ -199,7 +219,7 @@ class SocketService {
   }
 
   destroyTerminal(sessionId: string): void {
-    this.socket?.emit('terminal:destroy', { sessionId })
+    this.socket?.emit('terminal:terminate', { sessionId, data: sessionId })
   }
 
   switchWorkspace(workspaceId: string): void {

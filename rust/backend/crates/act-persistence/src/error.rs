@@ -15,6 +15,9 @@ pub enum PersistenceError {
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
 
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
+
     #[error("Invalid session state: {0}")]
     InvalidSessionState(String),
 }
@@ -26,6 +29,7 @@ impl From<PersistenceError> for CoreError {
             PersistenceError::WorkspaceNotFound(id) => CoreError::NotFound(format!("Workspace {}", id)),
             PersistenceError::SessionNotFound(id) => CoreError::NotFound(format!("Session {}", id)),
             PersistenceError::Serialization(e) => CoreError::Serialization(e.to_string()),
+            PersistenceError::SerializationError(msg) => CoreError::Serialization(msg),
             PersistenceError::InvalidSessionState(msg) => CoreError::Validation(msg),
         }
     }

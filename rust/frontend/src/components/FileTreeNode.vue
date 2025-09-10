@@ -5,19 +5,24 @@
       :class="{ 
         'is-file': node.type === 'file',
         'is-directory': node.type === 'directory',
-        'is-expanded': isExpanded
+        'is-expanded': isExpanded,
+        'is-selected': isSelected,
+        'is-loading': node.isLoading
       }"
       :style="{ paddingLeft: `${level * 16 + 8}px` }"
       @click="handleClick"
+      @dblclick="handleDoubleClick"
     >
-      <!-- Directory Toggle Arrow -->
+      <!-- Directory Toggle Arrow or Loading Spinner -->
       <button 
         v-if="node.type === 'directory'" 
         class="toggle-btn"
         :class="{ expanded: isExpanded }"
         @click.stop="toggleExpanded"
+        :disabled="node.isLoading"
       >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <div v-if="node.isLoading" class="loading-spinner"></div>
+        <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="9,18 15,12 9,6"></polyline>
         </svg>
       </button>
@@ -44,12 +49,13 @@
     </div>
 
     <!-- Children (for expanded directories) -->
-    <div v-if="node.type === 'directory' && isExpanded && node.children" class="children">
+    <div v-if="node.type === 'directory' && isExpanded && node.children && !node.isLoading" class="children">
       <FileTreeNode
         v-for="child in node.children"
         :key="child.path"
         :node="child"
         :level="level + 1"
+        :selected-path="selectedPath"
         @select="$emit('select', $event)"
         @toggle="$emit('toggle', $event)"
       />
@@ -58,32 +64,50 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import type { FileNode } from '../types/editor'
+import { computed } from 'vue'
+import type { FileItem } from '@/stores/file'
 
 const props = defineProps<{
-  node: FileNode
+  node: FileItem
   level: number
+  selectedPath?: string
 }>()
 
 const emit = defineEmits<{
-  select: [node: FileNode]
-  toggle: [node: FileNode]
+  select: [node: FileItem]
+  toggle: [node: FileItem]
 }>()
 
-const isExpanded = ref(false)
+// Check if this node is selected
+const isSelected = computed(() => {
+  return props.selectedPath === props.node.path
+})
+
+// Use node's expansion state from the store
+const isExpanded = computed(() => {
+  return props.node.isExpanded || false
+})
 
 const handleClick = () => {
-  if (props.node.type === 'directory') {
-    toggleExpanded()
-  } else {
-    emit('select', props.node)
-  }
+  // Always emit select for both files and directories (VS Code behavior)
+  emit('select', props.node)
 }
 
 const toggleExpanded = () => {
-  isExpanded.value = !isExpanded.value
   emit('toggle', props.node)
+}
+
+const handleDoubleClick = async () => {
+  if (props.node.type === 'directory') {
+    toggleExpanded()
+  } else {
+    // For files, emit a preview event
+    emit('select', props.node)
+    // Import and use the file store to show preview
+    const { useFileStore } = await import('@/stores/file')
+    const fileStore = useFileStore()
+    await fileStore.showFilePreview(props.node)
+  }
 }
 
 const formatFileSize = (bytes: number): string => {
@@ -127,8 +151,15 @@ const formatFileSize = (bytes: number): string => {
   background: var(--sidebar-item-hover-bg);
 }
 
-.node-content.is-directory.is-expanded {
-  background: var(--sidebar-item-active-bg);
+.node-content.is-selected {
+  background: var(--primary);
+  color: white;
+}
+
+.node-content.is-selected .node-icon,
+.node-content.is-selected .node-name,
+.node-content.is-selected .file-size {
+  color: white;
 }
 
 .toggle-btn {
@@ -149,6 +180,20 @@ const formatFileSize = (bytes: number): string => {
 
 .toggle-btn.expanded {
   transform: rotate(90deg);
+}
+
+.loading-spinner {
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--border-color);
+  border-top: 1px solid var(--primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .toggle-spacer {

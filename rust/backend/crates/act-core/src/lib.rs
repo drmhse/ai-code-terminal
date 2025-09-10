@@ -21,7 +21,7 @@ pub use repository::{
     WorkspaceId, SessionId, LayoutId, UserId
 };
 pub use models::{
-    Settings, TerminalLayout, TerminalLayoutConfig, PanelConfig, PanelType,
+    Settings, TerminalLayout, TerminalLayoutConfig, PaneConfig, PaneType,
     PanelSize, PanelPosition, UserProcess, ProcessStatus, SystemMetrics, ApiResponse
 };
 pub use auth::{

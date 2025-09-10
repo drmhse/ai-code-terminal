@@ -287,6 +287,7 @@ impl GitHubService {
         }
     }
 
+    #[allow(dead_code)]
     pub fn encrypt_token(&self, token: &str) -> anyhow::Result<String> {
         // Use JWT secret as key material
         let key_material = self.config.auth.jwt_secret.as_bytes();
@@ -315,6 +316,7 @@ impl GitHubService {
         Ok(general_purpose::STANDARD.encode(&result))
     }
 
+    #[allow(dead_code)]
     pub fn decrypt_token(&self, encrypted_token: &str) -> anyhow::Result<String> {
         // Decode from base64
         let data = general_purpose::STANDARD.decode(encrypted_token)?;
