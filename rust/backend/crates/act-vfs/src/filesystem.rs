@@ -47,10 +47,10 @@ impl SandboxedFileSystem {
         self
     }
 
-    fn resolve_path(&self, path: &PathBuf) -> Result<PathBuf> {
+    fn resolve_path(&self, path: &Path) -> Result<PathBuf> {
         let resolved = if path.is_absolute() {
             // If path is absolute, it must be within workspace_root
-            path.clone()
+            path.to_path_buf()
         } else {
             // If path is relative, resolve it against workspace_root
             self.workspace_root.join(path)
@@ -139,8 +139,7 @@ impl SandboxedFileSystem {
             .and_then(|time| {
                 time.duration_since(std::time::UNIX_EPOCH)
                     .ok()
-                    .map(|duration| DateTime::<Utc>::from_timestamp(duration.as_secs() as i64, 0))
-                    .flatten()
+                    .and_then(|duration| DateTime::<Utc>::from_timestamp(duration.as_secs() as i64, 0))
             });
 
         Ok(FileItem {
@@ -156,7 +155,7 @@ impl SandboxedFileSystem {
 
 #[async_trait]
 impl FileSystem for SandboxedFileSystem {
-    async fn list_directory(&self, path: &PathBuf) -> Result<DirectoryListing> {
+    async fn list_directory(&self, path: &Path) -> Result<DirectoryListing> {
         let full_path = self.resolve_path(path)?;
         
         if !self.is_path_allowed(&full_path) {
@@ -205,14 +204,14 @@ impl FileSystem for SandboxedFileSystem {
         }
 
         Ok(DirectoryListing {
-            path: path.clone(),
+            path: path.to_path_buf(),
             items,
             total_items,
             hidden_items,
         })
     }
 
-    async fn read_file(&self, path: &PathBuf) -> Result<FileContent> {
+    async fn read_file(&self, path: &Path) -> Result<FileContent> {
         let full_path = self.resolve_path(path)?;
         
         if !self.is_path_allowed(&full_path) {
@@ -245,7 +244,7 @@ impl FileSystem for SandboxedFileSystem {
         };
 
         Ok(FileContent {
-            path: path.clone(),
+            path: path.to_path_buf(),
             content,
             encoding,
             size: metadata.len(),
@@ -299,7 +298,7 @@ impl FileSystem for SandboxedFileSystem {
         Ok(())
     }
 
-    async fn delete_file(&self, path: &PathBuf) -> Result<()> {
+    async fn delete_file(&self, path: &Path) -> Result<()> {
         let full_path = self.resolve_path(path)?;
         
         if !self.is_path_allowed(&full_path) {
@@ -323,7 +322,7 @@ impl FileSystem for SandboxedFileSystem {
         Ok(())
     }
 
-    async fn delete_directory(&self, path: &PathBuf, recursive: bool) -> Result<()> {
+    async fn delete_directory(&self, path: &Path, recursive: bool) -> Result<()> {
         let full_path = self.resolve_path(path)?;
         
         if !self.is_path_allowed(&full_path) {
@@ -409,7 +408,7 @@ impl FileSystem for SandboxedFileSystem {
         Ok(())
     }
 
-    async fn get_file_info(&self, path: &PathBuf) -> Result<FileItem> {
+    async fn get_file_info(&self, path: &Path) -> Result<FileItem> {
         let full_path = self.resolve_path(path)?;
         
         if !self.is_path_allowed(&full_path) {
@@ -426,7 +425,7 @@ impl FileSystem for SandboxedFileSystem {
         self.metadata_to_file_item(&full_path, &metadata)
     }
 
-    async fn exists(&self, path: &PathBuf) -> Result<bool> {
+    async fn exists(&self, path: &Path) -> Result<bool> {
         let full_path = self.resolve_path(path)?;
         
         if !self.is_path_allowed(&full_path) {
@@ -436,7 +435,7 @@ impl FileSystem for SandboxedFileSystem {
         Ok(full_path.exists())
     }
 
-    async fn is_directory(&self, path: &PathBuf) -> Result<bool> {
+    async fn is_directory(&self, path: &Path) -> Result<bool> {
         let full_path = self.resolve_path(path)?;
         
         if !self.is_path_allowed(&full_path) {
@@ -446,7 +445,7 @@ impl FileSystem for SandboxedFileSystem {
         Ok(full_path.is_dir())
     }
 
-    async fn is_file(&self, path: &PathBuf) -> Result<bool> {
+    async fn is_file(&self, path: &Path) -> Result<bool> {
         let full_path = self.resolve_path(path)?;
         
         if !self.is_path_allowed(&full_path) {
@@ -456,7 +455,7 @@ impl FileSystem for SandboxedFileSystem {
         Ok(full_path.is_file())
     }
 
-    fn is_path_allowed(&self, path: &PathBuf) -> bool {
+    fn is_path_allowed(&self, path: &Path) -> bool {
         // Already resolved path should be within workspace
         if !path.starts_with(&self.workspace_root) {
             return false;
@@ -472,6 +471,7 @@ impl FileSystem for SandboxedFileSystem {
 }
 
 impl SandboxedFileSystem {
+    #[allow(clippy::only_used_in_recursion)]
     fn copy_dir_recursive<'a>(&'a self, from: &'a Path, to: &'a Path) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + 'a + Send>> {
         Box::pin(async move {
         async_fs::create_dir_all(to).await

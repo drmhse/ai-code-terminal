@@ -155,7 +155,7 @@ impl WorkspaceService {
             Path::new(&local_path),
             request.branch.as_deref(),
             github_token,
-        ).await.map_err(|e| {
+        ).await.inspect_err(|_e| {
             // Clean up on failure
             tokio::task::spawn({
                 let fs = Arc::clone(&self.filesystem);
@@ -164,7 +164,6 @@ impl WorkspaceService {
                     let _ = fs.delete_directory(&std::path::PathBuf::from(path), true).await;
                 }
             });
-            e
         })?;
 
         let _current_branch = self.git_service.get_current_branch(Path::new(&local_path)).await?;

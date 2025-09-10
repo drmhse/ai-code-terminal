@@ -48,9 +48,7 @@ impl TokioPtyService {
         
         let _shell = config.shell.as_deref().unwrap_or(default_shell);
 
-        let working_dir = config.working_dir.as_ref().map(|s| s.as_str()).unwrap_or_else(|| {
-            "./workspaces"
-        });
+        let working_dir = config.working_dir.as_deref().unwrap_or("./workspaces");
 
         let mut cmd = Command::new("tmux");
         cmd.arg("new-session")

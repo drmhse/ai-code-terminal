@@ -19,9 +19,9 @@ impl From<LegacyFileEntry> for FileItem {
         use chrono::{DateTime, Utc};
         
         let permissions = FilePermissions {
-            readable: legacy.permissions.as_ref().map_or(true, |p| p.contains('r')),
-            writable: legacy.permissions.as_ref().map_or(false, |p| p.contains('w')),
-            executable: legacy.permissions.as_ref().map_or(false, |p| p.contains('x')),
+            readable: legacy.permissions.as_ref().is_none_or(|p| p.contains('r')),
+            writable: legacy.permissions.as_ref().is_some_and(|p| p.contains('w')),
+            executable: legacy.permissions.as_ref().is_some_and(|p| p.contains('x')),
         };
         
         let modified = legacy.modified_time
@@ -44,9 +44,9 @@ impl From<LegacyDirectoryEntry> for FileItem {
         use chrono::{DateTime, Utc};
         
         let permissions = FilePermissions {
-            readable: legacy.permissions.as_ref().map_or(true, |p| p.contains('r')),
-            writable: legacy.permissions.as_ref().map_or(false, |p| p.contains('w')),
-            executable: legacy.permissions.as_ref().map_or(false, |p| p.contains('x')),
+            readable: legacy.permissions.as_ref().is_none_or(|p| p.contains('r')),
+            writable: legacy.permissions.as_ref().is_some_and(|p| p.contains('w')),
+            executable: legacy.permissions.as_ref().is_some_and(|p| p.contains('x')),
         };
         
         let modified = legacy.modified_time
@@ -111,11 +111,13 @@ pub struct FileSearchResult {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct FileSystemService {
     inner: Arc<SandboxedFileSystem>,
 }
 
 impl FileSystemService {
+    #[allow(dead_code)]
     pub fn new(workspace_root: PathBuf) -> Self {
         let vfs = SandboxedFileSystem::new(workspace_root)
             .with_max_file_size(100 * 1024 * 1024) // 100MB
@@ -132,6 +134,7 @@ impl FileSystemService {
     }
 
     // Legacy wrapper methods for backward compatibility
+    #[allow(dead_code)]
     pub async fn list_directory(&self, path: &str) -> Result<LegacyDirectoryListing> {
         let path_buf = PathBuf::from(path);
         let listing = self.inner.list_directory(&path_buf).await
@@ -203,6 +206,7 @@ impl FileSystemService {
     }
 
     // Method that returns content as string for routes that need text
+    #[allow(dead_code)]
     pub async fn read_file_as_string(&self, path: &str) -> Result<String> {
         let path_buf = PathBuf::from(path);
         let content = self.inner.read_file(&path_buf).await
@@ -225,6 +229,7 @@ impl FileSystemService {
     }
 
     // Method that returns structured FileContent
+    #[allow(dead_code)]
     pub async fn read_file(&self, path: &str) -> Result<FileContent> {
         let path_buf = PathBuf::from(path);
         let content = self.inner.read_file(&path_buf).await
@@ -265,6 +270,7 @@ impl FileSystemService {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn write_file(&self, path: &str, content: &str) -> Result<()> {
         let path_buf = PathBuf::from(path);
         let content_bytes = if content.starts_with("data:") {
@@ -290,6 +296,7 @@ impl FileSystemService {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub async fn create_directory(&self, path: &str) -> Result<()> {
         let path_buf = PathBuf::from(path);
         let request = CreateDirectoryRequest {
@@ -303,6 +310,7 @@ impl FileSystemService {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub async fn delete_file(&self, path: &str) -> Result<()> {
         let path_buf = PathBuf::from(path);
         self.inner.delete_file(&path_buf).await
@@ -311,6 +319,7 @@ impl FileSystemService {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub async fn delete_directory(&self, path: &str, recursive: bool) -> Result<()> {
         let path_buf = PathBuf::from(path);
         self.inner.delete_directory(&path_buf, recursive).await
@@ -319,6 +328,7 @@ impl FileSystemService {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub async fn move_item(&self, from_path: &str, to_path: &str) -> Result<()> {
         let request = MoveRequest {
             from: PathBuf::from(from_path),
@@ -331,6 +341,7 @@ impl FileSystemService {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub async fn copy_item(&self, from_path: &str, to_path: &str, recursive: bool) -> Result<()> {
         let request = CopyRequest {
             from: PathBuf::from(from_path),
@@ -344,18 +355,21 @@ impl FileSystemService {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub async fn file_exists(&self, path: &str) -> Result<bool> {
         let path_buf = PathBuf::from(path);
         self.inner.exists(&path_buf).await
             .map_err(|e| anyhow::anyhow!("Failed to check file existence: {}", e))
     }
 
+    #[allow(dead_code)]
     pub async fn is_directory(&self, path: &str) -> Result<bool> {
         let path_buf = PathBuf::from(path);
         self.inner.is_directory(&path_buf).await
             .map_err(|e| anyhow::anyhow!("Failed to check if path is directory: {}", e))
     }
 
+    #[allow(dead_code)]
     pub async fn get_file_info(&self, path: &str) -> Result<FileItem> {
         let path_buf = PathBuf::from(path);
         self.inner.get_file_info(&path_buf).await
@@ -363,6 +377,7 @@ impl FileSystemService {
     }
 
     // Simplified search - this can be enhanced later
+    #[allow(dead_code)]
     pub async fn search_files(&self, _query: &str, _path: Option<&str>) -> Result<Vec<FileSearchResult>> {
         // Placeholder implementation - would need proper text search
         warn!("File search not fully implemented yet");
@@ -370,10 +385,12 @@ impl FileSystemService {
     }
 
     // Helper methods
+    #[allow(dead_code)]
     pub fn get_workspace_root(&self) -> &PathBuf {
         self.inner.get_workspace_root()
     }
 
+    #[allow(dead_code)]
     pub fn resolve_path(&self, path: &str) -> Result<PathBuf> {
         let path_buf = PathBuf::from(path);
         if path_buf.is_absolute() {
@@ -384,6 +401,7 @@ impl FileSystemService {
     }
 
     // Additional methods for backward compatibility
+    #[allow(dead_code)]
     pub async fn delete_item(&self, path: &str) -> Result<()> {
         // Determine if it's a file or directory and call appropriate method
         if self.is_directory(path).await? {
@@ -393,6 +411,7 @@ impl FileSystemService {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn rename_item(&self, from_path: &str, to_path: &str) -> Result<()> {
         self.move_item(from_path, to_path).await
     }

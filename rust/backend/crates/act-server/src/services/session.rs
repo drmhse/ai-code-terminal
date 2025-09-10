@@ -32,6 +32,7 @@ pub struct TerminalSize {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct ActiveSession {
     pub id: String,
     pub workspace_id: Option<String>,
@@ -51,10 +52,12 @@ pub struct SessionManager {
     pty_service: Arc<Mutex<PtyService>>,
     active_sessions: Arc<Mutex<HashMap<String, ActiveSession>>>,
     output_receivers: Arc<Mutex<HashMap<String, mpsc::UnboundedReceiver<PtyEvent>>>>,
+    #[allow(dead_code)]
     recovery_timeout: Duration,
 }
 
 impl SessionManager {
+    #[allow(dead_code)]
     pub fn new(db: Database, pty_service: Arc<Mutex<PtyService>>) -> Self {
         Self {
             db,
@@ -177,6 +180,7 @@ impl SessionManager {
     }
 
     /// Recover a session using recovery token
+    #[allow(dead_code)]
     pub async fn recover_session(&self, recovery_token: &str, socket_id: Option<&str>) -> anyhow::Result<SessionState> {
         // Query database for session with this recovery token
         let row = sqlx::query(
@@ -339,18 +343,21 @@ impl SessionManager {
     }
 
     /// List active sessions
+    #[allow(dead_code)]
     pub async fn list_active_sessions(&self) -> Vec<ActiveSession> {
         let sessions = self.active_sessions.lock().await;
         sessions.values().cloned().collect()
     }
 
     /// Get output receiver for a session (for real-time output streaming)
+    #[allow(dead_code)]
     pub async fn get_output_receiver(&self, session_id: &str) -> Option<mpsc::UnboundedReceiver<PtyEvent>> {
         let mut receivers = self.output_receivers.lock().await;
         receivers.remove(session_id)
     }
 
     /// Terminate session
+    #[allow(dead_code)]
     pub async fn terminate_session(&self, session_id: &str) -> anyhow::Result<()> {
         let now = Utc::now();
 
@@ -386,6 +393,7 @@ impl SessionManager {
     }
 
     /// Cleanup expired sessions
+    #[allow(dead_code)]
     pub async fn cleanup_expired_sessions(&self) -> anyhow::Result<u64> {
         let now = Utc::now();
         let cleanup_threshold = now - Duration::minutes(1440); // 24 hours

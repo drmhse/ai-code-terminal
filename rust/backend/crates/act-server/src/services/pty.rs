@@ -53,6 +53,7 @@ impl PtyService {
         Ok((receiver, info.pid.unwrap_or(0)))
     }
 
+    #[allow(dead_code)]
     pub async fn send_input(&self, session_id: &str, data: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.inner.send_input(&session_id.to_string(), data.as_bytes()).await
             .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
@@ -70,11 +71,13 @@ impl PtyService {
             .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
     }
 
+    #[allow(dead_code)]
     pub async fn destroy_session(&self, session_id: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.inner.destroy_session(&session_id.to_string()).await
             .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
     }
 
+    #[allow(dead_code)]
     pub async fn remove_session(&self, session_id: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.destroy_session(session_id).await
     }

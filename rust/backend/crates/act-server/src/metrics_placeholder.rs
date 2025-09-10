@@ -59,6 +59,7 @@ impl MetricsRepository for PlaceholderMetricsRepository {
 }
 
 pub struct RealSystemMonitor {
+    #[allow(dead_code)]
     system: System,
 }
 
@@ -69,6 +70,7 @@ impl RealSystemMonitor {
         Self { system }
     }
 
+    #[allow(dead_code)]
     fn refresh_system(&mut self) {
         self.system.refresh_all();
     }

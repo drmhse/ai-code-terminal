@@ -23,6 +23,7 @@ pub struct AppState {
     /// Domain services container
     pub domain_services: Arc<DomainServices>,
     /// PTY service for terminal operations
+    #[allow(dead_code)]
     pub pty_service: Arc<dyn PtyService>,
     /// File system service
     pub filesystem: Arc<dyn FileSystem>,

@@ -66,15 +66,18 @@ pub struct UserActivity {
     pub repositories_accessed: u64,
 }
 
+#[allow(dead_code)]
 pub struct MetricsService {
     db: Database,
 }
 
 impl MetricsService {
+    #[allow(dead_code)]
     pub fn new(db: Database) -> Self {
         Self { db }
     }
 
+    #[allow(dead_code)]
     pub async fn record_event(
         &self,
         user_id: Option<String>,
@@ -109,6 +112,7 @@ impl MetricsService {
         Ok(event_id)
     }
 
+    #[allow(dead_code)]
     pub async fn record_command_execution(
         &self,
         user_id: Option<String>,
@@ -131,6 +135,7 @@ impl MetricsService {
         ).await
     }
 
+    #[allow(dead_code)]
     pub async fn record_session_event(
         &self,
         user_id: Option<String>,
@@ -148,6 +153,7 @@ impl MetricsService {
         ).await
     }
 
+    #[allow(dead_code)]
     pub async fn record_performance_metrics(&self, metrics: PerformanceMetrics) -> Result<()> {
         let metrics_json = serde_json::to_string(&metrics)?;
 
@@ -173,6 +179,7 @@ impl MetricsService {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub async fn get_metrics_summary(&self, time_period: TimePeriod) -> Result<MetricsSummary> {
         // Total sessions in period
         let total_sessions: i64 = sqlx::query_scalar(
@@ -299,6 +306,7 @@ impl MetricsService {
         })
     }
 
+    #[allow(dead_code)]
     pub async fn get_user_activity(&self, user_id: &str, days: i32) -> Result<UserActivity> {
         let start_time = chrono::Utc::now().timestamp() - (days as i64 * 24 * 3600);
 
@@ -390,6 +398,7 @@ impl MetricsService {
         })
     }
 
+    #[allow(dead_code)]
     pub async fn get_performance_metrics(&self, time_period: TimePeriod) -> Result<Vec<PerformanceMetrics>> {
         let rows = sqlx::query(
             r#"
@@ -421,6 +430,7 @@ impl MetricsService {
         Ok(metrics)
     }
 
+    #[allow(dead_code)]
     pub async fn cleanup_old_metrics(&self, days_to_keep: i32) -> Result<u64> {
         let cutoff_time = chrono::Utc::now().timestamp() - (days_to_keep as i64 * 24 * 3600);
 
@@ -440,6 +450,7 @@ impl MetricsService {
         Ok(events_deleted + performance_deleted)
     }
 
+    #[allow(dead_code)]
     pub async fn export_metrics(
         &self,
         time_period: TimePeriod,

@@ -16,6 +16,12 @@ impl LocalGitService {
     }
 }
 
+impl Default for LocalGitService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[async_trait]
 impl GitService for LocalGitService {
     async fn clone_repository(

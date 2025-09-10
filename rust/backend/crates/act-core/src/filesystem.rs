@@ -1,7 +1,7 @@
 use crate::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileItem {
@@ -64,31 +64,31 @@ pub struct CopyRequest {
 
 #[async_trait]
 pub trait FileSystem: Send + Sync {
-    async fn list_directory(&self, path: &PathBuf) -> Result<DirectoryListing>;
+    async fn list_directory(&self, path: &Path) -> Result<DirectoryListing>;
 
-    async fn read_file(&self, path: &PathBuf) -> Result<FileContent>;
+    async fn read_file(&self, path: &Path) -> Result<FileContent>;
 
     async fn write_file(&self, request: CreateFileRequest) -> Result<()>;
 
     async fn create_directory(&self, request: CreateDirectoryRequest) -> Result<()>;
 
-    async fn delete_file(&self, path: &PathBuf) -> Result<()>;
+    async fn delete_file(&self, path: &Path) -> Result<()>;
 
-    async fn delete_directory(&self, path: &PathBuf, recursive: bool) -> Result<()>;
+    async fn delete_directory(&self, path: &Path, recursive: bool) -> Result<()>;
 
     async fn move_item(&self, request: MoveRequest) -> Result<()>;
 
     async fn copy_item(&self, request: CopyRequest) -> Result<()>;
 
-    async fn get_file_info(&self, path: &PathBuf) -> Result<FileItem>;
+    async fn get_file_info(&self, path: &Path) -> Result<FileItem>;
 
-    async fn exists(&self, path: &PathBuf) -> Result<bool>;
+    async fn exists(&self, path: &Path) -> Result<bool>;
 
-    async fn is_directory(&self, path: &PathBuf) -> Result<bool>;
+    async fn is_directory(&self, path: &Path) -> Result<bool>;
 
-    async fn is_file(&self, path: &PathBuf) -> Result<bool>;
+    async fn is_file(&self, path: &Path) -> Result<bool>;
 
-    fn is_path_allowed(&self, path: &PathBuf) -> bool;
+    fn is_path_allowed(&self, path: &Path) -> bool;
 
     fn get_workspace_root(&self) -> &PathBuf;
 }

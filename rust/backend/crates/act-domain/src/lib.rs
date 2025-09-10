@@ -42,6 +42,7 @@ pub struct DomainServices {
 }
 
 impl DomainServices {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         workspace_repository: Arc<dyn WorkspaceRepository>,
         session_repository: Arc<dyn SessionRepository>,

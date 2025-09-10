@@ -78,10 +78,7 @@ struct MockWorkspaceRepository {
 
 impl MockWorkspaceRepository {
     fn new() -> Self {
-        let mut workspaces = Vec::new();
-        
-        // Add some sample data
-        workspaces.push(Workspace {
+        let workspaces = vec![Workspace {
             id: uuid::Uuid::new_v4().to_string(),
             name: "sample-project".to_string(),
             github_repo: "example/sample-project".to_string(),
@@ -91,7 +88,7 @@ impl MockWorkspaceRepository {
             last_sync_at: None,
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
-        });
+        }];
         
         Self {
             workspaces: std::sync::Mutex::new(workspaces),

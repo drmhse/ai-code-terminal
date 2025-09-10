@@ -66,16 +66,19 @@ pub struct CloneRequest {
     pub owner_id: String,
 }
 
+#[allow(dead_code)]
 pub struct WorkspaceService {
     db: Database,
     workspace_root: PathBuf,
 }
 
 impl WorkspaceService {
+    #[allow(dead_code)]
     pub fn new(db: Database, workspace_root: PathBuf) -> Self {
         Self { db, workspace_root }
     }
 
+    #[allow(dead_code)]
     pub async fn create_workspace(&self, mut workspace: Workspace) -> Result<Workspace> {
         workspace.id = Uuid::new_v4().to_string();
         workspace.created_at = chrono::Utc::now().timestamp();
@@ -132,6 +135,7 @@ impl WorkspaceService {
         Ok(workspace)
     }
 
+    #[allow(dead_code)]
     pub async fn clone_repository(&self, request: CloneRequest, github_token: &str) -> Result<Workspace> {
         info!("Cloning repository: {} -> {}", request.git_url, request.name);
 
@@ -251,6 +255,7 @@ impl WorkspaceService {
     }
 
     /// Clone repository without authentication (for public repos)
+    #[allow(dead_code)]
     pub async fn clone_repository_without_auth(&self, request: CloneRequest) -> Result<Workspace> {
         info!("Cloning repository without auth: {} -> {}", request.git_url, request.name);
 
@@ -349,6 +354,7 @@ impl WorkspaceService {
         Ok(workspace)
     }
 
+    #[allow(dead_code)]
     pub async fn get_workspace(&self, workspace_id: &str) -> Result<Option<Workspace>> {
         let row = sqlx::query(
             r#"
@@ -384,6 +390,7 @@ impl WorkspaceService {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn list_workspaces(&self, owner_id: Option<&str>) -> Result<Vec<Workspace>> {
         let query = if let Some(owner) = owner_id {
             sqlx::query(
@@ -429,6 +436,7 @@ impl WorkspaceService {
         Ok(workspaces)
     }
 
+    #[allow(dead_code)]
     pub async fn update_workspace(&self, workspace_id: &str, name: Option<String>, description: Option<String>, settings: Option<WorkspaceSettings>) -> Result<Workspace> {
         let current = self.get_workspace(workspace_id).await?.ok_or_else(|| anyhow!("Workspace not found"))?;
         
@@ -460,6 +468,7 @@ impl WorkspaceService {
         Ok(workspace)
     }
 
+    #[allow(dead_code)]
     pub async fn delete_workspace(&self, workspace_id: &str) -> Result<()> {
         let workspace = self.get_workspace(workspace_id).await?.ok_or_else(|| anyhow!("Workspace not found"))?;
         
@@ -478,6 +487,7 @@ impl WorkspaceService {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub async fn update_last_accessed(&self, workspace_id: &str) -> Result<()> {
         let last_accessed = chrono::Utc::now().timestamp();
         
@@ -490,6 +500,7 @@ impl WorkspaceService {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub async fn get_git_status(&self, workspace_path: &Path) -> Result<GitStatus> {
         let current_branch = self.get_current_branch(workspace_path).await?;
         let status_output = Command::new("git")
@@ -536,6 +547,7 @@ impl WorkspaceService {
         })
     }
 
+    #[allow(dead_code)]
     pub async fn get_git_history(&self, workspace_path: &Path, limit: usize) -> Result<Vec<GitCommit>> {
         let output = Command::new("git")
             .args(["log", "--format=%H|%h|%an|%ae|%s|%ct", &format!("-{}", limit)])
@@ -568,6 +580,7 @@ impl WorkspaceService {
         Ok(commits)
     }
 
+    #[allow(dead_code)]
     async fn get_git_info(&self, workspace_path: &Path) -> Result<GitCommit> {
         let output = Command::new("git")
             .args(["log", "-1", "--format=%H|%h|%an|%ae|%s|%ct"])
@@ -597,6 +610,7 @@ impl WorkspaceService {
         Err(anyhow!("Invalid git log format"))
     }
 
+    #[allow(dead_code)]
     async fn get_current_branch(&self, workspace_path: &Path) -> Result<String> {
         let output = Command::new("git")
             .args(["branch", "--show-current"])
@@ -610,6 +624,7 @@ impl WorkspaceService {
         }
     }
 
+    #[allow(dead_code)]
     async fn get_remote_tracking_info(&self, workspace_path: &Path) -> Result<(u32, u32)> {
         let output = Command::new("git")
             .args(["rev-list", "--count", "--left-right", "@{upstream}...HEAD"])
@@ -629,6 +644,7 @@ impl WorkspaceService {
         Ok((0, 0))
     }
 
+    #[allow(dead_code)]
     async fn get_remote_url(&self, workspace_path: &Path) -> Result<String> {
         let output = Command::new("git")
             .args(["remote", "get-url", "origin"])

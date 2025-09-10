@@ -278,6 +278,7 @@ pub fn session_type_to_string(session_type: DomainSessionType) -> String {
     }
 }
 
+#[allow(dead_code)]
 pub fn terminal_size_from_domain(domain: DomainTerminalSize) -> TerminalSize {
     TerminalSize {
         cols: domain.cols,

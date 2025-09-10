@@ -57,7 +57,7 @@ impl GitHubService {
             repositories.retain(|repo| {
                 repo.name.to_lowercase().contains(&search_lower) ||
                 repo.full_name.to_lowercase().contains(&search_lower) ||
-                repo.description.as_ref().map_or(false, |desc| desc.to_lowercase().contains(&search_lower))
+                repo.description.as_ref().is_some_and(|desc| desc.to_lowercase().contains(&search_lower))
             });
         }
 
