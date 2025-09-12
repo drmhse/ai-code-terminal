@@ -5,6 +5,7 @@ import { useEditorStore } from '@/stores/editor'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUIStore } from '@/stores/ui'
 import { useFileOperations } from './useFileOperations'
+import type { FileItem } from '@/stores/file'
 
 /**
  * Global keyboard shortcuts composable
@@ -290,7 +291,7 @@ export function useKeyboardShortcuts() {
     if (fileStore.selectedFile) {
       const newName = prompt('Enter new name:', fileStore.selectedFile.name)
       if (newName && newName !== fileStore.selectedFile.name) {
-        fileStore.renameFile(fileStore.selectedFile, newName)
+        fileStore.renameFile(fileStore.selectedFile as FileItem, newName)
       }
     }
   }
@@ -312,7 +313,7 @@ export function useKeyboardShortcuts() {
 
   const handleFileOpen = async () => {
     if (fileStore.selectedFile) {
-      await fileOperations.handleFileDoubleClick(fileStore.selectedFile)
+      await fileOperations.handleFileDoubleClick(fileStore.selectedFile as FileItem)
     }
   }
 
@@ -323,7 +324,7 @@ export function useKeyboardShortcuts() {
         : `Delete file "${fileStore.selectedFile.name}"?`
       
       if (confirm(confirmMessage)) {
-        fileStore.deleteFile(fileStore.selectedFile)
+        fileStore.deleteFile(fileStore.selectedFile as FileItem)
       }
     }
   }

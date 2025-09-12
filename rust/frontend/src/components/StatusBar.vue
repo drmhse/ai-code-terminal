@@ -118,31 +118,31 @@ const isMobile = computed(() => {
 
 let statsSubscription: Subscription | null = null
 
-const handleStatsData = (data: any) => {
+const handleStatsData = () => {
   stats.value = {
-    sessions: { active: data.sessions?.active || 0 },
-    workspaces: { active: data.workspaces?.active || 0 },
+    sessions: { active: 0 },
+    workspaces: { active: 0 },
     resources: {
       memory: {
         formatted: { 
-          used: data.resources?.memory?.used || '0 B', 
-          limit: data.resources?.memory?.limit || '0 B' 
+          used: '0 B', 
+          limit: '0 B' 
         },
-        percentage: data.resources?.memory?.percentage || 0
+        percentage: 0
       },
       cpu: {
-        percentage: data.resources?.cpu?.percentage || 0,
-        formatted: { limit: data.resources?.cpu?.limit || 'unknown' }
+        percentage: 0,
+        formatted: { limit: 'unknown' }
       },
       disk: {
-        workspaces: { formatted: data.resources?.disk?.workspaces || '0 B' }
+        workspaces: { formatted: '0 B' }
       }
     },
     system: {
-      uptimeFormatted: data.system?.uptime || '0m',
-      platform: data.system?.platform || 'unknown',
-      nodeVersion: data.system?.node_version || 'unknown',
-      containerized: data.system?.containerized || false
+      uptimeFormatted: '0m',
+      platform: 'unknown',
+      nodeVersion: 'unknown',
+      containerized: false
     }
   }
 }

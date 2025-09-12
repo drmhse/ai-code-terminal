@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
 // Import domain models for conversion
-use act_core::repository::{Workspace as DomainWorkspace, Session as DomainSession, SessionStatus as DomainSessionStatus, SessionType as DomainSessionType, TerminalSize as DomainTerminalSize};
+use act_core::repository::{Session as DomainSession, SessionStatus as DomainSessionStatus, SessionType as DomainSessionType, TerminalSize as DomainTerminalSize};
 
 // JSON field types for proper handling
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -56,6 +56,7 @@ pub struct Workspace {
     pub last_sync_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub user_id: String,
 }
 
 // Terminal layout model
@@ -67,6 +68,7 @@ pub struct TerminalLayout {
     pub configuration: String,
     pub is_default: bool,
     pub workspace_id: String,
+    pub user_id: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -104,6 +106,7 @@ pub struct Session {
     // Relations
     pub layout_id: Option<String>,
     pub workspace_id: Option<String>,
+    pub user_id: String,
 }
 
 // User process model
@@ -207,22 +210,6 @@ impl<T> ApiResponse<T> {
     }
 }
 
-// Conversion functions from domain models to server models
-#[allow(dead_code)]
-pub fn workspace_from_domain(domain: DomainWorkspace) -> Workspace {
-    Workspace {
-        id: domain.id,
-        name: domain.name,
-        github_repo: domain.github_repo,
-        github_url: domain.github_url,
-        local_path: domain.local_path,
-        is_active: domain.is_active,
-        last_sync_at: domain.last_sync_at,
-        created_at: domain.created_at,
-        updated_at: domain.updated_at,
-    }
-}
-
 pub fn session_from_domain(domain: DomainSession) -> Session {
     Session {
         id: domain.id,
@@ -247,6 +234,7 @@ pub fn session_from_domain(domain: DomainSession) -> Session {
         auto_cleanup: domain.auto_cleanup,
         layout_id: domain.layout_id,
         workspace_id: domain.workspace_id,
+        user_id: domain.user_id,
     }
 }
 
@@ -255,7 +243,7 @@ pub fn session_status_to_string(status: DomainSessionStatus) -> String {
         DomainSessionStatus::Active => "active".to_string(),
         DomainSessionStatus::Inactive => "inactive".to_string(),
         DomainSessionStatus::Terminated => "terminated".to_string(),
-        DomainSessionStatus::Error => "error".to_string(),
+        DomainSessionStatus::Error(_) => "error".to_string(),
     }
 }
 

@@ -21,6 +21,8 @@ uuid.workspace = true
 chrono.workspace = true
 async-trait.workspace = true
 clap = { version = "4.4", features = ["derive"] }
+sqlx.workspace = true
+dotenvy.workspace = true
 
 [[bin]]
 name = "act-cli"

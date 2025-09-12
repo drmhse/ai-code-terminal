@@ -193,6 +193,7 @@ import { useEditorStore } from '@/stores/editor'
 import { useFileOperations } from '@/composables/useFileOperations'
 import { createUnifiedEditor } from '@/utils/codemirror-editor'
 import type { EditorInstance } from '@/types/editor'
+import type { FileItem } from '@/stores/file'
 
 const fileStore = useFileStore()
 const editorStore = useEditorStore()
@@ -229,8 +230,8 @@ const toggleEditMode = async () => {
   
   if (!editorStore.editMode) {
     // Entering edit mode: Initialize editor first, then toggle edit mode
-    await fileOperations.initializeEditor(fileStore.previewFile, fileStore.previewData || '')
-    const result = await editorStore.toggleEditMode()
+    await fileOperations.initializeEditor(fileStore.previewFile! as FileItem, fileStore.previewData || '')
+    await editorStore.toggleEditMode()
     editorContent.value = editorStore.currentFile?.content || ''
     // Edit editor will be initialized by the watcher
   } else {
@@ -257,15 +258,7 @@ const discardChanges = () => {
   editorContent.value = editorStore.currentFile?.content || ''
 }
 
-const handleEditorInput = () => {
-  // This is now handled by the onChange callback in CodeMirror
-  // but we keep this function in case we need manual sync
-  if (editEditorInstance.value && editorStore.currentFile) {
-    const content = editEditorInstance.value.getContent()
-    editorStore.updateContent(content)
-    editorContent.value = content
-  }
-}
+
 
 // Initialize preview editor with syntax highlighting
 const initializePreviewEditor = async () => {

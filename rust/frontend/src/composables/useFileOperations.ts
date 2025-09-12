@@ -157,7 +157,12 @@ export function useFileOperations() {
     try {
       console.log(`💾 Saving file: ${editorStore.currentFile?.name}`)
       
-      const success = await editorStore.saveFile()
+      const workspaceId = workspaceStore.selectedWorkspace?.id
+      if (!workspaceId) {
+        throw new Error('No workspace selected for file save operation')
+      }
+      
+      const success = await editorStore.saveFile(workspaceId)
       
       if (success) {
         console.log(`✅ File saved: ${editorStore.currentFile?.name}`)
@@ -321,7 +326,7 @@ export function useFileOperations() {
   const previewContextFile = async () => {
     if (!fileStore.contextMenuFile) return
     
-    await showFilePreview(fileStore.contextMenuFile)
+    await showFilePreview(fileStore.contextMenuFile as FileItem)
     fileStore.closeContextMenu()
   }
 
@@ -334,7 +339,7 @@ export function useFileOperations() {
       } else {
         fallbackCopyToClipboard(text)
       }
-    } catch (err) {
+    } catch {
       fallbackCopyToClipboard(text)
     }
   }

@@ -15,6 +15,12 @@ impl From<CoreError> for ServerError {
     }
 }
 
+impl From<StatusCode> for ServerError {
+    fn from(status: StatusCode) -> Self {
+        ServerError(CoreError::Auth(format!("Authentication failed: {}", status)))
+    }
+}
+
 /// Convert CoreError to HTTP response
 impl IntoResponse for ServerError {
     fn into_response(self) -> Response {

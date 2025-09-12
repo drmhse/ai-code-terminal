@@ -63,12 +63,11 @@ impl SqlProcessRepository {
 
         let start_time_i64: i64 = row.get("start_time");
         let start_time = chrono::DateTime::from_timestamp(start_time_i64, 0)
-            .unwrap_or_else(|| Utc::now())
+            .unwrap_or_else(Utc::now)
             .with_timezone(&Utc);
 
         let end_time = row.get::<Option<i64>, _>("end_time")
-            .map(|et| chrono::DateTime::from_timestamp(et, 0))
-            .flatten()
+            .and_then(|et| chrono::DateTime::from_timestamp(et, 0))
             .map(|dt| dt.with_timezone(&Utc));
 
         Ok(UserProcess {
@@ -377,5 +376,16 @@ impl ProcessRepository for SqlProcessRepository {
 
         let new_count: i32 = row.get("restart_count");
         Ok(new_count)
+    }
+
+    async fn count_active_processes(&self) -> Result<u64, act_core::error::CoreError> {
+        let count = handle_db_error!(
+            sqlx::query_scalar::<_, Option<i64>>(
+                "SELECT COUNT(*) FROM process_info WHERE status IN ('Running', 'Starting')"
+            )
+            .fetch_one(&self.pool)
+        );
+
+        Ok(count.unwrap_or(0) as u64)
     }
 }

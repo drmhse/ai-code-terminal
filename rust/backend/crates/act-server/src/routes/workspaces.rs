@@ -13,7 +13,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use tracing::info;
-use act_core::{DirectoryListing, FileContent};
+use act_core::{DirectoryListing, FileContent, CreateFileRequest};
 use crate::models::{Session, session_from_domain};
 
 // Response wrapper for file content that properly encodes content as string
@@ -31,8 +31,6 @@ pub struct CreateWorkspaceRequest {
     pub name: String,
     pub github_repo: Option<String>,
     pub github_url: Option<String>,
-    #[allow(dead_code)]
-    pub local_path: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -43,8 +41,6 @@ pub struct UpdateWorkspaceRequest {
 
 #[derive(Debug, Deserialize)]
 pub struct ListWorkspacesQuery {
-    #[allow(dead_code)]
-    pub active_only: Option<bool>,
 }
 
 pub fn routes() -> Router<AppState> {
@@ -57,6 +53,7 @@ pub fn routes() -> Router<AppState> {
         .route("/:workspace_id/sessions", get(get_workspace_sessions))
         .route("/:workspace_id/files", get(get_workspace_files))
         .route("/:workspace_id/files/content", get(get_workspace_file_content))
+        .route("/:workspace_id/files/content", put(save_workspace_file_content))
 }
 
 pub async fn list_workspaces(
@@ -78,6 +75,8 @@ pub async fn create_workspace(
     State(state): State<AppState>,
     Json(request): Json<CreateWorkspaceRequest>
 ) -> Result<Json<ApiResponse<act_core::repository::Workspace>>, ServerError> {
+    // CSRF verification is handled by the middleware layer
+    // This handler only executes if CSRF validation passes
     info!("Workspace creation requested: {} for user {}", request.name, auth_user.user_id);
     
     let workspace = state.domain_services.workspace_service
@@ -113,6 +112,8 @@ pub async fn update_workspace(
     State(state): State<AppState>,
     Json(request): Json<UpdateWorkspaceRequest>
 ) -> Result<Json<ApiResponse<act_core::repository::Workspace>>, ServerError> {
+    // CSRF verification is handled by the middleware layer
+    // This handler only executes if CSRF validation passes
     info!("Workspace update requested: {} for user {}", workspace_id, auth_user.user_id);
     
     let workspace = state.domain_services.workspace_service
@@ -128,6 +129,8 @@ pub async fn delete_workspace(
     Path(workspace_id): Path<String>,
     State(state): State<AppState>
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
+    // CSRF verification is handled by the middleware layer
+    // This handler only executes if CSRF validation passes
     info!("Workspace deletion requested: {} for user {}", workspace_id, auth_user.user_id);
     
     state.domain_services.workspace_service
@@ -200,6 +203,12 @@ pub struct WorkspaceFileContentQuery {
     pub path: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct SaveWorkspaceFileRequest {
+    pub path: String,
+    pub content: String,
+}
+
 pub async fn get_workspace_file_content(
     auth_user: AuthenticatedUser,
     Path(workspace_id): Path<String>,
@@ -237,6 +246,50 @@ pub async fn get_workspace_file_content(
         }
     }
 }
+
+pub async fn save_workspace_file_content(
+    auth_user: AuthenticatedUser,
+    Path(workspace_id): Path<String>,
+    State(state): State<AppState>,
+    Json(request): Json<SaveWorkspaceFileRequest>
+) -> Result<Json<ApiResponse<()>>, ServerError> {
+    info!("Workspace file save requested: {} path: {} for user {}", workspace_id, request.path, auth_user.user_id);
+    
+    // Get the workspace to get its local path
+    let workspace = state.domain_services.workspace_service
+        .get_workspace(&auth_user.user_id, &workspace_id)
+        .await?;
+    
+    // Handle relative path within the workspace
+    let file_path = if request.path.starts_with("/") {
+        // Absolute path - use as is but make it relative to workspace
+        std::path::PathBuf::from(&workspace.local_path).join(request.path.trim_start_matches('/'))
+    } else {
+        // Relative path - join with workspace path
+        std::path::PathBuf::from(&workspace.local_path).join(&request.path)
+    };
+    
+    info!("Saving file: {}", file_path.display());
+    
+    let file_request = CreateFileRequest {
+        path: file_path,
+        content: request.content.into_bytes(),
+        create_parent_dirs: true,
+    };
+    
+    match state.filesystem.write_file(file_request).await {
+        Ok(_) => {
+            info!("File saved successfully for workspace {} file {}", workspace_id, request.path);
+            Ok(Json(ApiResponse::success(())))
+        },
+        Err(e) => {
+            tracing::error!("Failed to save workspace file: {}", e);
+            Err(ServerError::from(e))
+        }
+    }
+}
+
+
 
 // Helper function to convert FileContent to FileContentResponse
 fn convert_file_content_to_response(content: FileContent) -> FileContentResponse {

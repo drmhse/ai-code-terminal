@@ -7,28 +7,33 @@ pub mod workspaces;
 pub mod sessions;
 pub mod layouts;
 pub mod processes;
-// pub mod metrics;   // TODO: Fix after refactoring to domain services
-// pub mod system;    // TODO: Fix after refactoring to domain services
+pub mod metrics;
+pub mod system;
+pub mod themes;
 
 use axum::Router;
 use crate::AppState;
 
 pub fn api_routes() -> Router<AppState> {
     Router::new()
+        // Public routes (no authentication required)
         .nest("/auth", auth_routes())
         .nest("/github", github_routes())
         .nest("/health", health::routes())
+        // Protected routes (authentication required)
         .nest("/files", files::routes())
         .nest("/workspaces", workspaces::routes())
         .nest("/sessions", sessions::routes())
         .nest("/layouts", layouts::routes())
         .nest("/processes", processes::routes())
-        // .nest("/metrics", metrics::routes())   // TODO: Re-enable after refactoring
-        // .nest("/system", system::routes())     // TODO: Re-enable after refactoring
+        .nest("/metrics", metrics::routes())
+        .nest("/system", system::routes())
+        .nest("/themes", themes::routes())
 }
 
 fn auth_routes() -> Router<AppState> {
     Router::new()
+        .route("/csrf", axum::routing::get(auth::get_csrf_token))
         .route("/status", axum::routing::get(auth::get_auth_status))
         .route("/validate", axum::routing::get(auth::validate_auth))
         .route("/logout", axum::routing::post(auth::logout))

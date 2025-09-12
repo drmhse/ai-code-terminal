@@ -26,7 +26,7 @@ impl SqlSessionRepository {
             "active" => SessionStatus::Active,
             "inactive" => SessionStatus::Inactive,
             "terminated" => SessionStatus::Terminated,
-            "error" => SessionStatus::Error,
+            "error" => SessionStatus::Error("error status".to_string()),
             _ => SessionStatus::Active,
         }
     }
@@ -190,12 +190,23 @@ impl SessionRepository for SqlSessionRepository {
         Ok(sessions)
     }
 
+    async fn count_all_active(&self) -> Result<u64, act_core::error::CoreError> {
+        let count = handle_db_error!(
+            sqlx::query_scalar::<_, Option<i64>>(
+                "SELECT COUNT(*) FROM sessions WHERE status = 'active'"
+            )
+            .fetch_one(&self.pool)
+        );
+
+        Ok(count.unwrap_or(0) as u64)
+    }
+
     async fn list_by_status(&self, user_id: &str, status: SessionStatus) -> Result<Vec<act_core::repository::Session>, act_core::error::CoreError> {
         let status_str = match status {
             SessionStatus::Active => "active",
             SessionStatus::Inactive => "inactive",
             SessionStatus::Terminated => "terminated",
-            SessionStatus::Error => "error",
+            SessionStatus::Error(_) => "error",
         };
 
         let rows = handle_db_error!(
@@ -228,12 +239,12 @@ impl SessionRepository for SqlSessionRepository {
         let mut has_updates = false;
 
         if let Some(status) = &request.status {
-            let status_str = match status {
-                SessionStatus::Active => "active",
-                SessionStatus::Inactive => "inactive",
-                SessionStatus::Terminated => "terminated",
-                SessionStatus::Error => "error",
-            };
+let status_str = match status {
+    SessionStatus::Active => "active",
+    SessionStatus::Inactive => "inactive",
+    SessionStatus::Terminated => "terminated",
+    SessionStatus::Error(_) => "error",
+};
             query.push(", status = ");
             query.push_bind(status_str);
             has_updates = true;
@@ -268,6 +279,13 @@ impl SessionRepository for SqlSessionRepository {
         if let Some(activity_time) = &request.last_activity_at {
             query.push(", last_activity_at = ");
             query.push_bind(activity_time);
+            has_updates = true;
+        }
+
+        if let Some(history) = &request.shell_history {
+            let history_json = serde_json::to_string(history)?;
+            query.push(", shell_history = ");
+            query.push_bind(history_json);
             has_updates = true;
         }
 

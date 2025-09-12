@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/multi-word-component-names -->
 <template>
   <div class="app-container">
     <!-- Loading State -->
@@ -5,7 +6,7 @@
       <div class="loading-spinner"></div>
       <p>Initializing AI Code Terminal...</p>
     </div>
-    
+
     <!-- Error State -->
     <div v-else-if="appStatus === 'error'" class="app-error">
       <div class="error-icon">⚠️</div>
@@ -13,7 +14,7 @@
       <p>{{ initializationError }}</p>
       <button @click="tryInitializeApp" class="retry-button">Retry</button>
     </div>
-    
+
     <!-- Unauthenticated State -->
     <div v-else-if="appStatus === 'unauthenticated'" class="app-login">
       <div class="login-container">
@@ -27,27 +28,27 @@
         </a>
       </div>
     </div>
-    
+
     <!-- Main Application -->
     <template v-else-if="appStatus === 'ready'">
       <TitleBar />
       <MainContent />
       <StatusBar />
-      
+
       <!-- Modals and Overlays -->
       <ThemeModal v-if="uiStore.showThemeModal" />
       <RepositoriesModal v-if="workspaceStore.showRepositoriesModal" />
       <DeleteWorkspaceModal v-if="workspaceStore.showDeleteModal" />
       <FilePreviewModal v-if="fileStore.showFilePreviewModal" />
       <DiscardChangesModal v-if="fileStore.showDiscardModal" />
-      <CreateItemModal 
-        v-if="uiStore.showCreateItemModal" 
+      <CreateItemModal
+        v-if="uiStore.showCreateItemModal"
         :is-open="uiStore.showCreateItemModal"
         :parent-path="uiStore.createItemModalData?.parentPath || ''"
         @close="uiStore.closeCreateItemModal"
         @create="handleCreateItem"
       />
-      <ConfirmDeleteModal 
+      <ConfirmDeleteModal
         v-if="uiStore.showConfirmDeleteModal"
         :is-open="uiStore.showConfirmDeleteModal"
         :item-name="uiStore.confirmDeleteModalData?.itemName || ''"
@@ -58,13 +59,13 @@
         @close="uiStore.closeConfirmDeleteModal"
         @confirm="handleConfirmDelete"
       />
-      
+
       <!-- Mobile Interface -->
       <MobileInterface v-if="uiStore.isMobile" />
-      
+
       <!-- Context Menu -->
       <ContextMenu v-if="fileStore.showContextMenu" />
-      
+
       <!-- Resource Alerts -->
       <ResourceAlerts />
     </template>
@@ -72,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount } from 'vue'
+import { onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useFileStore } from '@/stores/file'
@@ -107,11 +108,11 @@ const uiStore = useUIStore()
 const layoutStore = useLayoutStore()
 
 // Composables
-const { 
-  appStatus, 
-  initializationError, 
-  tryInitializeApp, 
-  cleanup 
+const {
+  appStatus,
+  initializationError,
+  tryInitializeApp,
+  cleanup
 } = useAppCore()
 
 const { isInitialized: isGlobalAppInitialized, resetInitialization } = useAppInitialization()
@@ -126,21 +127,21 @@ useTheme()
 const getGitHubAuthUrl = () => authStore.getGitHubAuthUrl()
 
 // Modal handlers
-const handleCreateItem = async (data: { name: string; type: 'file' | 'directory'; content?: string }) => {
+const handleCreateItem = async (data: { name: string; type: 'file' | 'directory'; content?: string | undefined }) => {
   if (!uiStore.createItemModalData) return
-  
+
   try {
     const parentPath = uiStore.createItemModalData.parentPath
-    
+
     if (data.type === 'file') {
       await apiService.createFile(parentPath, data.name, data.content || '')
     } else {
       await apiService.createDirectory(parentPath, data.name)
     }
-    
+
     // Refresh the file listing
-    await fileStore.loadDirectoryContents(fileStore.currentPath)
-    
+    await fileStore.refreshFiles(fileStore.currentPath, false)
+
     uiStore.addResourceAlert({
       type: 'info',
       title: 'Item Created',
@@ -153,13 +154,13 @@ const handleCreateItem = async (data: { name: string; type: 'file' | 'directory'
       message: error instanceof Error ? error.message : `Failed to create ${data.type}`
     })
   }
-  
+
   uiStore.closeCreateItemModal()
 }
 
 const handleConfirmDelete = async () => {
   if (!uiStore.confirmDeleteModalData?.onConfirm) return
-  
+
   try {
     await uiStore.confirmDeleteModalData.onConfirm()
     uiStore.closeConfirmDeleteModal()
@@ -176,7 +177,7 @@ onMounted(async () => {
   console.log('🚀 TRACE: Dashboard.vue onMounted() called')
   console.log('🚀 TRACE: isGlobalAppInitialized.value =', isGlobalAppInitialized.value)
   console.log('🚀 TRACE: Dashboard mounted, initializing application...')
-  
+
   // Always ensure workspaces are loaded when dashboard mounts
   if (authStore.isAuthenticated) {
     const ownerId = authStore.user?.id || authStore.user?.login
@@ -184,7 +185,7 @@ onMounted(async () => {
     try {
       await workspaceStore.fetchWorkspaces(ownerId)
       console.log('✅ TRACE: Workspaces loaded successfully')
-      
+
       // If there's a selected workspace, fetch its layouts
       if (workspaceStore.selectedWorkspace) {
         await layoutStore.fetchLayouts(workspaceStore.selectedWorkspace.id)
@@ -194,13 +195,13 @@ onMounted(async () => {
       console.error('❌ TRACE: Failed to load workspaces on dashboard mount:', wsError)
     }
   }
-  
+
   // Skip initialization if global app is already initialized
   if (isGlobalAppInitialized.value) {
     console.log('⚠️ TRACE: Global app already initialized, skipping Dashboard initialization')
     return
   }
-  
+
   console.log('🚀 TRACE: Calling tryInitializeApp()...')
   // Initialize the application using the core composable
   // Theme system is automatically initialized by useTheme composable
@@ -211,11 +212,11 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   console.log('🧹 Dashboard unmounting, cleaning up...')
   cleanup()
-  
+
   // Reset global initialization state if needed
   // This allows re-initialization if the Dashboard component is remounted
   resetInitialization()
-  
+
   // Theme system cleanup is automatically handled by useTheme composable
 })
 </script>

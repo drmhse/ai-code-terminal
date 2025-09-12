@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed, readonly } from 'vue'
+import type { EditorInstance } from '@/types/editor'
+import { apiService } from '@/services/api'
 
 export interface EditorFile {
   path: string
@@ -14,14 +16,14 @@ export interface EditorFile {
 export const useEditorStore = defineStore('editor', () => {
   // Editor state
   const editMode = ref(false)
-  const editorInstance = ref<any>(null) // CodeMirror instance
+  const editorInstance = ref<EditorInstance | null>(null) // CodeMirror instance
   const originalContent = ref('')
   const hasUnsavedChanges = ref(false)
   const saving = ref(false)
   const saveError = ref<string | null>(null)
   
   // Editor keyboard handler
-  const editorKeyboardHandler = ref<any>(null)
+  const editorKeyboardHandler = ref<((event: KeyboardEvent) => void) | null>(null)
   
   // File being edited
   const currentFile = ref<EditorFile | null>(null)
@@ -41,11 +43,7 @@ export const useEditorStore = defineStore('editor', () => {
     gutters: ['CodeMirror-linenumbers', 'CodeMirror-foldgutter']
   })
 
-  // Lazy load apiService when needed
-  const getApiService = async () => {
-    const { apiService } = await import('@/services/api')
-    return apiService
-  }
+  
 
   // Computed properties
   const isEditing = computed(() => editMode.value && currentFile.value !== null)
@@ -154,15 +152,14 @@ export const useEditorStore = defineStore('editor', () => {
     }
   }
 
-  const saveFile = async () => {
+  const saveFile = async (workspaceId?: string) => {
     if (!currentFile.value || !canSave.value) return
 
     saving.value = true
     saveError.value = null
 
     try {
-      const apiService = await getApiService()
-      await apiService.saveFile(currentFile.value.path, currentFile.value.content)
+      await apiService.saveFile(currentFile.value.path, currentFile.value.content, workspaceId)
       
       // Update original content to match saved content
       currentFile.value.originalContent = currentFile.value.content
@@ -206,11 +203,11 @@ export const useEditorStore = defineStore('editor', () => {
     // If action is 'closeModal', just discard changes but stay in edit mode
   }
 
-  const setEditorInstance = (instance: any) => {
+  const setEditorInstance = (instance: EditorInstance) => {
     editorInstance.value = instance
   }
 
-  const setKeyboardHandler = (handler: any) => {
+  const setKeyboardHandler = (handler: (event: KeyboardEvent) => void) => {
     editorKeyboardHandler.value = handler
   }
 

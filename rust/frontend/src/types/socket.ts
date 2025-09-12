@@ -64,8 +64,8 @@ export function validateTerminalOutputEvent(data: unknown): data is TerminalOutp
   return (
     typeof data === 'object' &&
     data !== null &&
-    typeof (data as any).sessionId === 'string' &&
-    typeof (data as any).output === 'string'
+    typeof (data as { sessionId: unknown }).sessionId === 'string' &&
+    typeof (data as { output: unknown }).output === 'string'
   )
 }
 
@@ -73,10 +73,10 @@ export function validateTerminalCreatedEvent(data: unknown): data is TerminalCre
   return (
     typeof data === 'object' &&
     data !== null &&
-    typeof (data as any).sessionId === 'string' &&
-    typeof (data as any).pid === 'number' &&
-    ((data as any).success === undefined || typeof (data as any).success === 'boolean') &&
-    ((data as any).workspaceId === undefined || typeof (data as any).workspaceId === 'string')
+    typeof (data as { sessionId: unknown }).sessionId === 'string' &&
+    typeof (data as { pid: unknown }).pid === 'number' &&
+    ((data as { success: unknown }).success === undefined || typeof (data as { success: unknown }).success === 'boolean') &&
+    ((data as { workspaceId: unknown }).workspaceId === undefined || typeof (data as { workspaceId: unknown }).workspaceId === 'string')
   )
 }
 
@@ -84,14 +84,24 @@ export function validateTerminalDestroyedEvent(data: unknown): data is TerminalD
   return (
     typeof data === 'object' &&
     data !== null &&
-    typeof (data as any).sessionId === 'string'
+    typeof (data as { sessionId: unknown }).sessionId === 'string'
   )
 }
 
 export function validateStatsDataEvent(data: unknown): data is StatsDataEvent {
   if (typeof data !== 'object' || data === null) return false
   
-  const event = data as any
+  const event = data as {
+    cpu_usage?: unknown
+    memory_usage?: unknown
+    memory_total?: unknown
+    disk_usage?: unknown
+    disk_total?: unknown
+    uptime?: unknown
+    load_average?: unknown
+    processes?: unknown
+    timestamp?: unknown
+  }
   return (
     typeof event.cpu_usage === 'number' &&
     typeof event.memory_usage === 'number' &&
@@ -109,8 +119,8 @@ export function validateWebSocketAuthErrorEvent(data: unknown): data is WebSocke
   return (
     typeof data === 'object' &&
     data !== null &&
-    typeof (data as any).code === 'string' &&
-    typeof (data as any).message === 'string' &&
-    typeof (data as any).timestamp === 'number'
+    typeof (data as { code: unknown }).code === 'string' &&
+    typeof (data as { message: unknown }).message === 'string' &&
+    typeof (data as { timestamp: unknown }).timestamp === 'number'
   )
 }

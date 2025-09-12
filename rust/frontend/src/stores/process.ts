@@ -24,7 +24,7 @@ export interface Process {
   workspace_id?: string
   session_id?: string
   tags?: string[]
-  data?: any
+  data?: Record<string, unknown>
   created_at: string
   updated_at: string
 }

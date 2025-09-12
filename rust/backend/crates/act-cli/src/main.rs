@@ -2,7 +2,10 @@ use act_core::{
     error::CoreError,
     repository::{Workspace, WorkspaceRepository, CreateWorkspaceRequest, UpdateWorkspaceRequest, WorkspaceId},
 };
+use act_persistence::workspace_repository::SqlWorkspaceRepository;
 use clap::{Parser, Subcommand};
+use sqlx::SqlitePool;
+use dotenvy::dotenv;
 
 #[derive(Parser)]
 #[command(name = "act-cli")]
@@ -26,10 +29,22 @@ enum Commands {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     
-    println!("🚀 ACT CLI Tool - Demonstrating Domain Crate Usage");
+    println!("🚀 ACT CLI Tool - Connected to Real Database");
     
-    // Create mock repository
-    let mock_repo = MockWorkspaceRepository::new();
+    // Load environment variables
+    dotenv().ok();
+    
+    // Get database URL from environment
+    let database_url = std::env::var("ACT_DATABASE_URL")
+        .unwrap_or_else(|_| "sqlite:./data/act.db".to_string());
+    
+    println!("📊 Connecting to database: {}", database_url);
+    
+    // Create database connection pool
+    let pool = SqlitePool::connect(&database_url).await?;
+    
+    // Create real repository
+    let real_repo = SqlWorkspaceRepository::new(pool.clone());
     
     match cli.command {
         Commands::CreateWorkspace { name, github_repo } => {
@@ -41,7 +56,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 local_path: Some(format!("/tmp/{}", name)),
             };
             
-            match mock_repo.create(create_request).await {
+            // For demo purposes, use a fixed user ID
+            let user_id = "demo-user-id";
+            
+            match real_repo.create(user_id, create_request).await {
                 Ok(workspace) => {
                     println!("✅ Created workspace: {} (ID: {})", workspace.name, workspace.id);
                 }
@@ -52,7 +70,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         Commands::ListWorkspaces => {
-            match mock_repo.list_all().await {
+            // For demo purposes, use a fixed user ID
+            let user_id = "demo-user-id";
+            
+            match real_repo.list_all(user_id).await {
                 Ok(workspaces) => {
                     println!("📋 Found {} workspaces:", workspaces.len());
                     for workspace in workspaces {
@@ -67,108 +88,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     
-    println!("🎉 CLI tool completed successfully - domain crates are extractable!");
+    // Close database connection pool
+    pool.close().await;
+    
+    println!("🎉 CLI tool completed successfully - connected to real database!");
     Ok(())
-}
-
-// Mock implementation for demonstration
-struct MockWorkspaceRepository {
-    workspaces: std::sync::Mutex<Vec<Workspace>>,
-}
-
-impl MockWorkspaceRepository {
-    fn new() -> Self {
-        let workspaces = vec![Workspace {
-            id: uuid::Uuid::new_v4().to_string(),
-            name: "sample-project".to_string(),
-            github_repo: "example/sample-project".to_string(),
-            github_url: "https://github.com/example/sample-project".to_string(),
-            local_path: "/tmp/sample-project".to_string(),
-            is_active: true,
-            last_sync_at: None,
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
-        }];
-        
-        Self {
-            workspaces: std::sync::Mutex::new(workspaces),
-        }
-    }
-}
-
-#[async_trait::async_trait]
-impl WorkspaceRepository for MockWorkspaceRepository {
-    async fn create(&self, request: CreateWorkspaceRequest) -> Result<Workspace, CoreError> {
-        let workspace = Workspace {
-            id: uuid::Uuid::new_v4().to_string(),
-            name: request.name,
-            github_repo: request.github_repo,
-            github_url: request.github_url,
-            local_path: request.local_path.unwrap_or_else(|| "/tmp/default".to_string()),
-            is_active: true,
-            last_sync_at: None,
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
-        };
-        
-        self.workspaces.lock().unwrap().push(workspace.clone());
-        Ok(workspace)
-    }
-    
-    async fn get_by_id(&self, id: &WorkspaceId) -> Result<Workspace, CoreError> {
-        let workspaces = self.workspaces.lock().unwrap();
-        workspaces.iter().find(|w| &w.id == id).cloned()
-            .ok_or_else(|| CoreError::NotFound("Workspace not found".to_string()))
-    }
-    
-    async fn get_by_github_repo(&self, repo: &str) -> Result<Option<Workspace>, CoreError> {
-        let workspaces = self.workspaces.lock().unwrap();
-        Ok(workspaces.iter().find(|w| w.github_repo == repo).cloned())
-    }
-    
-    async fn list_all(&self) -> Result<Vec<Workspace>, CoreError> {
-        Ok(self.workspaces.lock().unwrap().clone())
-    }
-    
-    async fn list_active(&self) -> Result<Vec<Workspace>, CoreError> {
-        let workspaces = self.workspaces.lock().unwrap();
-        Ok(workspaces.iter().filter(|w| w.is_active).cloned().collect())
-    }
-    
-    async fn update(&self, id: &WorkspaceId, request: UpdateWorkspaceRequest) -> Result<Workspace, CoreError> {
-        let mut workspaces = self.workspaces.lock().unwrap();
-        if let Some(workspace) = workspaces.iter_mut().find(|w| &w.id == id) {
-            if let Some(new_name) = request.name {
-                workspace.name = new_name;
-            }
-            if let Some(active) = request.is_active {
-                workspace.is_active = active;
-            }
-            workspace.updated_at = chrono::Utc::now();
-            Ok(workspace.clone())
-        } else {
-            Err(CoreError::NotFound("Workspace not found".to_string()))
-        }
-    }
-    
-    async fn delete(&self, id: &WorkspaceId) -> Result<(), CoreError> {
-        let mut workspaces = self.workspaces.lock().unwrap();
-        if let Some(pos) = workspaces.iter().position(|w| &w.id == id) {
-            workspaces.remove(pos);
-            Ok(())
-        } else {
-            Err(CoreError::NotFound("Workspace not found".to_string()))
-        }
-    }
-    
-    async fn set_active(&self, id: &WorkspaceId, active: bool) -> Result<(), CoreError> {
-        let mut workspaces = self.workspaces.lock().unwrap();
-        if let Some(workspace) = workspaces.iter_mut().find(|w| &w.id == id) {
-            workspace.is_active = active;
-            workspace.updated_at = chrono::Utc::now();
-            Ok(())
-        } else {
-            Err(CoreError::NotFound("Workspace not found".to_string()))
-        }
-    }
 }

@@ -1,0 +1,48 @@
+# Git
+.git
+
+# Rust build artifacts
+target
+
+# Cargo cache
+Cargo.lock
+Cargo.toml.lock
+~/.cargo
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.idea
+*.swp
+*.sublime-*
+
+# OS data
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/*
+
+# Temporary files
+*.tmp
+tmp/
+
+# OS hidden files
+.*.swp
+.*.swo
+
+# Docker
+.dockerignore
+Dockerfile*
+
+# Node (if any)
+node_modules
+npm-debug.log*
+
+# Rust-specific
+target/

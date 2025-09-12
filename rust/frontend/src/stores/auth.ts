@@ -313,7 +313,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (socketService) {
       socketService.subscribe('stats:data', (event) => {
         if (statsListener.value) {
-          statsListener.value({ detail: event } as any)
+          statsListener.value({ detail: event } as CustomEvent<unknown>)
         }
       })
       

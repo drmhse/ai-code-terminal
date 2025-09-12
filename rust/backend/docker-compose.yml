@@ -1,0 +1,70 @@
+services:
+  act:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: act_rust_backend
+    restart: unless-stopped
+
+    ports:
+      - "${PORT:-3001}:${ACT_SERVER_PORT:-3001}"
+
+    # Environment variables using the same convention as Node version
+    # but mapping to Rust backend's expected variable names
+    environment:
+      # Server Configuration
+      - ACT_SERVER_HOST=0.0.0.0
+      - ACT_SERVER_PORT=${PORT:-3001}
+
+      # Database Configuration
+      - ACT_DATABASE_URL=${ACT_DATABASE_URL:-sqlite:./data/act.db}
+      - ACT_DATABASE_MAX_CONNECTIONS=10
+
+      # Authentication Configuration (mapping Node convention to Rust)
+      - ACT_AUTH_JWT_SECRET=${ACT_AUTH_JWT_SECRET}
+      - ACT_AUTH_GITHUB_CLIENT_ID=${ACT_AUTH_GITHUB_CLIENT_ID}
+      - ACT_AUTH_GITHUB_CLIENT_SECRET=${ACT_AUTH_GITHUB_CLIENT_SECRET}
+      - ACT_AUTH_GITHUB_REDIRECT_URL=${ACT_AUTH_GITHUB_REDIRECT_URL}
+      - ACT_AUTH_TENANT_GITHUB_USERNAME=${ACT_AUTH_TENANT_GITHUB_USERNAME}
+
+      # CORS Configuration
+      - ACT_CORS_ALLOWED_ORIGINS=${ACT_CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+      - ACT_CORS_ALLOWED_HEADERS=content-type,authorization,x-requested-with
+
+      # Logging Configuration
+      - RUST_LOG=${LOG_LEVEL:-act_server=info,act_core=info}
+
+      # Additional environment indicators
+      - RUST_ENV=${NODE_ENV:-development}
+
+    volumes:
+      - act_rust_data:/app/data  # Persist SQLite DB
+      - act_rust_workspaces:/app/workspaces  # Persist workspaces for PTY
+      - act_rust_logs:/app/logs  # Logs
+
+    # Resource limits for consistency with Node version
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+          cpus: '0.1'
+
+    stdin_open: true
+    tty: true
+    working_dir: /app
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${ACT_SERVER_PORT:-3001}/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+# Define volumes consistent with Node version naming
+volumes:
+  act_rust_data:
+  act_rust_workspaces:
+  act_rust_logs:

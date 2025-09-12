@@ -59,10 +59,10 @@ pub enum SessionStatus {
     Active,
     Inactive,
     Terminated,
-    Error,
+    Error(String),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum SessionType {
     Terminal,
     Editor,
@@ -109,6 +109,7 @@ pub struct UpdateSessionRequest {
     pub terminal_size: Option<TerminalSize>,
     pub last_command: Option<String>,
     pub last_activity_at: Option<DateTime<Utc>>,
+    pub shell_history: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -155,6 +156,8 @@ pub trait SessionRepository: Send + Sync {
     async fn list_by_workspace(&self, user_id: &str, workspace_id: &WorkspaceId) -> Result<Vec<Session>>;
     
     async fn list_active(&self, user_id: &str) -> Result<Vec<Session>>;
+    
+    async fn count_all_active(&self) -> Result<u64>;
     
     async fn list_by_status(&self, user_id: &str, status: SessionStatus) -> Result<Vec<Session>>;
     
@@ -233,6 +236,8 @@ pub trait ProcessRepository: Send + Sync {
     async fn update_status(&self, user_id: &str, id: &str, status: &str, exit_code: Option<i32>) -> Result<()>;
     
     async fn increment_restart_count(&self, user_id: &str, id: &str) -> Result<i32>;
+    
+    async fn count_active_processes(&self) -> Result<u64>;
 }
 
 #[derive(Debug, Clone)]

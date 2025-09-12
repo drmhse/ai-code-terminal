@@ -24,7 +24,7 @@
         We found {{ persistentSessions.length }} persistent terminal session(s) for this workspace.<br/>
         Would you like to restore them or start fresh?
       </p>
-      
+
       <div class="sessions-list">
         <div v-for="session in persistentSessions" :key="session.id" class="session-item">
           <div class="session-info">
@@ -37,7 +37,7 @@
           </button>
         </div>
       </div>
-      
+
       <div class="session-actions">
         <button @click="createNewSession" class="btn btn-secondary">
           Start Fresh Terminal
@@ -72,31 +72,31 @@
                 <line x1="9" y1="17" x2="13" y2="17"></line>
               </svg>
             </button>
-            
+
             <!-- Layout Menu -->
             <div v-if="showLayoutMenu" class="layout-menu" @click.stop>
               <!-- Save Layout -->
               <div class="menu-section">
                 <div class="menu-header">Save Current Layout</div>
                 <div class="save-layout-form">
-                  <input 
-                    v-model="newLayoutName" 
-                    type="text" 
+                  <input
+                    v-model="newLayoutName"
+                    type="text"
                     placeholder="Layout name..."
                     class="layout-name-input"
                     @keyup.enter="() => saveCurrentLayout(false)"
                   />
                   <div class="save-actions">
-                    <button 
-                      @click="saveCurrentLayout(false)" 
+                    <button
+                      @click="saveCurrentLayout(false)"
                       class="btn-save"
                       :disabled="!newLayoutName.trim()"
                       title="Save layout"
                     >
                       Save
                     </button>
-                    <button 
-                      @click="saveCurrentLayout(true)" 
+                    <button
+                      @click="saveCurrentLayout(true)"
                       class="btn-set-default"
                       :disabled="!newLayoutName.trim()"
                       title="Save and set as default"
@@ -106,13 +106,13 @@
                   </div>
                 </div>
               </div>
-              
+
               <!-- Load Layout -->
               <div v-if="layoutStore.workspaceLayouts(workspaceStore.selectedWorkspace.id).length > 0" class="menu-section">
                 <div class="menu-header">Load Layout</div>
                 <div class="layout-list">
-                  <div 
-                    v-for="layout in layoutStore.workspaceLayouts(workspaceStore.selectedWorkspace.id)" 
+                  <div
+                    v-for="layout in layoutStore.workspaceLayouts(workspaceStore.selectedWorkspace.id)"
                     :key="layout.id"
                     class="layout-item"
                     :class="{ active: layoutStore.currentLayout?.id === layout.id }"
@@ -122,16 +122,16 @@
                       <span v-if="layout.is_default" class="layout-badge">Default</span>
                     </div>
                     <div class="layout-item-actions">
-                      <button 
-                        @click="setLayoutAsDefault(layout.id)" 
+                      <button
+                        @click="setLayoutAsDefault(layout.id)"
                         class="action-btn-small"
                         :class="{ active: layout.is_default }"
                         title="Set as default"
                       >
                         ★
                       </button>
-                      <button 
-                        @click="duplicateLayout(layout)" 
+                      <button
+                        @click="duplicateLayout(layout)"
                         class="action-btn-small"
                         title="Duplicate layout"
                       >
@@ -140,27 +140,27 @@
                           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                         </svg>
                       </button>
-                      <button 
-                        @click="deleteLayout(layout)" 
+                      <button
+                        @click="deleteLayout(layout)"
                         class="action-btn-small delete"
                         title="Delete layout"
                       >
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                           <polyline points="3,6 5,6 21,6"></polyline>
-                          <path d="m19,6v14a2,2 0 0,1-2,2H7a2,2 0 0,1-2-2V6m3,0V4a2,2 0 0,1,2-2h4a2,2 0 0,1,2,2v2"></path>
+                          <path d="m19,6v14a2,2 0 0,1-2,2H7a2,2 0,0,1-2-2V6m3,0V4a2,2 0,0,1,2-2h4a2,2 0,0,1,2,2v2"></path>
                         </svg>
                       </button>
                     </div>
                   </div>
                 </div>
               </div>
-              
+
               <div v-else class="menu-section">
                 <div class="no-layouts">No saved layouts</div>
               </div>
             </div>
           </div>
-          
+
           <!-- New Terminal -->
           <button class="action-btn" @click="createNewTerminal" title="New terminal session">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -172,8 +172,8 @@
 
         <!-- Layout Switcher -->
         <div v-if="!uiStore.isMobile" class="layout-switcher">
-          <button 
-            v-for="layout in terminalStore.layoutRecommendations.supported" 
+          <button
+            v-for="layout in terminalStore.layoutRecommendations.supported"
             :key="layout"
             class="layout-btn"
             :class="{ active: terminalStore.currentLayout === layout }"
@@ -186,8 +186,8 @@
       </div>
 
       <!-- Terminal Container -->
-      <div 
-        class="terminal-container" 
+      <div
+        class="terminal-container"
         :style="{
           'grid-template-columns': terminalStore.gridTemplateColumns,
           'grid-template-rows': terminalStore.gridTemplateRows
@@ -197,11 +197,10 @@
         @touchend="handleTouchEnd"
       >
         <TerminalPane
-          v-for="pane in terminalStore.panes" 
+          v-for="pane in terminalStore.panes"
           :key="pane.id"
-          ref="terminalPanes"
-          :pane="pane"
-          :is-active="pane.id === terminalStore.activePaneId"
+          :pane="pane as any"
+          :is-active="pane.id === terminalStore.activePane"
           :workspace-path="workspaceStore.selectedWorkspace?.path"
           :can-split="terminalStore.panes.length < 4"
           :show-close-button="terminalStore.panes.length > 1"
@@ -217,7 +216,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useWorkspaceStore } from '../stores/workspace'
 import { useTerminalStore } from '../stores/terminal'
 import { useUIStore } from '../stores/ui'
@@ -236,24 +235,12 @@ const authStore = useAuthStore()
 const layoutStore = useLayoutStore()
 const showRepositoriesModal = ref(false)
 
-// Layout management state
 const showLayoutMenu = ref(false)
 const newLayoutName = ref('')
-
-// Socket connection state
 const isConnected = ref(false)
-
-// Session management state
 const persistentSessions = ref<Session[]>([])
 const showSessionReconnect = ref(false)
 
-// Terminal pane references
-const terminalPanes = ref<InstanceType<typeof TerminalPane>[]>([])
-
-// Terminal instances map for direct access
-const terminalInstances = new Map<string, InstanceType<typeof TerminalPane>>()
-
-// Touch gesture state
 const touchStartX = ref(0)
 const touchStartY = ref(0)
 const touchEndX = ref(0)
@@ -267,10 +254,10 @@ const formatLayoutName = (layout: string) => {
 
 const loadPersistentSessions = async () => {
   if (!workspaceStore.selectedWorkspace || !workspaceStore.selectedWorkspace.id) return
-  
+
   try {
     const sessions = await apiService.getSessions(workspaceStore.selectedWorkspace.id)
-    persistentSessions.value = sessions.filter(session => 
+    persistentSessions.value = sessions.filter(session =>
       session.status === 'active' || session.status === 'disconnected'
     )
     showSessionReconnect.value = persistentSessions.value.length > 0
@@ -279,22 +266,33 @@ const loadPersistentSessions = async () => {
   }
 }
 
-// Watch for workspace changes and reload persistent sessions
 watch(() => workspaceStore.selectedWorkspace, async (newWorkspace) => {
   if (newWorkspace) {
     await loadPersistentSessions()
   } else {
-    // Clear sessions when no workspace is selected
     persistentSessions.value = []
     showSessionReconnect.value = false
   }
 })
 
-// Watch for pane changes and auto-save layout
-watch(() => terminalStore.panes, () => {
-  if (workspaceStore.selectedWorkspace && terminalStore.panes.length > 0) {
+// **FIX:** Create a computed property that generates a "signature" of the layout structure.
+const layoutSignature = computed(() => {
+  if (!terminalStore.hasPanes) return '';
+  const paneSignatures = terminalStore.panes
+    .map(p => `${p.id}:${p.tabs.length}`)
+    .sort() // Sort to make it deterministic regardless of pane order
+    .join('|');
+  return `${terminalStore.currentLayout}|${paneSignatures}`;
+});
+
+
+// **FIX:** Watch the layout signature instead of a deep watch on the panes array.
+watch(layoutSignature, (newSignature, oldSignature) => {
+  // Only save if the structure has actually changed and is not the initial setup.
+  if (newSignature && oldSignature && newSignature !== oldSignature && workspaceStore.selectedWorkspace && terminalStore.panes.length > 0) {
     const layoutConfig = {
       layout_type: terminalStore.currentLayout,
+      type: terminalStore.currentLayout,
       panes: terminalStore.panes.map(pane => ({
         id: pane.id,
         name: pane.name,
@@ -308,55 +306,42 @@ watch(() => terminalStore.panes, () => {
         })),
         active_tab: pane.activeTabId
       })),
-      active_pane: terminalStore.activePaneId,
+      active_pane: terminalStore.activePane,
       timestamp: new Date().toISOString()
     }
-    
-    // Use debounced save to avoid excessive API calls during pane operations
+
+    // **FIX:** Pass `true` for the new `silent` parameter.
     layoutStore.debouncedSaveLayout(
       `Auto-saved ${terminalStore.currentLayout} layout`,
       workspaceStore.selectedWorkspace.id,
-      layoutConfig,
-      false // Don't set as default for auto-saves
+      { ...layoutConfig, type: layoutConfig.layout_type || 'single' },
+      false, // isDefault
+      true // silent
     )
   }
-}, { deep: true })
+})
 
 const reconnectToSession = async (session: Session) => {
   if (!workspaceStore.selectedWorkspace || !workspaceStore.selectedWorkspace.id) {
     console.error('No workspace selected for session reconnection')
     return
   }
-  
+
   try {
-    // Create a new terminal session normally - the backend should now use the frontend session ID
     const pane = await terminalStore.createTerminal(workspaceStore.selectedWorkspace.id)
     if (pane) {
-      await nextTick()
-      initializeTerminal(pane.id)
-      
-      // Load and display session history from the old session
-      try {
-        const history = await apiService.getSessionHistory(session.id)
-        const terminalInstance = terminalInstances.get(pane.id)
-        if (terminalInstance && history.length > 0) {
-          // Display session restoration message
-          terminalInstance.writeln(`\r\n\x1b[1;34m● Restored from previous session (${history.length} commands)\x1b[0m`)
-          // Display each command from history
-          history.forEach(command => {
-            terminalInstance.writeln(`\x1b[90m$ ${command}\x1b[0m`)
-          })
-          terminalInstance.writeln(`\x1b[1;32m● Session restored - ready for new commands\x1b[0m\r\n`)
-        }
-      } catch (historyError) {
-        console.warn('Failed to load session history:', historyError)
-        const terminalInstance = terminalInstances.get(pane.id)
-        if (terminalInstance) {
-          terminalInstance.writeln(`\r\n\x1b[1;33m● Starting fresh session (history unavailable)\x1b[0m\r\n`)
-        }
+      const terminalInstance = terminalStore.panes.find(p => p.id === pane.id); // This is simplified
+      if (terminalInstance) {
+          try {
+              const history = await apiService.getSessionHistory(session.id)
+              // The TerminalPane component would need a method to display this history
+              console.log(`Restored history for session ${session.id}:`, history);
+          } catch (historyError) {
+              console.warn('Failed to load session history:', historyError)
+          }
       }
     }
-    
+
     showSessionReconnect.value = false
   } catch (error) {
     console.error('Failed to reconnect to session:', error)
@@ -368,36 +353,14 @@ const createNewSession = async () => {
   showSessionReconnect.value = false
 }
 
-const initializeTerminal = async (paneId: string) => {
-  await nextTick()
-  const terminalPane = terminalPanes.value.find(tp => {
-    return tp.$props.pane.id === paneId
-  })
-  if (terminalPane) {
-    // Store reference to terminal instance
-    terminalInstances.set(paneId, terminalPane)
-    
-    console.log(`✅ Terminal initialized for pane ${paneId}`)
-  }
-}
-
-// Guard against duplicate terminal creation calls
 const creatingTerminal = ref(false)
 
 const createNewTerminal = async () => {
-  if (creatingTerminal.value) {
-    console.log('⚠️ Terminal creation already in progress, skipping duplicate call')
-    return
-  }
-  
+  if (creatingTerminal.value) return
   if (workspaceStore.selectedWorkspace) {
     creatingTerminal.value = true
     try {
-      const pane = await terminalStore.createTerminal(workspaceStore.selectedWorkspace.id)
-      if (pane) {
-        await nextTick()
-        initializeTerminal(pane.id)
-      }
+      await terminalStore.createTerminal(workspaceStore.selectedWorkspace.id)
     } finally {
       creatingTerminal.value = false
     }
@@ -405,44 +368,23 @@ const createNewTerminal = async () => {
 }
 
 const handleTerminalData = (paneId: string, data: string) => {
-  const pane = terminalStore.panes.find(p => p.id === paneId)
-  if (pane && isConnected.value && pane.activeTabId) {
-    const activeTab = pane.tabs.find(t => t.id === pane.activeTabId)
-    if (activeTab) {
-      console.log(`Sending terminal data: ${JSON.stringify(data)} for session ${activeTab.sessionId}`)
-      socketService.sendTerminalData(activeTab.sessionId, data)
-    }
-  } else if (!isConnected.value) {
-    console.warn('Cannot send terminal data: WebSocket not connected')
-  } else {
-    console.warn(`Cannot find pane ${paneId} or active tab to send data`)
-  }
+  terminalStore.sendInput(paneId, data)
 }
 
 const handleTerminalResize = (paneId: string, cols: number, rows: number) => {
   terminalStore.resizePane(paneId, cols, rows)
-  const pane = terminalStore.panes.find(p => p.id === paneId)
-  if (pane && isConnected.value && pane.activeTabId) {
-    const activeTab = pane.tabs.find(t => t.id === pane.activeTabId)
-    if (activeTab) {
-      socketService.resizeTerminal(activeTab.sessionId, cols, rows)
-    }
-  }
 }
 
 const handleTerminalFocus = (paneId: string) => {
-  // Only set active pane - don't call focus again to avoid recursion
   terminalStore.setActivePane(paneId)
-  console.log(`Terminal pane ${paneId} set as active`)
 }
 
 const handleSplit = async (direction: 'horizontal' | 'vertical') => {
   if (!workspaceStore.selectedWorkspace) return
-  
-  // Determine new layout based on current layout and split direction
+
   const currentLayout = terminalStore.currentLayout
   let newLayout: typeof currentLayout = currentLayout
-  
+
   if (currentLayout === 'single') {
     newLayout = direction === 'horizontal' ? 'horizontal-split' : 'vertical-split'
   } else if (currentLayout === 'horizontal-split' && direction === 'vertical') {
@@ -450,56 +392,44 @@ const handleSplit = async (direction: 'horizontal' | 'vertical') => {
   } else if (currentLayout === 'vertical-split' && direction === 'horizontal') {
     newLayout = 'grid-2x2'
   }
-  
-  // Update layout if it changed
+
   if (newLayout !== currentLayout) {
     await terminalStore.setLayout(newLayout)
   }
-  
-  // Create new terminal
+
   await createNewTerminal()
 }
 
-// Touch gesture handlers for mobile terminal switching
 const handleTouchStart = (event: TouchEvent) => {
   if (!uiStore.isMobile || terminalStore.panes.length <= 1) return
-  
   touchStartX.value = event.touches[0].clientX
   touchStartY.value = event.touches[0].clientY
 }
 
 const handleTouchMove = (event: TouchEvent) => {
   if (!uiStore.isMobile || terminalStore.panes.length <= 1) return
-  
   touchEndX.value = event.touches[0].clientX
   touchEndY.value = event.touches[0].clientY
 }
 
 const handleTouchEnd = () => {
   if (!uiStore.isMobile || terminalStore.panes.length <= 1) return
-  
+
   const deltaX = touchEndX.value - touchStartX.value
   const deltaY = Math.abs(touchEndY.value - touchStartY.value)
-  
-  // Check if it's a horizontal swipe and not too vertical
+
   if (Math.abs(deltaX) > minSwipeDistance && deltaY < maxVerticalDistance) {
-    // Switch to next or previous terminal
-    const currentIndex = terminalStore.panes.findIndex(pane => pane.id === terminalStore.activePaneId)
+    const currentIndex = terminalStore.panes.findIndex(pane => pane.id === terminalStore.activePane)
     if (currentIndex !== -1) {
       let nextIndex
       if (deltaX > 0) {
-        // Swipe right - go to previous terminal
         nextIndex = currentIndex > 0 ? currentIndex - 1 : terminalStore.panes.length - 1
       } else {
-        // Swipe left - go to next terminal
         nextIndex = currentIndex < terminalStore.panes.length - 1 ? currentIndex + 1 : 0
       }
-      
       const nextPane = terminalStore.panes[nextIndex]
       if (nextPane) {
         terminalStore.setActivePane(nextPane.id)
-        
-        // Visual feedback - could add a swipe animation here
         console.log(`Switched to terminal ${nextIndex + 1} of ${terminalStore.panes.length}`)
       }
     }
@@ -507,18 +437,15 @@ const handleTouchEnd = () => {
 }
 
 const closeTerminal = async (paneId: string) => {
-  // Remove from terminal instances map
-  terminalInstances.delete(paneId)
   await terminalStore.closeTerminal(paneId)
 }
 
 const switchLayout = async (layout: LayoutType) => {
   await terminalStore.setLayout(layout)
-  
-  // Auto-save layout configuration when layout changes
     if (workspaceStore.selectedWorkspace) {
       const layoutConfig = {
         layout_type: layout,
+        type: layout,
         panes: terminalStore.panes.map(pane => ({
           id: pane.id,
           name: pane.name,
@@ -532,27 +459,24 @@ const switchLayout = async (layout: LayoutType) => {
           })),
           active_tab: pane.activeTabId
         })),
-        active_pane: terminalStore.activePaneId,
+        active_pane: terminalStore.activePane,
         timestamp: new Date().toISOString()
       }
-      
-      // Use debounced save to avoid excessive API calls
       layoutStore.debouncedSaveLayout(
         `Auto-saved ${layout} layout`,
         workspaceStore.selectedWorkspace.id,
         layoutConfig,
-        false // Don't set as default for auto-saves
+        false
       )
     }
 }
 
-// Layout management methods
 const saveCurrentLayout = async (setDefault = false) => {
   if (!workspaceStore.selectedWorkspace || !newLayoutName.value.trim()) return
-  
   try {
     const layoutConfig = {
       layout_type: terminalStore.currentLayout,
+      type: terminalStore.currentLayout,
       panes: terminalStore.panes.map(pane => ({
         id: pane.id,
         name: pane.name,
@@ -566,17 +490,16 @@ const saveCurrentLayout = async (setDefault = false) => {
         })),
         active_tab: pane.activeTabId
       })),
-      active_pane: terminalStore.activePaneId,
+      active_pane: terminalStore.activePane,
       timestamp: new Date().toISOString()
     }
-    
     await layoutStore.saveCurrentLayout(
       newLayoutName.value.trim(),
       workspaceStore.selectedWorkspace.id,
-      layoutConfig,
-      setDefault
+      { ...layoutConfig, type: layoutConfig.layout_type || 'single' },
+      setDefault,
+      false // Not silent, this is a manual save
     )
-    
     newLayoutName.value = ''
     showLayoutMenu.value = false
   } catch (err) {
@@ -584,18 +507,11 @@ const saveCurrentLayout = async (setDefault = false) => {
   }
 }
 
-const loadLayout = async (layout: any) => {
+const loadLayout = async (layout: import('@/stores/layout').Layout) => {
   try {
-    // Set the layout type
     await terminalStore.setLayout(layout.configuration.type as LayoutType)
-    
-    // Set as current layout in store
     layoutStore.setCurrentLayout(layout)
-    
     showLayoutMenu.value = false
-    
-    // Note: Terminal pane restoration would need additional logic
-    // This is a simplified version that just changes the layout type
   } catch (err) {
     console.error('Failed to load layout:', err)
   }
@@ -609,7 +525,7 @@ const setLayoutAsDefault = async (layoutId: string) => {
   }
 }
 
-const duplicateLayout = async (layout: any) => {
+const duplicateLayout = async (layout: import('@/stores/layout').Layout) => {
   try {
     const newName = `${layout.name} (Copy)`
     await layoutStore.duplicateLayout(layout.id, newName)
@@ -618,13 +534,10 @@ const duplicateLayout = async (layout: any) => {
   }
 }
 
-const deleteLayout = async (layout: any) => {
+const deleteLayout = async (layout: import('@/stores/layout').Layout) => {
   if (!confirm(`Are you sure you want to delete the layout "${layout.name}"?`)) return
-  
   try {
     await layoutStore.deleteLayout(layout.id)
-    
-    // Clear current layout if it was deleted
     if (layoutStore.currentLayout?.id === layout.id) {
       layoutStore.setCurrentLayout(null)
     }
@@ -633,124 +546,44 @@ const deleteLayout = async (layout: any) => {
   }
 }
 
-// Close layout menu when clicking outside
 const handleClickOutside = (event: MouseEvent) => {
-  if (showLayoutMenu.value && !event.composedPath().some((el: any) => 
+  if (showLayoutMenu.value && !event.composedPath().some((el: Element) =>
     el.classList?.contains('layout-dropdown') || el.classList?.contains('layout-menu')
   )) {
     showLayoutMenu.value = false
   }
 }
 
-// Terminal output is now handled via store subscription in onMounted
-
-// Initialize WebSocket connection
 const initializeSocketConnection = async () => {
   try {
-    // Use auth store's connectWebSocket method to prevent duplicate connections
     await authStore.connectWebSocket()
     isConnected.value = socketService.isConnected
-    
     if (isConnected.value) {
       console.log('✅ WebSocket connected successfully')
-      
-      // Update existing terminals with connection status
-      for (const [, instance] of terminalInstances) {
-        instance.writeln('\r\n\x1b[1;32m● Connected to server\x1b[0m')
-      }
     }
   } catch (error) {
     console.error('❌ Failed to connect to WebSocket:', error)
     isConnected.value = false
-    
-    // Update existing terminals with connection status
-    for (const [, instance] of terminalInstances) {
-      instance.writeln('\r\n\x1b[1;31m● Connection failed\x1b[0m')
-    }
   }
 }
 
-// Store cleanup function reference
-let cleanupOutputHandler: (() => void) | null = null
-
 onMounted(async () => {
-  // Initialize terminal store socket subscriptions
   terminalStore.initialize()
-  
-  // Set up terminal output handlers
-  cleanupOutputHandler = terminalStore.onTerminalOutput((sessionId: string, output: string) => {
-    console.log(`🖥️ Writing output to terminal UI for session ${sessionId}:`, JSON.stringify(output))
-    
-    // Find the terminal pane and tab for this session and write output
-    let targetPane = null
-    let targetTerminalPane = null
-    
-    for (const pane of terminalStore.panes) {
-      const tab = pane.tabs.find(t => t.sessionId === sessionId)
-      if (tab) {
-        targetPane = pane
-        targetTerminalPane = terminalPanes.value.find(tp => {
-          return tp.$props.pane.id === pane.id
-        })
-        break
-      }
-    }
-    
-    if (targetTerminalPane) {
-      targetTerminalPane.write(output)
-      console.log(`✅ Output written to terminal pane ${targetPane?.id}`)
-    } else {
-      console.warn(`⚠️ Terminal pane not found for session ${sessionId}`)
-      console.log(`Available panes:`, terminalStore.panes.map(p => ({ 
-        id: p.id, 
-        tabs: p.tabs.map(t => ({ id: t.id, sessionId: t.sessionId }))
-      })))
-    }
-  })
-  
-  // Initialize WebSocket connection
   await initializeSocketConnection()
-  
-  // Initialize terminal when a workspace is selected
+
   if (workspaceStore.selectedWorkspace) {
-    // Load persistent sessions for reconnection UI
     await loadPersistentSessions()
-    
-    // If no persistent sessions or user chose to start fresh, create new terminal
     if (!showSessionReconnect.value && terminalStore.panes.length === 0) {
       await createNewTerminal()
     }
   }
 
-  // Add click outside listener for layout menu
   document.addEventListener('click', handleClickOutside)
-  
-  // Terminal initialization is now handled by TerminalPane components
 })
 
-// Store cleanup function for unmount - MUST be outside async context
 onUnmounted(() => {
-  // Clean up output handler
-  if (cleanupOutputHandler) {
-    cleanupOutputHandler()
-  }
-  
-  // Clean up terminal store subscriptions
   terminalStore.cleanup()
-  
-  // Clean up all terminal panes
-  terminalPanes.value.forEach(pane => {
-    pane.dispose()
-  })
-  
-  // Clear terminal instances map
-  terminalInstances.clear()
-  
-  // Remove click outside listener
   document.removeEventListener('click', handleClickOutside)
-  
-  // Note: Don't disconnect socketService here as it's shared across components
-  // Let the auth store handle WebSocket lifecycle
 })
 </script>
 
@@ -1287,88 +1120,19 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-.terminal-pane {
-  display: flex;
-  flex-direction: column;
-  background: var(--terminal-bg);
-  overflow: hidden;
-  min-height: 0;
-  min-width: 0;
-}
-
-.pane-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  background: var(--bg-tertiary);
-  border-bottom: 1px solid var(--border-color);
-  min-height: 36px;
-}
-
-.pane-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.pane-title {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.pane-cwd {
-  font-size: 11px;
-  color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 2px;
-  transition: all 0.15s ease;
-  flex-shrink: 0;
-}
-
-.close-btn:hover {
-  background: var(--error);
-  color: white;
-}
-
-.terminal-content {
-  flex: 1;
-  overflow: hidden;
-}
-
-.xterm-container {
-  width: 100%;
-  height: 100%;
-  padding: 8px;
-}
-
-
-
 @media (max-width: 768px) {
   .layout-controls {
     padding: 6px 12px;
   }
-  
+
   .layout-info span {
     display: none;
   }
-  
+
   .layout-switcher {
     display: none;
   }
-  
+
   .pane-cwd {
     display: none;
   }

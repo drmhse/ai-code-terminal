@@ -110,6 +110,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useFileStore } from '@/stores/file'
 import { createUnifiedEditor } from '@/utils/codemirror-editor'
 import type { EditorInstance } from '@/types/editor'
+import type { EditorState } from '@/stores/file'
 
 const fileStore = useFileStore()
 
@@ -144,7 +145,7 @@ watch(() => activeFile.value?.language, (newLang) => {
 })
 
 // Methods
-const updateEditor = async (file: any) => {
+const updateEditor = async (file: EditorState) => {
   if (!editorContainer.value) return
   
   await nextTick()

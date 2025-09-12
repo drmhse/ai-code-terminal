@@ -8,10 +8,20 @@ use tracing::{info, warn, error};
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
+/// Process tracking information
+struct ProcessTracker {
+    child: tokio::process::Child,
+    start_time: SystemTime,
+    #[allow(dead_code)]
+    command: String,
+    #[allow(dead_code)]
+    working_dir: String,
+}
+
 /// A process runner implementation using tokio::process
 #[derive(Clone)]
 pub struct TokioProcessRunner {
-    running_processes: Arc<Mutex<HashMap<i32, tokio::process::Child>>>,
+    running_processes: Arc<Mutex<HashMap<i32, ProcessTracker>>>,
 }
 
 impl TokioProcessRunner {
@@ -21,11 +31,11 @@ impl TokioProcessRunner {
         }
     }
 
-    async fn capture_output(&self, mut child: tokio::process::Child, pid: i32) -> (String, String) {
+    async fn capture_output(&self, mut tracker: ProcessTracker, pid: i32) -> (String, String) {
         let mut stdout = String::new();
         let mut stderr = String::new();
 
-        if let Some(stdout_pipe) = child.stdout.take() {
+        if let Some(stdout_pipe) = tracker.child.stdout.take() {
             let mut reader = tokio::io::BufReader::new(stdout_pipe);
             let mut buffer = String::new();
             while let Ok(bytes_read) = reader.read_line(&mut buffer).await {
@@ -37,7 +47,7 @@ impl TokioProcessRunner {
             }
         }
 
-        if let Some(stderr_pipe) = child.stderr.take() {
+        if let Some(stderr_pipe) = tracker.child.stderr.take() {
             let mut reader = tokio::io::BufReader::new(stderr_pipe);
             let mut buffer = String::new();
             while let Ok(bytes_read) = reader.read_line(&mut buffer).await {
@@ -50,7 +60,7 @@ impl TokioProcessRunner {
         }
 
         // Wait for the process to complete
-        let _ = child.wait().await;
+        let _ = tracker.child.wait().await;
         
         // Remove from running processes
         let mut processes = self.running_processes.lock().unwrap();
@@ -93,10 +103,15 @@ impl ProcessRunner for TokioProcessRunner {
         let pid = child.id().map(|id| id as i32)
             .ok_or_else(|| act_core::error::CoreError::Process("Failed to get process ID".to_string()))?;
         
-        // Store the process handle
+        // Store the process handle with tracking information
         {
             let mut processes = self.running_processes.lock().unwrap();
-            processes.insert(pid, child);
+            processes.insert(pid, ProcessTracker {
+                child,
+                start_time: SystemTime::now(),
+                command: request.command.clone(),
+                working_dir: request.working_directory.clone(),
+            });
         }
         
         info!("Process started with PID: {}", pid);
@@ -114,14 +129,14 @@ impl ProcessRunner for TokioProcessRunner {
     async fn stop_process(&self, pid: i32) -> Result<(), act_core::error::CoreError> {
         info!("Stopping process with PID: {}", pid);
         
-        let child = {
+        let tracker = {
             let mut processes = self.running_processes.lock().unwrap();
             processes.remove(&pid)
         };
         
-        if let Some(mut child) = child {
+        if let Some(mut tracker) = tracker {
             // Try to kill the process gracefully first
-            if let Err(e) = child.kill().await {
+            if let Err(e) = tracker.child.kill().await {
                 warn!("Failed to kill process {}: {}", pid, e);
                 return Err(act_core::error::CoreError::Process(format!("Failed to kill process: {}", e)));
             }
@@ -134,32 +149,73 @@ impl ProcessRunner for TokioProcessRunner {
     }
 
     async fn get_process_status(&self, pid: i32) -> Result<ProcessInfo, act_core::error::CoreError> {
-        // For now, return a default status
-        // In a real implementation, we'd need to track process state more carefully
-        let processes = self.running_processes.lock().unwrap();
+        // For process status checking, we need to temporarily remove the process from the map
+        // to get mutable access for try_wait(), then put it back if still running
+        let tracker = {
+            let mut processes = self.running_processes.lock().unwrap();
+            processes.remove(&pid)
+        };
         
-        if processes.contains_key(&pid) {
-            Ok(ProcessInfo {
-                pid,
-                status: "Running".to_string(),
-                start_time: SystemTime::now(),
-                exit_code: None,
-                stdout: None,
-                stderr: None,
-            })
+        if let Some(mut tracker) = tracker {
+            let start_time = tracker.start_time; // Clone before moving
+            
+            let status_info = match tracker.child.try_wait() {
+                Ok(None) => {
+                    // Process is still running, put it back
+                    let mut processes = self.running_processes.lock().unwrap();
+                    processes.insert(pid, tracker);
+                    
+                    ProcessInfo {
+                        pid,
+                        status: "Running".to_string(),
+                        start_time,
+                        exit_code: None,
+                        stdout: None,
+                        stderr: None,
+                    }
+                }
+                Ok(Some(exit_status)) => {
+                    // Process has completed
+                    let exit_code = exit_status.code();
+                    ProcessInfo {
+                        pid,
+                        status: if exit_code == Some(0) { "Completed".to_string() } else { "Failed".to_string() },
+                        start_time,
+                        exit_code,
+                        stdout: None,
+                        stderr: None,
+                    }
+                }
+                Err(_e) => {
+                    // Error checking process status, put it back
+                    let mut processes = self.running_processes.lock().unwrap();
+                    processes.insert(pid, tracker);
+                    
+                    ProcessInfo {
+                        pid,
+                        status: "Unknown".to_string(),
+                        start_time,
+                        exit_code: None,
+                        stdout: None,
+                        stderr: None,
+                    }
+                }
+            };
+            
+            Ok(status_info)
         } else {
             Err(act_core::error::CoreError::NotFound(format!("Process with PID {} not found", pid)))
         }
     }
 
     async fn get_process_output(&self, pid: i32) -> Result<(String, String), act_core::error::CoreError> {
-        let child = {
+        let tracker = {
             let mut processes = self.running_processes.lock().unwrap();
             processes.remove(&pid)
         };
         
-        if let Some(child) = child {
-            let (stdout, stderr) = self.capture_output(child, pid).await;
+        if let Some(tracker) = tracker {
+            let (stdout, stderr) = self.capture_output(tracker, pid).await;
             Ok((stdout, stderr))
         } else {
             Err(act_core::error::CoreError::NotFound(format!("Process with PID {} not found", pid)))
@@ -167,9 +223,41 @@ impl ProcessRunner for TokioProcessRunner {
     }
 
     async fn is_process_running(&self, pid: i32) -> Result<bool, act_core::error::CoreError> {
-        // For now, we'll assume the process is running if it's in our map
-        // In a real implementation, we'd need a more sophisticated approach
-        let processes = self.running_processes.lock().unwrap();
-        Ok(processes.contains_key(&pid))
+        // For process running check, we need to temporarily remove the process from the map
+        let tracker = {
+            let mut processes = self.running_processes.lock().unwrap();
+            processes.remove(&pid)
+        };
+        
+        if let Some(mut tracker) = tracker {
+            let is_running = match tracker.child.try_wait() {
+                Ok(None) => {
+                    // Process is still running, put it back
+                    let mut processes = self.running_processes.lock().unwrap();
+                    processes.insert(pid, tracker);
+                    true
+                }
+                Ok(Some(_)) => {
+                    // Process has completed
+                    false
+                }
+                Err(_e) => {
+                    // Error checking process status, put it back
+                    let mut processes = self.running_processes.lock().unwrap();
+                    processes.insert(pid, tracker);
+                    false
+                }
+            };
+            
+            Ok(is_running)
+        } else {
+            Ok(false) // Process not found
+        }
+    }
+}
+
+impl Default for TokioProcessRunner {
+    fn default() -> Self {
+        Self::new()
     }
 }

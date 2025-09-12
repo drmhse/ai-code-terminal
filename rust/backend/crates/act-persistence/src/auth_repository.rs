@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use sqlx::SqlitePool;
 use sqlx::Row;
 use chrono::{DateTime, Utc};
+use tracing::{info, warn};
 
 use super::error::PersistenceError;
 
@@ -50,7 +51,7 @@ impl AuthRepository for SqlAuthRepository {
         }
     }
 
-    async fn create_user(&self, github_id: &str, username: &str, email: Option<&str>, avatar_url: Option<&str>) -> Result<AuthenticatedUser, act_core::error::CoreError> {
+    async fn create_user(&self, github_id: &str, username: &str, email: Option<String>, avatar_url: Option<String>) -> Result<AuthenticatedUser, act_core::error::CoreError> {
         let user_id = uuid::Uuid::new_v4().to_string();
         let now = Utc::now();
 
@@ -64,8 +65,8 @@ impl AuthRepository for SqlAuthRepository {
             .bind(&user_id)
             .bind(github_id)
             .bind(username)
-            .bind(email)
-            .bind(avatar_url)
+            .bind(&email)
+            .bind(&avatar_url)
             .bind(now)
             .bind(now)
             .execute(&self.pool)
@@ -74,12 +75,12 @@ impl AuthRepository for SqlAuthRepository {
         Ok(AuthenticatedUser {
             user_id,
             username: username.to_string(),
-            email: email.map(|s| s.to_string()),
-            avatar_url: avatar_url.map(|s| s.to_string()),
+            email,
+            avatar_url,
         })
     }
 
-    async fn update_user(&self, user_id: &str, username: &str, email: Option<&str>, avatar_url: Option<&str>) -> Result<AuthenticatedUser, act_core::error::CoreError> {
+    async fn update_user(&self, user_id: &str, username: &str, email: Option<String>, avatar_url: Option<String>) -> Result<AuthenticatedUser, act_core::error::CoreError> {
         let now = Utc::now();
 
         handle_db_error!(
@@ -92,8 +93,8 @@ impl AuthRepository for SqlAuthRepository {
             )
             .bind(user_id)
             .bind(username)
-            .bind(email)
-            .bind(avatar_url)
+            .bind(&email)
+            .bind(&avatar_url)
             .bind(now)
             .execute(&self.pool)
         );
@@ -101,23 +102,28 @@ impl AuthRepository for SqlAuthRepository {
         Ok(AuthenticatedUser {
             user_id: user_id.to_string(),
             username: username.to_string(),
-            email: email.map(|s| s.to_string()),
-            avatar_url: avatar_url.map(|s| s.to_string()),
+            email,
+            avatar_url,
         })
     }
 
-    async fn store_github_token(&self, user_id: &str, token: &str, refresh_token: Option<&str>, expires_at: DateTime<Utc>) -> Result<(), act_core::error::CoreError> {
+    async fn store_github_token(&self, user_id: &str, token: &str, refresh_token: Option<String>, expires_at: DateTime<Utc>) -> Result<(), act_core::error::CoreError> {
+        info!("Storing github token for user_id: {}", user_id);
         // Insert or replace user_settings for this user
         handle_db_error!(
             sqlx::query(
                 r#"
-                INSERT OR REPLACE INTO user_settings (user_id, github_token, github_refresh_token, github_token_expires_at)
+                INSERT INTO user_settings (user_id, github_token, github_refresh_token, github_token_expires_at)
                 VALUES (?1, ?2, ?3, ?4)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    github_token = excluded.github_token,
+                    github_refresh_token = excluded.github_refresh_token,
+                    github_token_expires_at = excluded.github_token_expires_at
                 "#
             )
             .bind(user_id)
             .bind(token)
-            .bind(refresh_token)
+            .bind(&refresh_token)
             .bind(expires_at)
             .execute(&self.pool)
         );
@@ -126,6 +132,7 @@ impl AuthRepository for SqlAuthRepository {
     }
 
     async fn get_github_token(&self, user_id: &str) -> Result<Option<String>, act_core::error::CoreError> {
+        info!("Getting github token for user_id: {}", user_id);
         let row = handle_db_error!(
             sqlx::query(
                 r#"
@@ -139,8 +146,19 @@ impl AuthRepository for SqlAuthRepository {
         );
 
         match row {
-            Some(row) => Ok(row.get("github_token")),
-            None => Ok(None),
+            Some(row) => {
+                let token: Option<String> = row.get("github_token");
+                if token.is_some() {
+                    info!("Found github token for user_id: {}", user_id);
+                } else {
+                    warn!("No github token found for user_id: {}", user_id);
+                }
+                Ok(token)
+            }
+            None => {
+                warn!("No user_settings row found for user_id: {}", user_id);
+                Ok(None)
+            }
         }
     }
 
@@ -255,6 +273,31 @@ impl AuthRepository for SqlAuthRepository {
         );
 
         Ok(())
+    }
+
+    async fn get_all_users(&self) -> Result<Vec<act_core::auth::AuthenticatedUser>, act_core::error::CoreError> {
+        let rows = handle_db_error!(
+            sqlx::query(
+                r#"
+                SELECT id, username, email, avatar_url
+                FROM users
+                ORDER BY username
+                "#
+            )
+            .fetch_all(&self.pool)
+        );
+
+        let mut users = Vec::new();
+        for row in rows {
+            users.push(act_core::auth::AuthenticatedUser {
+                user_id: row.get("id"),
+                username: row.get("username"),
+                email: row.get("email"),
+                avatar_url: row.get("avatar_url"),
+            });
+        }
+
+        Ok(users)
     }
 }
 

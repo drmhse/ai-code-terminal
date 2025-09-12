@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use act_core::{
     repository::{
-        Session, SessionRepository, CreateSessionRequest, UpdateSessionRequest, 
+        Session, SessionRepository, CreateSessionRequest, UpdateSessionRequest,
         SessionId, SessionStatus, SessionType, TerminalSize, WorkspaceId
     },
     pty::{PtyService, PtyEvent},
@@ -136,7 +136,7 @@ impl SessionWebSocketManager {
                     }
                 }
             }
-            
+
             // Clean up closed senders
             if active_senders.len() != senders.len() {
                 drop(connections);
@@ -157,6 +157,7 @@ impl SessionWebSocketManager {
     }
 }
 
+#[derive(Clone)]
 pub struct SessionService {
     repository: Arc<dyn SessionRepository>,
     pty_service: Arc<dyn PtyService>,
@@ -184,7 +185,7 @@ pub async fn create_session(&self, user_id: &str, options: CreateSessionOptions)
         // Use provided session_id if available, otherwise generate a new one
         let session_id = options.session_id.unwrap_or_else(|| Uuid::new_v4().to_string());
         let recovery_token = session_id.clone();
-        
+
         let terminal_size = options.terminal_size.unwrap_or(TerminalSize { cols: 80, rows: 24 });
 
         let environment_vars = self.get_default_environment_vars();
@@ -222,7 +223,7 @@ pub async fn create_session(&self, user_id: &str, options: CreateSessionOptions)
                 working_dir: session.current_working_dir.clone().or_else(|| Some("/tmp".to_string())),
                 environment: session.environment_vars.clone(),
             };
-            
+
             info!("🔧 About to call pty_service.create_session");
             let (output_rx, _session_info) = self.pty_service.create_session(config).await?;
             info!("🔧 PTY service returned output_rx channel");
@@ -239,36 +240,6 @@ pub async fn create_session(&self, user_id: &str, options: CreateSessionOptions)
             let session_id_clone = session.id.clone();
             tokio::spawn(async move {
                 Self::handle_pty_output(output_rx, websocket_manager, session_id_clone, internal_rx).await;
-            });
-
-            // Send initial prompt/output and trigger shell prompt
-            tokio::spawn({
-                let session_id = session.id.clone();
-                let websocket_manager = self.websocket_manager.clone();
-                let pty_service = self.pty_service.clone();
-                async move {
-                    // Wait a bit for PTY and WebSocket to be established
-                    tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
-                    
-                    // Send welcome message
-                    let welcome_output = format!("\x1b[1;32m● Terminal ready - session {}\x1b[0m\r\n", session_id);
-                    websocket_manager.forward_to_websockets(&session_id, welcome_output).await;
-                    
-                    // Send commands to initialize shell and trigger prompt
-                    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-                    
-                    // Send a simple command to get shell output
-                    if let Err(e) = pty_service.send_input(&session_id, b"echo 'Shell ready'\n").await {
-                        warn!("Failed to send initialization command to session {}: {}", session_id, e);
-                    }
-                    
-                    tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
-                    
-                    // Send a newline to get prompt
-                    if let Err(e) = pty_service.send_input(&session_id, b"\n").await {
-                        warn!("Failed to send prompt trigger to session {}: {}", session_id, e);
-                    }
-                }
             });
 
             info!("Created PTY session for session {} with output forwarding", session.id);
@@ -294,11 +265,11 @@ pub async fn create_session(&self, user_id: &str, options: CreateSessionOptions)
 
     pub async fn recover_session(&self, user_id: &str, recovery_token: &str) -> Result<SessionState> {
         let sessions = self.repository.list_active(user_id).await?;
-        
+
         let session = sessions
             .into_iter()
             .find(|s| {
-                s.recovery_token.as_ref() == Some(&recovery_token.to_string()) 
+                s.recovery_token.as_ref() == Some(&recovery_token.to_string())
                 && s.can_recover
                 && s.status != SessionStatus::Terminated
             })
@@ -306,7 +277,7 @@ pub async fn create_session(&self, user_id: &str, options: CreateSessionOptions)
 
         let now = Utc::now();
         let created_duration = now.signed_duration_since(session.created_at);
-        
+
         if created_duration > Duration::hours(self.recovery_timeout_hours) {
             warn!("Session {} recovery token expired", session.id);
             return Err(CoreError::Validation("Recovery token expired".to_string()));
@@ -332,6 +303,36 @@ pub async fn create_session(&self, user_id: &str, options: CreateSessionOptions)
         Ok(session_state)
     }
 
+    pub async fn add_command_to_history(&self, user_id: &str, session_id: &SessionId, command: &str) -> Result<()> {
+        let session = self.repository.get_by_id(user_id, session_id).await?;
+
+        let mut history = session.shell_history.unwrap_or_default();
+
+        // Add the command to history
+        history.push(command.to_string());
+
+        // Limit history size to prevent memory bloat
+        if history.len() > 1000 {
+            history.remove(0);
+        }
+
+        // Update the session with the new history
+        let update_request = UpdateSessionRequest {
+            status: None,
+            current_working_dir: None,
+            environment_vars: None,
+            terminal_size: None,
+            last_command: Some(command.to_string()),
+            last_activity_at: Some(Utc::now()),
+            shell_history: Some(history),
+        };
+
+        self.repository.update(user_id, session_id, update_request).await?;
+
+        debug!("Added command '{}' to session {} history", command, session_id);
+        Ok(())
+    }
+
     pub async fn update_session_state(
         &self,
         user_id: &str,
@@ -347,23 +348,24 @@ pub async fn create_session(&self, user_id: &str, options: CreateSessionOptions)
             terminal_size: None,
             last_command,
             last_activity_at: Some(Utc::now()),
+            shell_history: None,
         };
 
         if let Some(entry) = history_entry {
         let session = self.repository.get_by_id(user_id, session_id).await?;
             let mut history = session.shell_history.unwrap_or_default();
-            
+
             history.push(entry);
             if history.len() > 1000 {
                 history.remove(0);
             }
-            
+
             // Note: This would need to be handled differently in actual implementation
             // as UpdateSessionRequest doesn't have shell_history field
         }
 
         self.repository.update(user_id, session_id, update_request).await?;
-        
+
         debug!("Updated session {} state", session_id);
         Ok(())
     }
@@ -374,6 +376,10 @@ pub async fn create_session(&self, user_id: &str, options: CreateSessionOptions)
 
     pub async fn list_active_sessions(&self, user_id: &str) -> Result<Vec<Session>> {
         self.repository.list_active(user_id).await
+    }
+
+    pub async fn count_all_active_sessions(&self) -> Result<u64> {
+        self.repository.count_all_active().await
     }
 
     pub async fn list_workspace_sessions(&self, user_id: &str, workspace_id: &WorkspaceId) -> Result<Vec<Session>> {
@@ -394,7 +400,7 @@ pub async fn create_session(&self, user_id: &str, options: CreateSessionOptions)
         }
 
         // Send termination message to any connected WebSockets
-        self.websocket_manager.forward_to_websockets(session_id, 
+        self.websocket_manager.forward_to_websockets(session_id,
             "\r\n\x1b[1;31m● Session terminated by server\x1b[0m\r\n".to_string()).await;
 
         if let Err(e) = self.pty_service.destroy_session(session_id).await {
@@ -408,6 +414,7 @@ pub async fn create_session(&self, user_id: &str, options: CreateSessionOptions)
             terminal_size: None,
             last_command: None,
             last_activity_at: Some(Utc::now()),
+            shell_history: None,
         };
 
         self.repository.update(user_id, session_id, update_request).await?;
@@ -445,6 +452,7 @@ pub async fn create_session(&self, user_id: &str, options: CreateSessionOptions)
             terminal_size: Some(terminal_size),
             last_command: None,
             last_activity_at: Some(Utc::now()),
+            shell_history: None,
         };
 
         self.repository.update(user_id, session_id, update_request).await?;
@@ -474,13 +482,13 @@ pub async fn create_session(&self, user_id: &str, options: CreateSessionOptions)
                         }
                         PtyEvent::Closed => {
                             info!("PTY session {} closed", session_id);
-                            websocket_manager.forward_to_websockets(&session_id, 
+                            websocket_manager.forward_to_websockets(&session_id,
                                 "\r\n\x1b[1;31m● Session terminated\x1b[0m\r\n".to_string()).await;
                             break;
                         }
                         PtyEvent::Error(error_msg) => {
                             error!("PTY error for session {}: {}", session_id, error_msg);
-                            websocket_manager.forward_to_websockets(&session_id, 
+                            websocket_manager.forward_to_websockets(&session_id,
                                 format!("\r\n\x1b[1;31m● PTY Error: {}\x1b[0m\r\n", error_msg)).await;
                         }
                         PtyEvent::Resized { cols, rows } => {
@@ -527,5 +535,278 @@ pub async fn create_session(&self, user_id: &str, options: CreateSessionOptions)
 
     fn get_default_environment_vars(&self) -> HashMap<String, String> {
         std::env::vars().collect()
+    }
+
+    /// Session reconciliation - detects and handles orphaned/dead sessions
+    pub async fn reconcile_sessions(&self, user_id: &str) -> Result<SessionReconciliationResult> {
+        info!("Starting session reconciliation for user {}", user_id);
+
+        let mut result = SessionReconciliationResult {
+            recovered_sessions: 0,
+            cleaned_sessions: 0,
+            failed_sessions: 0,
+            reconciliation_errors: Vec::new(),
+        };
+
+        // Get all active sessions for the user
+        let active_sessions = match self.repository.list_active(user_id).await {
+            Ok(sessions) => sessions,
+            Err(e) => {
+                error!("Failed to list active sessions for reconciliation: {}", e);
+                result.reconciliation_errors.push(format!("Failed to list sessions: {}", e));
+                return Ok(result);
+            }
+        };
+
+        let now = Utc::now();
+
+        for session in active_sessions {
+            debug!("Reconciling session {} (status: {:?})", session.id, session.status);
+
+            // Check if session is actually alive by testing PTY connection
+            let is_alive = self.is_session_alive(&session.id).await;
+
+            if !is_alive {
+                info!("Session {} appears to be dead, attempting recovery", session.id);
+
+                if session.can_recover && session.recovery_token.is_some() {
+                    // Attempt to recover the session
+                    match self.recover_dead_session(user_id, &session).await {
+                        Ok(_) => {
+                            info!("Successfully recovered session {}", session.id);
+                            result.recovered_sessions += 1;
+                        }
+                        Err(e) => {
+                            warn!("Failed to recover session {}: {}", session.id, e);
+                            result.failed_sessions += 1;
+                            result.reconciliation_errors.push(
+                                format!("Failed to recover session {}: {}", session.id, e)
+                            );
+
+                            // Clean up the failed session
+                            if let Err(cleanup_err) = self.cleanup_failed_session(user_id, &session.id).await {
+                                error!("Failed to cleanup session {}: {}", session.id, cleanup_err);
+                                result.reconciliation_errors.push(
+                                    format!("Failed to cleanup session {}: {}", session.id, cleanup_err)
+                                );
+                            } else {
+                                result.cleaned_sessions += 1;
+                            }
+                        }
+                    }
+                } else {
+                    // Session is not recoverable, clean it up
+                    info!("Session {} is not recoverable, cleaning up", session.id);
+                    if let Err(e) = self.cleanup_failed_session(user_id, &session.id).await {
+                        error!("Failed to cleanup session {}: {}", session.id, e);
+                        result.reconciliation_errors.push(
+                            format!("Failed to cleanup session {}: {}", session.id, e)
+                        );
+                        result.failed_sessions += 1;
+                    } else {
+                        result.cleaned_sessions += 1;
+                    }
+                }
+            } else {
+                debug!("Session {} is alive and healthy", session.id);
+            }
+        }
+
+        // Clean up expired sessions based on idle time
+        let idle_cleanup_threshold = now - chrono::Duration::hours(self.recovery_timeout_hours);
+        match self.repository.cleanup_inactive(user_id, idle_cleanup_threshold).await {
+            Ok(cleaned_count) => {
+                if cleaned_count > 0 {
+                    info!("Cleaned up {} idle sessions during reconciliation", cleaned_count);
+                    result.cleaned_sessions += cleaned_count;
+                }
+            }
+            Err(e) => {
+                error!("Failed to cleanup idle sessions: {}", e);
+                result.reconciliation_errors.push(format!("Failed to cleanup idle sessions: {}", e));
+            }
+        }
+
+        info!("Session reconciliation completed for user {}: recovered={}, cleaned={}, failed={}",
+              user_id, result.recovered_sessions, result.cleaned_sessions, result.failed_sessions);
+
+        Ok(result)
+    }
+
+    /// Check if a session is actually alive by testing the PTY connection
+    async fn is_session_alive(&self, session_id: &str) -> bool {
+        // Try to send a simple command to test if the PTY is responsive
+        let session_id_string = session_id.to_string();
+        match self.pty_service.send_input(&session_id_string, b"echo 'ping'\n").await {
+            Ok(_) => {
+                // If we can send input, assume the session is alive
+                // In a real implementation, we might want to wait for a response
+                true
+            }
+            Err(_) => {
+                // If we can't send input, the session is likely dead
+                false
+            }
+        }
+    }
+
+    /// Attempt to recover a dead session
+    async fn recover_dead_session(&self, user_id: &str, session: &Session) -> Result<()> {
+        info!("Attempting to recover dead session {}", session.id);
+
+        // First, clean up the old PTY session
+        if let Err(e) = self.pty_service.destroy_session(&session.id).await {
+            warn!("Failed to destroy old PTY session {}: {}", session.id, e);
+            // Continue anyway, as the session might already be destroyed
+        }
+
+        // Create a new PTY session with the same configuration
+        if let Some(ref workspace_id) = session.workspace_id {
+            let terminal_size = session.terminal_size.clone()
+                .unwrap_or(TerminalSize { cols: 80, rows: 24 });
+
+            let config = act_core::pty::SessionConfig {
+                session_id: session.id.clone(),
+                workspace_id: workspace_id.clone(),
+                size: act_core::pty::PtySize {
+                    cols: terminal_size.cols.max(80),
+                    rows: terminal_size.rows.max(24),
+                    pixel_width: 0,
+                    pixel_height: 0,
+                },
+                shell: None,
+                working_dir: session.current_working_dir.clone().or_else(|| Some("/tmp".to_string())),
+                environment: session.environment_vars.clone(),
+            };
+
+            // Create new PTY session
+            let (output_rx, _session_info) = self.pty_service.create_session(config).await?;
+
+            // Recreate output forwarder
+            let (forwarder, internal_rx) = OutputForwarder::new(session.id.clone());
+            {
+                let mut forwarders = self.output_forwarders.write().await;
+                forwarders.insert(session.id.clone(), forwarder);
+            }
+
+            // Start output forwarding task
+            let websocket_manager = self.websocket_manager.clone();
+            let session_id_clone = session.id.clone();
+            tokio::spawn(async move {
+                Self::handle_pty_output(output_rx, websocket_manager, session_id_clone, internal_rx).await;
+            });
+
+            // Update session status to active
+            let update_request = UpdateSessionRequest {
+                status: Some(SessionStatus::Active),
+                current_working_dir: None,
+                environment_vars: None,
+                terminal_size: None,
+                last_command: None,
+                last_activity_at: Some(Utc::now()),
+                shell_history: None,
+            };
+
+            self.repository.update(user_id, &session.id, update_request).await?;
+
+            // Send recovery notification to any connected clients
+            self.websocket_manager.forward_to_websockets(&session.id,
+                "\r\n\x1b[1;33m● Session recovered after disconnection\x1b[0m\r\n".to_string()).await;
+
+            info!("Successfully recovered session {}", session.id);
+        } else {
+            return Err(CoreError::Validation("Cannot recover session without workspace".to_string()));
+        }
+
+        Ok(())
+    }
+
+    /// Clean up a failed session
+    async fn cleanup_failed_session(&self, user_id: &str, session_id: &str) -> Result<()> {
+        info!("Cleaning up failed session {}", session_id);
+
+        // Clean up output forwarder
+        {
+            let mut forwarders = self.output_forwarders.write().await;
+            if let Some(forwarder) = forwarders.remove(session_id) {
+                let _ = forwarder.forward_event(PtyEvent::Closed);
+            }
+        }
+
+        // Destroy PTY session
+        let session_id_string = session_id.to_string();
+        if let Err(e) = self.pty_service.destroy_session(&session_id_string).await {
+            warn!("Failed to destroy PTY session during cleanup: {}", e);
+        }
+
+        // Send cleanup message to any connected WebSockets
+        self.websocket_manager.forward_to_websockets(session_id,
+            "\r\n\x1b[1;31m● Session cleaned up due to inactivity\x1b[0m\r\n".to_string()).await;
+
+        // Mark session as terminated
+        let update_request = UpdateSessionRequest {
+            status: Some(SessionStatus::Terminated),
+            current_working_dir: None,
+            environment_vars: None,
+            terminal_size: None,
+            last_command: None,
+            last_activity_at: Some(Utc::now()),
+            shell_history: None,
+        };
+
+        self.repository.update(user_id, &session_id_string, update_request).await?;
+
+        info!("Successfully cleaned up session {}", session_id);
+        Ok(())
+    }
+
+    /// Start periodic session reconciliation task
+    pub fn start_periodic_reconciliation(&self, user_id: String, interval_minutes: u64) -> tokio::task::JoinHandle<()> {
+        let service = self.clone();
+        let user_id_clone = user_id.clone();
+
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(interval_minutes * 60));
+
+            loop {
+                interval.tick().await;
+                info!("Running periodic session reconciliation for user {}", user_id_clone);
+
+                match service.reconcile_sessions(&user_id_clone).await {
+                    Ok(result) => {
+                        if result.recovered_sessions > 0 || result.cleaned_sessions > 0 {
+                            info!("Periodic reconciliation: recovered={}, cleaned={}, failed={}",
+                                  result.recovered_sessions, result.cleaned_sessions, result.failed_sessions);
+                        }
+                    }
+                    Err(e) => {
+                        error!("Periodic session reconciliation failed: {}", e);
+                    }
+                }
+            }
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SessionReconciliationResult {
+    pub recovered_sessions: usize,
+    pub cleaned_sessions: usize,
+    pub failed_sessions: usize,
+    pub reconciliation_errors: Vec<String>,
+}
+
+impl SessionReconciliationResult {
+    pub fn total_processed(&self) -> usize {
+        self.recovered_sessions + self.cleaned_sessions + self.failed_sessions
+    }
+
+    pub fn success_rate(&self) -> f64 {
+        let total = self.total_processed();
+        if total == 0 {
+            0.0
+        } else {
+            (self.recovered_sessions + self.cleaned_sessions) as f64 / total as f64
+        }
     }
 }

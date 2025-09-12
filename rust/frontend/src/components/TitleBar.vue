@@ -35,7 +35,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
@@ -45,9 +45,21 @@ const authStore = useAuthStore()
 const showThemeModal = ref(false)
 const currentTheme = ref({ name: 'Dark' })
 
-// Mobile detection - basic implementation
-const isMobile = computed(() => {
-  return window.innerWidth < 768
+// Mobile detection with responsive handling
+const windowWidth = ref(window.innerWidth)
+const isMobile = computed(() => windowWidth.value < 768)
+
+// Update window width on resize
+onMounted(() => {
+  const handleResize = () => {
+    windowWidth.value = window.innerWidth
+  }
+  
+  window.addEventListener('resize', handleResize)
+  
+  onUnmounted(() => {
+    window.removeEventListener('resize', handleResize)
+  })
 })
 
 const toggleSidebar = () => {

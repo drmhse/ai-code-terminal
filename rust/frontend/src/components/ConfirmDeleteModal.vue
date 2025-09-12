@@ -70,9 +70,9 @@ interface Props {
   isOpen: boolean
   itemName: string
   itemType: 'file' | 'folder' | 'workspace' | 'repository' | 'terminal'
-  additionalInfo?: string
-  showConfirmationInput?: boolean
-  confirmationText?: string
+  additionalInfo?: string | undefined
+  showConfirmationInput?: boolean | undefined
+  confirmationText?: string | undefined
 }
 
 interface Emits {
@@ -80,14 +80,7 @@ interface Emits {
   (e: 'confirm'): void
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  isOpen: false,
-  itemName: '',
-  itemType: 'file',
-  additionalInfo: '',
-  showConfirmationInput: false,
-  confirmationText: 'delete'
-})
+const props = defineProps<Props>()
 
 const emit = defineEmits<Emits>()
 

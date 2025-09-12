@@ -1,15 +1,20 @@
 use act_core::{SessionId, WorkspaceId, PtySize};
 use portable_pty::{Child, MasterPty};
 use tokio::sync::mpsc;
+use chrono::{DateTime, Utc};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 pub struct PtySession {
     pub session_id: SessionId,
     pub workspace_id: WorkspaceId,
-    pub child: Box<dyn Child + Send>,
+    // **FIX:** Wrap child in Arc<Mutex<>> to allow shared, mutable access for waiting.
+    pub child: Arc<Mutex<Box<dyn Child + Send>>>,
     pub master: Box<dyn MasterPty + Send>,
     pub input_tx: mpsc::UnboundedSender<Vec<u8>>,
     pub pid: Option<u32>,
     pub size: PtySize,
+    pub created_at: DateTime<Utc>,
 }
 
 impl PtySession {
@@ -25,11 +30,12 @@ impl PtySession {
         Self {
             session_id,
             workspace_id,
-            child,
+            child: Arc::new(Mutex::new(child)), // **FIX:** Wrap in Arc<Mutex<>>
             master,
             input_tx,
             pid,
             size,
+            created_at: Utc::now(),
         }
     }
 
@@ -55,11 +61,12 @@ impl std::fmt::Debug for PtySession {
         f.debug_struct("PtySession")
             .field("session_id", &self.session_id)
             .field("workspace_id", &self.workspace_id)
-            .field("child", &"Box<dyn Child>")
+            .field("child", &"Arc<Mutex<Box<dyn Child>>>")
             .field("master", &"Box<dyn MasterPty>")
             .field("input_tx", &self.input_tx)
             .field("pid", &self.pid)
             .field("size", &self.size)
+            .field("created_at", &self.created_at)
             .finish()
     }
 }

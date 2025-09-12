@@ -342,11 +342,11 @@ const toggleProcessExpand = (processId: string) => {
 }
 
 const getStatusColor = (status: string) => {
-  return processStore.getStatusColor(status as any)
+  return processStore.getStatusColor(status as import('@/stores/process').ProcessStatus)
 }
 
 const getStatusIcon = (status: string) => {
-  return processStore.getStatusIcon(status as any)
+  return processStore.getStatusIcon(status as import('@/stores/process').ProcessStatus)
 }
 
 const formatMemory = (bytes: number) => {
@@ -409,7 +409,18 @@ const createProcess = async () => {
         }, {} as Record<string, string>)
       : undefined
 
-    const createRequest: any = {
+    const createRequest: {
+  name: string
+  command: string
+  args?: string[]
+  working_directory: string
+  environment_variables?: Record<string, string>
+  max_restarts?: number
+  auto_restart?: boolean
+  workspace_id?: string
+  session_id?: string
+  tags?: string[]
+} = {
       name: newProcess.value.name.trim(),
       command: newProcess.value.command.trim(),
       working_directory: newProcess.value.working_directory.trim(),

@@ -39,6 +39,13 @@ pub struct TerminalDataRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct TerminalCommandRequest {
+    #[serde(rename = "sessionId")]
+    pub session_id: String,
+    pub command: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TerminalResizeRequest {
     #[serde(rename = "sessionId")]
     pub session_id: String,
@@ -332,11 +339,11 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                     
                     // Check authentication
                     let user_id = match get_authenticated_user_id(&socket) {
-                        Some(user_id) => user_id,
-                        None => {
-                            error!("Terminal create request from unauthenticated socket");
+                        Ok(user_id) => user_id,
+                        Err(err) => {
+                            error!("Terminal create request from unauthenticated socket: {}", err);
                             socket.emit("terminal:error", ErrorEvent {
-                                error: "Authentication required".to_string(),
+                                error: format!("Authentication required: {}", err),
                             }).ok();
                             return;
                         }
@@ -384,10 +391,16 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                                 return;
                             }
                             
+                            // Get session info to extract PID
+                            let pid = match state.pty_service.get_session_info(&session_state.session_id).await {
+                                Ok(info) => info.pid.unwrap_or(0),
+                                Err(_) => 0, // Fallback to 0 if we can't get session info
+                            };
+                            
                             // Send the correct format that frontend expects
                             socket.emit("terminal:created", serde_json::json!({
                                 "sessionId": session_state.session_id,
-                                "pid": 0  // portable-pty doesn't expose PID, use 0 as placeholder
+                                "pid": pid  // Use actual PID if available, otherwise 0
                             })).ok();
                         }
                         Err(err) => {
@@ -409,9 +422,12 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                 async move {
                     // Check authentication
                     let _user_id = match get_authenticated_user_id(&socket) {
-                        Some(user_id) => user_id,
-                        None => {
-                            error!("Terminal data request from unauthenticated socket");
+                        Ok(user_id) => user_id,
+                        Err(err) => {
+                            error!("Terminal data request from unauthenticated socket: {}", err);
+                            socket.emit("terminal:error", ErrorEvent {
+                                error: format!("Authentication required: {}", err),
+                            }).ok();
                             return;
                         }
                     };
@@ -431,6 +447,47 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
             }
         });
 
+        // Terminal command handler (for persistent command history)
+        socket.on("terminal:command", {
+            let state = state.clone();
+            move |socket: SocketRef, Data::<TerminalCommandRequest>(data)| {
+                let state = state.clone();
+                async move {
+                    // Check authentication
+                    let user_id = match get_authenticated_user_id(&socket) {
+                        Ok(user_id) => user_id,
+                        Err(err) => {
+                            error!("Terminal command request from unauthenticated socket: {}", err);
+                            socket.emit("terminal:error", ErrorEvent {
+                                error: format!("Authentication required: {}", err),
+                            }).ok();
+                            return;
+                        }
+                    };
+                    
+                    info!("Terminal command executed by user {}: session={}, command='{}'", user_id, data.session_id, data.command);
+                    
+                    // Persist the command to the session history
+                    match state.domain_services.session_service.add_command_to_history(&user_id, &data.session_id, &data.command).await {
+                        Ok(_) => {
+                            debug!("Command persisted to session {} history", data.session_id);
+                            socket.emit("terminal:command:ack", serde_json::json!({
+                                "sessionId": data.session_id,
+                                "command": data.command,
+                                "success": true
+                            })).ok();
+                        }
+                        Err(err) => {
+                            error!("Failed to persist command to session {} history: {}", data.session_id, err);
+                            socket.emit("terminal:error", ErrorEvent {
+                                error: format!("Failed to persist command: {}", err),
+                            }).ok();
+                        }
+                    }
+                }
+            }
+        });
+
         // Terminal resize handler
         socket.on("terminal:resize", {
             let state = state.clone();
@@ -439,9 +496,12 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                 async move {
                     // Check authentication
                     let user_id = match get_authenticated_user_id(&socket) {
-                        Some(user_id) => user_id,
-                        None => {
-                            error!("Terminal resize request from unauthenticated socket");
+                        Ok(user_id) => user_id,
+                        Err(err) => {
+                            error!("Terminal resize request from unauthenticated socket: {}", err);
+                            socket.emit("terminal:error", ErrorEvent {
+                                error: format!("Authentication required: {}", err),
+                            }).ok();
                             return;
                         }
                     };
@@ -469,9 +529,12 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                 async move {
                     // Check authentication
                     let user_id = match get_authenticated_user_id(&socket) {
-                        Some(user_id) => user_id,
-                        None => {
-                            error!("Session list request from unauthenticated socket");
+                        Ok(user_id) => user_id,
+                        Err(err) => {
+                            error!("Session list request from unauthenticated socket: {}", err);
+                            socket.emit("terminal:error", ErrorEvent {
+                                error: format!("Authentication required: {}", err),
+                            }).ok();
                             return;
                         }
                     };
@@ -516,9 +579,12 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                 async move {
                     // Check authentication
                     let user_id = match get_authenticated_user_id(&socket) {
-                        Some(user_id) => user_id,
-                        None => {
-                            error!("Session recovery request from unauthenticated socket");
+                        Ok(user_id) => user_id,
+                        Err(err) => {
+                            error!("Session recovery request from unauthenticated socket: {}", err);
+                            socket.emit("terminal:error", ErrorEvent {
+                                error: format!("Authentication required: {}", err),
+                            }).ok();
                             return;
                         }
                     };
@@ -565,9 +631,12 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                 async move {
                     // Check authentication
                     let user_id = match get_authenticated_user_id(&socket) {
-                        Some(user_id) => user_id,
-                        None => {
-                            error!("Session termination request from unauthenticated socket");
+                        Ok(user_id) => user_id,
+                        Err(err) => {
+                            error!("Session termination request from unauthenticated socket: {}", err);
+                            socket.emit("terminal:error", ErrorEvent {
+                                error: format!("Authentication required: {}", err),
+                            }).ok();
                             return;
                         }
                     };
@@ -684,7 +753,10 @@ async fn authenticate_user(token: &str) -> Result<Claims, Box<dyn std::error::Er
     Ok(token_data.claims)
 }
 
-// Helper function to extract user_id from socket extensions
-fn get_authenticated_user_id(socket: &SocketRef) -> Option<String> {
-    socket.extensions.get::<String>().map(|s| s.clone())
+// Helper function to extract user_id from socket extensions - returns Result for proper error handling
+fn get_authenticated_user_id(socket: &SocketRef) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    #[allow(clippy::map_clone)]
+    socket.extensions.get::<String>()
+        .map(|s| s.clone())
+        .ok_or_else(|| "Authentication required: user not found in socket extensions".into())
 }

@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import type { Workspace, Session } from '@/types'
 import { socketService } from '@/services/socket'
 import { useLayoutStore } from '@/stores/layout'
+import { apiService } from '@/services/api'
 
 export interface Repository {
   id: number | string
@@ -75,11 +76,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const deleteFiles = ref(false)
   const deletingWorkspace = ref(false)
 
-  // Lazy load apiService when needed
-  const getApiService = async () => {
-    const { apiService } = await import('@/services/api')
-    return apiService
-  }
+  
 
   const hasWorkspaces = computed(() => workspaces.value.length > 0)
   const hasRepositories = computed(() => repositories.value.length > 0)
@@ -102,7 +99,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     error.value = null
 
     try {
-      const apiService = await getApiService()
       console.log('🔄 Making API call to getWorkspaces...')
       const data = await apiService.getWorkspaces(ownerId)
       console.log('✅ API call successful, received:', data)
@@ -132,7 +128,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     error.value = null
 
     try {
-      const apiService = await getApiService()
       const newWorkspace = await apiService.createWorkspace(name, path)
       workspaces.value.push(newWorkspace)
       
@@ -156,7 +151,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     error.value = null
 
     try {
-      const apiService = await getApiService()
       await apiService.deleteWorkspace(id)
       
       // Remove from local state
@@ -209,7 +203,6 @@ const fetchSessions = async (workspaceId: string) => {
   error.value = null
 
   try {
-    const apiService = await getApiService()
     const data = await apiService.getSessions(workspaceId)
     sessions.value = data
   } catch (err) {
@@ -269,7 +262,6 @@ const fetchLayoutsForWorkspace = async (workspaceId: string) => {
     repositoryError.value = null
     
     try {
-      const apiService = await getApiService()
       const data = await apiService.getRepositories(page, repositorySearchTerm.value)
       
       if (append && page > 1) {
@@ -318,7 +310,6 @@ const fetchLayoutsForWorkspace = async (workspaceId: string) => {
     }
     
     try {
-      const apiService = await getApiService()
       const workspace = await apiService.cloneRepository(repository.clone_url, repository.name)
       
       // Update progress

@@ -12,7 +12,7 @@ use axum::{
     Router,
 };
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
+use tracing::info;
 
 #[derive(Debug, Deserialize)]
 pub struct CreateProcessRequest {
@@ -29,6 +29,7 @@ pub struct CreateProcessRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct UpdateProcessRequest {
     pub name: Option<String>,
     pub command: Option<String>,
@@ -37,14 +38,18 @@ pub struct UpdateProcessRequest {
     pub environment_variables: Option<std::collections::HashMap<String, String>>,
     pub max_restarts: Option<i32>,
     pub auto_restart: Option<bool>,
+    pub workspace_id: Option<String>,
+    pub session_id: Option<String>,
     pub tags: Option<Vec<String>>,
 }
+
+
 
 #[derive(Debug, Deserialize)]
 pub struct ListProcessesQuery {
     pub workspace_id: Option<String>,
     pub session_id: Option<String>,
-    pub status: Option<String>,
+    pub _status: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -180,15 +185,30 @@ async fn get_process(
     Ok(Json(ApiResponse::success(ProcessResponse::from(process))))
 }
 
-// Note: Update process is not implemented in the domain service yet
 async fn update_process(
     State(state): State<AppState>,
     user: AuthenticatedUser,
     Path(id): Path<String>,
-    _request: Json<UpdateProcessRequest>,
+    Json(request): Json<UpdateProcessRequest>,
 ) -> Result<Json<ApiResponse<ProcessResponse>>, ServerError> {
-    warn!("Update process not implemented for process {} for user {}", id, user.user_id);
-    Err(ServerError(act_core::error::CoreError::Validation("Update process not implemented".to_string())))
+    info!("Updating process {} for user {}", id, user.user_id);
+
+    let domain_request = act_core::repository::UpdateProcessRequest {
+        name: request.name,
+        command: request.command,
+        args: request.args,
+        working_directory: request.working_directory,
+        environment_variables: request.environment_variables,
+        max_restarts: request.max_restarts,
+        auto_restart: request.auto_restart,
+        tags: request.tags,
+    };
+
+    let process = state.domain_services.process_service
+        .update_process(&user.user_id, &id, domain_request)
+        .await?;
+
+    Ok(Json(ApiResponse::success(ProcessResponse::from(process))))
 }
 
 async fn delete_process(

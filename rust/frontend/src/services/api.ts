@@ -6,12 +6,7 @@ import type { ThemePreference } from '@/types/theme'
 import type { AppStats } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 
-interface ApiError {
-  code: string
-  message: string
-  details?: any
-  status?: number
-}
+
 
 interface DirectoryListing {
   path: string
@@ -21,17 +16,22 @@ interface DirectoryListing {
 }
 
 // Layout types
+interface LayoutConfiguration {
+  type: string
+  [key: string]: unknown
+}
+
 interface CreateLayoutRequest {
   name: string
   layout_type: string
-  configuration: any
+  configuration: LayoutConfiguration
   is_default?: boolean
   workspace_id: string
 }
 
 interface UpdateLayoutRequest {
   name?: string
-  configuration?: any
+  configuration?: LayoutConfiguration
   is_default?: boolean
 }
 
@@ -39,7 +39,7 @@ interface LayoutResponse {
   id: string
   name: string
   layout_type: string
-  configuration: any
+  configuration: LayoutConfiguration
   is_default: boolean
   workspace_id: string
   created_at: string
@@ -92,17 +92,18 @@ interface ProcessResponse {
   workspace_id?: string
   session_id?: string
   tags?: string[]
-  data?: any
+  data?: Record<string, unknown>
   created_at: string
   updated_at: string
 }
 
 interface EnhancedApiError extends Error {
   code: string
-  details?: any
+  details?: Record<string, unknown>
   status?: number
   isRetryable: boolean
   userMessage: string
+  severity?: ErrorSeverity
 }
 
 // Error categorization
@@ -175,8 +176,14 @@ class ApiService {
   }
 
   // Create enhanced error from Axios error
-  private enhanceError(error: any): EnhancedApiError {
-    const uiStore = this.getUIStore()
+  private enhanceError(error: {
+  response?: {
+    data?: { code?: string; message?: string; error?: string }
+    status?: number
+  }
+  code?: string
+  message?: string
+}): EnhancedApiError {
     
     // Network errors
     if (!error.response) {
@@ -191,7 +198,7 @@ class ApiService {
         )
       }
       
-      if (error.message.includes('Network Error')) {
+      if (error.message?.includes('Network Error')) {
         return this.createEnhancedError(
           'NETWORK_ERROR',
           'Network connection failed',
@@ -205,7 +212,7 @@ class ApiService {
 
     // HTTP errors
     const status = error.response?.status
-    const data = error.response?.data || {}
+    const data = error.response?.data as { message?: string; details?: unknown } || {}
     
     switch (status) {
       case 400:
@@ -293,7 +300,11 @@ class ApiService {
   }
 
   // Create error from API response
-  private createErrorFromResponse(data: any): EnhancedApiError {
+  private createErrorFromResponse(data: {
+  code?: string
+  error?: string
+  message?: string
+}): EnhancedApiError {
     return this.createEnhancedError(
       data.code || 'API_ERROR',
       data.error || 'API request failed',
@@ -312,13 +323,14 @@ class ApiService {
     severity: ErrorSeverity,
     userMessage: string,
     isRetryable: boolean,
-    details?: any
+details?: Record<string, unknown>
   ): EnhancedApiError {
     const error = new Error(message) as EnhancedApiError
     error.code = code
     error.name = code
-    error.details = details
+    error.details = details || undefined
     error.status = this.getStatusFromCategory(category)
+    error.severity = severity
     error.isRetryable = isRetryable
     error.userMessage = userMessage
     return error
@@ -348,7 +360,9 @@ class ApiService {
   }
 
   // Get user-friendly validation message
-  private getValidationMessage(data: any): string {
+  private getValidationMessage(data: {
+  details?: unknown
+}): string {
     if (data.details) {
       if (Array.isArray(data.details)) {
         return data.details.join(', ')
@@ -356,9 +370,9 @@ class ApiService {
       if (typeof data.details === 'object') {
         return Object.values(data.details).join(', ')
       }
-      return String(data.details)
+      return String(data.details || '')
     }
-    return data.message || 'Invalid request data'
+    return (data as { message?: string }).message || 'Invalid request data'
   }
 
   // Handle API error with user notification
@@ -380,7 +394,7 @@ class ApiService {
       code: error.code,
       message: error.message,
       category: error.name,
-      severity: error.severity,
+      
       details: error.details,
       stack: error.stack
     })
@@ -439,8 +453,16 @@ class ApiService {
 
   // Auth endpoints
   async getCurrentUser(): Promise<User> {
-    const response: AxiosResponse<ApiResponse<User>> = await this.client.get('/api/v1/auth/me')
-    return response.data.data
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.get('/api/v1/auth/me');
+    const backendUser = response.data.data;
+    const frontendUser: User = {
+      id: backendUser.user_id,
+      login: backendUser.username,
+      name: backendUser.name || null,
+      email: backendUser.email,
+      avatar_url: backendUser.avatar_url
+    };
+    return frontendUser;
   }
 
   // Workspace endpoints
@@ -555,11 +577,20 @@ class ApiService {
     return response.data.data.content
   }
 
-  async saveFile(path: string, content: string): Promise<void> {
-    await this.client.put('/api/v1/files/content', {
+  async saveFile(path: string, content: string, workspaceId?: string): Promise<void> {
+    if (!workspaceId) {
+      throw new Error('Workspace ID is required for file operations')
+    }
+    
+    // Always use workspace-specific save endpoint
+    await this.client.put(`/api/v1/workspaces/${workspaceId}/files/content`, {
       path,
       content
     })
+  }
+
+  async saveWorkspaceFile(workspaceId: string, path: string, content: string): Promise<void> {
+    return this.saveFile(path, content, workspaceId)
   }
 
   async createFile(parentPath: string, name: string, content = ''): Promise<void> {
@@ -599,7 +630,7 @@ class ApiService {
     try {
       const response: AxiosResponse<ApiResponse<ThemePreference>> = await this.client.get('/api/v1/themes/current')
       return response.data.data
-    } catch (err) {
+    } catch {
       return null
     }
   }
@@ -663,7 +694,7 @@ class ApiService {
 
   // Process endpoints (will be implemented when backend routes are ready)
   async getProcesses(workspaceId?: string, sessionId?: string, status?: string): Promise<ProcessResponse[]> {
-    const params: any = {}
+    const params: Record<string, string> = {}
     if (workspaceId) params.workspace_id = workspaceId
     if (sessionId) params.session_id = sessionId
     if (status) params.status = status

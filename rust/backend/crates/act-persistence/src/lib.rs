@@ -10,6 +10,7 @@ pub mod layout_repository;
 pub mod process_repository;
 pub mod metrics_repository;
 pub mod error;
+pub mod theme_repository;
 
 pub use workspace_repository::SqlWorkspaceRepository;
 pub use session_repository::SqlSessionRepository;
@@ -17,10 +18,12 @@ pub use auth_repository::SqlAuthRepository;
 pub use layout_repository::SqlLayoutRepository;
 pub use process_repository::SqlProcessRepository;
 pub use metrics_repository::SqlxMetricsRepository;
+pub use theme_repository::SqlThemeRepository;
 pub use error::PersistenceError;
 
 use act_core::repository::{WorkspaceRepository, SessionRepository, LayoutRepository, ProcessRepository};
 use act_core::auth::AuthRepository;
+use act_core::theme::ThemeRepository;
 use sqlx::SqlitePool;
 
 /// Factory function to create all repositories with a shared database pool
@@ -30,7 +33,8 @@ pub fn create_repositories(pool: SqlitePool) -> Repositories {
         session: SqlSessionRepository::new(pool.clone()),
         auth: SqlAuthRepository::new(pool.clone()),
         layout: SqlLayoutRepository::new(pool.clone()),
-        process: SqlProcessRepository::new(pool),
+        process: SqlProcessRepository::new(pool.clone()),
+        theme: SqlThemeRepository::new(pool.clone()),
     }
 }
 
@@ -41,6 +45,7 @@ pub struct Repositories {
     pub auth: SqlAuthRepository,
     pub layout: SqlLayoutRepository,
     pub process: SqlProcessRepository,
+    pub theme: SqlThemeRepository,
 }
 
 impl Repositories {
@@ -67,6 +72,11 @@ impl Repositories {
     /// Get process repository as trait object
     pub fn process_repo(&self) -> Arc<dyn ProcessRepository> {
         Arc::new(self.process.clone())
+    }
+
+    /// Get theme repository as trait object
+    pub fn theme_repo(&self) -> Arc<dyn ThemeRepository> {
+        Arc::new(self.theme.clone())
     }
 }
 

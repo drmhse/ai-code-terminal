@@ -286,6 +286,42 @@ impl ProcessService {
         }
     }
 
+    pub async fn update_process(
+        &self,
+        user_id: &str,
+        process_id: &str,
+        request: act_core::repository::UpdateProcessRequest,
+    ) -> Result<UserProcess> {
+        info!("Updating process {} for user {}", process_id, user_id);
+        
+        // Get the current process to check if it's running
+        let current_process = self.process_repository.get_by_id(user_id, process_id).await?;
+        
+        // If the process is running, we need to handle updates carefully
+        if current_process.status == act_core::models::ProcessStatus::Running {
+            // For running processes, only allow certain updates
+            let restricted_request = act_core::repository::UpdateProcessRequest {
+                name: request.name,
+                command: None, // Cannot change command while running
+                args: None,   // Cannot change args while running
+                working_directory: None, // Cannot change working directory while running
+                environment_variables: None, // Cannot change env vars while running
+                max_restarts: request.max_restarts,
+                auto_restart: request.auto_restart,
+                tags: request.tags,
+            };
+            
+            let updated_process = self.process_repository.update(user_id, process_id, restricted_request).await?;
+            info!("Process {} updated (restricted mode for running process)", process_id);
+            Ok(updated_process)
+        } else {
+            // For non-running processes, allow all updates
+            let updated_process = self.process_repository.update(user_id, process_id, request).await?;
+            info!("Process {} updated successfully", process_id);
+            Ok(updated_process)
+        }
+    }
+
     pub async fn cleanup_failed_processes(&self, user_id: &str) -> Result<usize> {
         let failed_processes = self.process_repository.list_by_status(user_id, "Failed").await?;
         let mut cleaned_count = 0;
@@ -307,5 +343,9 @@ impl ProcessService {
         }
 
         Ok(cleaned_count)
+    }
+
+    pub async fn count_active_processes(&self) -> Result<u32> {
+        self.process_repository.count_active_processes().await.map(|count| count as u32)
     }
 }

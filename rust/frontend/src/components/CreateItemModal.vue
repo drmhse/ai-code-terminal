@@ -96,7 +96,7 @@ interface Props {
 
 interface Emits {
   (e: 'close'): void
-  (e: 'create', data: { name: string; type: 'file' | 'directory'; content?: string }): void
+  (e: 'create', data: { name: string; type: 'file' | 'directory'; content?: string | undefined }): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -109,7 +109,7 @@ const emit = defineEmits<Emits>()
 const itemName = ref('')
 const itemType = ref<'file' | 'directory'>('file')
 const fileContent = ref('')
-const nameError = ref('')
+const nameError = ref<string | null>(null)
 const nameInput = ref<HTMLInputElement>()
 
 // Validation

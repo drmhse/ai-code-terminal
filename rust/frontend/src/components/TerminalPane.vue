@@ -1,5 +1,5 @@
 <template>
-  <div 
+  <div
     class="terminal-pane"
     :class="{ active: isActive }"
     :data-pane-id="pane.id"
@@ -11,7 +11,7 @@
         <span class="pane-cwd">{{ getActiveTab()?.cwd || workspacePath }}</span>
       </div>
       <div class="pane-actions">
-        <button 
+        <button
           v-if="canSplit"
           @click="$emit('split', 'horizontal')"
           class="action-btn"
@@ -23,7 +23,7 @@
             <line x1="8" y1="18" x2="16" y2="18"></line>
           </svg>
         </button>
-        <button 
+        <button
           v-if="canSplit"
           @click="$emit('split', 'vertical')"
           class="action-btn"
@@ -35,9 +35,9 @@
             <line x1="18" y1="8" x2="18" y2="16"></line>
           </svg>
         </button>
-        <button 
+        <button
           v-if="showCloseButton"
-          @click="$emit('close')" 
+          @click="$emit('close')"
           class="close-btn"
           title="Close terminal"
         >
@@ -52,8 +52,8 @@
     <!-- Tabs -->
     <div v-if="pane.tabs && pane.tabs.length > 1" class="pane-tabs">
       <div class="tabs-container">
-        <div 
-          v-for="tab in sortedTabs" 
+        <div
+          v-for="tab in sortedTabs"
           :key="tab.id"
           class="tab"
           :class="{ active: tab.isActive }"
@@ -65,7 +65,7 @@
           @dragend="handleDragEnd"
         >
           <span class="tab-name">{{ tab.name }}</span>
-          <button 
+          <button
             v-if="pane.tabs.length > 1"
             @click.stop="closeTab(tab.id)"
             class="tab-close"
@@ -77,7 +77,7 @@
             </svg>
           </button>
         </div>
-        <button 
+        <button
           @click="createNewTab"
           class="tab-new"
           title="New terminal tab"
@@ -89,10 +89,10 @@
         </button>
       </div>
     </div>
-    
+
     <!-- Terminal Content -->
     <div class="terminal-content">
-      <div 
+      <div
         ref="terminalRef"
         class="xterm-container"
         @click="focus"
@@ -103,7 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
@@ -127,6 +127,7 @@ interface Emits {
   (e: 'split', direction: 'horizontal' | 'vertical'): void
   (e: 'resize', cols: number, rows: number): void
   (e: 'data', data: string): void
+  (e: 'update:pane', pane: TerminalPaneType): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -140,20 +141,20 @@ const emit = defineEmits<Emits>()
 const terminalStore = useTerminalStore()
 const workspaceStore = useWorkspaceStore()
 
-// Drag and drop state
 const draggedTab = ref<TerminalTab | null>(null)
-
 const terminalRef = ref<HTMLDivElement>()
 const terminalInstance = ref<Terminal>()
 const fitAddon = ref<FitAddon>()
 const resizeObserver = ref<ResizeObserver>()
+const lastCols = ref(0)
+const lastRows = ref(0)
+let cleanupOutputHandler: (() => void) | null = null;
 
-// Computed
 const sortedTabs = computed(() => {
   return [...props.pane.tabs].sort((a, b) => a.order - b.order)
 })
 
-const getActiveTab = () => {
+const getActiveTab = (): TerminalTab | undefined => {
   return props.pane.tabs.find(tab => tab.isActive)
 }
 
@@ -184,7 +185,6 @@ const defaultTheme: TerminalTheme = {
 const initializeTerminal = () => {
   if (!terminalRef.value) return
 
-  // Create terminal instance
   terminalInstance.value = new Terminal({
     theme: props.theme || defaultTheme,
     fontSize: 14,
@@ -198,49 +198,42 @@ const initializeTerminal = () => {
     macOptionIsMeta: true
   })
 
-  // Create addons
   fitAddon.value = new FitAddon()
-  const webLinksAddon = new WebLinksAddon()
-
-  // Load addons
   terminalInstance.value.loadAddon(fitAddon.value)
-  terminalInstance.value.loadAddon(webLinksAddon)
-
-  // Open terminal in container
+  terminalInstance.value.loadAddon(new WebLinksAddon())
   terminalInstance.value.open(terminalRef.value)
-  fitAddon.value.fit()
 
-  // Handle terminal input - ensure the terminal can accept input
-  terminalInstance.value.onData((data) => {
-    console.log(`Terminal input received: ${JSON.stringify(data)} from pane ${props.pane.id}`)
-    emit('data', data)
-  })
+  setTimeout(() => fitAddon.value?.fit(), 150)
 
-  // Focus terminal if it's the active pane
-  if (props.isActive && terminalInstance.value) {
-    setTimeout(() => {
-      terminalInstance.value?.focus()
-      console.log(`✅ Terminal focused for pane ${props.pane.id}`)
-    }, 100)
+  terminalInstance.value.onData((data) => emit('data', data))
+
+  if (props.isActive) {
+    setTimeout(() => terminalInstance.value?.focus(), 100)
   }
 
-  // Handle terminal resize
   terminalInstance.value.onResize(({ cols, rows }) => {
+    if (cols === lastCols.value && rows === lastRows.value) return
+    lastCols.value = cols
+    lastRows.value = rows
     emit('resize', cols, rows)
   })
 
-  // Handle container resize
-  resizeObserver.value = new ResizeObserver(() => {
-    if (fitAddon.value) {
-      fitAddon.value.fit()
-    }
-  })
+  resizeObserver.value = new ResizeObserver(() => fitAddon.value?.fit())
   resizeObserver.value.observe(terminalRef.value)
 
   console.log(`✅ Terminal initialized for pane ${props.pane.id}`)
 }
 
-// Tab management methods
+watch(() => props.pane.activeTabId, (newTabId, oldTabId) => {
+  if (newTabId && newTabId !== oldTabId && terminalInstance.value) {
+    const newTab = props.pane.tabs.find(t => t.id === newTabId);
+    if (newTab) {
+      terminalInstance.value.clear();
+      terminalInstance.value.write(newTab.buffer);
+    }
+  }
+}, { immediate: true });
+
 const selectTab = (tabId: string) => {
   terminalStore.setActiveTabInPane(props.pane.id, tabId)
   emit('focus', props.pane.id)
@@ -256,7 +249,6 @@ const closeTab = (tabId: string) => {
   terminalStore.closeTabInPane(props.pane.id, tabId)
 }
 
-// Drag and drop methods
 const handleDragStart = (event: DragEvent, tab: TerminalTab) => {
   draggedTab.value = tab
   if (event.dataTransfer) {
@@ -267,25 +259,21 @@ const handleDragStart = (event: DragEvent, tab: TerminalTab) => {
 
 const handleDragOver = (event: DragEvent) => {
   event.preventDefault()
-  if (event.dataTransfer) {
-    event.dataTransfer.dropEffect = 'move'
-  }
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
 }
 
 const handleDrop = (event: DragEvent, targetTab: TerminalTab) => {
   event.preventDefault()
   if (draggedTab.value && draggedTab.value.id !== targetTab.id) {
-    // Reorder tabs within the same pane
     const sourceIndex = props.pane.tabs.findIndex(t => t.id === draggedTab.value!.id)
     const targetIndex = props.pane.tabs.findIndex(t => t.id === targetTab.id)
-    
     if (sourceIndex !== -1 && targetIndex !== -1) {
-      // Update orders
-      props.pane.tabs[sourceIndex].order = targetIndex
-      props.pane.tabs[targetIndex].order = sourceIndex
-      
-      // Sort tabs by order
-      props.pane.tabs.sort((a, b) => a.order - b.order)
+      const updatedPane = { ...props.pane }
+      const updatedTabs = [...updatedPane.tabs]
+      const [movedTab] = updatedTabs.splice(sourceIndex, 1)
+      updatedTabs.splice(targetIndex, 0, movedTab)
+      updatedTabs.forEach((t, i) => t.order = i)
+      emit('update:pane', { ...updatedPane, tabs: updatedTabs })
     }
   }
   draggedTab.value = null
@@ -296,54 +284,43 @@ const handleDragEnd = () => {
 }
 
 const focus = () => {
-  if (terminalInstance.value) {
-    terminalInstance.value.focus()
-  }
-  // Only emit focus event after successfully focusing to avoid recursion
+  terminalInstance.value?.focus()
   emit('focus', props.pane.id)
 }
 
-const write = (data: string) => {
-  terminalInstance.value?.write(data)
-}
-
-const writeln = (data: string) => {
-  terminalInstance.value?.writeln(data)
-}
-
-const clear = () => {
-  terminalInstance.value?.clear()
-}
-
-const fit = () => {
-  fitAddon.value?.fit()
-}
+const write = (data: string) => terminalInstance.value?.write(data)
+const writeln = (data: string) => terminalInstance.value?.writeln(data)
+const clear = () => terminalInstance.value?.clear()
+const fit = () => fitAddon.value?.fit()
 
 const dispose = () => {
-  if (resizeObserver.value) {
-    resizeObserver.value.disconnect()
-  }
+  resizeObserver.value?.disconnect()
   terminalInstance.value?.dispose()
 }
 
-// Expose methods to parent
-defineExpose({
-  write,
-  writeln,
-  clear,
-  fit,
-  focus,
-  dispose
-})
+defineExpose({ write, writeln, clear, fit, focus, dispose })
 
 onMounted(() => {
   nextTick(() => {
     initializeTerminal()
+    cleanupOutputHandler = terminalStore.onTerminalOutput((sessionId, output) => {
+      const activeTab = getActiveTab();
+      if (activeTab && activeTab.sessionId === sessionId) {
+        write(output);
+      }
+    });
+    const activeTab = getActiveTab();
+    if (activeTab && activeTab.buffer) {
+        write(activeTab.buffer);
+    }
   })
 })
 
 onUnmounted(() => {
-  dispose()
+  dispose();
+  if (cleanupOutputHandler) {
+    cleanupOutputHandler();
+  }
 })
 </script>
 

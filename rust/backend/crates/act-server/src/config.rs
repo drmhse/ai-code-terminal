@@ -146,46 +146,7 @@ impl Config {
         Ok(config)
     }
     
-    /// Validate that required environment variables are present
-    #[allow(dead_code, clippy::result_large_err)]
-    pub fn validate_required_env_vars() -> Result<(), figment::Error> {
-        let required_vars = [
-            "ACT_AUTH_JWT_SECRET",
-            "ACT_AUTH_GITHUB_CLIENT_ID", 
-            "ACT_AUTH_GITHUB_CLIENT_SECRET",
-            "ACT_AUTH_TENANT_GITHUB_USERNAME",
-        ];
-        
-        let missing_vars: Vec<String> = required_vars
-            .iter()
-            .filter(|&var| std::env::var(var).is_err())
-            .map(|&var| var.to_string())
-            .collect();
-        
-        if !missing_vars.is_empty() {
-            return Err(figment::error::Kind::Message(format!("Missing required environment variables: {}", missing_vars.join(", "))).into());
-        }
-        
-        // Warn about optional but recommended variables
-        let recommended_vars = [
-            "ACT_DATABASE_URL",
-            "ACT_SERVER_HOST",
-            "ACT_SERVER_PORT",
-            "ACT_CORS_ALLOWED_ORIGINS_0",
-        ];
-        
-        let missing_recommended: Vec<String> = recommended_vars
-            .iter()
-            .filter(|&var| std::env::var(var).is_err())
-            .map(|&var| var.to_string())
-            .collect();
-        
-        if !missing_recommended.is_empty() {
-            tracing::warn!("Recommended environment variables not set: {}. Using defaults.", missing_recommended.join(", "));
-        }
-        
-        Ok(())
-    }
+  
     
     /// Validate configuration
     pub fn validate(&self) -> Result<(), String> {

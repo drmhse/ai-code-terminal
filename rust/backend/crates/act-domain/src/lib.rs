@@ -6,6 +6,7 @@ pub mod auth_service;
 pub mod github_service;
 pub mod layout_service;
 pub mod process_service;
+pub mod theme_service;
 
 pub use workspace_service::{
     WorkspaceService, GitService, WorkspaceSettings, GitStatus, GitCommit, CloneRequest
@@ -28,11 +29,13 @@ pub use github_service::{GitHubService, RepositoryQuery};
 
 pub use layout_service::{LayoutService};
 pub use process_service::{ProcessService};
+pub use theme_service::{ThemeService};
 
 use std::sync::Arc;
 
 use act_core::{
     repository::{WorkspaceRepository, SessionRepository, LayoutRepository, ProcessRepository, ProcessRunner},
+    theme::ThemeRepository,
     filesystem::FileSystem,
     pty::PtyService,
     GitHubAuthService, JwtService, AuthRepository, GitHubRepositoryService,
@@ -46,6 +49,7 @@ pub struct DomainServices {
     pub github_service: GitHubService,
     pub layout_service: LayoutService,
     pub process_service: ProcessService,
+    pub theme_service: ThemeService,
 }
 
 impl DomainServices {
@@ -56,6 +60,7 @@ impl DomainServices {
         layout_repository: Arc<dyn LayoutRepository>,
         process_repository: Arc<dyn ProcessRepository>,
         process_runner: Arc<dyn ProcessRunner>,
+        theme_repository: Arc<dyn ThemeRepository>,
         filesystem: Arc<dyn FileSystem>,
         pty_service: Arc<dyn PtyService>,
         git_service: Arc<dyn GitService>,
@@ -105,6 +110,10 @@ impl DomainServices {
             process_runner,
         );
 
+        let theme_service = ThemeService::new(
+            theme_repository,
+        );
+
         Self {
             workspace_service,
             session_service,
@@ -113,6 +122,7 @@ impl DomainServices {
             github_service,
             layout_service,
             process_service,
+            theme_service,
         }
     }
 }

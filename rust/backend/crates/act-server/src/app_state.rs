@@ -11,7 +11,7 @@ use act_persistence::{create_repositories};
 use act_pty::TokioPtyService;
 use act_vfs::SandboxedFileSystem;
 use crate::config::Config;
-use crate::metrics_placeholder::RealSystemMonitor;
+use crate::metrics::RealSystemMonitor;
 use act_persistence::SqlxMetricsRepository;
 use crate::services::{ServerGitHubAuthService, ServerJwtService, GitHubService, GitHubRepositoryServiceAdapter};
 use act_process::TokioProcessRunner;
@@ -26,7 +26,6 @@ pub struct AppState {
     /// Domain services container
     pub domain_services: Arc<DomainServices>,
     /// PTY service for terminal operations
-    #[allow(dead_code)]
     pub pty_service: Arc<dyn PtyService>,
     /// File system service
     pub filesystem: Arc<dyn FileSystem>,
@@ -90,6 +89,7 @@ impl AppState {
             repositories.layout_repo(),
             repositories.process_repo(),
             process_runner.clone(),
+            repositories.theme_repo(),
             filesystem.clone(),
             pty_service.clone(),
             git_service,

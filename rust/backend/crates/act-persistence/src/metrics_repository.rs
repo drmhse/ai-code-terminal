@@ -266,7 +266,7 @@ impl MetricsRepository for SqlxMetricsRepository {
         .fetch_one(&*self.pool)
         .await
         .map_err(|e| act_core::CoreError::Database(format!("Failed to get user last active: {}", e)))?
-        .unwrap_or_else(|| Utc::now());
+        .unwrap_or_else(Utc::now);
         
         // Get favorite commands
         let fav_commands_rows = sqlx::query(
@@ -414,8 +414,8 @@ impl MetricsRepository for SqlxMetricsRepository {
                         timestamp,
                         event_type,
                         event_name,
-                        user_id.unwrap_or_else(|| "".to_string()),
-                        session_id.unwrap_or_else(|| "".to_string()),
+                        user_id.unwrap_or_default(),
+                        session_id.unwrap_or_default(),
                         duration_ms.unwrap_or(0)
                     ));
                 }

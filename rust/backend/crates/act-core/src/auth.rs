@@ -3,7 +3,7 @@ use crate::error::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AuthenticatedUser {
     pub user_id: String,
     pub username: String,
@@ -19,7 +19,7 @@ pub struct AuthToken {
     pub user: AuthenticatedUser,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct JwtClaims {
     pub sub: String,
     pub github_username: String,  // GitHub username  
@@ -68,9 +68,9 @@ pub trait JwtService: Send + Sync {
 #[async_trait]
 pub trait AuthRepository: Send + Sync {
     async fn find_user_by_github_id(&self, github_id: &str) -> Result<Option<AuthenticatedUser>>;
-    async fn create_user(&self, github_id: &str, username: &str, email: Option<&str>, avatar_url: Option<&str>) -> Result<AuthenticatedUser>;
-    async fn update_user(&self, user_id: &str, username: &str, email: Option<&str>, avatar_url: Option<&str>) -> Result<AuthenticatedUser>;
-    async fn store_github_token(&self, user_id: &str, token: &str, refresh_token: Option<&str>, expires_at: DateTime<Utc>) -> Result<()>;
+    async fn create_user(&self, github_id: &str, username: &str, email: Option<String>, avatar_url: Option<String>) -> Result<AuthenticatedUser>;
+    async fn update_user(&self, user_id: &str, username: &str, email: Option<String>, avatar_url: Option<String>) -> Result<AuthenticatedUser>;
+    async fn store_github_token(&self, user_id: &str, token: &str, refresh_token: Option<String>, expires_at: DateTime<Utc>) -> Result<()>;
     async fn get_github_token(&self, user_id: &str) -> Result<Option<String>>;
     async fn get_github_refresh_token(&self, user_id: &str) -> Result<Option<String>>;
     async fn is_github_token_expired(&self, user_id: &str) -> Result<bool>;
@@ -78,6 +78,7 @@ pub trait AuthRepository: Send + Sync {
     async fn is_github_authenticated(&self, user_id: &str) -> Result<bool>;
     async fn get_user_settings(&self, user_id: &str) -> Result<Option<UserSettings>>;
     async fn update_user_settings(&self, user_id: &str, settings: &UserSettings) -> Result<()>;
+    async fn get_all_users(&self) -> Result<Vec<AuthenticatedUser>>;
 }
 
 // GitHub Repository data structures
@@ -110,7 +111,7 @@ pub struct GitHubRepositoryOwner {
     pub html_url: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct RepositoryListOptions {
     pub page: Option<u32>,
     pub per_page: Option<u32>,

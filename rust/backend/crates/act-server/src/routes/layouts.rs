@@ -207,11 +207,7 @@ async fn duplicate_layout(
 ) -> Result<Json<ApiResponse<LayoutResponse>>, ServerError> {
     info!("Duplicating layout {} for user {}", id, user.user_id);
 
-    let new_name = if let Some(name) = request.get("name").and_then(|v| v.as_str()) {
-        Some(name.to_string())
-    } else {
-        None
-    };
+    let new_name = request.get("name").and_then(|v| v.as_str()).map(|name| name.to_string());
 
     let layout = state.domain_services.layout_service
         .duplicate_layout(&user.user_id, &id, new_name)

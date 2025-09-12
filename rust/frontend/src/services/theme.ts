@@ -1,5 +1,11 @@
 import type { Theme, ThemePreference } from '@/types/theme'
 import { themes, getThemeById, getSystemPreferredTheme, getDefaultTheme } from '@/data/themes'
+import { apiService } from './api'
+
+interface ThemeApiService {
+  getCurrentTheme(): Promise<ThemePreference | null>
+  saveTheme(preferences: ThemePreference): Promise<void>
+}
 
 /**
  * Comprehensive theme service for AI Code Terminal
@@ -7,14 +13,10 @@ import { themes, getThemeById, getSystemPreferredTheme, getDefaultTheme } from '
  */
 class ThemeService {
   private currentTheme: Theme | null = null
-  private apiService: any = null
+  private apiService: ThemeApiService | null = null
 
-  private async getApiService() {
-    if (!this.apiService) {
-      const { apiService } = await import('./api')
-      this.apiService = apiService
-    }
-    return this.apiService
+  private getApiService(): ThemeApiService {
+    return apiService
   }
   private themePreference: ThemePreference | null = null
   private systemMediaQuery: MediaQueryList | null = null

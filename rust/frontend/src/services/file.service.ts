@@ -1,10 +1,21 @@
 import type { FileContent, DirectoryListing } from '@/types'
 
+// API service interface for file operations
+interface FileApiService {
+  getDirectoryContents(path: string): Promise<unknown[]>
+  getFileContent(path: string): Promise<string>
+  saveFile?(path: string, content: string): Promise<void>
+  createDirectory?(parentPath: string, name: string): Promise<void>
+  createFile?(parentPath: string, name: string, content?: string): Promise<void>
+  deleteFile?(path: string): Promise<void>
+  renameFile?(oldPath: string, newName: string): Promise<void>
+}
+
 export class FileService {
   private static instance: FileService
-  private apiService: any = null
+  private apiService: FileApiService | null = null
 
-  private async getApiService() {
+  private async getApiService(): Promise<FileApiService> {
     if (!this.apiService) {
       const { apiService } = await import('./api')
       this.apiService = apiService
@@ -19,19 +30,46 @@ export class FileService {
     return FileService.instance
   }
 
+  private getLanguageFromExtension(extension?: string): string {
+    const languageMap: Record<string, string> = {
+      'js': 'javascript',
+      'ts': 'typescript',
+      'py': 'python',
+      'java': 'java',
+      'cpp': 'cpp',
+      'c': 'c',
+      'go': 'go',
+      'rs': 'rust',
+      'html': 'html',
+      'css': 'css',
+      'json': 'json',
+      'md': 'markdown',
+      'sh': 'shell',
+      'sql': 'sql',
+      'xml': 'xml',
+      'yaml': 'yaml',
+      'yml': 'yaml',
+      'php': 'php'
+    }
+    return extension ? languageMap[extension] || 'text' : 'text'
+  }
+
   async listDirectory(path: string = './'): Promise<DirectoryListing> {
     const apiService = await this.getApiService()
     const response = await apiService.getDirectoryContents(path)
-    // Convert from API FileItem[] to types FileItem[]
-    const items: import('@/types').FileItem[] = response.map(item => ({
-      name: item.name,
-      path: item.path,
-      is_directory: item.type === 'directory',
-      size: item.size || 0,
-      modified_at: item.modified || new Date().toISOString(),
-      extension: item.extension || '',
-      language: item.language || ''
-    }))
+    // Convert API response to DirectoryListing FileItem[]
+    const items = response.map((item: unknown) => {
+      const fileItem = item as { name: string; path: string; is_directory: boolean; size?: number; modified_at?: string | null; modified?: string | null; extension?: string; language?: string }
+      return ({
+        name: fileItem.name,
+        path: fileItem.path,
+        is_directory: fileItem.is_directory,
+        size: fileItem.size || 0,
+        modified_at: fileItem.modified_at || fileItem.modified,
+        extension: fileItem.extension,
+        language: fileItem.language
+      })
+    })
     return {
       path,
       items,
@@ -76,7 +114,8 @@ export class FileService {
 
   async renameFile(fromPath: string, toPath: string): Promise<void> {
     const apiService = await this.getApiService()
-    await apiService.renameFile(fromPath, toPath)
+    const newName = toPath.split('/').pop() || ''
+    await apiService.renameFile(fromPath, newName)
   }
 
   getFileLanguage(filename: string): string {

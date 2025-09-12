@@ -1,8 +1,6 @@
 use axum::{
-    extract::{FromRequestParts, Request, State},
-    http::{HeaderMap, StatusCode, request::Parts},
-    middleware::Next,
-    response::Response,
+    extract::FromRequestParts,
+    http::{StatusCode, request::Parts},
 };
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
@@ -20,9 +18,9 @@ pub struct Claims {
 
 // Extension type to pass authenticated user info through requests
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct AuthenticatedUser {
     pub user_id: String,
-    #[allow(dead_code)]
     pub username: String,
 }
 
@@ -30,27 +28,9 @@ pub struct AuthenticatedUser {
 impl FromRequestParts<AppState> for AuthenticatedUser {
     type Rejection = StatusCode;
 
-    async fn from_request_parts(parts: &mut Parts, _state: &AppState) -> Result<Self, Self::Rejection> {
-        parts.extensions
-            .get::<AuthenticatedUser>()
-            .cloned()
-            .ok_or(StatusCode::UNAUTHORIZED)
-    }
-}
-
-#[allow(dead_code)]
-pub struct AuthMiddleware;
-
-impl AuthMiddleware {
-    #[allow(dead_code)]
-    pub async fn verify_jwt(
-        State(state): State<AppState>,
-        headers: HeaderMap,
-        mut request: Request,
-        next: Next,
-    ) -> Result<Response, StatusCode> {
+    async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
         // Extract JWT from Authorization header
-        let token = match headers.get("authorization") {
+        let token = match parts.headers.get("authorization") {
             Some(header) => {
                 let header_str = header.to_str().map_err(|_| {
                     warn!("Invalid authorization header format");
@@ -84,15 +64,11 @@ impl AuthMiddleware {
         let claims = token_data.claims;
         debug!("JWT verification successful for user: {}", claims.username);
         
-        // Inject authenticated user info into request extensions
-        let auth_user = AuthenticatedUser {
+        // Return authenticated user info
+        Ok(AuthenticatedUser {
             user_id: claims.sub.clone(),
             username: claims.github_username.clone(),
-        };
-        
-        request.extensions_mut().insert(auth_user);
-        Ok(next.run(request).await)
+        })
     }
-
-
 }
+

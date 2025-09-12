@@ -5,6 +5,7 @@ pub mod filesystem;
 pub mod repository;
 pub mod models;
 pub mod auth;
+pub mod theme;
 
 pub use error::{CoreError, Error, Result};
 pub use db::Database;
@@ -29,3 +30,4 @@ pub use auth::{
     GitHubAuthService, JwtService, AuthRepository,
     GitHubRepository, GitHubRepositoryOwner, GitHubRepositoryService, RepositoryListOptions
 };
+pub use theme::{ThemePreference, ThemeRepository};

@@ -6,11 +6,11 @@ mod services;
 mod socket_handlers;
 mod app_state;
 mod error;
-mod metrics_placeholder;
+mod metrics;
 
 use axum::Router;
 use config::Config;
-use tracing::info;
+use tracing::{info, warn};
 use app_state::AppState;
 use socketioxide::SocketIo;
 
@@ -42,8 +42,40 @@ async fn main() -> anyhow::Result<()> {
     
     info!("Application state initialized with domain services");
 
-    // TODO: Session reconciliation will be implemented in Phase 2 through domain services
-    info!("Skipping session reconciliation (will be implemented in Phase 2)");
+    // Perform initial session reconciliation
+    info!("Performing initial session reconciliation...");
+    
+    // Get all users from the system
+    let users_to_reconcile = match state.domain_services.auth_service.get_all_users().await {
+        Ok(users) => {
+            let user_ids: Vec<String> = users.into_iter().map(|user| user.user_id).collect();
+            info!("Found {} users for session reconciliation", user_ids.len());
+            user_ids
+        }
+        Err(e) => {
+            warn!("Failed to get users for session reconciliation: {}", e);
+            // Fallback to single user mode for backward compatibility
+            vec!["single-tenant".to_string()]
+        }
+    };
+    
+    for user_id in users_to_reconcile {
+        match state.domain_services.session_service.reconcile_sessions(&user_id).await {
+            Ok(result) => {
+                info!("Session reconciliation for user {}: recovered={}, cleaned={}, failed={}", 
+                      user_id, result.recovered_sessions, result.cleaned_sessions, result.failed_sessions);
+            }
+            Err(e) => {
+                warn!("Session reconciliation failed for user {}: {}", user_id, e);
+            }
+        }
+        
+        // Start periodic reconciliation for this user (every 30 minutes)
+        state.domain_services.session_service
+            .start_periodic_reconciliation(user_id.clone(), 30);
+    }
+    
+    info!("Session reconciliation initialized");
 
     // Create Socket.IO server
     let (socket_layer, io) = SocketIo::new_layer();
@@ -63,6 +95,7 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         .nest("/api/v1", routes::api_routes())
         .layer(cors)
+        .layer(axum::middleware::from_fn(middleware::csrf::CsrfProtection::verify_csrf))
         .layer(socket_layer)  // Add Socket.IO layer
         .with_state(state);
 

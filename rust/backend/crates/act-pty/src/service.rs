@@ -10,7 +10,7 @@ use tokio::sync::{Mutex, mpsc};
 use tracing::{info, error, debug, warn};
 use crate::session::PtySession;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TokioPtyService {
     sessions: Arc<Mutex<HashMap<SessionId, Arc<Mutex<PtySession>>>>>,
 }
@@ -21,8 +21,6 @@ impl TokioPtyService {
             sessions: Arc::new(Mutex::new(HashMap::new())),
         }
     }
-
-  
 }
 
 impl Default for TokioPtyService {
@@ -38,33 +36,35 @@ impl PtyService for TokioPtyService {
         config: SessionConfig,
     ) -> Result<(tokio::sync::mpsc::UnboundedReceiver<PtyEvent>, SessionInfo)> {
         info!("Creating PTY session {} for workspace {}", config.session_id, config.workspace_id);
+        info!("Shell detection: SHELL env var is {:?}", std::env::var("SHELL"));
 
-        // Use direct shell session - simple and reliable
         let default_shell = if cfg!(windows) {
-            "powershell.exe"
+            "cmd.exe".to_string()
         } else {
-            "/bin/bash"
+            std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string())
         };
-        
-        let shell = config.shell.as_deref().unwrap_or(default_shell);
+
+        let shell = config.shell.as_deref().unwrap_or(&default_shell);
+
+        info!("Selected shell for PTY session: {}", shell);
+
         let mut cmd = portable_pty::CommandBuilder::new(shell);
-        
-        // Add shell arguments for interactive mode
-        if shell.contains("bash") || shell.contains("zsh") {
-            cmd.arg("-i"); // Interactive mode
-            cmd.arg("-l"); // Login shell
-        }
-        
-        // Set working directory if specified
+        cmd.args(["-i", "-l"]);
+
         if let Some(ref working_dir) = config.working_dir {
             cmd.cwd(working_dir);
         }
-        
-        // Set essential environment variables
+
         cmd.env("TERM", "xterm-256color");
         cmd.env("COLORTERM", "truecolor");
-        
-        // Set environment variables from config
+        cmd.env("PS1", "$ ");
+        if shell.contains("zsh") {
+            cmd.env("FORCE_COLOR", "1");
+            cmd.env("ZSH_THEME", "");
+        } else if shell.contains("bash") {
+            cmd.env("FORCE_COLOR", "1");
+        }
+
         if let Some(env) = &config.environment {
             for (key, value) in env {
                 cmd.env(key, value);
@@ -77,36 +77,28 @@ impl PtyService for TokioPtyService {
             pixel_width: config.size.pixel_width,
             pixel_height: config.size.pixel_height,
         };
-        
+
         info!("Creating PTY with size: {}x{}", pty_size.cols, pty_size.rows);
 
-        // Create PTY pair
         let pty_system = portable_pty::native_pty_system();
         let pty_pair = pty_system.openpty(pty_size)
             .map_err(|e| CoreError::Pty(format!("Failed to create PTY: {}", e)))?;
 
-        // Set environment variables
-        if let Some(env) = &config.environment {
-            for (key, value) in env {
-                cmd.env(key, value);
-            }
-        }
-
-        // Split the pty pair
         let (master, slave) = (pty_pair.master, pty_pair.slave);
 
-        // Spawn process
         let child = slave.spawn_command(cmd)
             .map_err(|e| CoreError::Pty(format!("Failed to spawn shell command: {}", e)))?;
 
-        // Get process ID (if available)
-        let pid = None; // portable_pty Child doesn't expose PID
+        let pid = child.process_id();
 
-        // Create channels for communication
         let (output_tx, output_rx) = mpsc::unbounded_channel::<PtyEvent>();
         let (input_tx, mut input_rx) = mpsc::unbounded_channel::<Vec<u8>>();
 
-        // Create the session
+        let reader = master.try_clone_reader()
+            .map_err(|e| CoreError::Pty(format!("Failed to clone reader: {}", e)))?;
+        let writer = master.take_writer()
+            .map_err(|e| CoreError::Pty(format!("Failed to take writer: {}", e)))?;
+
         let pty_session = PtySession::new(
             config.session_id.clone(),
             config.workspace_id.clone(),
@@ -117,65 +109,88 @@ impl PtyService for TokioPtyService {
             config.size.clone(),
         );
 
-        // Start reader task
-        let reader = pty_session.master.try_clone_reader()
-            .map_err(|e| CoreError::Pty(format!("Failed to clone reader: {}", e)))?;
-        let reader = Arc::new(Mutex::new(reader));
+        let session_arc = Arc::new(Mutex::new(pty_session));
+        {
+            let mut sessions = self.sessions.lock().await;
+            sessions.insert(config.session_id.clone(), session_arc.clone());
+        }
+
         let read_output_tx = output_tx.clone();
         let read_session_id = config.session_id.clone();
+        let session_clone_for_reader = session_arc.clone();
 
         tokio::spawn(async move {
-            info!("✅ Started PTY read task for session {}", read_session_id);
-            let mut buffer = [0u8; 4096];
+            let child_process = {
+                let session = session_clone_for_reader.lock().await;
+                session.child.clone()
+            };
+            let mut reader = reader;
+
             loop {
-                let reader_clone = reader.clone();
-                match tokio::task::spawn_blocking(move || {
-                    let mut reader = reader_clone.blocking_lock();
-                    use std::io::Read;
-                    reader.read(&mut buffer)
-                }).await {
-                    Ok(Ok(n)) if n > 0 => {
-                        let output = buffer[..n].to_vec();
-                        
-                        // Filter out streams of null bytes
-                        let meaningful_content = output.iter().any(|&b| b != 0);
-                        
-                        if meaningful_content {
-                            info!("📖 PTY read {} bytes for session {}: {:?}", n, read_session_id, String::from_utf8_lossy(&output));
-                            
-                            if let Err(err) = read_output_tx.send(PtyEvent::Output(output)) {
-                                error!("Failed to send PTY output for session {}: {}", read_session_id, err);
+                let mut buffer = [0u8; 4096];
+                // **FIX:** Clone the Arc inside the loop before moving it into the closure.
+                let child_process_clone = child_process.clone();
+
+                tokio::select! {
+                    exit_result = tokio::task::spawn_blocking(move || {
+                        let mut child_guard = tokio::runtime::Handle::current().block_on(child_process_clone.lock());
+                        child_guard.wait()
+                    }) => {
+                        match exit_result {
+                            Ok(Ok(exit_status)) => {
+                                info!("PTY process for session {} exited with status: {}", read_session_id, exit_status);
+                                let _ = read_output_tx.send(PtyEvent::Closed);
+                            }
+                            Ok(Err(e)) => {
+                                error!("Error waiting for PTY process for session {}: {}", read_session_id, e);
+                                let _ = read_output_tx.send(PtyEvent::Error(e.to_string()));
+                            }
+                            Err(e) => {
+                                error!("Join error on PTY wait task for session {}: {}", read_session_id, e);
+                                let _ = read_output_tx.send(PtyEvent::Error(e.to_string()));
+                            }
+                        }
+                        break;
+                    }
+
+                    read_result = tokio::task::spawn_blocking(move || {
+                        use std::io::Read;
+                        let result = reader.read(&mut buffer);
+                        (result, reader, buffer)
+                    }) => {
+                        match read_result {
+                            Ok((Ok(n), new_reader, new_buffer)) => {
+                                reader = new_reader;
+                                if n > 0 {
+                                    let data = new_buffer[..n].to_vec();
+                                    if let Err(err) = read_output_tx.send(PtyEvent::Output(data)) {
+                                        error!("Failed to send PTY output for session {}: {}", read_session_id, err);
+                                        break;
+                                    }
+                                } else {
+                                    info!("PTY EOF for session {}", read_session_id);
+                                    let _ = read_output_tx.send(PtyEvent::Closed);
+                                    break;
+                                }
+                            }
+                            Ok((Err(err), new_reader, _)) => {
+                                reader = new_reader;
+                                error!("PTY read error for session {}: {}", read_session_id, err);
                                 break;
                             }
-                        } else {
-                            debug!("Filtered out {} null bytes for session {}", n, read_session_id);
+                            Err(join_err) => {
+                                error!("PTY read task join error for session {}: {}", read_session_id, join_err);
+                                break;
+                            }
                         }
-                    }
-                    Ok(Ok(_)) => {
-                        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
-                    }
-                    Ok(Err(err)) => {
-                        error!("PTY read error for session {}: {}", read_session_id, err);
-                        let _ = read_output_tx.send(PtyEvent::Error(err.to_string()));
-                        break;
-                    }
-                    Err(join_err) => {
-                        error!("PTY read task join error for session {}: {}", read_session_id, join_err);
-                        let _ = read_output_tx.send(PtyEvent::Error(join_err.to_string()));
-                        break;
                     }
                 }
             }
-            let _ = read_output_tx.send(PtyEvent::Closed);
-            warn!("⚠️ PTY read task ended for session {}", read_session_id);
+            debug!("PTY I/O and process wait task ended for session {}", read_session_id);
         });
 
-        // Start writer task
-        let writer = pty_session.master.take_writer()
-            .map_err(|e| CoreError::Pty(format!("Failed to take writer: {}", e)))?;
         let writer = Arc::new(Mutex::new(writer));
         let write_session_id = config.session_id.clone();
-
         tokio::spawn(async move {
             while let Some(input) = input_rx.recv().await {
                 let writer_clone = writer.clone();
@@ -188,7 +203,8 @@ impl PtyService for TokioPtyService {
                     }
                 }).await {
                     Ok(Ok(_)) => {
-                        debug!("Wrote {} bytes to PTY session {}", input.len(), write_session_id);
+                        debug!("✅ Wrote {} bytes to PTY session {}: {:?}",
+                               input.len(), write_session_id, String::from_utf8_lossy(&input));
                     }
                     Ok(Err(err)) => {
                         error!("Failed to write to PTY session {}: {}", write_session_id, err);
@@ -203,7 +219,14 @@ impl PtyService for TokioPtyService {
             debug!("PTY write task ended for session {}", write_session_id);
         });
 
-        // Create session info
+        let init_output_tx = output_tx.clone();
+        let init_session_id = config.session_id.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+            let message = format!("\x1b[1;32m● Terminal ready - session {}\x1b[0m\r\n", init_session_id);
+            let _ = init_output_tx.send(PtyEvent::Output(message.into_bytes()));
+        });
+
         let session_info = SessionInfo {
             session_id: config.session_id.clone(),
             workspace_id: config.workspace_id.clone(),
@@ -213,49 +236,36 @@ impl PtyService for TokioPtyService {
             created_at: chrono::Utc::now(),
         };
 
-        // Store session
-        {
-            let mut sessions = self.sessions.lock().await;
-            sessions.insert(config.session_id.clone(), Arc::new(Mutex::new(pty_session)));
-        }
-
-        info!("✅ PTY session {} created successfully", config.session_id);
+        info!("✅ PTY session {} created successfully with PID {:?}", config.session_id, pid);
         Ok((output_rx, session_info))
     }
 
     async fn send_input(&self, session_id: &SessionId, data: &[u8]) -> Result<()> {
         let sessions = self.sessions.lock().await;
-        
         if let Some(session) = sessions.get(session_id) {
             let session = session.lock().await;
             session.input_tx.send(data.to_vec())
                 .map_err(|e| CoreError::Pty(format!("Failed to send input: {}", e)))?;
-            
-            info!("✅ Sent input to PTY session {}: {} bytes - {:?}", session_id, data.len(), String::from_utf8_lossy(data));
             Ok(())
         } else {
-            error!("❌ PTY session {} not found for input", session_id);
             Err(CoreError::NotFound(format!("PTY session {} not found", session_id)))
         }
     }
 
     async fn resize_session(&self, session_id: &SessionId, size: PtySize) -> Result<()> {
         let sessions = self.sessions.lock().await;
-        
         if let Some(session) = sessions.get(session_id) {
             let mut session = session.lock().await;
             let pty_size = portable_pty::PtySize {
-                cols: size.cols,
-                rows: size.rows,
+                cols: size.cols.max(1),
+                rows: size.rows.max(1),
                 pixel_width: size.pixel_width,
                 pixel_height: size.pixel_height,
             };
-            
             session.master.resize(pty_size)
                 .map_err(|e| CoreError::Pty(format!("Failed to resize PTY: {}", e)))?;
             session.size = size.clone();
-            
-            info!("Resized PTY session {} to {}x{}", session_id, size.cols, size.rows);
+            info!("✅ Resized PTY session {} to {}x{}", session_id, size.cols, size.rows);
             Ok(())
         } else {
             Err(CoreError::NotFound(format!("PTY session {} not found", session_id)))
@@ -264,62 +274,47 @@ impl PtyService for TokioPtyService {
 
     async fn destroy_session(&self, session_id: &SessionId) -> Result<()> {
         let mut sessions = self.sessions.lock().await;
-        
-        if let Some(session_arc) = sessions.remove(session_id) {
-            let mut session = session_arc.lock().await;
-            
-            // Kill the child process (shell process)
-            if let Err(err) = session.child.kill() {
-                error!("Failed to kill child process for session {}: {}", session_id, err);
-            }
-            
-            // Wait for process to exit
-            if let Err(err) = session.child.wait() {
-                error!("Failed to wait for child process for session {}: {}", session_id, err);
-            }
-            
-            info!("PTY session {} destroyed", session_id);
+        if sessions.remove(session_id).is_some() {
+            info!("✅ Destroyed PTY session {}", session_id);
             Ok(())
         } else {
-            Err(CoreError::NotFound(format!("PTY session {} not found", session_id)))
-        }
-    }
-
-    async fn get_session_info(&self, session_id: &SessionId) -> Result<SessionInfo> {
-        let sessions = self.sessions.lock().await;
-        
-        if let Some(session) = sessions.get(session_id) {
-            let session = session.lock().await;
-            Ok(SessionInfo {
-                session_id: session.session_id.clone(),
-                workspace_id: session.workspace_id.clone(),
-                pid: session.pid,
-                status: if sessions.contains_key(session_id) { SessionStatus::Active } else { SessionStatus::Terminated },
-                size: session.size.clone(),
-                created_at: chrono::Utc::now(), // TODO: store actual creation time
-            })
-        } else {
+            warn!("PTY session {} not found for destruction", session_id);
             Err(CoreError::NotFound(format!("PTY session {} not found", session_id)))
         }
     }
 
     async fn list_sessions(&self) -> Result<Vec<SessionInfo>> {
         let sessions = self.sessions.lock().await;
-        let mut result = Vec::new();
-        
-        for (_session_id, session_arc) in sessions.iter() {
+        let mut session_infos = Vec::new();
+        for (session_id, session_arc) in sessions.iter() {
             let session = session_arc.lock().await;
-            result.push(SessionInfo {
-                session_id: session.session_id.clone(),
+            session_infos.push(SessionInfo {
+                session_id: session_id.clone(),
                 workspace_id: session.workspace_id.clone(),
                 pid: session.pid,
                 status: SessionStatus::Active,
                 size: session.size.clone(),
-                created_at: chrono::Utc::now(), // TODO: store actual creation time
+                created_at: session.created_at,
             });
         }
-        
-        Ok(result)
+        Ok(session_infos)
+    }
+
+    async fn get_session_info(&self, session_id: &SessionId) -> Result<SessionInfo> {
+        let sessions = self.sessions.lock().await;
+        if let Some(session_arc) = sessions.get(session_id) {
+            let session = session_arc.lock().await;
+            Ok(SessionInfo {
+                session_id: session_id.clone(),
+                workspace_id: session.workspace_id.clone(),
+                pid: session.pid,
+                status: SessionStatus::Active,
+                size: session.size.clone(),
+                created_at: session.created_at,
+            })
+        } else {
+            Err(CoreError::NotFound(format!("PTY session {} not found", session_id)))
+        }
     }
 
     async fn is_session_active(&self, session_id: &SessionId) -> Result<bool> {

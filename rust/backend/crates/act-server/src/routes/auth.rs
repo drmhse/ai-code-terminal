@@ -1,4 +1,4 @@
-use crate::{AppState, models::ApiResponse, error::ServerError};
+use crate::{AppState, models::ApiResponse, error::ServerError, middleware::csrf::CsrfProtection};
 use act_core::CoreError;
 use axum::{
     extract::{Query, State},
@@ -49,26 +49,7 @@ pub async fn start_authorization(State(state): State<AppState>) -> Result<Redire
     }
 }
 
-#[allow(dead_code)]
-pub async fn handle_callback(
-    Query(params): Query<AuthCallbackQuery>,
-    State(state): State<AppState>
-) -> Result<Redirect> {
-    if let Some(oauth_error) = params.error {
-        return Ok(Redirect::temporary(&format!("/?error={}", urlencoding::encode(&oauth_error))));
-    }
 
-    let code = params.code.ok_or_else(|| ServerError(CoreError::Validation("Missing code parameter".to_string())))?;
-    let state_param = params.state.ok_or_else(|| ServerError(CoreError::Validation("Missing state parameter".to_string())))?;
-
-    match state.domain_services.auth_service.handle_oauth_callback(&code, &state_param).await {
-        Ok(auth_result) => Ok(Redirect::temporary(&format!("/?token={}", auth_result.jwt_token))),
-        Err(e) => {
-            error!("OAuth callback failed: {}", e);
-            Ok(Redirect::temporary(&format!("/?error={}", urlencoding::encode(&e.to_string()))))
-        }
-    }
-}
 
 pub async fn handle_github_callback(
     Query(params): Query<AuthCallbackQuery>,
@@ -104,6 +85,17 @@ pub async fn handle_github_callback(
             message: Some(e.to_string()),
         }))
     }
+}
+
+pub async fn get_csrf_token(State(state): State<AppState>) -> Result<Json<ApiResponse<String>>> {
+    let csrf = CsrfProtection::new(state.config.auth.jwt_secret.clone());
+    let token = csrf.generate_token();
+    
+    Ok(Json(ApiResponse {
+        success: true,
+        data: Some(token),
+        error: None,
+    }))
 }
 
 pub async fn get_auth_status(State(state): State<AppState>) -> Result<Json<AuthStatusResponse>> {

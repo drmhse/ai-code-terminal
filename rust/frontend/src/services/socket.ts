@@ -168,15 +168,15 @@ class SocketService {
       }
     })
 
-    this.socket.on('stats:subscribed', (data: any) => {
+    this.socket.on('stats:subscribed', (data: unknown) => {
       console.log('Successfully subscribed to stats:', data)
     })
 
-    this.socket.on('stats:unsubscribed', (data: any) => {
+    this.socket.on('stats:unsubscribed', (data: unknown) => {
       console.log('Successfully unsubscribed from stats:', data)
     })
 
-    this.socket.on('stats:error', (error: any) => {
+    this.socket.on('stats:error', (error: unknown) => {
       console.error('Stats error:', error)
     })
   }
@@ -244,15 +244,15 @@ class SocketService {
   ): Subscription {
     switch (eventType) {
       case 'terminal:output':
-        return this.terminalOutput$.subscribe(callback as any)
+        return this.terminalOutput$.subscribe(callback as (data: TerminalOutputEvent) => void)
       case 'terminal:created':
-        return this.terminalCreated$.subscribe(callback as any)
+        return this.terminalCreated$.subscribe(callback as (data: TerminalCreatedEvent) => void)
       case 'terminal:destroyed':
-        return this.terminalDestroyed$.subscribe(callback as any)
+        return this.terminalDestroyed$.subscribe(callback as (data: TerminalDestroyedEvent) => void)
       case 'stats:data':
-        return this.statsData$.subscribe(callback as any)
+        return this.statsData$.subscribe(callback as (data: StatsDataEvent) => void)
       case 'websocket:auth_error':
-        return this.authError$.subscribe(callback as any)
+        return this.authError$.subscribe(callback as (data: WebSocketAuthErrorEvent) => void)
       case 'connection:state':
         return this.connectionState$.subscribe((state) => {
           const event: ConnectionStateEvent = {
@@ -260,7 +260,7 @@ class SocketService {
             timestamp: Date.now(),
             reconnectAttempt: this.reconnectAttempts
           }
-          ;(callback as any)(event)
+          callback(event as SocketEventMap[T])
         })
       default:
         throw new Error(`Unknown event type: ${eventType}`)

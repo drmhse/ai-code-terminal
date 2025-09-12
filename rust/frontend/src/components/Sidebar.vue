@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/multi-word-component-names -->
 <template>
   <div class="sidebar" :class="{ 'mobile-open': uiStore.isMobile && uiStore.sidebarOpen }">
     <div class="sidebar-header">

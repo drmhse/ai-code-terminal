@@ -32,7 +32,7 @@
         :key="file.path"
         :node="file"
         :level="0"
-        :selected-path="fileStore.selectedFile?.path"
+        :selected-path="selectedPath"
         @select="handleFileSelect"
         @toggle="handleDirectoryToggle"
       />
@@ -52,7 +52,10 @@ const workspaceStore = useWorkspaceStore()
 const fileStore = useFileStore()
 
 // File operations composable
-const { refreshFiles, formatFileSize } = useFileOperations()
+const { refreshFiles } = useFileOperations()
+
+// Computed property for selected path with proper typing
+const selectedPath = computed(() => fileStore.selectedFile?.path ?? undefined)
 
 // Computed property to filter tree files (VS Code-like)
 const filteredTreeFiles = computed(() => {
@@ -61,7 +64,7 @@ const filteredTreeFiles = computed(() => {
   
   return tree.filter(file => 
     fileStore.showHiddenFiles || !file.isHidden
-  )
+  ) as FileItem[]
 })
 
 // Handle file selection (VS Code behavior)

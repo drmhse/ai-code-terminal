@@ -1,6 +1,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import type { Theme, ThemePreference } from '@/types/theme'
 import { themeService } from '@/services/theme'
+import { apiService } from '@/services/api'
 
 /**
  * Theme composable for components to interact with the theme system
@@ -37,7 +38,6 @@ export function useTheme() {
       // Persist theme preference to backend
       const preferences = themeService.getThemePreferences()
       if (preferences) {
-        const { apiService } = await import('@/services/api')
         await apiService.saveTheme(preferences)
       }
     } catch (err) {
@@ -74,7 +74,6 @@ export function useTheme() {
       // Persist theme preference to backend
       const preferences = themeService.getThemePreferences()
       if (preferences) {
-        const { apiService } = await import('@/services/api')
         await apiService.saveTheme(preferences)
       }
     } catch (err) {
@@ -99,7 +98,6 @@ export function useTheme() {
     try {
       // First, try to load saved theme preferences from backend
       try {
-        const { apiService } = await import('@/services/api')
         const savedPreferences = await apiService.getCurrentTheme()
         if (savedPreferences) {
           // Apply saved preferences to local theme service

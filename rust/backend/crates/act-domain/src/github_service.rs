@@ -34,11 +34,12 @@ impl GitHubService {
         user_id: &str,
         query: RepositoryQuery,
     ) -> Result<Vec<GitHubRepository>> {
+        tracing::debug!("Looking up GitHub token for user_id: {}", user_id);
         // Get the user's GitHub access token
         let access_token = self.auth_repository
             .get_github_token(user_id)
             .await?
-            .ok_or_else(|| act_core::CoreError::NotFound("GitHub token not found for user".to_string()))?;
+            .ok_or_else(|| act_core::CoreError::NotFound(format!("GitHub token not found for user {}", user_id)))?;
 
         let options = RepositoryListOptions {
             page: query.page,

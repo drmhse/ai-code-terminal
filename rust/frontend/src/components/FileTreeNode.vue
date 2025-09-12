@@ -66,11 +66,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { FileItem } from '@/stores/file'
+import { useFileStore } from '@/stores/file'
 
 const props = defineProps<{
   node: FileItem
   level: number
-  selectedPath?: string
+  selectedPath?: string | undefined
 }>()
 
 const emit = defineEmits<{
@@ -78,9 +79,12 @@ const emit = defineEmits<{
   toggle: [node: FileItem]
 }>()
 
+// Computed property for selected path with proper typing
+const selectedPath = computed(() => props.selectedPath ?? undefined)
+
 // Check if this node is selected
 const isSelected = computed(() => {
-  return props.selectedPath === props.node.path
+  return selectedPath.value === props.node.path
 })
 
 // Use node's expansion state from the store
@@ -103,8 +107,7 @@ const handleDoubleClick = async () => {
   } else {
     // For files, emit a preview event
     emit('select', props.node)
-    // Import and use the file store to show preview
-    const { useFileStore } = await import('@/stores/file')
+    // Use the file store to show preview
     const fileStore = useFileStore()
     await fileStore.showFilePreview(props.node)
   }

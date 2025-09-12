@@ -4,7 +4,7 @@ export interface Subscription {
 
 export interface Observer<T> {
   next: (value: T) => void
-  error?: (error: any) => void
+error?: (error: unknown) => void
   complete?: () => void
 }
 
@@ -12,7 +12,7 @@ export class Subject<T> {
   private observers: Observer<T>[] = []
   private isClosed = false
 
-  subscribe(next: (value: T) => void, error?: (error: any) => void, complete?: () => void): Subscription {
+  subscribe(next: (value: T) => void, error?: (error: unknown) => void, complete?: () => void): Subscription {
     if (this.isClosed) {
       throw new Error('Cannot subscribe to a closed subject')
     }
@@ -48,7 +48,7 @@ export class Subject<T> {
     })
   }
 
-  error(error: any): void {
+  error(error: unknown): void {
     if (this.isClosed) return
 
     this.observers.forEach(observer => {
@@ -106,7 +106,7 @@ export class BehaviorSubject<T> extends Subject<T> {
     super.next(value)
   }
 
-  subscribe(next: (value: T) => void, error?: (error: any) => void, complete?: () => void): Subscription {
+  subscribe(next: (value: T) => void, error?: (error: unknown) => void, complete?: () => void): Subscription {
     const subscription = super.subscribe(next, error, complete)
     
     try {

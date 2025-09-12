@@ -41,6 +41,16 @@ export interface EditorInstance {
   setTheme(theme: EditorThemeData): void
   focus(): void
   destroy(): void
+  // Optional CodeMirror-specific methods
+  setValue?(content: string): void
+  autoFormatSelection?(): void
+  openDialog?(query: string): void
+  findNext?(): void
+  findPrev?(): void
+  replaceAll?(text: string): void
+  setCursor?(line: number, column: number): void
+  undo?(): void
+  redo?(): void
 }
 
 export interface CodeMirrorSetup {

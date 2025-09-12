@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed, readonly } from 'vue'
+import { apiService } from '@/services/api'
+import { useWorkspaceStore } from '@/stores/workspace'
 
 export interface FileItem {
   name: string
@@ -10,9 +12,9 @@ export interface FileItem {
   isHidden: boolean
   extension?: string
   path: string
-  language?: string
+  language?: string | undefined
   // Tree structure support (VS Code-like)
-  children?: FileItem[]
+  children?: FileItem[] | undefined
   isExpanded?: boolean
   isLoading?: boolean
   parentPath?: string
@@ -103,23 +105,15 @@ export const useFileStore = defineStore('file', () => {
   const editorLoading = ref(false)
   const editorError = ref<string | null>(null)
 
-  // Lazy load apiService when needed
-  const getApiService = async () => {
-    const { apiService } = await import('@/services/api')
-    return apiService
-  }
-
   // Single source of truth for workspace-aware file operations
-  const getWorkspaceContext = async () => {
-    const { useWorkspaceStore } = await import('@/stores/workspace')
+  const getWorkspaceContext = () => {
     const workspaceStore = useWorkspaceStore()
     return workspaceStore.currentWorkspace
   }
 
   // Workspace-aware file content getter
   const getFileContentWorkspaceAware = async (filePath: string): Promise<string> => {
-    const apiService = await getApiService()
-    const workspace = await getWorkspaceContext()
+    const workspace = getWorkspaceContext()
     
     if (workspace) {
       return await apiService.getWorkspaceFileContent(workspace.id, filePath)
@@ -203,23 +197,25 @@ const clearPreviewError = () => {
 
     try {
       // Use workspace-specific endpoint if workspaceId is provided
-      const apiService = await getApiService()
       const files = workspaceId 
         ? await apiService.getWorkspaceDirectoryContents(workspaceId, targetPath)
         : await apiService.getDirectoryContents(targetPath)
       
 // Process files
-      const processedFiles: FileItem[] = files.map((file: any) => ({
-        name: file.name,
-        type: file.is_directory ? 'directory' as const : 'file' as const,
-        size: file.size,
-        modified: file.modified,
-        permissions: file.permissions,
-        isHidden: file.name.startsWith('.'),
-        extension: file.is_directory ? undefined : file.name.split('.').pop()?.toLowerCase(),
-        path: file.name, // Use just the filename for relative paths
-        language: file.is_directory ? undefined : getFileLanguage(file.name)
-      }))
+      const processedFiles: FileItem[] = files.map((file: unknown) => {
+        const apiFile = file as { name: string; is_directory: boolean; size?: number; modified?: string; modified_at?: string; permissions?: string }
+        return ({
+          name: apiFile.name,
+          type: apiFile.is_directory ? 'directory' as const : 'file' as const,
+          size: apiFile.size || 0,
+          modified: apiFile.modified || apiFile.modified_at,
+          permissions: apiFile.permissions,
+          isHidden: apiFile.name.startsWith('.'),
+          extension: apiFile.is_directory ? undefined : apiFile.name.split('.').pop()?.toLowerCase(),
+          path: apiFile.name, // Use just the filename for relative paths
+          language: apiFile.is_directory ? undefined : (getFileLanguage(apiFile.name) || undefined)
+        })
+      })
 
       // Sort: directories first, then files, alphabetically
       processedFiles.sort((a, b) => {
@@ -287,7 +283,7 @@ const clearPreviewError = () => {
       // Collapse directory
       expandedDirectories.value.delete(fullPath)
       directory.isExpanded = false
-      directory.children = undefined
+      directory.children = undefined as FileItem[] | undefined
     } else {
       // Expand directory
       expandedDirectories.value.add(fullPath)
@@ -296,27 +292,29 @@ const clearPreviewError = () => {
       
       try {
         // Load directory contents
-        const apiService = await getApiService()
-        const workspace = await getWorkspaceContext()
+        const workspace = getWorkspaceContext()
         
         const files = workspace 
           ? await apiService.getWorkspaceDirectoryContents(workspace.id, fullPath)
           : await apiService.getDirectoryContents(fullPath)
         
-        // Process children
-        const processedChildren: FileItem[] = files.map((file: any) => ({
-          name: file.name,
-          type: file.is_directory ? 'directory' as const : 'file' as const,
-          size: file.size,
-          modified: file.modified,
-          permissions: file.permissions,
-          isHidden: file.name.startsWith('.'),
-          extension: file.is_directory ? undefined : file.name.split('.').pop()?.toLowerCase(),
-          path: fullPath === '.' ? file.name : `${fullPath}/${file.name}`.replace(/\/+/g, '/'),
-          language: file.is_directory ? undefined : getFileLanguage(file.name),
+// Process children
+        const processedChildren: FileItem[] = files.map((file: unknown) => {
+          const apiFile = file as { name: string; is_directory: boolean; size?: number; modified?: string; modified_at?: string; permissions?: string }
+          return ({
+          name: apiFile.name,
+          type: apiFile.is_directory ? 'directory' as const : 'file' as const,
+          size: apiFile.size || 0,
+          modified: apiFile.modified || apiFile.modified_at,
+          permissions: apiFile.permissions,
+          isHidden: apiFile.name.startsWith('.'),
+          extension: apiFile.is_directory ? undefined : apiFile.name.split('.').pop()?.toLowerCase(),
+          path: fullPath === '.' ? apiFile.name : `${fullPath}/${apiFile.name}`.replace(/\/+/g, '/'),
+          language: apiFile.is_directory ? undefined : (getFileLanguage(apiFile.name) || undefined),
           parentPath: fullPath,
           isExpanded: false
-        }))
+        })
+      })
         
         // Sort: directories first, then files, alphabetically
         processedChildren.sort((a, b) => {
@@ -326,7 +324,7 @@ const clearPreviewError = () => {
           return a.name.localeCompare(b.name, undefined, { numeric: true })
         })
         
-        directory.children = processedChildren
+        directory.children = processedChildren as FileItem[] | undefined
       } catch (err) {
         console.error('Failed to load directory contents:', err)
         fileError.value = err instanceof Error ? err.message : 'Failed to load directory'
@@ -345,7 +343,7 @@ const clearPreviewError = () => {
       path: basePath === '.' ? file.name : `${basePath}/${file.name}`,
       parentPath: basePath,
       isExpanded: false,
-      children: undefined
+      children: undefined as FileItem[] | undefined
     }))
   }
 
@@ -446,7 +444,6 @@ const clearPreviewError = () => {
   // File operations
   const createFile = async (name: string, content = '') => {
     try {
-      const apiService = await getApiService()
       await apiService.createFile(currentPath.value, name, content)
       await refreshFiles(currentPath.value, false) // Don't use cache
     } catch (err) {
@@ -457,7 +454,6 @@ const clearPreviewError = () => {
 
   const createDirectory = async (name: string) => {
     try {
-      const apiService = await getApiService()
       await apiService.createDirectory(currentPath.value, name)
       await refreshFiles(currentPath.value, false) // Don't use cache
     } catch (err) {
@@ -468,7 +464,6 @@ const clearPreviewError = () => {
 
   const deleteFile = async (file: FileItem) => {
     try {
-      const apiService = await getApiService()
       await apiService.deleteFile(file.path)
       await refreshFiles(currentPath.value, false) // Don't use cache
     } catch (err) {
@@ -479,7 +474,6 @@ const clearPreviewError = () => {
 
   const renameFile = async (file: FileItem, newName: string) => {
     try {
-      const apiService = await getApiService()
       await apiService.renameFile(file.path, newName)
       await refreshFiles(currentPath.value, false) // Don't use cache
     } catch (err) {
@@ -611,19 +605,19 @@ const clearPreviewError = () => {
       const editorState = openFiles.value.get(path)
       if (!editorState) return
       
-      const apiService = await getApiService()
-      await apiService.saveFile(path, editorState.content)
-      
-      // Update editor state
-      editorState.is_modified = false
-      openFiles.value.set(path, { ...editorState })
-      
-      // Update tab state
-      const tab = fileTabs.value.find(t => t.id === path)
-      if (tab) {
-        tab.is_modified = false
-      }
-      
+      const workspace = getWorkspaceContext()
+      await apiService.saveFile(path, editorState.content, workspace?.id)
+        
+        // Update editor state
+        editorState.is_modified = false
+        openFiles.value.set(path, { ...editorState })
+        
+        // Update tab state
+        const tab = fileTabs.value.find(t => t.id === path)
+        if (tab) {
+          tab.is_modified = false
+        }
+        
     } catch (err) {
       editorError.value = err instanceof Error ? err.message : 'Failed to save file'
       console.error('Failed to save file:', err)

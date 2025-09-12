@@ -7,7 +7,10 @@ export interface Layout {
   id: string
   name: string
   layout_type: string
-  configuration: any
+  configuration: {
+    type: string
+    [key: string]: unknown
+  }
   is_default: boolean
   workspace_id: string
   created_at: string
@@ -66,7 +69,10 @@ export const useLayoutStore = defineStore('layout', () => {
   const createLayout = async (layoutData: {
     name: string
     layout_type: string
-    configuration: any
+    configuration: {
+      type: string
+      [key: string]: unknown
+    }
     workspace_id: string
     is_default?: boolean
   }) => {
@@ -99,7 +105,10 @@ export const useLayoutStore = defineStore('layout', () => {
 
   const updateLayout = async (id: string, updates: {
     name?: string
-    configuration?: any
+    configuration?: {
+      type: string
+      [key: string]: unknown
+    }
     is_default?: boolean
   }) => {
     try {
@@ -247,7 +256,10 @@ export const useLayoutStore = defineStore('layout', () => {
     currentLayout.value = layout
   }
 
-  const saveCurrentLayout = async (name: string, workspaceId: string, configuration: any, isDefault = false) => {
+  const saveCurrentLayout = async (name: string, workspaceId: string, configuration: {
+  type: string
+  [key: string]: unknown
+}, isDefault = false) => {
     try {
       if (currentLayout.value) {
         // Update existing layout
@@ -273,7 +285,10 @@ export const useLayoutStore = defineStore('layout', () => {
     }
   }
 
-  const debouncedSaveLayout = (name: string, workspaceId: string, configuration: any, isDefault = false) => {
+  const debouncedSaveLayout = (name: string, workspaceId: string, configuration: {
+  type: string
+  [key: string]: unknown
+}, isDefault = false) => {
     if (saveTimeout.value) {
       clearTimeout(saveTimeout.value)
     }

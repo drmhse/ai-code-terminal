@@ -1,4 +1,4 @@
-use crate::{models::ApiResponse, AppState, error::ServerError};
+use crate::{models::ApiResponse, AppState, error::ServerError, middleware::auth::AuthenticatedUser};
 use axum::{
     extract::{Query, State},
     response::Json,
@@ -66,8 +66,10 @@ pub struct DeleteFileQuery {
 
 pub async fn list_directory(
     Query(params): Query<ListDirectoryQuery>,
-    State(state): State<AppState>
+    State(state): State<AppState>,
+    _user: AuthenticatedUser,
 ) -> Result<Json<ApiResponse<DirectoryListing>>, ServerError> {
+    
     // Handle root directory requests
     let path_str = params.path.unwrap_or_else(|| ".".to_string());
     let path = if path_str == "." || path_str == "./" || path_str.is_empty() {
@@ -75,6 +77,8 @@ pub async fn list_directory(
     } else {
         PathBuf::from(path_str)
     };
+    
+    info!("Directory listing requested for: {}", path.display());
     
     info!("Directory listing requested for: {}", path.display());
 

@@ -1,11 +1,13 @@
 use crate::{
     models::ApiResponse,
-    services::metrics::{MetricsService, MetricsSummary, PerformanceMetrics, TimePeriod, UserActivity},
     AppState,
+    error::ServerError,
+};
+use act_domain::system_service::{
+    TimePeriod, MetricsSummary, PerformanceMetrics, UserActivity
 };
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
     response::Json,
     routing::{get, post, delete},
     Router,
@@ -55,6 +57,7 @@ pub struct RecordSessionEventRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct RecordPerformanceRequest {
     pub metrics: PerformanceMetrics,
 }
@@ -86,12 +89,10 @@ pub struct CleanupQuery {
 pub async fn record_event(
     State(state): State<AppState>,
     Json(request): Json<RecordEventRequest>
-) -> Result<Json<ApiResponse<String>>, StatusCode> {
+) -> Result<Json<ApiResponse<String>>, ServerError> {
     info!("Recording metric event: {} / {}", request.event_type, request.event_name);
     
-    let metrics_service = MetricsService::new(state.db.clone());
-    
-    match metrics_service.record_event(
+    match state.domain_services.system_service.record_event(
         request.user_id,
         request.session_id,
         request.event_type,
@@ -105,7 +106,7 @@ pub async fn record_event(
         },
         Err(e) => {
             error!("Failed to record event: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(ServerError(e))
         }
     }
 }
@@ -113,12 +114,10 @@ pub async fn record_event(
 pub async fn record_command(
     State(state): State<AppState>,
     Json(request): Json<RecordCommandRequest>
-) -> Result<Json<ApiResponse<String>>, StatusCode> {
+) -> Result<Json<ApiResponse<String>>, ServerError> {
     info!("Recording command execution: {}", request.command);
     
-    let metrics_service = MetricsService::new(state.db.clone());
-    
-    match metrics_service.record_command_execution(
+    match state.domain_services.system_service.record_command_execution(
         request.user_id,
         request.session_id,
         request.command,
@@ -131,7 +130,7 @@ pub async fn record_command(
         },
         Err(e) => {
             error!("Failed to record command execution: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(ServerError(e))
         }
     }
 }
@@ -139,12 +138,10 @@ pub async fn record_command(
 pub async fn record_session_event(
     State(state): State<AppState>,
     Json(request): Json<RecordSessionEventRequest>
-) -> Result<Json<ApiResponse<String>>, StatusCode> {
+) -> Result<Json<ApiResponse<String>>, ServerError> {
     info!("Recording session event: {} for session {}", request.event_name, request.session_id);
     
-    let metrics_service = MetricsService::new(state.db.clone());
-    
-    match metrics_service.record_session_event(
+    match state.domain_services.system_service.record_session_event(
         request.user_id,
         request.session_id,
         request.event_name,
@@ -156,27 +153,43 @@ pub async fn record_session_event(
         },
         Err(e) => {
             error!("Failed to record session event: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(ServerError(e))
         }
     }
 }
 
 pub async fn record_performance(
     State(state): State<AppState>,
-    Json(request): Json<RecordPerformanceRequest>
-) -> Result<Json<ApiResponse<()>>, StatusCode> {
+    Json(_request): Json<RecordPerformanceRequest>
+) -> Result<Json<ApiResponse<()>>, ServerError> {
     info!("Recording performance metrics");
     
-    let metrics_service = MetricsService::new(state.db.clone());
+    // Get current active sessions count from the session service
+    let active_sessions = match state.domain_services.session_service.count_all_active_sessions().await {
+        Ok(count) => count as u32,
+        Err(e) => {
+            error!("Failed to get active session count: {}", e);
+            0 // Fallback to 0 if we can't get the count
+        }
+    };
     
-    match metrics_service.record_performance_metrics(request.metrics).await {
+    // Get active processes count
+    let active_processes = match state.domain_services.process_service.count_active_processes().await {
+        Ok(count) => count,
+        Err(e) => {
+            error!("Failed to get active process count: {}", e);
+            0 // Fallback to 0 if we can't get the count
+        }
+    };
+    
+    match state.domain_services.system_service.record_current_performance_metrics(active_sessions, active_processes).await {
         Ok(()) => {
             info!("Performance metrics recorded successfully");
             Ok(Json(ApiResponse::success(())))
         },
         Err(e) => {
             error!("Failed to record performance metrics: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(ServerError(e))
         }
     }
 }
@@ -184,12 +197,12 @@ pub async fn record_performance(
 pub async fn get_summary(
     Query(params): Query<SummaryQuery>,
     State(state): State<AppState>
-) -> Result<Json<ApiResponse<MetricsSummary>>, StatusCode> {
+) -> Result<Json<ApiResponse<MetricsSummary>>, ServerError> {
     info!("Metrics summary requested");
     
-    let now = chrono::Utc::now().timestamp();
-    let end_time = params.end_time.unwrap_or(now);
-    let start_time = params.start_time.unwrap_or(now - 86400); // Default to last 24 hours
+    let now = chrono::Utc::now();
+    let end_time = params.end_time.map(|t| chrono::DateTime::from_timestamp(t, 0).unwrap_or_default()).unwrap_or(now);
+    let start_time = params.start_time.map(|t| chrono::DateTime::from_timestamp(t, 0).unwrap_or_default()).unwrap_or(now - chrono::Duration::seconds(86400));
     let period_type = params.period_type.unwrap_or_else(|| "day".to_string());
     
     let time_period = TimePeriod {
@@ -198,13 +211,11 @@ pub async fn get_summary(
         period_type,
     };
     
-    let metrics_service = MetricsService::new(state.db.clone());
-    
-    match metrics_service.get_metrics_summary(time_period).await {
+    match state.domain_services.system_service.get_metrics_summary(time_period).await {
         Ok(summary) => Ok(Json(ApiResponse::success(summary))),
         Err(e) => {
             error!("Failed to get metrics summary: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(ServerError(e))
         }
     }
 }
@@ -212,31 +223,29 @@ pub async fn get_summary(
 pub async fn get_performance_metrics(
     Path(period): Path<String>,
     State(state): State<AppState>
-) -> Result<Json<ApiResponse<Vec<PerformanceMetrics>>>, StatusCode> {
+) -> Result<Json<ApiResponse<Vec<PerformanceMetrics>>>, ServerError> {
     info!("Performance metrics requested for period: {}", period);
     
-    let now = chrono::Utc::now().timestamp();
-    let (start_time, period_type) = match period.as_str() {
-        "hour" => (now - 3600, "hour"),
-        "day" => (now - 86400, "day"),
-        "week" => (now - 604800, "week"),
-        "month" => (now - 2592000, "month"),
-        _ => return Err(StatusCode::BAD_REQUEST),
+    let now = chrono::Utc::now();
+    let (start_time_duration, period_type) = match period.as_str() {
+        "hour" => (chrono::Duration::seconds(3600), "hour"),
+        "day" => (chrono::Duration::seconds(86400), "day"),
+        "week" => (chrono::Duration::seconds(604800), "week"),
+        "month" => (chrono::Duration::seconds(2592000), "month"),
+        _ => return Err(ServerError(act_core::error::CoreError::Validation("Invalid period".to_string()))),
     };
     
     let time_period = TimePeriod {
-        start_time,
+        start_time: now - start_time_duration,
         end_time: now,
         period_type: period_type.to_string(),
     };
     
-    let metrics_service = MetricsService::new(state.db.clone());
-    
-    match metrics_service.get_performance_metrics(time_period).await {
+    match state.domain_services.system_service.get_performance_metrics(time_period).await {
         Ok(metrics) => Ok(Json(ApiResponse::success(metrics))),
         Err(e) => {
             error!("Failed to get performance metrics: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(ServerError(e))
         }
     }
 }
@@ -245,18 +254,16 @@ pub async fn get_user_activity(
     Path(user_id): Path<String>,
     Query(params): Query<UserActivityQuery>,
     State(state): State<AppState>
-) -> Result<Json<ApiResponse<UserActivity>>, StatusCode> {
+) -> Result<Json<ApiResponse<UserActivity>>, ServerError> {
     info!("User activity requested: {}", user_id);
     
     let days = params.days.unwrap_or(7); // Default to last 7 days
     
-    let metrics_service = MetricsService::new(state.db.clone());
-    
-    match metrics_service.get_user_activity(&user_id, days).await {
+    match state.domain_services.system_service.get_user_activity(&user_id, days).await {
         Ok(activity) => Ok(Json(ApiResponse::success(activity))),
         Err(e) => {
             error!("Failed to get user activity for {}: {}", user_id, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(ServerError(e))
         }
     }
 }
@@ -264,24 +271,22 @@ pub async fn get_user_activity(
 pub async fn export_metrics(
     Query(params): Query<ExportQuery>,
     State(state): State<AppState>
-) -> Result<String, StatusCode> {
+) -> Result<String, ServerError> {
     info!("Metrics export requested");
     
     let format = params.format.unwrap_or_else(|| "json".to_string());
     
     let time_period = TimePeriod {
-        start_time: params.start_time,
-        end_time: params.end_time,
+        start_time: chrono::DateTime::from_timestamp(params.start_time, 0).unwrap_or_default(),
+        end_time: chrono::DateTime::from_timestamp(params.end_time, 0).unwrap_or_default(),
         period_type: "custom".to_string(),
     };
     
-    let metrics_service = MetricsService::new(state.db.clone());
-    
-    match metrics_service.export_metrics(time_period, &format).await {
+    match state.domain_services.system_service.export_metrics(time_period, &format).await {
         Ok(data) => Ok(data),
         Err(e) => {
             error!("Failed to export metrics: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(ServerError(e))
         }
     }
 }
@@ -289,21 +294,19 @@ pub async fn export_metrics(
 pub async fn cleanup_old_metrics(
     Query(params): Query<CleanupQuery>,
     State(state): State<AppState>
-) -> Result<Json<ApiResponse<u64>>, StatusCode> {
+) -> Result<Json<ApiResponse<u64>>, ServerError> {
     info!("Metrics cleanup requested");
     
     let days_to_keep = params.days_to_keep.unwrap_or(30); // Default to keep 30 days
     
-    let metrics_service = MetricsService::new(state.db.clone());
-    
-    match metrics_service.cleanup_old_metrics(days_to_keep).await {
+    match state.domain_services.system_service.cleanup_old_metrics(days_to_keep).await {
         Ok(deleted_count) => {
             info!("Cleaned up {} old metric records", deleted_count);
             Ok(Json(ApiResponse::success(deleted_count)))
         },
         Err(e) => {
             error!("Failed to cleanup old metrics: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(ServerError(e))
         }
     }
 }

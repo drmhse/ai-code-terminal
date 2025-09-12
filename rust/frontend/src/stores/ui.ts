@@ -19,7 +19,7 @@ export interface SessionUpdate {
   sessionId: string
   type: 'created' | 'destroyed' | 'active'
   timestamp: number
-  details?: Record<string, any>
+  details?: Record<string, unknown>
 }
 
 export const useUIStore = defineStore('ui', () => {

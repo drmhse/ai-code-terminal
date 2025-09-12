@@ -14,7 +14,7 @@ pub enum PtyEvent {
     Resized { cols: u16, rows: u16 },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PtySize {
     pub cols: u16,
     pub rows: u16,
@@ -22,7 +22,7 @@ pub struct PtySize {
     pub pixel_height: u16,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SessionConfig {
     pub session_id: SessionId,
     pub workspace_id: WorkspaceId,
@@ -32,7 +32,7 @@ pub struct SessionConfig {
     pub environment: Option<HashMap<String, String>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SessionInfo {
     pub session_id: SessionId,
     pub workspace_id: WorkspaceId,
@@ -42,7 +42,7 @@ pub struct SessionInfo {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum SessionStatus {
     Active,
     Inactive,

@@ -167,24 +167,23 @@
 import { useFileStore } from '@/stores/file'
 import { useFileOperations } from '@/composables/useFileOperations'
 import { useUIStore } from '@/stores/ui'
-import { useWorkspaceStore } from '@/stores/workspace'
+import type { FileItem } from '@/stores/file'
 
 const fileStore = useFileStore()
 const uiStore = useUIStore()
-const workspaceStore = useWorkspaceStore()
 const fileOperations = useFileOperations()
 
 const previewFile = async () => {
   if (!fileStore.contextMenuFile) return
   
-  await fileOperations.showFilePreview(fileStore.contextMenuFile)
+  await fileOperations.showFilePreview(fileStore.contextMenuFile as FileItem)
   fileStore.closeContextMenu()
 }
 
 const editFile = async () => {
   if (!fileStore.contextMenuFile) return
   
-  await fileOperations.showFilePreview(fileStore.contextMenuFile)
+  await fileOperations.showFilePreview(fileStore.contextMenuFile as FileItem)
   // The file preview modal will handle edit mode
   fileStore.closeContextMenu()
 }
@@ -192,7 +191,7 @@ const editFile = async () => {
 const openDirectory = async () => {
   if (!fileStore.contextMenuFile || fileStore.contextMenuFile.type !== 'directory') return
   
-  await fileOperations.handleFileDoubleClick(fileStore.contextMenuFile)
+  await fileOperations.handleFileDoubleClick(fileStore.contextMenuFile as FileItem)
   fileStore.closeContextMenu()
 }
 
@@ -248,7 +247,7 @@ const renameFile = async () => {
   const newName = prompt('Enter new name:', fileStore.contextMenuFile.name)
   if (newName && newName !== fileStore.contextMenuFile.name) {
     try {
-      await fileStore.renameFile(fileStore.contextMenuFile, newName)
+      await fileStore.renameFile(fileStore.contextMenuFile as FileItem, newName)
       
       uiStore.addResourceAlert({
         type: 'info',
@@ -309,7 +308,7 @@ const deleteFile = async () => {
       ? 'This will delete the folder and all its contents. This action cannot be undone.'
       : 'This action cannot be undone.',
     onConfirm: async () => {
-      await fileStore.deleteFile(fileStore.contextMenuFile!)
+      await fileStore.deleteFile(fileStore.contextMenuFile! as FileItem)
       
       uiStore.addResourceAlert({
         type: 'info',

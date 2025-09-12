@@ -1,30 +1,33 @@
 use crate::{
     models::ApiResponse,
     AppState,
+    error::ServerError,
 };
 use axum::{
     extract::State,
-    http::StatusCode,
     response::Json,
     routing::get,
     Router,
 };
 use serde::{Deserialize, Serialize};
-use sysinfo::{System, Disks};
-use tracing::{error, debug};
+use tracing::debug;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SystemStats {
-    pub cpu_usage: f32,
+    pub cpu_usage: f64,
     pub memory_usage: u64,
     pub memory_total: u64,
-    pub memory_percentage: f32,
+    pub memory_percentage: f64,
     pub disk_usage: u64,
     pub disk_total: u64,
-    pub disk_percentage: f32,
-    pub active_sessions: u64,
+    pub disk_percentage: f64,
+    pub active_sessions: u32,
+    pub active_processes: u32,
     pub uptime_seconds: u64,
-    pub load_average: Option<f32>,
+    pub load_average: f64,
+    pub network_rx: u64,
+    pub network_tx: u64,
+    pub system_health: String,
 }
 
 pub fn routes() -> Router<AppState> {
@@ -34,67 +37,51 @@ pub fn routes() -> Router<AppState> {
 
 pub async fn get_system_stats(
     State(state): State<AppState>
-) -> Result<Json<ApiResponse<SystemStats>>, StatusCode> {
+) -> Result<Json<ApiResponse<SystemStats>>, ServerError> {
     debug!("System stats requested");
     
-    let mut sys = System::new_all();
-    sys.refresh_all();
+    // Get system metrics from the domain service
+    let system_metrics = state.domain_services.system_service.get_current_system_metrics().await?;
     
-    // Get CPU usage
-    let cpu_usage = sys.global_cpu_info().cpu_usage();
+    // Get system health
+    let system_health = state.domain_services.system_service.get_system_health().await?;
     
-    // Get memory usage
-    let memory_total = sys.total_memory();
-    let memory_usage = sys.used_memory();
-    let memory_percentage = (memory_usage as f32 / memory_total as f32) * 100.0;
-    
-    // Get disk usage (for all disks)
-    let disks = Disks::new_with_refreshed_list();
-    let mut disk_total = 0;
-    let mut disk_usage = 0;
-    
-    for disk in disks.list() {
-        disk_total += disk.total_space();
-        disk_usage += disk.total_space() - disk.available_space();
-    }
-    
-    let disk_percentage = if disk_total > 0 {
-        (disk_usage as f32 / disk_total as f32) * 100.0
+    // Calculate memory percentage
+    let memory_percentage = if system_metrics.memory_total_bytes > 0 {
+        (system_metrics.memory_used_bytes as f64 / system_metrics.memory_total_bytes as f64) * 100.0
     } else {
         0.0
     };
     
-    // Get active sessions count
-    let active_sessions = match sqlx::query_scalar!(
-        "SELECT COUNT(*) as count FROM sessions WHERE status != 'terminated'"
-    )
-    .fetch_one(state.db.pool())
-    .await
-    {
-        Ok(result) => result,
-        Err(e) => {
-            error!("Failed to get active sessions count: {}", e);
-            0
-        }
+    // Calculate disk percentage
+    let disk_percentage = if system_metrics.disk_total_bytes > 0 {
+        (system_metrics.disk_used_bytes as f64 / system_metrics.disk_total_bytes as f64) * 100.0
+    } else {
+        0.0
     };
     
-    // Get system uptime
-    let uptime_seconds = System::uptime();
-    
-    // Get load average (Unix-like systems only)
-    let load_average = System::load_average();
+    // Determine system health status
+    let health_status = match system_health.status {
+        act_domain::system_service::HealthStatus::Healthy => "Healthy".to_string(),
+        act_domain::system_service::HealthStatus::Warning => "Warning".to_string(),
+        act_domain::system_service::HealthStatus::Critical => "Critical".to_string(),
+    };
     
     let stats = SystemStats {
-        cpu_usage,
-        memory_usage,
-        memory_total,
+        cpu_usage: system_metrics.cpu_usage_percent,
+        memory_usage: system_metrics.memory_used_bytes,
+        memory_total: system_metrics.memory_total_bytes,
         memory_percentage,
-        disk_usage,
-        disk_total,
+        disk_usage: system_metrics.disk_used_bytes,
+        disk_total: system_metrics.disk_total_bytes,
         disk_percentage,
-        active_sessions: active_sessions as u64,
-        uptime_seconds,
-        load_average: Some(load_average.one as f32),
+        active_sessions: system_metrics.active_sessions,
+        active_processes: system_metrics.active_processes,
+        uptime_seconds: system_metrics.uptime_seconds,
+        load_average: system_metrics.load_average,
+        network_rx: system_metrics.network_rx,
+        network_tx: system_metrics.network_tx,
+        system_health: health_status,
     };
     
     debug!("System stats retrieved successfully");

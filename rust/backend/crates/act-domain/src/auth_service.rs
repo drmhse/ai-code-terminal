@@ -82,26 +82,25 @@ impl AuthService {
         }
 
         // Find or create user in our users table using GitHub info
-        // Note: We need to extract github_id from the GitHub API response. 
-        // This assumes the GitHub service provides the GitHub user ID in the AuthenticatedUser struct.
-        // We'll use the username as a temporary github_id until we fix the GitHub service.
-        let user = match self.auth_repository.find_user_by_github_id(&token_result.user.username).await? {
+        // Use the actual GitHub user ID from the authenticated user
+        let github_id = &token_result.user.user_id; // This is the actual GitHub user ID
+        let user = match self.auth_repository.find_user_by_github_id(github_id).await? {
             Some(existing_user) => {
                 // Update existing user with latest info from GitHub
                 self.auth_repository.update_user(
                     &existing_user.user_id,
                     &token_result.user.username,
-                    token_result.user.email.as_deref(),
-                    token_result.user.avatar_url.as_deref(),
+                    token_result.user.email,
+                    token_result.user.avatar_url,
                 ).await?
             }
             None => {
-                // Create new user
+                // Create new user with proper GitHub ID
                 self.auth_repository.create_user(
-                    &token_result.user.username, // Using username as github_id temporarily
+                    github_id,
                     &token_result.user.username,
-                    token_result.user.email.as_deref(),
-                    token_result.user.avatar_url.as_deref(),
+                    token_result.user.email,
+                    token_result.user.avatar_url,
                 ).await?
             }
         };
@@ -109,7 +108,7 @@ impl AuthService {
         self.auth_repository.store_github_token(
             &user.user_id,
             &token_result.access_token,
-            token_result.refresh_token.as_deref(),
+            token_result.refresh_token,
             token_result.expires_at,
         ).await?;
 
@@ -153,13 +152,24 @@ impl AuthService {
 
     pub async fn get_current_user(&self, jwt_token: &str) -> Result<AuthenticatedUser> {
         let claims = self.jwt_service.validate_token(jwt_token)?;
+        tracing::debug!("JWT claims for get_current_user: sub={}, username={}", claims.sub, claims.username);
         
         let access_token = self.auth_repository
             .get_github_token(&claims.sub)
             .await?
-            .ok_or_else(|| act_core::CoreError::NotFound("GitHub token not found".to_string()))?;
+            .ok_or_else(|| act_core::CoreError::NotFound(format!("GitHub token not found for user {}", claims.sub)))?;
         
-        self.github_service.get_user_info(&access_token).await
+        // We don't need to call GitHub API again since we already have the user info in JWT
+        // Just validate that the token is valid by making a simple call
+        self.github_service.validate_token(&access_token).await?;
+        
+        // Return the user with the UUID as user_id, not the GitHub ID
+        Ok(AuthenticatedUser {
+            user_id: claims.sub, // Use the UUID from JWT claims
+            username: claims.username,
+            email: None, // We don't store email in JWT
+            avatar_url: None, // We don't store avatar_url in JWT
+        })
     }
 
     pub async fn validate_auth(&self, jwt_token: &str) -> Result<bool> {
@@ -181,7 +191,7 @@ impl AuthService {
                         self.auth_repository.store_github_token(
                             &claims.sub,
                             &new_token.access_token,
-                            new_token.refresh_token.as_deref(),
+                            new_token.refresh_token,
                             new_token.expires_at,
                         ).await?;
                     }
@@ -193,5 +203,9 @@ impl AuthService {
         }
 
         self.github_service.validate_token(&github_token).await
+    }
+
+    pub async fn get_all_users(&self) -> Result<Vec<AuthenticatedUser>> {
+        self.auth_repository.get_all_users().await
     }
 }
