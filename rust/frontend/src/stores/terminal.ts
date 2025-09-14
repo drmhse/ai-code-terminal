@@ -353,19 +353,62 @@ export const useTerminalStore = defineStore('terminal', () => {
     }
   }
 
+  const resizePaneTimeouts = new Map<string, number>()
+  const lastResizeTimes = new Map<string, number>()
+  const WEBSOCKET_RESIZE_DEBOUNCE_MS = 100
+
   const resizePane = (paneId: string, cols: number, rows: number) => {
     const pane = panes.value.find(p => p.id === paneId)
-    if (pane) {
-      pane.size = { cols, rows }
+    if (!pane) return
 
-      // Resize all tabs in the pane
-      pane.tabs.forEach(tab => {
-        tab.size = { cols, rows }
-        if (socketService.isConnected) {
-          socketService.resizeTerminal(tab.sessionId, cols, rows)
-        }
-      })
+    // Check if dimensions are valid
+    if (cols < 10 || rows < 5 || cols > 500 || rows > 200) {
+      console.warn(`Invalid pane dimensions: ${cols}x${rows}, ignoring resize for pane ${paneId}`)
+      return
     }
+
+    // Check if size actually changed
+    if (pane.size.cols === cols && pane.size.rows === rows) {
+      return
+    }
+
+    // Update pane size immediately for UI responsiveness
+    pane.size = { cols, rows }
+
+    // Debounce WebSocket calls to prevent rapid successive calls
+    const timeoutKey = paneId
+    if (resizePaneTimeouts.has(timeoutKey)) {
+      clearTimeout(resizePaneTimeouts.get(timeoutKey)!)
+    }
+
+    const now = Date.now()
+    const lastResize = lastResizeTimes.get(timeoutKey) || 0
+
+    // If too soon since last resize, debounce it
+    if (now - lastResize < WEBSOCKET_RESIZE_DEBOUNCE_MS) {
+      resizePaneTimeouts.set(timeoutKey, setTimeout(() => {
+        performPaneResize(pane, cols, rows, timeoutKey)
+      }, WEBSOCKET_RESIZE_DEBOUNCE_MS))
+    } else {
+      // Immediate resize if enough time has passed
+      performPaneResize(pane, cols, rows, timeoutKey)
+    }
+  }
+
+  const performPaneResize = (pane: TerminalPane, cols: number, rows: number, timeoutKey: string) => {
+    console.log(`🔧 Performing WebSocket resize for pane ${pane.id} to ${cols}x${rows}`)
+    lastResizeTimes.set(timeoutKey, Date.now())
+
+    // Resize all tabs in the pane via WebSocket
+    pane.tabs.forEach(tab => {
+      tab.size = { cols, rows }
+      if (socketService.isConnected) {
+        socketService.resizeTerminal(tab.sessionId, cols, rows)
+      }
+    })
+
+    // Clean up timeout reference
+    resizePaneTimeouts.delete(timeoutKey)
   }
 
   const registerSession = (sessionId: string, session: TerminalSession) => {
@@ -595,6 +638,13 @@ export const useTerminalStore = defineStore('terminal', () => {
 
   const cleanup = () => {
     cleanupSocketSubscriptions()
+
+    // Clean up resize timeouts
+    resizePaneTimeouts.forEach((timeout) => {
+      clearTimeout(timeout)
+    })
+    resizePaneTimeouts.clear()
+    lastResizeTimes.clear()
   }
 
   return {

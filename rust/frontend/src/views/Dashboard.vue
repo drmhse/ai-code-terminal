@@ -31,9 +31,7 @@
 
     <!-- Main Application -->
     <template v-else-if="appStatus === 'ready'">
-      <TitleBar />
-      <MainContent />
-      <StatusBar />
+      <MainLayout />
 
       <!-- Modals and Overlays -->
       <ThemeModal v-if="uiStore.showThemeModal" />
@@ -83,9 +81,7 @@ import { useAppCore } from '@/composables/useAppCore'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { useTheme } from '@/composables/useTheme'
 import { useAppInitialization } from '@/composables/useAppInitialization'
-import TitleBar from '@/components/TitleBar.vue'
-import MainContent from '@/components/MainContent.vue'
-import StatusBar from '@/components/StatusBar.vue'
+import MainLayout from '@/components/MainLayout.vue'
 
 // Import modal components (to be created)
 import ThemeModal from '@/components/modals/ThemeModal.vue'
@@ -225,7 +221,7 @@ onBeforeUnmount(() => {
 .app-container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
   background: var(--bg-primary);
   color: var(--text-primary);
 }
@@ -236,7 +232,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100vh;
+  height: 100%;
   gap: 24px;
   background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
 }
@@ -274,7 +270,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100vh;
+  height: 100%;
   gap: 15px;
   padding: 20px;
   text-align: center;
@@ -317,7 +313,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100vh;
+  height: 100%;
   background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
 }
 
