@@ -316,7 +316,11 @@ const initializeTerminal = () => {
     macOptionClickForcesSelection: false,
 
     // Output handling
-    disableStdin: false
+    disableStdin: false,
+
+    // Improved rendering for better UTF-8 handling
+    smoothScrollDuration: 0,
+    altClickMovesCursor: false
   })
 
   // Create and load addons with proper state tracking

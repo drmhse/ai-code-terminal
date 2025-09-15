@@ -49,20 +49,29 @@ impl PtyService for TokioPtyService {
         info!("Selected shell for PTY session: {}", shell);
 
         let mut cmd = portable_pty::CommandBuilder::new(shell);
-        cmd.args(["-i", "-l"]);
+        // Use simpler shell invocation to avoid profile script interference
+        if shell.contains("bash") {
+            cmd.args(["-i"]);
+        } else if shell.contains("zsh") {
+            cmd.args(["-i"]);
+        }
+        // No shell args for other shells to minimize interference
 
         if let Some(ref working_dir) = config.working_dir {
             cmd.cwd(working_dir);
         }
 
+        // Set minimal required environment variables
         cmd.env("TERM", "xterm-256color");
         cmd.env("COLORTERM", "truecolor");
-        cmd.env("PS1", "$ ");
+
+        // Don't override PS1 - let the shell handle its own prompt
+        // Don't force color output - let applications decide
+
+        // For zsh, prevent theme loading that might output garbage
         if shell.contains("zsh") {
-            cmd.env("FORCE_COLOR", "1");
             cmd.env("ZSH_THEME", "");
-        } else if shell.contains("bash") {
-            cmd.env("FORCE_COLOR", "1");
+            cmd.env("DISABLE_AUTO_UPDATE", "true");
         }
 
         if let Some(env) = &config.environment {
@@ -218,13 +227,8 @@ impl PtyService for TokioPtyService {
             debug!("PTY write task ended for session {}", write_session_id);
         });
 
-        let init_output_tx = output_tx.clone();
-        let init_session_id = config.session_id.clone();
-        tokio::spawn(async move {
-            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-            let message = format!("\x1b[1;32m● Terminal ready - session {}\x1b[0m\r\n", init_session_id);
-            let _ = init_output_tx.send(PtyEvent::Output(message.into_bytes()));
-        });
+        // Remove automatic welcome message to prevent conflicts with frontend
+        // Let the frontend handle welcome messages
 
         let session_info = SessionInfo {
             session_id: config.session_id.clone(),

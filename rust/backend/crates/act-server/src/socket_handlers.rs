@@ -130,7 +130,15 @@ impl SocketSessionManager {
     pub async fn add_session(&mut self, session_id: String, state: Arc<AppState>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut forwarder = SessionOutputForwarder::new(self.socket.clone(), session_id.clone());
         forwarder.start(state.clone()).await?;
-        forwarder.send_welcome_message().await;
+
+        // Send welcome message in background to avoid blocking
+        let socket_clone = self.socket.clone();
+        let session_id_clone = session_id.clone();
+        tokio::spawn(async move {
+            let welcome_forwarder = SessionOutputForwarder::new(socket_clone, session_id_clone);
+            welcome_forwarder.send_welcome_message().await;
+        });
+
         self.sessions.insert(session_id, forwarder);
         Ok(())
     }
@@ -230,8 +238,8 @@ impl StatsSubscription {
 
 impl SessionOutputForwarder {
     pub fn new(socket: SocketRef, session_id: String) -> Self {
-        Self { 
-            socket, 
+        Self {
+            socket,
             session_id,
             output_rx: None,
         }
@@ -277,9 +285,11 @@ impl SessionOutputForwarder {
     }
 
     pub async fn send_welcome_message(&self) {
+        // Send a single, clean welcome message after a brief delay to ensure terminal is ready
+        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
         let event = TerminalOutputEvent {
             session_id: self.session_id.clone(),
-            output: "\r\n\x1b[1;32m● Connected to AI Code Terminal\x1b[0m\r\n".to_string(),
+            output: "\x1b[0m\x1b[2J\x1b[H\x1b[1;32m● Connected to AI Code Terminal\x1b[0m\r\n".to_string(),
         };
         if let Err(e) = self.socket.emit("terminal:output", event) {
             error!("Failed to send welcome message for session {}: {}", self.session_id, e);
