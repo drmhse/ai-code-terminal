@@ -1,7 +1,7 @@
 import { io, type Socket } from 'socket.io-client'
 import router from '@/router'
 import { Subject, BehaviorSubject, type Subscription } from '@/utils/reactive'
-import { 
+import {
   ConnectionState,
   type TerminalOutputEvent,
   type TerminalCreatedEvent,
@@ -15,6 +15,29 @@ import {
   validateTerminalDestroyedEvent,
   validateStatsDataEvent
 } from '@/types/socket'
+
+// Session discovery and recovery types
+export interface WorkspaceSession {
+  id: string
+  session_name: string
+  workspace_id: string
+  status: 'active' | 'inactive' | 'terminated'
+  last_activity_at: string
+  created_at: string
+  recovery_token?: string
+  can_recover: boolean
+  terminal_size?: { cols: number; rows: number }
+}
+
+export interface WorkspaceSessionsEvent {
+  workspaceId: string
+  sessions: WorkspaceSession[]
+}
+
+export interface SessionRecoveredEvent {
+  sessionId: string
+  success: boolean
+}
 
 export interface SocketEvents {
   // Terminal events
@@ -39,6 +62,8 @@ class SocketService {
   public readonly terminalDestroyed$ = new Subject<TerminalDestroyedEvent>()
   public readonly statsData$ = new Subject<StatsDataEvent>()
   public readonly authError$ = new Subject<WebSocketAuthErrorEvent>()
+  public readonly workspaceSessions$ = new Subject<WorkspaceSessionsEvent>()
+  public readonly sessionRecovered$ = new Subject<SessionRecoveredEvent>()
 
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -126,6 +151,7 @@ class SocketService {
 
       this.setupTerminalListeners()
       this.setupStatsListeners()
+      this.setupSessionListeners()
     })
   }
 
@@ -181,6 +207,34 @@ class SocketService {
     })
   }
 
+  private setupSessionListeners(): void {
+    if (!this.socket) return
+
+    this.socket.on('workspace-sessions', (data: unknown) => {
+      console.log('Received workspace sessions:', data)
+      try {
+        const sessionData = data as WorkspaceSessionsEvent
+        this.workspaceSessions$.next(sessionData)
+      } catch (error) {
+        console.warn('Invalid workspace sessions data received:', data)
+      }
+    })
+
+    this.socket.on('session-recovered', (data: unknown) => {
+      console.log('Session recovered:', data)
+      try {
+        const recoveryData = data as SessionRecoveredEvent
+        this.sessionRecovered$.next(recoveryData)
+      } catch (error) {
+        console.warn('Invalid session recovery data received:', data)
+      }
+    })
+
+    this.socket.on('terminal-error', (error: unknown) => {
+      console.error('Terminal error:', error)
+    })
+  }
+
   private handleReconnection(): void {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++
@@ -224,6 +278,15 @@ class SocketService {
 
   switchWorkspace(workspaceId: string): void {
     this.socket?.emit('workspace:switch', { workspaceId })
+  }
+
+  // Session discovery and reconnection
+  getWorkspaceSessions(workspaceId: string): void {
+    this.socket?.emit('workspace:sessions', { workspaceId })
+  }
+
+  recoverSession(recoveryToken: string): void {
+    this.socket?.emit('session:recover', { recoveryToken })
   }
 
   subscribeToStats(interval: number = 5): void {

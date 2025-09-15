@@ -112,6 +112,21 @@ export function useAppCore() {
         console.log('✅ WebSocket already connected')
       }
 
+      // 9. Restore sessions for current workspace if available
+      if (socketService.isConnected && workspaceStore.currentWorkspace) {
+        try {
+          console.log('🔄 Attempting to restore sessions for current workspace:', workspaceStore.currentWorkspace.id)
+          // This will trigger session discovery and restoration in the workspace switch logic
+          await workspaceStore.switchWorkspace(workspaceStore.currentWorkspace)
+          console.log('✅ Session restoration completed')
+        } catch (sessionError) {
+          console.warn('⚠️ Session restoration failed, but continuing initialization:', sessionError)
+          // Don't fail initialization if session restoration fails
+        }
+      } else {
+        console.log('ℹ️ Skipping session restoration: WebSocket not connected or no current workspace')
+      }
+
       console.log('🎉 Application initialization complete')
       return true
 

@@ -194,16 +194,46 @@ import { useFileOperations } from '@/composables/useFileOperations'
 import { createUnifiedEditor } from '@/utils/codemirror-editor'
 import type { EditorInstance } from '@/types/editor'
 import type { FileItem } from '@/stores/file'
+import { useTheme } from '@/composables/useTheme'
+import { transformToLegacyTheme, legacyToEditorTheme } from '@/utils/themeCompat'
 
 const fileStore = useFileStore()
 const editorStore = useEditorStore()
 const fileOperations = useFileOperations()
+const { currentTheme } = useTheme()
 
 const editorRef = ref<HTMLElement>()
 const editorContent = ref('')
 const previewEditorRef = ref<HTMLElement>()
 const previewEditorInstance = ref<EditorInstance>()
 const editEditorInstance = ref<EditorInstance>()
+
+// Helper to get current editor theme
+const getCurrentEditorTheme = () => {
+  const legacyTheme = currentTheme.value ? transformToLegacyTheme(currentTheme.value) : null
+  return legacyTheme ? legacyToEditorTheme(legacyTheme) : {
+    type: 'dark' as const,
+    colors: {
+      primary: '#1a1a1a',
+      secondary: '#2d2d2d',
+      tertiary: '#3d3d3d',
+      sidebar: '#252525',
+      border: '#404040',
+      textPrimary: '#ffffff',
+      textSecondary: '#cccccc',
+      textMuted: '#888888',
+      accentBlue: '#61afef',
+      accentBlueHover: '#4d8ed7',
+      accentGreen: '#98c379',
+      accentGreenHover: '#7fb069',
+      accentRed: '#e06c75',
+      accentRedHover: '#d45862',
+      accentOrange: '#e5c07b',
+      accentPurple: '#c678dd',
+      terminalBg: '#1a1a1a'
+    }
+  }
+}
 
 const closeModal = () => {
   if (editorStore.editMode && editorStore.hasChanges) {
@@ -275,28 +305,7 @@ const initializePreviewEditor = async () => {
     content: fileStore.previewData,
     readonly: true,
     fileExtension: fileStore.previewFile.extension || undefined,
-    theme: {
-      type: 'dark',
-      colors: {
-        primary: '#1a1a1a',
-        secondary: '#2d2d2d',
-        tertiary: '#3d3d3d',
-        sidebar: '#252525',
-        border: '#404040',
-        textPrimary: '#ffffff',
-        textSecondary: '#cccccc',
-        textMuted: '#888888',
-        accentBlue: '#61afef',
-        accentBlueHover: '#4d8ed7',
-        accentGreen: '#98c379',
-        accentGreenHover: '#7fb069',
-        accentRed: '#e06c75',
-        accentRedHover: '#d45862',
-        accentOrange: '#e5c07b',
-        accentPurple: '#c678dd',
-        terminalBg: '#1a1a1a'
-      }
-    },
+    theme: getCurrentEditorTheme(),
     onChange: () => {
       // No changes allowed in preview mode
     }
@@ -318,28 +327,7 @@ const initializeEditEditor = async () => {
     content: editorStore.currentFile.content,
     readonly: false,
     fileExtension: fileStore.previewFile.extension || undefined,
-    theme: {
-      type: 'dark',
-      colors: {
-        primary: '#1a1a1a',
-        secondary: '#2d2d2d',
-        tertiary: '#3d3d3d',
-        sidebar: '#252525',
-        border: '#404040',
-        textPrimary: '#ffffff',
-        textSecondary: '#cccccc',
-        textMuted: '#888888',
-        accentBlue: '#61afef',
-        accentBlueHover: '#4d8ed7',
-        accentGreen: '#98c379',
-        accentGreenHover: '#7fb069',
-        accentRed: '#e06c75',
-        accentRedHover: '#d45862',
-        accentOrange: '#e5c07b',
-        accentPurple: '#c678dd',
-        terminalBg: '#1a1a1a'
-      }
-    },
+    theme: getCurrentEditorTheme(),
     onChange: (content: string) => {
       // Update editor store content
       if (editorStore.currentFile) {

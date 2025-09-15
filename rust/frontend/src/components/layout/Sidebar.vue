@@ -26,7 +26,7 @@
           class="workspace-item"
           :class="{ selected: workspaceStore.selectedWorkspace?.id === workspace.id }"
         >
-          <div class="workspace-content" @click="selectWorkspace(workspace)">
+          <div class="workspace-content" @click="selectWorkspace(workspace)" :class="{ switching: workspaceSwitching && workspaceStore.selectedWorkspace?.id === workspace.id }">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon">
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
             </svg>
@@ -142,14 +142,29 @@ const layoutStore = useLayoutStore()
 const { refreshFiles, searchFiles, clearFileSearch } = useFileOperations()
 
 const searchTerm = ref('')
+const workspaceSwitching = ref(false)
 
 const selectWorkspace = async (workspace: Workspace) => {
+  // Prevent rapid workspace switching
+  if (workspaceSwitching.value) {
+    console.log('Workspace switch already in progress, ignoring click')
+    return
+  }
+
+  // If already selected, do nothing
+  if (workspaceStore.selectedWorkspace?.id === workspace.id) {
+    return
+  }
+
   try {
+    workspaceSwitching.value = true
     await workspaceStore.switchWorkspace(workspace)
     await refreshFiles()
     await layoutStore.fetchLayouts(workspace.id)
   } catch (err) {
     console.error('Failed to select workspace:', err)
+  } finally {
+    workspaceSwitching.value = false
   }
 }
 
@@ -172,8 +187,8 @@ const openCreateFolderModal = () => {
   width: 100%;
   min-width: 200px;
   max-width: 280px;
-  background: var(--bg-secondary);
-  border-right: 1px solid var(--border-color);
+  background: var(--sidebar-background);
+  border-right: 1px solid var(--sidebar-border);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -186,7 +201,7 @@ const openCreateFolderModal = () => {
 }
 
 .sidebar-section:not(:last-child) {
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--sidebar-border);
 }
 
 .section-header {
@@ -195,7 +210,7 @@ const openCreateFolderModal = () => {
   justify-content: space-between;
   padding: 12px 16px;
   background: var(--bg-tertiary);
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--sidebar-border);
   flex-shrink: 0;
 }
 
@@ -249,10 +264,10 @@ const openCreateFolderModal = () => {
 .empty-state {
   padding: 24px 16px;
   text-align: center;
-  color: var(--text-secondary);
+  color: var(--sidebar-text-secondary);
   background: var(--bg-primary);
   border-radius: 8px;
-  border: 1px dashed var(--border-color);
+  border: 1px dashed var(--sidebar-border);
 }
 
 .empty-state p {
@@ -272,13 +287,14 @@ const openCreateFolderModal = () => {
 }
 
 .workspace-item:hover {
-  background: var(--button-hover);
+  background: var(--sidebar-item-hover);
   border-color: var(--border-color);
+  color: var(--sidebar-item-hover-text);
 }
 
 .workspace-item.selected {
-  background: var(--primary);
-  color: white;
+  background: var(--sidebar-item-active);
+  color: var(--sidebar-item-active-text);
 }
 
 .workspace-content {
@@ -291,13 +307,19 @@ const openCreateFolderModal = () => {
   min-width: 0;
 }
 
+.workspace-content.switching {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
 .icon {
   flex-shrink: 0;
   color: var(--text-secondary);
 }
 
+.workspace-item:hover .icon,
 .workspace-item.selected .icon {
-  color: white;
+  color: inherit;
 }
 
 .details {
@@ -314,8 +336,9 @@ const openCreateFolderModal = () => {
   text-overflow: ellipsis;
 }
 
+.workspace-item:hover .workspace-name,
 .workspace-item.selected .workspace-name {
-  color: white;
+  color: inherit;
 }
 
 .workspace-path {
@@ -327,8 +350,10 @@ const openCreateFolderModal = () => {
   margin-top: 2px;
 }
 
+.workspace-item:hover .workspace-path,
 .workspace-item.selected .workspace-path {
-  color: rgba(255, 255, 255, 0.8);
+  color: inherit;
+  opacity: 0.8;
 }
 
 .delete-btn {
@@ -359,7 +384,7 @@ const openCreateFolderModal = () => {
 
 .file-search {
   padding: 8px 12px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--sidebar-border);
   position: relative;
   flex-shrink: 0;
 }
@@ -378,7 +403,7 @@ const openCreateFolderModal = () => {
 }
 
 .search-input:focus {
-  border-color: var(--primary);
+  border-color: var(--border-focus);
   box-shadow: 0 0 0 2px rgba(0, 123, 204, 0.1);
 }
 
@@ -431,7 +456,7 @@ const openCreateFolderModal = () => {
     bottom: 24px;
     width: min(80vw, 320px);
     z-index: 999;
-    background: var(--bg-secondary);
+    background: var(--sidebar-background);
     transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 

@@ -63,6 +63,7 @@
           :workspace-path="workspaceStore.selectedWorkspace?.path"
           :can-split="terminalStore.panes.length < 4"
           :show-close-button="terminalStore.panes.length > 1"
+          :theme="terminalTheme"
           @focus="handleTerminalFocus"
           @close="closeTerminal(pane.id)"
           @split="handleSplit"
@@ -93,9 +94,10 @@
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useTerminalStore } from '@/stores/terminal'
-import { useUIStore } from '@/stores/ui'
 import { useAuthStore } from '@/stores/auth'
 import { useLayoutStore } from '@/stores/layout'
+import { useTheme } from '@/composables/useTheme'
+import { getCurrentTerminalTheme } from '@/utils/themeConverter'
 import { socketService } from '@/services/socket'
 import { apiService } from '@/services/api'
 import TerminalPane from '../TerminalPane.vue'
@@ -104,9 +106,15 @@ import type { LayoutType } from '@/types/layout'
 
 const workspaceStore = useWorkspaceStore()
 const terminalStore = useTerminalStore()
-const uiStore = useUIStore()
 const authStore = useAuthStore()
 const layoutStore = useLayoutStore()
+const { currentTheme } = useTheme()
+
+// Convert current theme terminal colors to xterm.js format
+const terminalTheme = computed(() => {
+  if (!currentTheme.value) return undefined
+  return getCurrentTerminalTheme(currentTheme.value)
+})
 
 const showRepositoriesModal = ref(false)
 const isConnected = ref(false)
@@ -115,6 +123,11 @@ const showSessionReconnect = ref(false)
 const creatingTerminal = ref(false)
 
 const loadPersistentSessions = async () => {
+  // Disabled: Session restoration is now handled automatically by workspace switching logic
+  // This prevents the manual "Restore Terminals" dialog from appearing
+  console.log('ℹ️ Persistent session loading disabled - handled by workspace store')
+  return
+
   if (!workspaceStore.selectedWorkspace || !workspaceStore.selectedWorkspace.id) return
 
   try {
@@ -129,9 +142,10 @@ const loadPersistentSessions = async () => {
 }
 
 watch(() => workspaceStore.selectedWorkspace, async (newWorkspace) => {
-  if (newWorkspace) {
-    await loadPersistentSessions()
-  } else {
+  // Disabled: Session restoration is now handled automatically by workspace switching logic
+  console.log('ℹ️ Workspace change detected, but session restoration is handled automatically')
+
+  if (!newWorkspace) {
     persistentSessions.value = []
     showSessionReconnect.value = false
   }

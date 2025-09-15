@@ -12,11 +12,11 @@
       </div>
       
       <div class="modal-body">
-        <div v-if="availableThemes.length === 0" class="loading-themes">
+        <div v-if="isLoading || !currentTheme" class="loading-themes">
           <div class="loading-spinner"></div>
           <p>Loading themes...</p>
         </div>
-        
+
         <div v-else class="theme-grid">
           <div 
             v-for="theme in availableThemes" 

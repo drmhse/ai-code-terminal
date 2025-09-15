@@ -43,6 +43,15 @@ export const useTerminalStore = defineStore('terminal', () => {
   const activePane = ref<string | null>(null)
   const sessions = ref<Map<string, TerminalSession>>(new Map())
 
+  // Workspace-specific terminal state
+  const workspaceTerminals = ref<Map<string, {
+    panes: TerminalPane[]
+    activePane: string | null
+    sessions: Map<string, TerminalSession>
+  }>>(new Map())
+
+  const currentWorkspaceId = ref<string | null>(null)
+
   // Legacy tabs array for backward compatibility
   const terminalTabs = ref<TerminalTab[]>([])
   const activeTabId = ref<string | null>(null)
@@ -636,6 +645,42 @@ export const useTerminalStore = defineStore('terminal', () => {
     updateLayoutRecommendations()
   }
 
+  const switchToWorkspace = (workspaceId: string) => {
+    // Save current workspace state if we have one
+    if (currentWorkspaceId.value) {
+      workspaceTerminals.value.set(currentWorkspaceId.value, {
+        panes: [...panes.value],
+        activePane: activePane.value,
+        sessions: new Map(sessions.value)
+      })
+      console.log(`Saved terminal state for workspace ${currentWorkspaceId.value}`)
+    }
+
+    // Load state for new workspace
+    const workspaceState = workspaceTerminals.value.get(workspaceId)
+    if (workspaceState) {
+      // Restore terminals for this workspace
+      panes.value = workspaceState.panes
+      activePane.value = workspaceState.activePane
+      sessions.value = workspaceState.sessions
+      console.log(`Restored terminal state for workspace ${workspaceId}: ${panes.value.length} panes`)
+    } else {
+      // No previous state for this workspace, start clean
+      panes.value = []
+      activePane.value = null
+      sessions.value = new Map()
+      console.log(`No previous terminal state for workspace ${workspaceId}, starting clean`)
+    }
+
+    currentWorkspaceId.value = workspaceId
+  }
+
+  const getCurrentWorkspaceTerminalCount = () => {
+    if (!currentWorkspaceId.value) return 0
+    const workspaceState = workspaceTerminals.value.get(currentWorkspaceId.value)
+    return workspaceState ? workspaceState.panes.length : panes.value.length
+  }
+
   const cleanup = () => {
     cleanupSocketSubscriptions()
 
@@ -645,6 +690,9 @@ export const useTerminalStore = defineStore('terminal', () => {
     })
     resizePaneTimeouts.clear()
     lastResizeTimes.clear()
+
+    // Clear workspace terminal state
+    workspaceTerminals.value.clear()
   }
 
   return {
@@ -713,5 +761,9 @@ export const useTerminalStore = defineStore('terminal', () => {
     convertLayout,
     cleanup,
     onTerminalOutput,
+
+    // Workspace-aware functions
+    switchToWorkspace,
+    getCurrentWorkspaceTerminalCount,
   }
 })

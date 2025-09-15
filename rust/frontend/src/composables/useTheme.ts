@@ -2,17 +2,20 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import type { Theme, ThemePreference } from '@/types/theme'
 import { themeService } from '@/services/theme'
 import { apiService } from '@/services/api'
+import { transformToLegacyTheme, type LegacyTheme } from '@/utils/themeCompat'
+
+// SINGLETON STATE - shared across all component instances
+const currentTheme = ref<Theme | null>(null)
+const isInitialized = ref(false)
+const isLoading = ref(false)
+const error = ref<string | null>(null)
+let initializationPromise: Promise<void> | null = null // Prevent concurrent initializations
 
 /**
  * Theme composable for components to interact with the theme system
- * Provides reactive theme state and theme management functions
+ * Uses singleton pattern to prevent multiple initializations
  */
 export function useTheme() {
-  // Reactive state
-  const currentTheme = ref<Theme | null>(null)
-  const isInitialized = ref(false)
-  const isLoading = ref(false)
-  const error = ref<string | null>(null)
 
   // Computed properties
   const isDark = computed(() => currentTheme.value?.category === 'dark')
@@ -30,15 +33,23 @@ export function useTheme() {
   const switchToTheme = async (themeId: string): Promise<void> => {
     isLoading.value = true
     error.value = null
-    
+
     try {
       await themeService.switchToTheme(themeId)
       currentTheme.value = themeService.getCurrentTheme()
-      
-      // Persist theme preference to backend
+
+      // Persist theme preference to backend (backend expects simple format)
       const preferences = themeService.getThemePreferences()
       if (preferences) {
         await apiService.saveTheme(preferences)
+      }
+
+      // Emit theme change event for any terminal components that need to respond
+      const theme = themeService.getCurrentTheme()
+      if (theme) {
+        const legacyTheme = transformToLegacyTheme(theme)
+        const event = new CustomEvent('themeChanged', { detail: { theme: legacyTheme } })
+        window.dispatchEvent(event)
       }
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to switch theme'
@@ -90,41 +101,68 @@ export function useTheme() {
 
   // Initialize theme system
   const initialize = async (): Promise<void> => {
-    if (isInitialized.value) return
-    
-    isLoading.value = true
-    error.value = null
-    
-    try {
-      // First, try to load saved theme preferences from backend
+    console.log('🎨 Theme initialize() called, isInitialized:', isInitialized.value, 'hasPromise:', !!initializationPromise)
+
+    if (isInitialized.value) {
+      console.log('🎨 Theme already initialized, skipping')
+      return
+    }
+
+    // If already initializing, wait for that promise
+    if (initializationPromise) {
+      console.log('🎨 Theme initialization already in progress, waiting...')
+      return initializationPromise
+    }
+
+    // Create the initialization promise
+    initializationPromise = (async () => {
+      isLoading.value = true
+      error.value = null
+
       try {
+        // Load saved theme preferences from backend (single API call)
+        console.log('🎨 Making API call to get current theme...')
         const savedPreferences = await apiService.getCurrentTheme()
-        if (savedPreferences) {
-          // Apply saved preferences to local theme service
-          if (savedPreferences.themeId) {
-            await themeService.switchToTheme(savedPreferences.themeId)
-          }
+        console.log('🎨 API response received:', savedPreferences)
+
+        if (savedPreferences?.themeId) {
+          // Apply saved preferences directly without additional API calls
+          console.log(`🎨 Applying saved theme: ${savedPreferences.themeId}`)
+          themeService.setThemePreferences(savedPreferences)
+          await themeService.switchToTheme(savedPreferences.themeId, false) // false = don't persist to backend
           if (savedPreferences.autoSwitch !== undefined) {
-            await themeService.setAutoSwitch(savedPreferences.autoSwitch)
+            themeService.setAutoSwitchLocal(savedPreferences.autoSwitch) // local only, no API call
           }
+          console.log(`✅ Applied saved theme: ${savedPreferences.themeId}`)
+        } else {
+          // No saved preferences, initialize with defaults (no API call)
+          console.log('🎨 No saved theme preferences found, using defaults')
+          await themeService.initializeWithDefaults()
+          console.log('✅ Initialized with default theme')
         }
-      } catch (backendError) {
-        console.warn('Failed to load theme preferences from backend, using defaults:', backendError)
-        // Fall back to local initialization
-        await themeService.initialize()
-      }
-      
+
       currentTheme.value = themeService.getCurrentTheme()
       isInitialized.value = true
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to initialize theme system'
-      console.error('Theme initialization failed:', err)
-      
-      // Still set as initialized to prevent infinite retry
-      isInitialized.value = true
-    } finally {
-      isLoading.value = false
-    }
+      console.warn('Failed to load theme preferences from backend, using defaults:', err)
+      // Fall back to local initialization without API calls
+      try {
+        await themeService.initializeWithDefaults()
+        currentTheme.value = themeService.getCurrentTheme()
+        isInitialized.value = true
+        console.log('Fallback to default theme successful')
+      } catch (fallbackErr) {
+        error.value = fallbackErr instanceof Error ? fallbackErr.message : 'Failed to initialize theme system'
+        console.error('Theme initialization completely failed:', fallbackErr)
+        isInitialized.value = true // Prevent infinite retry
+      }
+      } finally {
+        isLoading.value = false
+        initializationPromise = null // Reset so future calls can proceed
+      }
+    })()
+
+    return initializationPromise
   }
 
   // Listen for theme changes from other sources

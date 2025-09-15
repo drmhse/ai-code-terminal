@@ -73,8 +73,10 @@ export interface ThemeColors {
     text: string            // Sidebar text
     textSecondary: string   // Sidebar secondary text
     border: string          // Sidebar borders
-    itemHover: string       // Sidebar item hover
-    itemActive: string      // Sidebar active item
+    itemHover: string       // Sidebar item hover background
+    itemHoverText: string   // Sidebar item hover text
+    itemActive: string      // Sidebar active item background
+    itemActiveText: string  // Sidebar active item text
     itemActiveBorder: string // Active item accent
   }
 

@@ -111,8 +111,11 @@ import { useFileStore } from '@/stores/file'
 import { createUnifiedEditor } from '@/utils/codemirror-editor'
 import type { EditorInstance } from '@/types/editor'
 import type { EditorState } from '@/stores/file'
+import { useTheme } from '@/composables/useTheme'
+import { transformToLegacyTheme, legacyToEditorTheme } from '@/utils/themeCompat'
 
 const fileStore = useFileStore()
+const { currentTheme } = useTheme()
 
 // State
 const editorContainer = ref<HTMLElement>()
@@ -144,6 +147,15 @@ watch(() => activeFile.value?.language, (newLang) => {
   }
 })
 
+// Watch for theme changes and update editor
+watch(currentTheme, (newTheme) => {
+  if (newTheme && editorInstance.value) {
+    const legacyTheme = transformToLegacyTheme(newTheme)
+    const editorTheme = legacyToEditorTheme(legacyTheme)
+    editorInstance.value.setTheme(editorTheme)
+  }
+}, { deep: true })
+
 // Methods
 const updateEditor = async (file: EditorState) => {
   if (!editorContainer.value) return
@@ -157,8 +169,10 @@ const updateEditor = async (file: EditorState) => {
       editorInstance.value = undefined
     }
     
-    // Use default dark theme for now
-    const editorTheme = {
+    // Use current theme from theme system
+    const legacyTheme = currentTheme.value ? transformToLegacyTheme(currentTheme.value) : null
+    const editorTheme = legacyTheme ? legacyToEditorTheme(legacyTheme) : {
+      // Fallback to default dark theme
       type: 'dark' as const,
       colors: {
         primary: '#1a1a1a',

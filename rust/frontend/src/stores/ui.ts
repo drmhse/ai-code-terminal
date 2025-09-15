@@ -40,6 +40,7 @@ export const useUIStore = defineStore('ui', () => {
   const showDiscardModal = ref(false)
   const showCreateItemModal = ref(false)
   const showConfirmDeleteModal = ref(false)
+  const showBackgroundTasks = ref(false)
   
   // Modal data
   const createItemModalData = ref<{
@@ -206,7 +207,16 @@ export const useUIStore = defineStore('ui', () => {
   const closeThemeModal = () => {
     showThemeModal.value = false
   }
-  
+
+  const toggleThemeModal = () => {
+    showThemeModal.value = !showThemeModal.value
+  }
+
+  // Background tasks modal
+  const setShowBackgroundTasks = (show: boolean) => {
+    showBackgroundTasks.value = show
+  }
+
   // Create item modal
   const openCreateItemModal = (parentPath: string) => {
     createItemModalData.value = { parentPath }
@@ -376,6 +386,7 @@ export const useUIStore = defineStore('ui', () => {
     showDiscardModal: readonly(showDiscardModal),
     showCreateItemModal: readonly(showCreateItemModal),
     showConfirmDeleteModal: readonly(showConfirmDeleteModal),
+    showBackgroundTasks: readonly(showBackgroundTasks),
     createItemModalData: readonly(createItemModalData),
     confirmDeleteModalData: readonly(confirmDeleteModalData),
     showMobileActionsMenu: readonly(showMobileActionsMenu),
@@ -421,6 +432,8 @@ export const useUIStore = defineStore('ui', () => {
     toggleSecondaryFAB,
     openThemeModal,
     closeThemeModal,
+    toggleThemeModal,
+    setShowBackgroundTasks,
     openCreateItemModal,
     closeCreateItemModal,
     openConfirmDeleteModal,

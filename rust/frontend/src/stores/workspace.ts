@@ -47,6 +47,12 @@ export interface CloneProgress {
 }
 
 export const useWorkspaceStore = defineStore('workspace', () => {
+  // Workspace switching control
+  let isWorkspaceSwitching = false
+  let pendingWorkspaceSwitch: string | null = null
+  let workspaceSwitchTimeout: number | null = null
+  const WORKSPACE_SWITCH_DEBOUNCE = 300 // ms
+
   // Original workspace state
   const workspaces = ref<Workspace[]>([])
   const currentWorkspace = ref<Workspace | null>(null)
@@ -176,21 +182,80 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   }
 
   const switchWorkspace = async (workspace: Workspace) => {
-    currentWorkspace.value = workspace
-    
-    // Clear existing sessions
-    sessions.value = []
-    
-    // Notify WebSocket server about workspace switch
-    if (socketService.isConnected) {
-      socketService.switchWorkspace(workspace.id)
+    const targetWorkspaceId = workspace.id
+
+    // Clear any pending timeout
+    if (workspaceSwitchTimeout) {
+      clearTimeout(workspaceSwitchTimeout)
+      workspaceSwitchTimeout = null
     }
-    
-    // Fetch sessions for the new workspace
-    await fetchSessions(workspace.id)
-    
-    // Fetch layouts for the new workspace
-    await fetchLayoutsForWorkspace(workspace.id)
+
+    // If already switching, queue this switch
+    if (isWorkspaceSwitching) {
+      pendingWorkspaceSwitch = targetWorkspaceId
+      return
+    }
+
+    // If already in this workspace, do nothing
+    if (currentWorkspace.value?.id === targetWorkspaceId) {
+      console.log('Already in workspace', workspace.name)
+      return
+    }
+
+    // Set up debounced switch to prevent rapid switching
+    workspaceSwitchTimeout = setTimeout(async () => {
+      await performWorkspaceSwitch(workspace)
+
+      // Handle any pending switch
+      if (pendingWorkspaceSwitch && pendingWorkspaceSwitch !== targetWorkspaceId) {
+        const pendingWorkspace = workspaces.value.find(w => w.id === pendingWorkspaceSwitch)
+        if (pendingWorkspace) {
+          pendingWorkspaceSwitch = null
+          await switchWorkspace(pendingWorkspace)
+        }
+      }
+    }, WORKSPACE_SWITCH_DEBOUNCE)
+  }
+
+  const performWorkspaceSwitch = async (workspace: Workspace) => {
+    if (isWorkspaceSwitching) return
+
+    try {
+      isWorkspaceSwitching = true
+      const previousWorkspaceId = currentWorkspace.value?.id
+
+      console.log(`Switching from workspace ${previousWorkspaceId} to ${workspace.id}`)
+
+      // Update current workspace immediately for UI responsiveness
+      currentWorkspace.value = workspace
+
+      // Switch terminal store to new workspace context with proper cleanup
+      await switchTerminalToWorkspace(workspace.id)
+
+      // Notify WebSocket server about workspace switch
+      if (socketService.isConnected) {
+        socketService.switchWorkspace(workspace.id)
+      }
+
+      // Fetch sessions for the new workspace (don't clear existing ones)
+      await fetchSessions(workspace.id)
+
+      // Fetch layouts for the new workspace
+      await fetchLayoutsForWorkspace(workspace.id)
+
+      // Reload files for the new workspace context
+      await reloadFilesForWorkspace(workspace.id)
+
+      // Ensure the workspace has at least one terminal
+      await ensureWorkspaceHasTerminal(workspace.id)
+
+    } catch (error) {
+      console.error('Error during workspace switch:', error)
+    } finally {
+      isWorkspaceSwitching = false
+      pendingWorkspaceSwitch = null
+      workspaceSwitchTimeout = null
+    }
   }
 
 const fetchSessions = async (workspaceId: string) => {
@@ -226,6 +291,221 @@ const fetchLayoutsForWorkspace = async (workspaceId: string) => {
     console.error('Failed to fetch layouts for workspace:', err)
     // Don't throw here - layouts are not critical for workspace functionality
   }
+}
+
+const reloadFilesForWorkspace = async (workspaceId: string) => {
+  if (!workspaceId) {
+    console.warn('No workspace ID provided for reloadFilesForWorkspace')
+    return
+  }
+
+  try {
+    // Use dynamic import with proper await to avoid warnings
+    const fileModule = await import('@/stores/file')
+    const fileStore = fileModule.useFileStore()
+
+    // Clear file cache and reload files with new workspace context
+    fileStore.clearCache()
+    await fileStore.refreshFiles('.', false, workspaceId)
+    console.log(`Files reloaded for workspace ${workspaceId}`)
+  } catch (err) {
+    console.error('Failed to reload files for workspace:', err)
+    // Don't throw here - file reloading failure shouldn't break workspace switching
+  }
+}
+
+const switchTerminalToWorkspace = async (workspaceId: string) => {
+  if (!workspaceId) {
+    console.warn('No workspace ID provided for switchTerminalToWorkspace')
+    return
+  }
+
+  try {
+    // Use dynamic import with proper await to avoid warnings
+    const terminalModule = await import('@/stores/terminal')
+    const terminalStore = terminalModule.useTerminalStore()
+
+    // Switch terminal store to workspace context
+    terminalStore.switchToWorkspace(workspaceId)
+    console.log(`Terminal store switched to workspace ${workspaceId}`)
+  } catch (err) {
+    console.error('Failed to switch terminal to workspace:', err)
+    // Don't throw here - terminal switching failure shouldn't break workspace switching
+  }
+}
+
+const ensureWorkspaceHasTerminal = async (workspaceId: string) => {
+  if (!workspaceId) {
+    console.warn('No workspace ID provided for ensureWorkspaceHasTerminal')
+    return
+  }
+
+  try {
+    // Use dynamic import with proper await to avoid warnings
+    const terminalModule = await import('@/stores/terminal')
+    const terminalStore = terminalModule.useTerminalStore()
+
+    // Check if workspace already has restored frontend terminals
+    if (terminalStore.hasPanes) {
+      console.log(`✅ Workspace ${workspaceId} already has restored frontend terminals`)
+      return
+    }
+
+    // First check for existing backend sessions
+    console.log(`🔍 Checking for existing backend sessions in workspace ${workspaceId}`)
+    const existingSessions = await discoverExistingSessions(workspaceId)
+
+    if (existingSessions && existingSessions.length > 0) {
+      console.log(`✅ Found ${existingSessions.length} existing backend sessions, reconnecting...`)
+      await reconnectToSessions(existingSessions, workspaceId)
+      return
+    }
+
+    // Production-quality logging and user feedback
+    console.warn(`🔧 Backend session persistence unavailable for workspace ${workspaceId}`)
+    console.info('ℹ️ Creating fresh terminal session - this is normal for new workspaces')
+
+    // Check if this is a known workspace with expected sessions
+    const workspaceState = terminalStore.getCurrentWorkspaceTerminalCount()
+    if (workspaceState > 0) {
+      console.warn(`⚠️ Expected ${workspaceState} terminal sessions but backend has none`)
+      console.warn('📋 User workflows will be interrupted - consider implementing session persistence')
+    }
+
+    await terminalStore.createTerminal(workspaceId)
+  } catch (err) {
+    console.error('Failed to ensure workspace has terminal:', err)
+    // Don't throw here - terminal creation failure shouldn't break workspace switching
+  }
+}
+
+const discoverExistingSessions = (workspaceId: string): Promise<import('@/services/socket').WorkspaceSession[] | null> => {
+  return new Promise((resolve, reject) => {
+    try {
+      let resolved = false
+
+      // Set up listener for the response
+      const subscription = socketService.workspaceSessions$.subscribe((data) => {
+        if (resolved || data.workspaceId !== workspaceId) return
+
+        console.log(`📨 Received session data for workspace ${data.workspaceId}:`, data.sessions)
+
+        subscription.unsubscribe()
+        resolved = true
+
+        if (!data.sessions || data.sessions.length === 0) {
+          console.warn(`🔍 No backend sessions found for workspace ${workspaceId}`)
+          resolve([])
+          return
+        }
+
+        // More lenient filtering - try to recover any available sessions
+        const recoverableSessions = data.sessions.filter(s => {
+          // Accept sessions that are active OR explicitly marked as recoverable
+          return (s.status as string === 'active') ||
+                 (s.can_recover === true) ||
+                 (s.status as string === 'running') ||
+                 (s.status as string === 'idle')
+        })
+
+        if (recoverableSessions.length === 0) {
+          console.warn(`⚠️ Found ${data.sessions.length} sessions but none are recoverable`)
+          console.log('Session statuses:', data.sessions.map(s => ({ id: s.id, status: s.status, can_recover: s.can_recover })))
+        }
+
+        resolve(recoverableSessions)
+      })
+
+      // Request sessions for workspace
+      console.log(`📤 Requesting sessions for workspace ${workspaceId}`)
+      socketService.getWorkspaceSessions(workspaceId)
+
+      // Longer timeout for production stability
+      setTimeout(() => {
+        if (resolved) return
+        resolved = true
+        subscription.unsubscribe()
+        console.warn(`⏰ Backend session discovery timeout for workspace ${workspaceId}`)
+        resolve(null)
+      }, 10000) // Increased to 10 seconds
+
+    } catch (error) {
+      console.error('Error discovering sessions:', error)
+      reject(error)
+    }
+  })
+}
+
+const reconnectToSessions = async (sessions: import('@/services/socket').WorkspaceSession[], workspaceId: string) => {
+  try {
+    console.log(`🔄 Reconnecting to ${sessions.length} sessions for workspace ${workspaceId}`)
+
+    let successCount = 0
+    for (const session of sessions) {
+      if (session.recovery_token && session.can_recover) {
+        try {
+          console.log(`🔗 Attempting to recover session ${session.id} with token ${session.recovery_token}`)
+          await recoverSession(session.recovery_token, session.id)
+          successCount++
+        } catch (error) {
+          console.warn(`Failed to recover session ${session.id}:`, error)
+        }
+      } else {
+        console.warn(`Session ${session.id} cannot be recovered - no token or not recoverable`)
+      }
+    }
+
+    // Only create new terminal if no sessions were successfully recovered
+    if (successCount === 0) {
+      console.log('⚠️ No sessions were recovered, creating new terminal')
+      const terminalModule = await import('@/stores/terminal')
+      const terminalStore = terminalModule.useTerminalStore()
+      await terminalStore.createTerminal(workspaceId)
+    } else {
+      console.log(`✅ Successfully recovered ${successCount} out of ${sessions.length} sessions`)
+    }
+  } catch (error) {
+    console.error('Error reconnecting to sessions:', error)
+    // Fallback: create new terminal
+    const terminalModule = await import('@/stores/terminal')
+    const terminalStore = terminalModule.useTerminalStore()
+    await terminalStore.createTerminal(workspaceId)
+  }
+}
+
+const recoverSession = (recoveryToken: string, sessionId: string): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    try {
+      // Set up listener for recovery response
+      const subscription = socketService.sessionRecovered$.subscribe((data) => {
+        console.log(`📨 Session recovery response:`, data)
+
+        if (data.sessionId === sessionId) {
+          subscription.unsubscribe()
+          if (data.success) {
+            console.log(`✅ Successfully recovered session ${sessionId}`)
+            resolve()
+          } else {
+            reject(new Error(`Failed to recover session ${sessionId}`))
+          }
+        }
+      })
+
+      // Request session recovery
+      console.log(`📤 Requesting recovery for session ${sessionId}`)
+      socketService.recoverSession(recoveryToken)
+
+      // Set timeout
+      setTimeout(() => {
+        subscription.unsubscribe()
+        reject(new Error(`Timeout recovering session ${sessionId}`))
+      }, 10000)
+
+    } catch (error) {
+      console.error('Error recovering session:', error)
+      reject(error)
+    }
+  })
 }
 
   const clearError = () => {

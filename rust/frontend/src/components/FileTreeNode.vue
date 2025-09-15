@@ -147,22 +147,25 @@ const formatFileSize = (bytes: number): string => {
 }
 
 .node-content:hover {
-  background: var(--sidebar-item-hover-bg);
+  background: var(--sidebar-item-hover);
+  color: var(--sidebar-item-hover-text);
 }
 
 .node-content.is-file:hover {
-  background: var(--sidebar-item-hover-bg);
+  background: var(--sidebar-item-hover);
+  color: var(--sidebar-item-hover-text);
 }
 
 .node-content.is-selected {
-  background: var(--primary);
-  color: white;
+  background: var(--sidebar-item-active);
+  color: var(--sidebar-item-active-text);
+  border-left: 2px solid var(--sidebar-item-active-border);
 }
 
 .node-content.is-selected .node-icon,
 .node-content.is-selected .node-name,
 .node-content.is-selected .file-size {
-  color: white;
+  color: var(--sidebar-item-active-text);
 }
 
 .toggle-btn {
@@ -188,7 +191,7 @@ const formatFileSize = (bytes: number): string => {
 .loading-spinner {
   width: 12px;
   height: 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--sidebar-border);
   border-top: 1px solid var(--primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
@@ -213,6 +216,11 @@ const formatFileSize = (bytes: number): string => {
   color: var(--accent-blue);
 }
 
+.node-content:hover .node-icon,
+.node-content.is-selected .node-icon {
+  color: inherit;
+}
+
 .node-name {
   font-size: 13px;
   color: var(--text-primary);
@@ -231,13 +239,19 @@ const formatFileSize = (bytes: number): string => {
 }
 
 .children {
-  border-left: 1px solid var(--border-color);
+  border-left: 1px solid var(--sidebar-border);
   margin-left: 20px;
 }
 
 /* File type specific styling */
 .node-content.is-file .node-icon {
   color: var(--text-secondary);
+}
+
+/* Ensure icons inherit colors in interactive states */
+.node-content:hover .node-icon,
+.node-content.is-selected .node-icon {
+  color: inherit;
 }
 
 /* TypeScript/JavaScript files */

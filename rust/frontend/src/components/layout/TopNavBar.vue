@@ -77,11 +77,11 @@
         <img
           v-if="authStore.user.avatar_url"
           :src="authStore.user.avatar_url"
-          :alt="authStore.user.username"
+          :alt="authStore.user.login"
           class="user-avatar"
         />
         <div v-else class="user-avatar-placeholder">
-          {{ (authStore.user.username || 'U')[0].toUpperCase() }}
+          {{ (authStore.user.login || 'U')[0].toUpperCase() }}
         </div>
       </div>
     </div>

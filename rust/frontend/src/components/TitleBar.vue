@@ -9,7 +9,7 @@
     </button>
     <h1>AI Code Terminal</h1>
     <div class="controls">
-      <button @click="showThemeModal = true" class="theme-button">
+      <button @click="uiStore.openThemeModal()" class="theme-button">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="5"></circle>
           <line x1="12" y1="1" x2="12" y2="3"></line>
@@ -21,7 +21,7 @@
           <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
           <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
         </svg>
-        <span v-if="!isMobile">{{ currentTheme.name || 'Dark' }}</span>
+        <span v-if="!isMobile">{{ currentTheme?.name || 'Dark' }}</span>
       </button>
       <div class="user-info">{{ authStore.user?.login || 'Developer' }}</div>
       <button @click="logout" class="logout-button" title="Logout">
@@ -38,12 +38,13 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useUIStore } from '../stores/ui'
+import { useTheme } from '../composables/useTheme'
 
 const router = useRouter()
 const authStore = useAuthStore()
-
-const showThemeModal = ref(false)
-const currentTheme = ref({ name: 'Dark' })
+const uiStore = useUIStore()
+const { currentTheme } = useTheme()
 
 // Mobile detection with responsive handling
 const windowWidth = ref(window.innerWidth)
@@ -63,8 +64,7 @@ onMounted(() => {
 })
 
 const toggleSidebar = () => {
-  // Emit event or use global state for sidebar toggle
-  console.log('Toggle sidebar')
+  uiStore.toggleSidebar()
 }
 
 const logout = async () => {

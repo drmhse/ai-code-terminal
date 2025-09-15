@@ -1,6 +1,7 @@
 import type { Theme, ThemePreference } from '@/types/theme'
 import { themes, getThemeById, getSystemPreferredTheme, getDefaultTheme } from '@/data/themes'
 import { apiService } from './api'
+import { transformToLegacyTheme, applyLegacyTheme, getDefaultLegacyTheme, type LegacyTheme } from '@/utils/themeCompat'
 
 interface ThemeApiService {
   getCurrentTheme(): Promise<ThemePreference | null>
@@ -128,13 +129,13 @@ class ThemeService {
   /**
    * Switch to a specific theme by ID
    */
-  async switchToTheme(themeId: string): Promise<void> {
+  async switchToTheme(themeId: string, persist: boolean = true): Promise<void> {
     const theme = getThemeById(themeId)
     if (!theme) {
       throw new Error(`Theme with ID '${themeId}' not found`)
     }
-    
-    await this.applyTheme(theme, true)
+
+    await this.applyTheme(theme, persist)
   }
 
   /**
@@ -185,139 +186,13 @@ class ThemeService {
   }
 
   /**
-   * Apply theme colors to CSS custom properties
+   * Apply theme colors using legacy compatibility layer
+   * This ensures CSS variables match exactly what the original ../app system expected
    */
   private applyCSSVariables(theme: Theme): void {
-    if (!this.cssRoot) return
-
-    const { colors, terminal, syntax } = theme
-
-    // Apply background colors
-    this.cssRoot.style.setProperty('--bg-primary', colors.background.primary)
-    this.cssRoot.style.setProperty('--bg-secondary', colors.background.secondary)
-    this.cssRoot.style.setProperty('--bg-tertiary', colors.background.tertiary)
-    this.cssRoot.style.setProperty('--bg-quaternary', colors.background.quaternary)
-    this.cssRoot.style.setProperty('--bg-overlay', colors.background.overlay)
-
-    // Apply text colors
-    this.cssRoot.style.setProperty('--text-primary', colors.text.primary)
-    this.cssRoot.style.setProperty('--text-secondary', colors.text.secondary)
-    this.cssRoot.style.setProperty('--text-tertiary', colors.text.tertiary)
-    this.cssRoot.style.setProperty('--text-disabled', colors.text.disabled)
-    this.cssRoot.style.setProperty('--text-inverse', colors.text.inverse)
-
-    // Apply border colors
-    this.cssRoot.style.setProperty('--border-primary', colors.border.primary)
-    this.cssRoot.style.setProperty('--border-secondary', colors.border.secondary)
-    this.cssRoot.style.setProperty('--border-focus', colors.border.focus)
-    this.cssRoot.style.setProperty('--border-hover', colors.border.hover)
-
-    // Apply interactive colors
-    this.cssRoot.style.setProperty('--interactive-primary', colors.interactive.primary)
-    this.cssRoot.style.setProperty('--interactive-primary-hover', colors.interactive.primaryHover)
-    this.cssRoot.style.setProperty('--interactive-primary-active', colors.interactive.primaryActive)
-    this.cssRoot.style.setProperty('--interactive-primary-disabled', colors.interactive.primaryDisabled)
-    this.cssRoot.style.setProperty('--interactive-secondary', colors.interactive.secondary)
-    this.cssRoot.style.setProperty('--interactive-secondary-hover', colors.interactive.secondaryHover)
-    this.cssRoot.style.setProperty('--interactive-tertiary', colors.interactive.tertiary)
-    this.cssRoot.style.setProperty('--interactive-tertiary-hover', colors.interactive.tertiaryHover)
-    this.cssRoot.style.setProperty('--interactive-link', colors.interactive.link)
-    this.cssRoot.style.setProperty('--interactive-link-hover', colors.interactive.linkHover)
-    this.cssRoot.style.setProperty('--interactive-link-visited', colors.interactive.linkVisited)
-
-    // Apply semantic colors
-    this.cssRoot.style.setProperty('--semantic-success', colors.semantic.success)
-    this.cssRoot.style.setProperty('--semantic-success-bg', colors.semantic.successBg)
-    this.cssRoot.style.setProperty('--semantic-success-border', colors.semantic.successBorder)
-    this.cssRoot.style.setProperty('--semantic-warning', colors.semantic.warning)
-    this.cssRoot.style.setProperty('--semantic-warning-bg', colors.semantic.warningBg)
-    this.cssRoot.style.setProperty('--semantic-warning-border', colors.semantic.warningBorder)
-    this.cssRoot.style.setProperty('--semantic-error', colors.semantic.error)
-    this.cssRoot.style.setProperty('--semantic-error-bg', colors.semantic.errorBg)
-    this.cssRoot.style.setProperty('--semantic-error-border', colors.semantic.errorBorder)
-    this.cssRoot.style.setProperty('--semantic-info', colors.semantic.info)
-    this.cssRoot.style.setProperty('--semantic-info-bg', colors.semantic.infoBg)
-    this.cssRoot.style.setProperty('--semantic-info-border', colors.semantic.infoBorder)
-
-    // Apply sidebar colors
-    this.cssRoot.style.setProperty('--sidebar-background', colors.sidebar.background)
-    this.cssRoot.style.setProperty('--sidebar-text', colors.sidebar.text)
-    this.cssRoot.style.setProperty('--sidebar-text-secondary', colors.sidebar.textSecondary)
-    this.cssRoot.style.setProperty('--sidebar-border', colors.sidebar.border)
-    this.cssRoot.style.setProperty('--sidebar-item-hover', colors.sidebar.itemHover)
-    this.cssRoot.style.setProperty('--sidebar-item-active', colors.sidebar.itemActive)
-    this.cssRoot.style.setProperty('--sidebar-item-active-border', colors.sidebar.itemActiveBorder)
-
-    // Apply editor colors
-    this.cssRoot.style.setProperty('--editor-background', colors.editor.background)
-    this.cssRoot.style.setProperty('--editor-gutter', colors.editor.gutter)
-    this.cssRoot.style.setProperty('--editor-gutter-text', colors.editor.gutterText)
-    this.cssRoot.style.setProperty('--editor-selection', colors.editor.selection)
-    this.cssRoot.style.setProperty('--editor-selection-inactive', colors.editor.selectionInactive)
-    this.cssRoot.style.setProperty('--editor-cursor', colors.editor.cursor)
-    this.cssRoot.style.setProperty('--editor-current-line', colors.editor.currentLine)
-    this.cssRoot.style.setProperty('--editor-matching-bracket', colors.editor.matchingBracket)
-    this.cssRoot.style.setProperty('--editor-find-match', colors.editor.findMatch)
-    this.cssRoot.style.setProperty('--editor-find-match-active', colors.editor.findMatchActive)
-
-    // Apply input colors
-    this.cssRoot.style.setProperty('--input-background', colors.input.background)
-    this.cssRoot.style.setProperty('--input-background-focus', colors.input.backgroundFocus)
-    this.cssRoot.style.setProperty('--input-text', colors.input.text)
-    this.cssRoot.style.setProperty('--input-placeholder', colors.input.placeholder)
-    this.cssRoot.style.setProperty('--input-border', colors.input.border)
-    this.cssRoot.style.setProperty('--input-border-focus', colors.input.borderFocus)
-    this.cssRoot.style.setProperty('--input-border-error', colors.input.borderError)
-
-    // Apply scrollbar colors
-    this.cssRoot.style.setProperty('--scrollbar-track', colors.scrollbar.track)
-    this.cssRoot.style.setProperty('--scrollbar-thumb', colors.scrollbar.thumb)
-    this.cssRoot.style.setProperty('--scrollbar-thumb-hover', colors.scrollbar.thumbHover)
-
-    // Apply tooltip colors
-    this.cssRoot.style.setProperty('--tooltip-background', colors.tooltip.background)
-    this.cssRoot.style.setProperty('--tooltip-text', colors.tooltip.text)
-    this.cssRoot.style.setProperty('--tooltip-border', colors.tooltip.border)
-
-    // Apply terminal colors
-    this.cssRoot.style.setProperty('--terminal-background', terminal.background)
-    this.cssRoot.style.setProperty('--terminal-foreground', terminal.foreground)
-    this.cssRoot.style.setProperty('--terminal-cursor', terminal.cursor)
-    this.cssRoot.style.setProperty('--terminal-selection', terminal.selection)
-
-    // Apply ANSI terminal colors
-    this.cssRoot.style.setProperty('--terminal-black', terminal.black)
-    this.cssRoot.style.setProperty('--terminal-red', terminal.red)
-    this.cssRoot.style.setProperty('--terminal-green', terminal.green)
-    this.cssRoot.style.setProperty('--terminal-yellow', terminal.yellow)
-    this.cssRoot.style.setProperty('--terminal-blue', terminal.blue)
-    this.cssRoot.style.setProperty('--terminal-magenta', terminal.magenta)
-    this.cssRoot.style.setProperty('--terminal-cyan', terminal.cyan)
-    this.cssRoot.style.setProperty('--terminal-white', terminal.white)
-    this.cssRoot.style.setProperty('--terminal-bright-black', terminal.brightBlack)
-    this.cssRoot.style.setProperty('--terminal-bright-red', terminal.brightRed)
-    this.cssRoot.style.setProperty('--terminal-bright-green', terminal.brightGreen)
-    this.cssRoot.style.setProperty('--terminal-bright-yellow', terminal.brightYellow)
-    this.cssRoot.style.setProperty('--terminal-bright-blue', terminal.brightBlue)
-    this.cssRoot.style.setProperty('--terminal-bright-magenta', terminal.brightMagenta)
-    this.cssRoot.style.setProperty('--terminal-bright-cyan', terminal.brightCyan)
-    this.cssRoot.style.setProperty('--terminal-bright-white', terminal.brightWhite)
-
-    // Apply syntax highlighting colors
-    this.cssRoot.style.setProperty('--syntax-keyword', syntax.keyword)
-    this.cssRoot.style.setProperty('--syntax-string', syntax.string)
-    this.cssRoot.style.setProperty('--syntax-comment', syntax.comment)
-    this.cssRoot.style.setProperty('--syntax-number', syntax.number)
-    this.cssRoot.style.setProperty('--syntax-function', syntax.function)
-    this.cssRoot.style.setProperty('--syntax-variable', syntax.variable)
-    this.cssRoot.style.setProperty('--syntax-type', syntax.type)
-    this.cssRoot.style.setProperty('--syntax-operator', syntax.operator)
-    this.cssRoot.style.setProperty('--syntax-bracket', syntax.bracket)
-    this.cssRoot.style.setProperty('--syntax-tag', syntax.tag)
-    this.cssRoot.style.setProperty('--syntax-attribute', syntax.attribute)
-    this.cssRoot.style.setProperty('--syntax-constant', syntax.constant)
-    this.cssRoot.style.setProperty('--syntax-error', syntax.error)
-    this.cssRoot.style.setProperty('--syntax-warning', syntax.warning)
+    // Transform current theme to legacy format and apply
+    const legacyTheme = transformToLegacyTheme(theme)
+    applyLegacyTheme(legacyTheme)
   }
 
   /**
@@ -393,6 +268,34 @@ class ThemeService {
       console.error('Failed to save theme preferences:', error)
       throw error
     }
+  }
+
+  /**
+   * Set theme preferences without making API calls
+   */
+  setThemePreferences(preferences: ThemePreference): void {
+    this.themePreference = { ...preferences }
+  }
+
+  /**
+   * Set auto switch locally without API calls
+   */
+  setAutoSwitchLocal(autoSwitch: boolean): void {
+    if (this.themePreference) {
+      this.themePreference.autoSwitch = autoSwitch
+    }
+  }
+
+  /**
+   * Initialize with defaults without API calls
+   */
+  async initializeWithDefaults(): Promise<void> {
+    const defaultTheme = getDefaultTheme()
+    this.themePreference = {
+      themeId: defaultTheme.id,
+      autoSwitch: true
+    }
+    await this.applyTheme(defaultTheme, false) // Don't persist to backend
   }
 
   /**

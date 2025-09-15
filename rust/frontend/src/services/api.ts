@@ -628,8 +628,18 @@ details?: Record<string, unknown>
   // Theme preference endpoints
   async getCurrentTheme(): Promise<ThemePreference | null> {
     try {
-      const response: AxiosResponse<ApiResponse<ThemePreference>> = await this.client.get('/api/v1/themes/current')
-      return response.data.data
+      const response: AxiosResponse<ApiResponse<any>> = await this.client.get('/api/v1/themes/current')
+      const backendData = response.data.data
+
+      if (!backendData) return null
+
+      // Convert snake_case from backend to camelCase for frontend
+      return {
+        themeId: backendData.theme_id,
+        autoSwitch: backendData.auto_switch,
+        systemOverride: backendData.system_override,
+        customizations: backendData.customizations
+      }
     } catch {
       return null
     }
@@ -640,8 +650,8 @@ details?: Record<string, unknown>
     const backendPreferences = {
       theme_id: preferences.themeId,
       auto_switch: preferences.autoSwitch,
-      system_override: preferences.systemOverride,
-      customizations: preferences.customizations
+      system_override: preferences.systemOverride === 'dark' || preferences.systemOverride === 'light' ? true : false,
+      customizations: preferences.customizations || {}
     }
     await this.client.post('/api/v1/themes/current', backendPreferences)
   }

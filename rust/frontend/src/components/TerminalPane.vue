@@ -190,7 +190,21 @@ const dragOverTab = ref<TerminalTab | null>(null)
 const terminalRef = ref<HTMLDivElement>()
 const terminalInstance = ref<Terminal>()
 const fitAddon = ref<FitAddon>()
+const webLinksAddon = ref<WebLinksAddon>()
 const resizeObserver = ref<ResizeObserver>()
+const isDisposed = ref(false)
+
+// Track addon loading states to prevent disposal errors
+const fitAddonLoaded = ref(false)
+const webLinksAddonLoaded = ref(false)
+
+// Output throttling for large data
+const outputBuffer = ref<string[]>([])
+const outputThrottleTimeout = ref<number | null>(null)
+const isThrottling = ref(false)
+const outputCharsPerSecond = ref(0)
+const lastOutputTime = ref(Date.now())
+const outputByteCount = ref(0)
 const lastCols = ref(0)
 const lastRows = ref(0)
 const isResizing = ref(false)
@@ -230,7 +244,7 @@ const debouncedFit = () => {
 
   // Set new timeout
   resizeTimeout.value = setTimeout(() => {
-    if (fitAddon.value && terminalInstance.value && !isResizing.value) {
+    if (fitAddon.value && terminalInstance.value && !isResizing.value && !isDisposed.value) {
       try {
         isResizing.value = true
         lastResizeTime.value = Date.now()
@@ -238,7 +252,9 @@ const debouncedFit = () => {
         fitAddon.value.fit()
 
         setTimeout(() => {
-          isResizing.value = false
+          if (!isDisposed.value) {
+            isResizing.value = false
+          }
         }, RESIZE_COOLDOWN_MS)
 
       } catch (error) {
@@ -274,7 +290,7 @@ const defaultTheme: TerminalTheme = {
 }
 
 const initializeTerminal = () => {
-  if (!terminalRef.value) return
+  if (!terminalRef.value || isDisposed.value) return
 
   terminalInstance.value = new Terminal({
     theme: props.theme || defaultTheme,
@@ -282,16 +298,49 @@ const initializeTerminal = () => {
     fontFamily: '"JetBrains Mono", "Fira Code", "SF Mono", Monaco, Consolas, monospace',
     cursorBlink: true,
     allowProposedApi: true,
-    scrollback: 1000,
+
+    // Robustness settings for large outputs
+    scrollback: 10000,      // Increased but bounded scrollback
+    fastScrollModifier: 'alt',
+    fastScrollSensitivity: 5,
+    scrollSensitivity: 3,
+
+    // Performance optimizations
     convertEol: true,
     tabStopWidth: 4,
     rightClickSelectsWord: true,
-    macOptionIsMeta: true
+    macOptionIsMeta: true,
+
+    // Memory management
+    windowsMode: false,
+    macOptionClickForcesSelection: false,
+
+    // Output handling
+    disableStdin: false
   })
 
-  fitAddon.value = new FitAddon()
-  terminalInstance.value.loadAddon(fitAddon.value)
-  terminalInstance.value.loadAddon(new WebLinksAddon())
+  // Create and load addons with proper state tracking
+  try {
+    fitAddon.value = new FitAddon()
+    terminalInstance.value.loadAddon(fitAddon.value)
+    fitAddonLoaded.value = true
+  } catch (error) {
+    console.warn('FitAddon loading failed:', error)
+    fitAddon.value = undefined
+    fitAddonLoaded.value = false
+  }
+
+  try {
+    webLinksAddon.value = new WebLinksAddon()
+    terminalInstance.value.loadAddon(webLinksAddon.value)
+    webLinksAddonLoaded.value = true
+  } catch (error) {
+    console.warn('WebLinksAddon loading failed:', error)
+    webLinksAddon.value = undefined
+    webLinksAddonLoaded.value = false
+  }
+
+  console.log(`✅ Terminal initialized for pane ${props.pane.id} (FitAddon: ${fitAddonLoaded.value}, WebLinks: ${webLinksAddonLoaded.value})`)
   terminalInstance.value.open(terminalRef.value)
 
   setTimeout(() => debouncedFit(), 150)
@@ -539,18 +588,164 @@ const focus = () => {
   emit('focus', props.pane.id)
 }
 
-const write = (data: string) => terminalInstance.value?.write(data)
-const writeln = (data: string) => terminalInstance.value?.writeln(data)
-const clear = () => terminalInstance.value?.clear()
-const fit = () => debouncedFit()
+const write = (data: string) => {
+  if (!isDisposed.value) {
+    writeThrottled(data)
+  }
+}
+
+const writeln = (data: string) => {
+  if (!isDisposed.value) {
+    writeThrottled(data + '\r\n')
+  }
+}
+
+const clear = () => {
+  if (!isDisposed.value && terminalInstance.value) {
+    terminalInstance.value.clear()
+  }
+}
+
+const fit = () => {
+  if (!isDisposed.value) {
+    debouncedFit()
+  }
+}
+
+// Throttled output handling for large data streams
+const THROTTLE_THRESHOLD = 50000 // chars per second
+const BUFFER_MAX_SIZE = 100 // max buffered chunks
+const THROTTLE_DELAY = 16 // ~60fps
+
+const writeThrottled = (data: string) => {
+  if (!terminalInstance.value || isDisposed.value) return
+
+  const now = Date.now()
+  const timeDiff = now - lastOutputTime.value
+  outputByteCount.value += data.length
+
+  // Calculate output rate
+  if (timeDiff > 1000) {
+    outputCharsPerSecond.value = outputByteCount.value / (timeDiff / 1000)
+    outputByteCount.value = 0
+    lastOutputTime.value = now
+  }
+
+  // If output rate is too high, start throttling
+  if (outputCharsPerSecond.value > THROTTLE_THRESHOLD || isThrottling.value) {
+    outputBuffer.value.push(data)
+
+    if (outputBuffer.value.length > BUFFER_MAX_SIZE) {
+      // Prevent memory overflow - truncate oldest entries
+      outputBuffer.value = outputBuffer.value.slice(-BUFFER_MAX_SIZE)
+      console.warn(`⚠️ Terminal output buffer overflow, truncating to last ${BUFFER_MAX_SIZE} chunks`)
+    }
+
+    if (!isThrottling.value) {
+      isThrottling.value = true
+      console.log(`🐌 Terminal output throttling engaged (${Math.round(outputCharsPerSecond.value)} chars/sec)`)
+      startThrottling()
+    }
+    return
+  }
+
+  // Normal rate - write directly
+  try {
+    terminalInstance.value.write(data)
+  } catch (error) {
+    console.error('Error writing to terminal:', error)
+  }
+}
+
+const startThrottling = () => {
+  if (outputThrottleTimeout.value || isDisposed.value) return
+
+  const processBuffer = () => {
+    if (outputBuffer.value.length === 0) {
+      isThrottling.value = false
+      outputThrottleTimeout.value = null
+      console.log('✅ Terminal output throttling disengaged')
+      return
+    }
+
+    // Process one chunk at a time
+    const chunk = outputBuffer.value.shift()
+    if (chunk && terminalInstance.value && !isDisposed.value) {
+      try {
+        terminalInstance.value.write(chunk)
+      } catch (error) {
+        console.error('Error writing buffered terminal data:', error)
+      }
+    }
+
+    // Continue processing
+    outputThrottleTimeout.value = setTimeout(processBuffer, THROTTLE_DELAY)
+  }
+
+  outputThrottleTimeout.value = setTimeout(processBuffer, THROTTLE_DELAY)
+}
 
 const dispose = () => {
-  if (resizeTimeout.value) {
-    clearTimeout(resizeTimeout.value)
-    resizeTimeout.value = null
+  if (isDisposed.value) return // Prevent double disposal
+
+  try {
+    // Clear output throttling
+    if (outputThrottleTimeout.value) {
+      clearTimeout(outputThrottleTimeout.value)
+      outputThrottleTimeout.value = null
+    }
+    outputBuffer.value = []
+    isThrottling.value = false
+
+    // Clear any pending timeouts
+    if (resizeTimeout.value) {
+      clearTimeout(resizeTimeout.value)
+      resizeTimeout.value = null
+    }
+
+    // Disconnect resize observer
+    if (resizeObserver.value) {
+      resizeObserver.value.disconnect()
+      resizeObserver.value = undefined
+    }
+
+    // Only dispose addons that were successfully loaded
+    if (fitAddon.value && fitAddonLoaded.value) {
+      try {
+        fitAddon.value.dispose()
+      } catch (error) {
+        console.warn('FitAddon disposal error:', error)
+      }
+    }
+    fitAddon.value = undefined
+    fitAddonLoaded.value = false
+
+    if (webLinksAddon.value && webLinksAddonLoaded.value) {
+      try {
+        webLinksAddon.value.dispose()
+      } catch (error) {
+        console.warn('WebLinksAddon disposal error:', error)
+      }
+    }
+    webLinksAddon.value = undefined
+    webLinksAddonLoaded.value = false
+
+    // Dispose terminal instance (xterm handles addon cleanup automatically)
+    if (terminalInstance.value) {
+      try {
+        terminalInstance.value.dispose()
+      } catch (error) {
+        console.warn('Terminal disposal error:', error)
+      }
+      terminalInstance.value = undefined
+    }
+
+    isDisposed.value = true
+  } catch (error) {
+    console.error('Error during terminal disposal:', error)
+    // Still mark as disposed even if there were errors
+    isDisposed.value = true
   }
-  resizeObserver.value?.disconnect()
-  terminalInstance.value?.dispose()
 }
 
 defineExpose({ write, writeln, clear, fit, focus, dispose })
@@ -582,12 +777,32 @@ watch(() => props.pane.tabs.length, () => {
   nextTick(updateTabOverflow)
 }, { immediate: true })
 
-onUnmounted(() => {
-  dispose();
-  if (cleanupOutputHandler) {
-    cleanupOutputHandler();
+// Watch for theme changes and update terminal theme dynamically
+watch(() => props.theme, (newTheme) => {
+  if (terminalInstance.value && newTheme) {
+    // Update terminal theme using xterm.js options API
+    terminalInstance.value.options.theme = newTheme
   }
-  window.removeEventListener('resize', updateTabOverflow)
+}, { deep: true })
+
+onUnmounted(() => {
+  try {
+    // Clean up terminal
+    dispose()
+
+    // Clean up output handler
+    if (cleanupOutputHandler) {
+      cleanupOutputHandler()
+      cleanupOutputHandler = null
+    }
+
+    // Remove event listeners
+    window.removeEventListener('resize', updateTabOverflow)
+
+    console.log(`✅ Terminal pane ${props.pane.id} unmounted cleanly`)
+  } catch (error) {
+    console.warn('Error during terminal pane unmount:', error)
+  }
 })
 </script>
 
