@@ -27,6 +27,9 @@ axum_csrf = { version = "0.7", features = ["layer"] }
 
 # Real-time communication
 socketioxide = { workspace = true }
+tokio-tungstenite = "0.21"
+futures-util = "0.3"
+hyper = { version = "0.14", features = ["full"] }
 
 # Database
 sqlx = { workspace = true }

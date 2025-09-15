@@ -6,7 +6,10 @@ use act_core::{
     GitHubAuthService, JwtService, GitHubRepositoryService,
     repository::{ProcessRunner},
 };
-use act_domain::{DomainServices, GitService, git_service::LocalGitService};
+use act_domain::{DomainServices, GitService, git_service::LocalGitService, ProcessRecoveryConfig};
+use act_core::{EventPublisher, SecurityAuditLogger};
+use act_core::events::InMemoryEventPublisher;
+use act_core::security::{ProcessSecurityValidator, InMemorySecurityAuditLogger};
 use act_persistence::{create_repositories};
 use act_pty::TokioPtyService;
 use act_vfs::SandboxedFileSystem;
@@ -83,6 +86,11 @@ impl AppState {
         let process_runner: Arc<dyn ProcessRunner> = Arc::new(TokioProcessRunner::new());
         
         // Create domain services
+        let event_publisher: Arc<dyn EventPublisher> = Arc::new(InMemoryEventPublisher::new(100));
+        let security_validator = Arc::new(ProcessSecurityValidator::new(act_core::security::ProcessSecurityConfig::default()).unwrap());
+        let security_audit_logger: Arc<dyn SecurityAuditLogger> = Arc::new(InMemorySecurityAuditLogger::new());
+        let process_recovery_config = ProcessRecoveryConfig::default();
+        
         let domain_services = Arc::new(DomainServices::new(
             repositories.workspace_repo(),
             repositories.session_repo(),
@@ -99,6 +107,10 @@ impl AppState {
             jwt_service,
             auth_repository,
             github_repository_service,
+            event_publisher,
+            security_validator,
+            security_audit_logger,
+            process_recovery_config,
             workspace_root.to_string_lossy().to_string(),
         ));
         

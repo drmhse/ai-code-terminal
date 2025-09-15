@@ -6,6 +6,7 @@ pub mod auth_service;
 pub mod github_service;
 pub mod layout_service;
 pub mod process_service;
+pub mod process_recovery_service;
 pub mod theme_service;
 
 pub use workspace_service::{
@@ -29,6 +30,7 @@ pub use github_service::{GitHubService, RepositoryQuery};
 
 pub use layout_service::{LayoutService};
 pub use process_service::{ProcessService};
+pub use process_recovery_service::{ProcessRecoveryService, ProcessRecoveryConfig};
 pub use theme_service::{ThemeService};
 
 use std::sync::Arc;
@@ -38,6 +40,8 @@ use act_core::{
     theme::ThemeRepository,
     filesystem::FileSystem,
     pty::PtyService,
+    events::EventPublisher,
+    security::{ProcessSecurityValidator, SecurityAuditLogger},
     GitHubAuthService, JwtService, AuthRepository, GitHubRepositoryService,
 };
 
@@ -49,6 +53,7 @@ pub struct DomainServices {
     pub github_service: GitHubService,
     pub layout_service: LayoutService,
     pub process_service: ProcessService,
+    pub process_recovery_service: ProcessRecoveryService,
     pub theme_service: ThemeService,
 }
 
@@ -70,6 +75,10 @@ impl DomainServices {
         jwt_service: Arc<dyn JwtService>,
         auth_repository: Arc<dyn AuthRepository>,
         github_repository_service: Arc<dyn GitHubRepositoryService>,
+        event_publisher: Arc<dyn EventPublisher>,
+        security_validator: Arc<ProcessSecurityValidator>,
+        security_audit_logger: Arc<dyn SecurityAuditLogger>,
+        process_recovery_config: ProcessRecoveryConfig,
         workspace_root: String,
     ) -> Self {
         let workspace_service = WorkspaceService::new(
@@ -106,8 +115,19 @@ impl DomainServices {
         );
 
         let process_service = ProcessService::new(
+            process_repository.clone(),
+            process_runner.clone(),
+            event_publisher.clone(),
+            security_validator,
+            security_audit_logger.clone(),
+        );
+
+        let process_recovery_service = ProcessRecoveryService::new(
             process_repository,
             process_runner,
+            event_publisher,
+            security_audit_logger,
+            process_recovery_config,
         );
 
         let theme_service = ThemeService::new(
@@ -122,6 +142,7 @@ impl DomainServices {
             github_service,
             layout_service,
             process_service,
+            process_recovery_service,
             theme_service,
         }
     }

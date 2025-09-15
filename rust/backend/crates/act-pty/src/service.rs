@@ -173,8 +173,7 @@ impl PtyService for TokioPtyService {
                                     break;
                                 }
                             }
-                            Ok((Err(err), new_reader, _)) => {
-                                reader = new_reader;
+                            Ok((Err(err), _, _)) => {
                                 error!("PTY read error for session {}: {}", read_session_id, err);
                                 break;
                             }

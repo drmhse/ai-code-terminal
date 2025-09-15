@@ -24,6 +24,9 @@ async-trait = "0.1"
 # Logging
 tracing = { workspace = true }
 
+# Security
+regex = "1.10"
+
 [dev-dependencies]
 tokio-test = "0.4"
 mockall = "0.12"

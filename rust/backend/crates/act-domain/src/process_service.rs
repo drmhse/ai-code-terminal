@@ -1,29 +1,47 @@
 use std::sync::Arc;
 use act_core::{
     repository::{
-        ProcessRepository, ProcessRunner, CreateProcessRequest, 
-        ProcessStartRequest
+        ProcessRepository, ProcessRunner, CreateProcessRequest,
+        ProcessStartRequest, ProcessResourceLimits, ProcessOutputConfig
     },
     models::{UserProcess, ProcessStatus},
+    events::{
+        EventPublisher, create_process_created_event,
+        create_process_started_event, create_process_status_changed_event
+    },
+    security::{
+        ProcessSecurityValidator, ProcessSecurityAuditEntry,
+        SecurityAction, SecurityResult, RiskLevel, SecurityAuditLogger
+    },
     Result, CoreError
 };
 use tokio::time::{sleep, Duration};
 use tracing::{info, warn, error};
+use chrono::Utc;
 
 #[derive(Clone)]
 pub struct ProcessService {
     process_repository: Arc<dyn ProcessRepository>,
     process_runner: Arc<dyn ProcessRunner>,
+    event_publisher: Arc<dyn EventPublisher>,
+    security_validator: Arc<ProcessSecurityValidator>,
+    security_audit_logger: Arc<dyn SecurityAuditLogger>,
 }
 
 impl ProcessService {
     pub fn new(
         process_repository: Arc<dyn ProcessRepository>,
         process_runner: Arc<dyn ProcessRunner>,
+        event_publisher: Arc<dyn EventPublisher>,
+        security_validator: Arc<ProcessSecurityValidator>,
+        security_audit_logger: Arc<dyn SecurityAuditLogger>,
     ) -> Self {
         Self {
             process_repository,
             process_runner,
+            event_publisher,
+            security_validator,
+            security_audit_logger,
         }
     }
 
@@ -33,15 +51,70 @@ impl ProcessService {
         request: CreateProcessRequest,
     ) -> Result<UserProcess> {
         info!("Creating process '{}' for user {}", request.name, user_id);
+
+        // Security validation
+        let args = request.args.clone().unwrap_or_default();
+        let env_vars = request.environment_variables.clone().unwrap_or_default();
+
+        let validation_result = self.security_validator.validate_process_request(
+            &request.command,
+            &args,
+            &request.working_directory,
+            &env_vars,
+        );
+
+        // Log security audit entry
+        let audit_entry = ProcessSecurityAuditEntry {
+            timestamp: Utc::now(),
+            user_id: user_id.to_string(),
+            process_id: None,
+            command: request.command.clone(),
+            args: args.clone(),
+            working_directory: request.working_directory.clone(),
+            action: SecurityAction::ProcessCreate,
+            result: if validation_result.is_ok() {
+                SecurityResult::Allowed
+            } else {
+                SecurityResult::Blocked
+            },
+            reason: validation_result.as_ref().err().map(|e| e.to_string()),
+            risk_level: RiskLevel::Medium,
+        };
+        self.security_audit_logger.log_security_event(audit_entry);
+
+        // Fail if validation failed
+        validation_result?;
+
+        let mut process = self.process_repository.create(user_id, request.clone()).await?;
+
+        // Publish process created event
+        let created_event = create_process_created_event(
+            user_id,
+            &process,
+            None, // correlation_id
+        );
+        if let Err(e) = self.event_publisher.publish(created_event).await {
+            warn!("Failed to publish process created event: {}", e);
+        }
         
-        let mut process = self.process_repository.create(user_id, request).await?;
-        
-        // Start the process
+        // Start the process with enhanced configuration
         let start_request = ProcessStartRequest {
             command: process.command.clone(),
             args: process.args.clone().unwrap_or_default(),
             working_directory: process.working_directory.clone(),
             environment_variables: process.environment_variables.clone().unwrap_or_default(),
+            resource_limits: Some(ProcessResourceLimits {
+                max_memory_bytes: Some(1024 * 1024 * 1024), // 1GB default
+                max_cpu_percent: Some(80.0), // 80% CPU max
+                max_runtime_seconds: Some(3600), // 1 hour default
+                max_file_descriptors: Some(1024),
+            }),
+            output_config: Some(ProcessOutputConfig {
+                max_stdout_size: Some(10 * 1024 * 1024), // 10MB
+                max_stderr_size: Some(10 * 1024 * 1024), // 10MB
+                buffer_lines: Some(1000),
+                output_retention_seconds: Some(3600), // 1 hour
+            }),
         };
         
         match self.process_runner.start_process(start_request).await {
@@ -52,9 +125,34 @@ impl ProcessService {
                 
                 // Update the process object with the PID
                 process.pid = pid;
+                let old_status = process.status.clone();
                 process.status = ProcessStatus::Running;
-                
+
                 info!("Process '{}' started with PID {}", process.name, process_info.pid);
+
+                // Publish process started event
+                let started_event = create_process_started_event(
+                    user_id,
+                    &process,
+                    process_info.pid,
+                    None, // correlation_id
+                );
+                if let Err(e) = self.event_publisher.publish(started_event).await {
+                    warn!("Failed to publish process started event: {}", e);
+                }
+
+                // Publish status change event
+                let status_changed_event = create_process_status_changed_event(
+                    user_id,
+                    &process,
+                    old_status,
+                    ProcessStatus::Running,
+                    process_info.resource_usage,
+                    None, // correlation_id
+                );
+                if let Err(e) = self.event_publisher.publish(status_changed_event).await {
+                    warn!("Failed to publish process status changed event: {}", e);
+                }
                 
                 // Start monitoring the process
                 let service_clone = self.clone();
@@ -67,8 +165,23 @@ impl ProcessService {
             Err(e) => {
                 // Mark the process as failed
                 self.process_repository.update_status(user_id, &process.id, "Failed", None).await?;
+                let old_status = process.status.clone();
                 process.status = ProcessStatus::Failed;
                 error!("Failed to start process '{}': {}", process.name, e);
+
+                // Publish status change event
+                let status_changed_event = create_process_status_changed_event(
+                    user_id,
+                    &process,
+                    old_status,
+                    ProcessStatus::Failed,
+                    None, // resource_usage
+                    None, // correlation_id
+                );
+                if let Err(event_err) = self.event_publisher.publish(status_changed_event).await {
+                    warn!("Failed to publish process status changed event: {}", event_err);
+                }
+
                 return Err(e);
             }
         }
@@ -147,6 +260,8 @@ impl ProcessService {
             args: process.args.clone().unwrap_or_default(),
             working_directory: process.working_directory.clone(),
             environment_variables: process.environment_variables.clone().unwrap_or_default(),
+            resource_limits: None,
+            output_config: None,
         };
         
         // Start the process
@@ -210,7 +325,7 @@ impl ProcessService {
         let process = self.process_repository.get_by_id(user_id, process_id).await?;
         
         if let Some(pid) = process.pid {
-            self.process_runner.get_process_output(pid).await
+            self.process_runner.get_latest_output(pid, None).await
         } else {
             Err(CoreError::Process("Process is not running".to_string()))
         }
@@ -348,4 +463,9 @@ impl ProcessService {
     pub async fn count_active_processes(&self) -> Result<u32> {
         self.process_repository.count_active_processes().await.map(|count| count as u32)
     }
+}
+
+#[cfg(test)]
+mod tests {
+    include!("process_service_tests.rs");
 }

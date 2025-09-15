@@ -1,0 +1,86 @@
+# Multi-stage build for Rust backend with Node.js and PTY support
+# Optimized for size, security, and performance (2025)
+
+# Stage 1: Rust Builder
+FROM rust:1.89-slim-bookworm AS rust-builder
+
+# Install build dependencies for static linking
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    musl-tools \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add musl target for static linking (ARM64)
+RUN rustup target add aarch64-unknown-linux-musl
+
+WORKDIR /usr/src/app
+
+# Copy all source code and build statically linked binary
+COPY . .
+ENV RUSTFLAGS="-C target-feature=+crt-static"
+RUN cargo build --release --target aarch64-unknown-linux-musl
+
+# Stage 2: Runtime - Can use minimal base since we have static binary
+FROM debian:bookworm-slim AS runtime
+
+# Set bash as default shell
+SHELL ["/bin/bash", "-c"]
+
+# Install runtime dependencies for PTY support
+RUN apt-get update && apt-get install -y \
+    # Core runtime dependencies
+    ca-certificates \
+    curl \
+    bash \
+    coreutils \
+    procps \
+    git \
+    # SQLite support
+    sqlite3 \
+    libsqlite3-0 \
+    # Node.js prerequisites
+    gnupg \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update && apt-get install -y nodejs \
+    && npm install -g @anthropic-ai/claude-code \
+    && rm -rf /var/lib/apt/lists/*
+
+# Ensure PTY devices are available
+RUN mkdir -p /dev/pts && chmod 755 /dev/pts
+
+# Create non-root user with bash shell
+RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /bin/bash appuser
+
+# Node.js and claude-code are now installed directly above
+
+# Copy statically linked Rust binary from builder
+COPY --from=rust-builder /usr/src/app/target/aarch64-unknown-linux-musl/release/act-server /usr/local/bin/act-server
+
+# Make binary executable
+RUN chmod +x /usr/local/bin/act-server
+
+# Create necessary directories with proper permissions
+RUN mkdir -p /app/data /app/workspaces /app/logs \
+    && chown -R appuser:appuser /app
+
+# Set working directory
+WORKDIR /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 3001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:3001/health || exit 1
+
+# Default to bash shell for interactive use
+ENV SHELL=/bin/bash
+
+# Start the server
+CMD ["/usr/local/bin/act-server"]

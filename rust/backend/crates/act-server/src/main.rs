@@ -7,6 +7,7 @@ mod socket_handlers;
 mod app_state;
 mod error;
 mod metrics;
+mod websocket;
 
 use axum::Router;
 use config::Config;

@@ -388,4 +388,59 @@ impl ProcessRepository for SqlProcessRepository {
 
         Ok(count.unwrap_or(0) as u64)
     }
+
+    async fn list_all_processes(&self) -> act_core::Result<Vec<act_core::models::UserProcess>> {
+        let rows = handle_db_error!(
+            sqlx::query(
+                "SELECT * FROM process_info ORDER BY created_at DESC"
+            )
+            .fetch_all(&self.pool)
+        );
+
+        let mut processes = Vec::new();
+        for row in rows {
+            let process = Self::map_row_to_process(row).await
+                .map_err(|e| act_core::error::CoreError::Repository(e.to_string()))?;
+            processes.push(process);
+        }
+
+        Ok(processes)
+    }
+
+    async fn list_all_running_processes(&self) -> act_core::Result<Vec<act_core::models::UserProcess>> {
+        let rows = handle_db_error!(
+            sqlx::query(
+                "SELECT * FROM process_info WHERE status IN ('Running', 'Starting') ORDER BY created_at DESC"
+            )
+            .fetch_all(&self.pool)
+        );
+
+        let mut processes = Vec::new();
+        for row in rows {
+            let process = Self::map_row_to_process(row).await
+                .map_err(|e| act_core::error::CoreError::Repository(e.to_string()))?;
+            processes.push(process);
+        }
+
+        Ok(processes)
+    }
+
+    async fn list_all_by_status(&self, status: &str) -> act_core::Result<Vec<act_core::models::UserProcess>> {
+        let rows = handle_db_error!(
+            sqlx::query(
+                "SELECT * FROM process_info WHERE status = ?1 ORDER BY created_at DESC"
+            )
+            .bind(status)
+            .fetch_all(&self.pool)
+        );
+
+        let mut processes = Vec::new();
+        for row in rows {
+            let process = Self::map_row_to_process(row).await
+                .map_err(|e| act_core::error::CoreError::Repository(e.to_string()))?;
+            processes.push(process);
+        }
+
+        Ok(processes)
+    }
 }

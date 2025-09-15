@@ -2,7 +2,7 @@ services:
   act:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.optimized
     container_name: act_rust_backend
     restart: unless-stopped
 
