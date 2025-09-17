@@ -38,40 +38,42 @@ impl PtyService for TokioPtyService {
         info!("Creating PTY session {} for workspace {}", config.session_id, config.workspace_id);
         info!("Shell detection: SHELL env var is {:?}", std::env::var("SHELL"));
 
-        let default_shell = if cfg!(windows) {
-            "cmd.exe".to_string()
+        // VS Code approach: Force consistent shell across all platforms
+        let shell = if cfg!(windows) {
+            "cmd.exe"
         } else {
-            std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string())
+            "/bin/bash"  // Force bash everywhere for consistency
         };
 
-        let shell = config.shell.as_deref().unwrap_or(&default_shell);
-
-        info!("Selected shell for PTY session: {}", shell);
+        info!("Using standardized shell: {}", shell);
 
         let mut cmd = portable_pty::CommandBuilder::new(shell);
-        // Use simpler shell invocation to avoid profile script interference
-        if shell.contains("bash") {
-            cmd.args(["-i"]);
-        } else if shell.contains("zsh") {
-            cmd.args(["-i"]);
+
+        // Force clean bash environment without user customizations
+        if !cfg!(windows) {
+            cmd.args(["--norc", "--noprofile", "-i"]);  // Clean interactive bash
         }
-        // No shell args for other shells to minimize interference
 
         if let Some(ref working_dir) = config.working_dir {
             cmd.cwd(working_dir);
         }
 
-        // Set minimal required environment variables
+        // Define PTY size early so we can use it for environment variables
+        let pty_size = portable_pty::PtySize {
+            cols: config.size.cols.max(1),
+            rows: config.size.rows.max(1),
+            pixel_width: config.size.pixel_width,
+            pixel_height: config.size.pixel_height,
+        };
+
+        // VS Code approach: Clean, standardized environment
         cmd.env("TERM", "xterm-256color");
-        cmd.env("COLORTERM", "truecolor");
+        cmd.env("COLUMNS", &pty_size.cols.to_string());
+        cmd.env("LINES", &pty_size.rows.to_string());
 
-        // Don't override PS1 - let the shell handle its own prompt
-        // Don't force color output - let applications decide
-
-        // For zsh, prevent theme loading that might output garbage
-        if shell.contains("zsh") {
-            cmd.env("ZSH_THEME", "");
-            cmd.env("DISABLE_AUTO_UPDATE", "true");
+        // Force simple, clean prompt without complex positioning
+        if !cfg!(windows) {
+            cmd.env("PS1", "$ ");  // Simple prompt, no escape sequences
         }
 
         if let Some(env) = &config.environment {
@@ -79,13 +81,6 @@ impl PtyService for TokioPtyService {
                 cmd.env(key, value);
             }
         }
-
-        let pty_size = portable_pty::PtySize {
-            cols: config.size.cols.max(1),
-            rows: config.size.rows.max(1),
-            pixel_width: config.size.pixel_width,
-            pixel_height: config.size.pixel_height,
-        };
 
         info!("Creating PTY with size: {}x{}", pty_size.cols, pty_size.rows);
 
@@ -198,6 +193,10 @@ impl PtyService for TokioPtyService {
         });
 
         let writer = Arc::new(Mutex::new(writer));
+
+        // VS Code approach: NO initialization commands, NO escape sequences
+        // Just create clean PTY and let xterm.js handle everything
+
         let write_session_id = config.session_id.clone();
         tokio::spawn(async move {
             while let Some(input) = input_rx.recv().await {
@@ -226,9 +225,6 @@ impl PtyService for TokioPtyService {
             }
             debug!("PTY write task ended for session {}", write_session_id);
         });
-
-        // Remove automatic welcome message to prevent conflicts with frontend
-        // Let the frontend handle welcome messages
 
         let session_info = SessionInfo {
             session_id: config.session_id.clone(),

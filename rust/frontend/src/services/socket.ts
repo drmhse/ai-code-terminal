@@ -1,5 +1,4 @@
 import { io, type Socket } from 'socket.io-client'
-import router from '@/router'
 import { Subject, BehaviorSubject, type Subscription } from '@/utils/reactive'
 import {
   ConnectionState,
@@ -39,6 +38,11 @@ export interface SessionRecoveredEvent {
   success: boolean
 }
 
+export interface ReconnectionFailedEvent {
+  attempts: number
+  reason: string
+}
+
 export interface SocketEvents {
   // Terminal events
   'terminal:create': (data: { workspaceId: string; sessionId: string }) => void
@@ -64,6 +68,7 @@ class SocketService {
   public readonly authError$ = new Subject<WebSocketAuthErrorEvent>()
   public readonly workspaceSessions$ = new Subject<WorkspaceSessionsEvent>()
   public readonly sessionRecovered$ = new Subject<SessionRecoveredEvent>()
+  public readonly reconnectionFailed$ = new Subject<ReconnectionFailedEvent>()
 
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -83,7 +88,10 @@ class SocketService {
 
       this.isConnecting = true
       this.connectionState$.next(ConnectionState.CONNECTING)
-      const wsUrl = import.meta.env.VITE_WS_URL || 'http://localhost:3001'
+      // Use current origin for WebSocket connection to go through Caddy proxy
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      const host = window.location.host
+      const wsUrl = import.meta.env.VITE_WS_URL || `${protocol}//${host}`
       
       this.socket = io(wsUrl, {
         auth: {
@@ -247,7 +255,10 @@ class SocketService {
     } else {
       console.error('Max reconnection attempts reached')
       this.connectionState$.next(ConnectionState.ERROR)
-      router.push('/login')
+      this.reconnectionFailed$.next({
+        attempts: this.maxReconnectAttempts,
+        reason: 'Max reconnection attempts reached'
+      })
     }
   }
 
@@ -263,6 +274,7 @@ class SocketService {
   createTerminal(workspaceId: string, sessionId: string): void {
     this.socket?.emit('terminal:create', { workspaceId, sessionId })
   }
+
 
   sendTerminalData(sessionId: string, data: string): void {
     this.socket?.emit('terminal:data', { sessionId, data })
@@ -316,6 +328,8 @@ class SocketService {
         return this.statsData$.subscribe(callback as (data: StatsDataEvent) => void)
       case 'websocket:auth_error':
         return this.authError$.subscribe(callback as (data: WebSocketAuthErrorEvent) => void)
+      case 'websocket:reconnection_failed':
+        return this.reconnectionFailed$.subscribe(callback as (data: ReconnectionFailedEvent) => void)
       case 'connection:state':
         return this.connectionState$.subscribe((state) => {
           const event: ConnectionStateEvent = {

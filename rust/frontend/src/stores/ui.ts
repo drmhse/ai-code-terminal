@@ -41,6 +41,7 @@ export const useUIStore = defineStore('ui', () => {
   const showCreateItemModal = ref(false)
   const showConfirmDeleteModal = ref(false)
   const showBackgroundTasks = ref(false)
+  const showQuickCommandOverlay = ref(false)
   
   // Modal data
   const createItemModalData = ref<{
@@ -217,6 +218,19 @@ export const useUIStore = defineStore('ui', () => {
     showBackgroundTasks.value = show
   }
 
+  // Quick command overlay
+  const openQuickCommandOverlay = () => {
+    showQuickCommandOverlay.value = true
+  }
+
+  const closeQuickCommandOverlay = () => {
+    showQuickCommandOverlay.value = false
+  }
+
+  const toggleQuickCommandOverlay = () => {
+    showQuickCommandOverlay.value = !showQuickCommandOverlay.value
+  }
+
   // Create item modal
   const openCreateItemModal = (parentPath: string) => {
     createItemModalData.value = { parentPath }
@@ -387,6 +401,7 @@ export const useUIStore = defineStore('ui', () => {
     showCreateItemModal: readonly(showCreateItemModal),
     showConfirmDeleteModal: readonly(showConfirmDeleteModal),
     showBackgroundTasks: readonly(showBackgroundTasks),
+    showQuickCommandOverlay: readonly(showQuickCommandOverlay),
     createItemModalData: readonly(createItemModalData),
     confirmDeleteModalData: readonly(confirmDeleteModalData),
     showMobileActionsMenu: readonly(showMobileActionsMenu),
@@ -434,6 +449,9 @@ export const useUIStore = defineStore('ui', () => {
     closeThemeModal,
     toggleThemeModal,
     setShowBackgroundTasks,
+    openQuickCommandOverlay,
+    closeQuickCommandOverlay,
+    toggleQuickCommandOverlay,
     openCreateItemModal,
     closeCreateItemModal,
     openConfirmDeleteModal,

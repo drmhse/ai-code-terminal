@@ -6,8 +6,6 @@ import type { ThemePreference } from '@/types/theme'
 import type { AppStats } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 
-
-
 interface DirectoryListing {
   path: string
   items: FileItem[]
@@ -129,11 +127,10 @@ enum ErrorSeverity {
 
 class ApiService {
   private client: AxiosInstance
-  private uiStore: ReturnType<typeof useUIStore> | null = null
 
   constructor() {
     this.client = axios.create({
-      baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001',
+      baseURL: import.meta.env.VITE_API_BASE_URL || '',
       headers: {
         'Content-Type': 'application/json',
       },
@@ -164,12 +161,12 @@ class ApiService {
       (error) => {
         const enhancedError = this.enhanceError(error)
         this.handleApiError(enhancedError)
-        
+
         // Handle authentication errors
         if (error.response?.status === 401) {
           this.handleAuthenticationError()
         }
-        
+
         return Promise.reject(enhancedError)
       }
     )
@@ -184,7 +181,7 @@ class ApiService {
   code?: string
   message?: string
 }): EnhancedApiError {
-    
+
     // Network errors
     if (!error.response) {
       if (error.code === 'ECONNABORTED') {
@@ -197,7 +194,7 @@ class ApiService {
           true
         )
       }
-      
+
       if (error.message?.includes('Network Error')) {
         return this.createEnhancedError(
           'NETWORK_ERROR',
@@ -213,7 +210,7 @@ class ApiService {
     // HTTP errors
     const status = error.response?.status
     const data = error.response?.data as { message?: string; details?: unknown } || {}
-    
+
     switch (status) {
       case 400:
         return this.createEnhancedError(
@@ -224,7 +221,7 @@ class ApiService {
           this.getValidationMessage(data),
           false
         )
-        
+
       case 401:
         return this.createEnhancedError(
           'AUTHENTICATION_ERROR',
@@ -234,7 +231,7 @@ class ApiService {
           'Please log in to continue.',
           false
         )
-        
+
       case 403:
         return this.createEnhancedError(
           'AUTHORIZATION_ERROR',
@@ -244,7 +241,7 @@ class ApiService {
           'You do not have permission to perform this action.',
           false
         )
-        
+
       case 404:
         return this.createEnhancedError(
           'NOT_FOUND_ERROR',
@@ -254,7 +251,7 @@ class ApiService {
           'The requested resource could not be found.',
           false
         )
-        
+
       case 429:
         return this.createEnhancedError(
           'RATE_LIMIT_ERROR',
@@ -264,7 +261,7 @@ class ApiService {
           'Too many requests. Please wait a moment before trying again.',
           true
         )
-        
+
       case 500:
         return this.createEnhancedError(
           'SERVER_ERROR',
@@ -274,7 +271,7 @@ class ApiService {
           'An internal server error occurred. Please try again later.',
           true
         )
-        
+
       case 502:
       case 503:
       case 504:
@@ -286,7 +283,7 @@ class ApiService {
           'The service is temporarily unavailable. Please try again later.',
           true
         )
-        
+
       default:
         return this.createEnhancedError(
           'UNKNOWN_ERROR',
@@ -377,10 +374,10 @@ details?: Record<string, unknown>
 
   // Handle API error with user notification
   private handleApiError(error: EnhancedApiError): void {
-    const alertType = error.severity === ErrorSeverity.CRITICAL || error.severity === ErrorSeverity.HIGH 
-      ? 'error' 
-      : error.severity === ErrorSeverity.MEDIUM 
-        ? 'warning' 
+    const alertType = error.severity === ErrorSeverity.CRITICAL || error.severity === ErrorSeverity.HIGH
+      ? 'error'
+      : error.severity === ErrorSeverity.MEDIUM
+        ? 'warning'
         : 'info'
 
     this.getUIStore().addResourceAlert({
@@ -394,7 +391,7 @@ details?: Record<string, unknown>
       code: error.code,
       message: error.message,
       category: error.name,
-      
+
       details: error.details,
       stack: error.stack
     })
@@ -428,23 +425,20 @@ details?: Record<string, unknown>
 
   // Lazy load the UI store when needed
   private getUIStore(): ReturnType<typeof useUIStore> {
-    if (!this.uiStore) {
-      this.uiStore = useUIStore()
-    }
-    return this.uiStore
+    return useUIStore()
   }
 
   // Handle authentication error
   private handleAuthenticationError(): void {
     localStorage.removeItem('jwt_token')
     localStorage.removeItem('user')
-    
+
     this.getUIStore().addResourceAlert({
       type: 'error',
       title: 'Session Expired',
       message: 'Your session has expired. Please log in again.'
     })
-    
+
     // Redirect to login after a short delay
     setTimeout(() => {
       window.location.href = '/login'
@@ -470,7 +464,7 @@ details?: Record<string, unknown>
     console.log('🚀 API: getWorkspaces called with ownerId:', ownerId)
     const params = ownerId ? { owner_id: ownerId } : undefined
     console.log('🔄 API: Making request to /api/v1/workspaces with params:', params)
-    
+
     const response: AxiosResponse<ApiResponse<Workspace[]>> = await this.client.get('/api/v1/workspaces', { params })
     console.log('✅ API: Received response:', response.data)
     return response.data.data
@@ -493,7 +487,7 @@ details?: Record<string, unknown>
     if (!workspaceId) {
       throw new Error('Workspace ID is required for getSessions')
     }
-    
+
     const response: AxiosResponse<ApiResponse<Session[]>> = await this.client.get(
       `/api/v1/workspaces/${workspaceId}/sessions`
     )
@@ -512,12 +506,12 @@ details?: Record<string, unknown>
     const response = await this.client.get('/api/v1/github/repositories', {
       params: { page, search: searchTerm }
     })
-    
+
     // Validate response structure
     if (!response.data || !response.data.data || !response.data.data.repositories) {
       throw new Error('Invalid response structure from repositories API')
     }
-    
+
     return {
       repositories: response.data.data.repositories || [],
       hasMore: response.data.pagination?.has_more || false
@@ -530,17 +524,17 @@ details?: Record<string, unknown>
       workspace: Workspace | null
       message: string | null
     }
-    
+
     const response: AxiosResponse<ApiResponse<CloneResponse>> = await this.client.post('/api/v1/github/clone', {
       git_url: cloneUrl,
       name
     })
-    
+
     const cloneResult = response.data.data
     if (!cloneResult.success || !cloneResult.workspace) {
       throw new Error(cloneResult.message || 'Failed to clone repository')
     }
-    
+
     return cloneResult.workspace
   }
 
@@ -581,7 +575,7 @@ details?: Record<string, unknown>
     if (!workspaceId) {
       throw new Error('Workspace ID is required for file operations')
     }
-    
+
     // Always use workspace-specific save endpoint
     await this.client.put(`/api/v1/workspaces/${workspaceId}/files/content`, {
       path,
@@ -618,7 +612,7 @@ details?: Record<string, unknown>
     const pathParts = oldPath.split('/')
     pathParts[pathParts.length - 1] = newName
     const newPath = pathParts.join('/')
-    
+
     await this.client.patch('/api/v1/files/rename', {
       oldPath,
       newPath
@@ -708,7 +702,7 @@ details?: Record<string, unknown>
     if (workspaceId) params.workspace_id = workspaceId
     if (sessionId) params.session_id = sessionId
     if (status) params.status = status
-    
+
     const response: AxiosResponse<ApiResponse<ProcessResponse[]>> = await this.client.get('/api/v1/processes', { params })
     return response.data.data
   }

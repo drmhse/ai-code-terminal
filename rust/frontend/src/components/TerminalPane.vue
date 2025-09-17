@@ -199,7 +199,7 @@ const fitAddonLoaded = ref(false)
 const webLinksAddonLoaded = ref(false)
 
 // Output throttling for large data
-const outputBuffer = ref<string[]>([])
+const outputBuffer = ref<{ terminal: Terminal; data: string }[]>([])
 const outputThrottleTimeout = ref<number | null>(null)
 const isThrottling = ref(false)
 const outputCharsPerSecond = ref(0)
@@ -210,9 +210,16 @@ const lastRows = ref(0)
 const isResizing = ref(false)
 const resizeTimeout = ref<number | null>(null)
 const lastResizeTime = ref(0)
-const RESIZE_DEBOUNCE_MS = 150
-const RESIZE_COOLDOWN_MS = 100
+const RESIZE_DEBOUNCE_MS = 500
+const RESIZE_COOLDOWN_MS = 300
 let cleanupOutputHandler: (() => void) | null = null;
+
+// Container readiness constants
+const MIN_CONTAINER_WIDTH = 100
+const MIN_CONTAINER_HEIGHT = 50
+const MAX_WAIT_TIME = 5000 // 5 seconds max wait
+const INITIAL_RETRY_DELAY = 50
+
 
 // Enhanced tab management
 const tabsScrollContainer = ref<HTMLDivElement>()
@@ -229,11 +236,62 @@ const getActiveTab = (): TerminalTab | undefined => {
   return props.pane.tabs.find(tab => tab.isActive)
 }
 
+// Production-level container readiness check
+const waitForContainerReady = (): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    const startTime = Date.now()
+    let retryCount = 0
+
+    const checkContainer = (): void => {
+      // Check if we've exceeded max wait time
+      if (Date.now() - startTime > MAX_WAIT_TIME) {
+        reject(new Error(`Container readiness timeout after ${MAX_WAIT_TIME}ms`))
+        return
+      }
+
+      // Check if component is disposed
+      if (isDisposed.value || !terminalRef.value) {
+        reject(new Error('Terminal component disposed during initialization'))
+        return
+      }
+
+      const container = terminalRef.value
+      const rect = container.getBoundingClientRect()
+
+      // Check if container is visible and has reasonable dimensions
+      const isVisible = rect.width > 0 && rect.height > 0
+      const hasMinimumSize = rect.width >= MIN_CONTAINER_WIDTH && rect.height >= MIN_CONTAINER_HEIGHT
+      const isInViewport = rect.top >= 0 && rect.left >= 0 &&
+                          rect.bottom <= window.innerHeight && rect.right <= window.innerWidth
+
+      if (isVisible && hasMinimumSize) {
+        console.log(`✅ Container ready: ${rect.width}x${rect.height} after ${Date.now() - startTime}ms`)
+        resolve()
+        return
+      }
+
+      // Log current state for debugging
+      console.log(`⏳ Container not ready (attempt ${++retryCount}): ${rect.width}x${rect.height}, visible: ${isVisible}, minSize: ${hasMinimumSize}`)
+
+      // Calculate exponential backoff delay
+      const delay = Math.min(INITIAL_RETRY_DELAY * Math.pow(1.5, retryCount), 500)
+
+      // Use requestAnimationFrame for better timing, then setTimeout for delay
+      requestAnimationFrame(() => {
+        setTimeout(checkContainer, delay)
+      })
+    }
+
+    // Start checking after a brief initial delay
+    setTimeout(checkContainer, INITIAL_RETRY_DELAY)
+  })
+}
+
 const debouncedFit = () => {
   const now = Date.now()
 
-  // Prevent resize if we're already in cooldown
-  if (isResizing.value && (now - lastResizeTime.value) < RESIZE_COOLDOWN_MS) {
+  // Prevent resize if we're already in cooldown or if recent resize
+  if (isResizing.value || (now - lastResizeTime.value) < RESIZE_COOLDOWN_MS) {
     return
   }
 
@@ -245,10 +303,28 @@ const debouncedFit = () => {
   // Set new timeout
   resizeTimeout.value = setTimeout(() => {
     if (fitAddon.value && terminalInstance.value && !isResizing.value && !isDisposed.value) {
+      // Validate container dimensions before fitting
+      if (terminalRef.value) {
+        const rect = terminalRef.value.getBoundingClientRect()
+        const isValidSize = rect.width >= MIN_CONTAINER_WIDTH && rect.height >= MIN_CONTAINER_HEIGHT
+        const isVisible = rect.width > 0 && rect.height > 0
+
+        if (!isVisible) {
+          console.log(`⚠️ Container not visible: ${rect.width}x${rect.height}, skipping fit`)
+          return
+        }
+
+        if (!isValidSize) {
+          console.log(`⚠️ Container too small for fit: ${rect.width}x${rect.height} (min: ${MIN_CONTAINER_WIDTH}x${MIN_CONTAINER_HEIGHT}), skipping`)
+          return
+        }
+      }
+
       try {
         isResizing.value = true
         lastResizeTime.value = Date.now()
 
+        // Simple fit without aggressive scroll position manipulation
         fitAddon.value.fit()
 
         setTimeout(() => {
@@ -258,12 +334,14 @@ const debouncedFit = () => {
         }, RESIZE_COOLDOWN_MS)
 
       } catch (error) {
-        console.error('Error during terminal fit:', error)
+        console.error(`Error during terminal fit for pane ${props.pane.id}:`, error)
         isResizing.value = false
       }
     }
   }, RESIZE_DEBOUNCE_MS)
 }
+
+
 
 const defaultTheme: TerminalTheme = {
   background: '#1a1a1a',
@@ -289,49 +367,46 @@ const defaultTheme: TerminalTheme = {
   brightWhite: '#ffffff'
 }
 
+// Removed createTerminalForSession - using simple single instance approach
+
 const initializeTerminal = () => {
   if (!terminalRef.value || isDisposed.value) return
 
+  // Force canvas renderer - xterm.js v5+ sometimes falls back to DOM
   terminalInstance.value = new Terminal({
     theme: props.theme || defaultTheme,
     fontSize: 14,
     fontFamily: '"JetBrains Mono", "Fira Code", "SF Mono", Monaco, Consolas, monospace',
     cursorBlink: true,
     allowProposedApi: true,
-
-    // Robustness settings for large outputs
-    scrollback: 10000,      // Increased but bounded scrollback
+    scrollback: 10000,
     fastScrollModifier: 'alt',
     fastScrollSensitivity: 5,
     scrollSensitivity: 3,
-
-    // Performance optimizations
     convertEol: true,
     tabStopWidth: 4,
     rightClickSelectsWord: true,
     macOptionIsMeta: true,
-
-    // Memory management
     windowsMode: false,
     macOptionClickForcesSelection: false,
-
-    // Output handling
     disableStdin: false,
-
-    // Improved rendering for better UTF-8 handling
     smoothScrollDuration: 0,
-    altClickMovesCursor: false
+    altClickMovesCursor: false,
+    logLevel: 'warn',
+    allowTransparency: false, // Required for canvas
+    drawBoldTextInBrightColors: true,
+    minimumContrastRatio: 1,
+    // Force canvas - these are the correct options for v5+
+    rendererType: 'canvas'
   })
 
-  // Create and load addons with proper state tracking
+  // Load addons
   try {
     fitAddon.value = new FitAddon()
     terminalInstance.value.loadAddon(fitAddon.value)
     fitAddonLoaded.value = true
   } catch (error) {
     console.warn('FitAddon loading failed:', error)
-    fitAddon.value = undefined
-    fitAddonLoaded.value = false
   }
 
   try {
@@ -340,56 +415,67 @@ const initializeTerminal = () => {
     webLinksAddonLoaded.value = true
   } catch (error) {
     console.warn('WebLinksAddon loading failed:', error)
-    webLinksAddon.value = undefined
-    webLinksAddonLoaded.value = false
   }
 
-  console.log(`✅ Terminal initialized for pane ${props.pane.id} (FitAddon: ${fitAddonLoaded.value}, WebLinks: ${webLinksAddonLoaded.value})`)
+  // Open terminal in container
   terminalInstance.value.open(terminalRef.value)
 
-  setTimeout(() => debouncedFit(), 150)
+  // Debug: Check which renderer is actually being used
+  setTimeout(() => {
+    if (terminalRef.value) {
+      const hasCanvas = terminalRef.value.querySelector('canvas')
+      const hasDomRenderer = terminalRef.value.querySelector('.xterm-dom-renderer-owner-1')
+      console.log(`🎨 Renderer check: Canvas=${!!hasCanvas}, DOM=${!!hasDomRenderer}`)
 
+      if (hasDomRenderer && !hasCanvas) {
+        console.warn('⚠️ Canvas renderer failed to load, using DOM fallback')
+      } else if (hasCanvas) {
+        console.log('✅ Canvas renderer successfully loaded')
+      }
+    }
+  }, 500)
+
+  // Only clear selection artifacts, not terminal content
+  terminalInstance.value.clearSelection()
+
+
+  // Set up event handlers
   terminalInstance.value.onData((data) => emit('data', data))
-
-  if (props.isActive) {
-    setTimeout(() => terminalInstance.value?.focus(), 100)
-  }
-
   terminalInstance.value.onResize(({ cols, rows }) => {
-    // More robust size change detection
-    if (cols === lastCols.value && rows === lastRows.value) return
-
-    // Validate dimensions are reasonable
     if (cols < 10 || rows < 5 || cols > 500 || rows > 200) {
       console.warn(`Invalid terminal dimensions: ${cols}x${rows}, ignoring`)
       return
     }
-
-    // Prevent rapid successive resize events
-    const now = Date.now()
-    if (isResizing.value && (now - lastResizeTime.value) < RESIZE_COOLDOWN_MS) {
-      return
-    }
-
-    lastCols.value = cols
-    lastRows.value = rows
-    console.log(`Terminal ${props.pane.id} resized to ${cols}x${rows}`)
     emit('resize', cols, rows)
   })
 
-  resizeObserver.value = new ResizeObserver(() => debouncedFit())
-  resizeObserver.value.observe(terminalRef.value)
+  // Set up resize observer for active terminal
+  if (terminalInstance.value) {
+    resizeObserver.value = new ResizeObserver(() => debouncedFit())
+    resizeObserver.value.observe(terminalRef.value)
+
+    // Focus the terminal
+    terminalInstance.value.focus()
+    console.log(`🎯 Terminal focused for pane ${props.pane.id}`)
+
+    // Initial fit
+    waitForContainerReady().then(() => {
+      if (!isDisposed.value && terminalInstance.value) {
+        debouncedFit()
+      }
+    }).catch(error => {
+      console.error(`Failed to initialize terminal ${props.pane.id}:`, error)
+    })
+  }
 
   console.log(`✅ Terminal initialized for pane ${props.pane.id}`)
 }
 
+// Watch for tab changes and focus terminal (removed clear to preserve scroll)
 watch(() => props.pane.activeTabId, (newTabId, oldTabId) => {
   if (newTabId && newTabId !== oldTabId && terminalInstance.value) {
-    const newTab = props.pane.tabs.find(t => t.id === newTabId);
-    if (newTab) {
-      terminalInstance.value.clear();
-      terminalInstance.value.write(newTab.buffer);
-    }
+    // Just focus the terminal - let content flow naturally without clearing
+    setTimeout(() => terminalInstance.value?.focus(), 50);
   }
 }, { immediate: true });
 
@@ -592,9 +678,12 @@ const focus = () => {
   emit('focus', props.pane.id)
 }
 
-const write = (data: string) => {
+const write = (data: string, sessionId?: string) => {
   if (!isDisposed.value) {
-    writeThrottled(data)
+    // Use current terminal instance
+    if (terminalInstance.value) {
+      writeThrottledToTerminal(terminalInstance.value, data)
+    }
   }
 }
 
@@ -619,10 +708,10 @@ const fit = () => {
 // Throttled output handling for large data streams
 const THROTTLE_THRESHOLD = 50000 // chars per second
 const BUFFER_MAX_SIZE = 100 // max buffered chunks
-const THROTTLE_DELAY = 16 // ~60fps
+const THROTTLE_DELAY = 4 // ~250fps for faster interactive response
 
-const writeThrottled = (data: string) => {
-  if (!terminalInstance.value || isDisposed.value) return
+const writeThrottledToTerminal = (terminal: Terminal, data: string) => {
+  if (!terminal || isDisposed.value) return
 
   const now = Date.now()
   const timeDiff = now - lastOutputTime.value
@@ -635,9 +724,12 @@ const writeThrottled = (data: string) => {
     lastOutputTime.value = now
   }
 
-  // If output rate is too high, start throttling
-  if (outputCharsPerSecond.value > THROTTLE_THRESHOLD || isThrottling.value) {
-    outputBuffer.value.push(data)
+  // Only throttle large data streams, not small interactive data
+  const isInteractiveData = data.length <= 20 && outputBuffer.value.length === 0
+  const shouldThrottle = outputCharsPerSecond.value > THROTTLE_THRESHOLD && !isInteractiveData
+
+  if (shouldThrottle || (isThrottling.value && !isInteractiveData)) {
+    outputBuffer.value.push({ terminal, data })
 
     if (outputBuffer.value.length > BUFFER_MAX_SIZE) {
       // Prevent memory overflow - truncate oldest entries
@@ -655,9 +747,15 @@ const writeThrottled = (data: string) => {
 
   // Normal rate - write directly
   try {
-    terminalInstance.value.write(data)
+    terminal.write(data)
   } catch (error) {
     console.error('Error writing to terminal:', error)
+  }
+}
+
+const writeThrottled = (data: string) => {
+  if (terminalInstance.value) {
+    writeThrottledToTerminal(terminalInstance.value, data)
   }
 }
 
@@ -673,10 +771,10 @@ const startThrottling = () => {
     }
 
     // Process one chunk at a time
-    const chunk = outputBuffer.value.shift()
-    if (chunk && terminalInstance.value && !isDisposed.value) {
+    const item = outputBuffer.value.shift()
+    if (item && !isDisposed.value) {
       try {
-        terminalInstance.value.write(chunk)
+        item.terminal.write(item.data)
       } catch (error) {
         console.error('Error writing buffered terminal data:', error)
       }
@@ -687,6 +785,36 @@ const startThrottling = () => {
   }
 
   outputThrottleTimeout.value = setTimeout(processBuffer, THROTTLE_DELAY)
+}
+
+// Clean terminal buffer to prevent corruption
+const cleanTerminalBuffer = (buffer: string): string => {
+  if (!buffer || buffer.length === 0) return ''
+
+  // Remove any incomplete escape sequences at the end
+  let cleaned = buffer
+
+  // Remove incomplete escape sequences (ESC not followed by proper sequences)
+  cleaned = cleaned.replace(/\x1b(?![[\d;]*[A-Za-z])/g, '')
+
+  // Handle bracketed paste mode - remove if incomplete
+  if (cleaned.includes('\x1b[?2004h') && !cleaned.includes('\x1b[?2004l')) {
+    cleaned = cleaned.replace(/\x1b\[?2004h/g, '')
+  }
+  if (cleaned.includes('\x1b[?2004l') && !cleaned.includes('\x1b[?2004h')) {
+    cleaned = cleaned.replace(/\x1b\[?2004l/g, '')
+  }
+
+  // Remove any malformed sequences that could corrupt display
+  cleaned = cleaned.replace(/\x1b\[[\d;]*(?![A-Za-z])/g, '')
+
+  // Ensure buffer doesn't start with partial sequences
+  cleaned = cleaned.replace(/^[\x00-\x1f]+/, '')
+
+  // Remove any null bytes that could cause issues
+  cleaned = cleaned.replace(/\x00/g, '')
+
+  return cleaned
 }
 
 const dispose = () => {
@@ -713,7 +841,16 @@ const dispose = () => {
       resizeObserver.value = undefined
     }
 
-    // Only dispose addons that were successfully loaded
+    // Dispose terminal instance
+    if (terminalInstance.value) {
+      try {
+        terminalInstance.value.dispose()
+      } catch (error) {
+        console.warn('Terminal disposal error:', error)
+      }
+    }
+
+    // Dispose addons
     if (fitAddon.value && fitAddonLoaded.value) {
       try {
         fitAddon.value.dispose()
@@ -721,8 +858,6 @@ const dispose = () => {
         console.warn('FitAddon disposal error:', error)
       }
     }
-    fitAddon.value = undefined
-    fitAddonLoaded.value = false
 
     if (webLinksAddon.value && webLinksAddonLoaded.value) {
       try {
@@ -731,18 +866,13 @@ const dispose = () => {
         console.warn('WebLinksAddon disposal error:', error)
       }
     }
-    webLinksAddon.value = undefined
-    webLinksAddonLoaded.value = false
 
-    // Dispose terminal instance (xterm handles addon cleanup automatically)
-    if (terminalInstance.value) {
-      try {
-        terminalInstance.value.dispose()
-      } catch (error) {
-        console.warn('Terminal disposal error:', error)
-      }
-      terminalInstance.value = undefined
-    }
+    // Clear references
+    terminalInstance.value = undefined
+    fitAddon.value = undefined
+    webLinksAddon.value = undefined
+    fitAddonLoaded.value = false
+    webLinksAddonLoaded.value = false
 
     isDisposed.value = true
   } catch (error) {
@@ -757,16 +887,14 @@ defineExpose({ write, writeln, clear, fit, focus, dispose })
 onMounted(() => {
   nextTick(() => {
     initializeTerminal()
+
+    // Route output to correct session terminal instead of active tab only
     cleanupOutputHandler = terminalStore.onTerminalOutput((sessionId, output) => {
-      const activeTab = getActiveTab();
-      if (activeTab && activeTab.sessionId === sessionId) {
-        write(output);
-      }
+      write(output, sessionId);
     });
-    const activeTab = getActiveTab();
-    if (activeTab && activeTab.buffer) {
-        write(activeTab.buffer);
-    }
+
+    // DO NOT restore buffers - let terminals maintain their own state naturally
+    // This prevents the corruption caused by replaying partial escape sequences
 
     // Set up tab overflow detection
     updateTabOverflow()
@@ -989,10 +1117,54 @@ onUnmounted(() => {
 .xterm-container {
   width: 100%;
   height: 100%;
-  padding: 8px;
   background: var(--terminal-bg);
   border-radius: 0 0 8px 8px;
+  position: relative;
+  min-height: 0;
+  box-sizing: border-box;
 }
+
+/* ONLY hide the font measurement elements - these contain ╚╚╚╚ test characters */
+:deep(.xterm-width-cache-measure-container) {
+  position: absolute !important;
+  left: -9999px !important;
+  top: -9999px !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Hide xterm helper textarea but keep it functional - position off-screen but maintain size */
+:deep(.xterm-helper-textarea) {
+  position: absolute !important;
+  left: -9999px !important;
+  top: -9999px !important;
+  opacity: 0 !important;
+  z-index: -1 !important;
+}
+
+/* Hide composition view for IME (this one can be fully hidden) */
+:deep(.xterm-composition-view) {
+  position: absolute !important;
+  left: -9999px !important;
+  top: -9999px !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* VS Code approach: Minimal CSS interference with canvas renderer */
+:deep(.xterm-viewport) {
+  overflow: auto !important;
+}
+
+:deep(.xterm-screen) {
+  position: relative !important;
+}
+
+/* Let canvas renderer handle scrolling naturally */
+:deep(.xterm canvas) {
+  outline: none !important;
+}
+
 
 .terminal-pane.active .pane-header {
   background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);

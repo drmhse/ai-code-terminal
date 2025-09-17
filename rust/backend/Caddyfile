@@ -1,0 +1,51 @@
+# Replace with your actual domain name, or localhost for local dev
+localhost:3002 {
+    # Enable gzip compression for better performance
+    encode gzip
+
+    # Handle API routes first
+    handle /api/* {
+        reverse_proxy act:3001
+    }
+
+    # Handle WebSocket routes
+    handle /socket.io/* {
+        reverse_proxy act:3001 {
+            header_up Host {host}
+            header_up X-Forwarded-For {remote_ip}
+        }
+    }
+
+    # Handle static files and SPA
+    handle {
+        root * /srv/frontend
+        try_files {path} {path}/ /index.html
+        file_server
+    }
+}
+
+# Handle all other hosts (like tunnel URLs) with the same configuration
+:3002 {
+    # Enable gzip compression for better performance
+    encode gzip
+
+    # Handle API routes first
+    handle /api/* {
+        reverse_proxy act:3001
+    }
+
+    # Handle WebSocket routes
+    handle /socket.io/* {
+        reverse_proxy act:3001 {
+            header_up Host {host}
+            header_up X-Forwarded-For {remote_ip}
+        }
+    }
+
+    # Handle static files and SPA
+    handle {
+        root * /srv/frontend
+        try_files {path} {path}/ /index.html
+        file_server
+    }
+}

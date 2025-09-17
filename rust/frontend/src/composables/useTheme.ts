@@ -99,9 +99,18 @@ export function useTheme() {
     return themeService.getThemePreferences()
   }
 
+  const reinitializeForUser = async (): Promise<void> => {
+    // Reset initialization state to allow re-initialization with user preferences
+    isInitialized.value = false
+    initializationPromise = null
+
+    // Re-initialize with authentication
+    await initialize(true)
+  }
+
   // Initialize theme system
-  const initialize = async (): Promise<void> => {
-    console.log('🎨 Theme initialize() called, isInitialized:', isInitialized.value, 'hasPromise:', !!initializationPromise)
+  const initialize = async (isAuthenticated: boolean = false): Promise<void> => {
+    console.log('🎨 Theme initialize() called, isInitialized:', isInitialized.value, 'hasPromise:', !!initializationPromise, 'isAuthenticated:', isAuthenticated)
 
     if (isInitialized.value) {
       console.log('🎨 Theme already initialized, skipping')
@@ -120,42 +129,49 @@ export function useTheme() {
       error.value = null
 
       try {
-        // Load saved theme preferences from backend (single API call)
-        console.log('🎨 Making API call to get current theme...')
-        const savedPreferences = await apiService.getCurrentTheme()
-        console.log('🎨 API response received:', savedPreferences)
+        if (isAuthenticated) {
+          // Load saved theme preferences from backend (single API call)
+          console.log('🎨 Making API call to get current theme...')
+          const savedPreferences = await apiService.getCurrentTheme()
+          console.log('🎨 API response received:', savedPreferences)
 
-        if (savedPreferences?.themeId) {
-          // Apply saved preferences directly without additional API calls
-          console.log(`🎨 Applying saved theme: ${savedPreferences.themeId}`)
-          themeService.setThemePreferences(savedPreferences)
-          await themeService.switchToTheme(savedPreferences.themeId, false) // false = don't persist to backend
-          if (savedPreferences.autoSwitch !== undefined) {
-            themeService.setAutoSwitchLocal(savedPreferences.autoSwitch) // local only, no API call
+          if (savedPreferences?.themeId) {
+            // Apply saved preferences directly without additional API calls
+            console.log(`🎨 Applying saved theme: ${savedPreferences.themeId}`)
+            themeService.setThemePreferences(savedPreferences)
+            await themeService.switchToTheme(savedPreferences.themeId, false) // false = don't persist to backend
+            if (savedPreferences.autoSwitch !== undefined) {
+              themeService.setAutoSwitchLocal(savedPreferences.autoSwitch) // local only, no API call
+            }
+            console.log(`✅ Applied saved theme: ${savedPreferences.themeId}`)
+          } else {
+            // No saved preferences, initialize with defaults (no API call)
+            console.log('🎨 No saved theme preferences found, using defaults')
+            await themeService.initializeWithDefaults()
+            console.log('✅ Initialized with default theme')
           }
-          console.log(`✅ Applied saved theme: ${savedPreferences.themeId}`)
         } else {
-          // No saved preferences, initialize with defaults (no API call)
-          console.log('🎨 No saved theme preferences found, using defaults')
+          // User not authenticated, use defaults without API calls
+          console.log('🎨 User not authenticated, initializing with defaults')
           await themeService.initializeWithDefaults()
-          console.log('✅ Initialized with default theme')
+          console.log('✅ Initialized with default theme (no auth)')
         }
 
-      currentTheme.value = themeService.getCurrentTheme()
-      isInitialized.value = true
-    } catch (err) {
-      console.warn('Failed to load theme preferences from backend, using defaults:', err)
-      // Fall back to local initialization without API calls
-      try {
-        await themeService.initializeWithDefaults()
         currentTheme.value = themeService.getCurrentTheme()
         isInitialized.value = true
-        console.log('Fallback to default theme successful')
-      } catch (fallbackErr) {
-        error.value = fallbackErr instanceof Error ? fallbackErr.message : 'Failed to initialize theme system'
-        console.error('Theme initialization completely failed:', fallbackErr)
-        isInitialized.value = true // Prevent infinite retry
-      }
+      } catch (err) {
+        console.warn('Failed to load theme preferences from backend, using defaults:', err)
+        // Fall back to local initialization without API calls
+        try {
+          await themeService.initializeWithDefaults()
+          currentTheme.value = themeService.getCurrentTheme()
+          isInitialized.value = true
+          console.log('Fallback to default theme successful')
+        } catch (fallbackErr) {
+          error.value = fallbackErr instanceof Error ? fallbackErr.message : 'Failed to initialize theme system'
+          console.error('Theme initialization completely failed:', fallbackErr)
+          isInitialized.value = true // Prevent infinite retry
+        }
       } finally {
         isLoading.value = false
         initializationPromise = null // Reset so future calls can proceed
@@ -172,9 +188,9 @@ export function useTheme() {
 
   // Lifecycle
   onMounted(() => {
-    // Initialize theme system
-    initialize()
-    
+    // Note: Do not auto-initialize here to avoid calling APIs for non-authenticated users
+    // Theme initialization should be explicitly called from App.vue with authentication status
+
     // Listen for theme changes
     window.addEventListener('themeChanged', handleThemeChange as EventListener)
   })
@@ -218,6 +234,7 @@ export function useTheme() {
     toggleTheme,
     setAutoSwitch,
     initialize,
+    reinitializeForUser,
     getThemePreferences,
     
     // Utilities

@@ -167,7 +167,18 @@ impl GitHubService {
             .send()
             .await?;
 
-        let token_data: TokenResponse = response.json().await?;
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            error!("GitHub token exchange failed: {} - {}", status, error_text);
+            return Err(anyhow::anyhow!("GitHub token exchange failed: {} - {}", status, error_text));
+        }
+
+        let response_text = response.text().await?;
+        info!("GitHub OAuth response: {}", response_text);
+
+        let token_data: TokenResponse = serde_json::from_str(&response_text)
+            .map_err(|e| anyhow::anyhow!("Failed to parse GitHub OAuth response: {} - Response: {}", e, response_text))?;
 
         if let Some(error) = token_data.error {
             let desc = token_data.error_description.unwrap_or_else(|| error.clone());

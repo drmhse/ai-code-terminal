@@ -19,7 +19,11 @@ use sysinfo::{System, Pid};
 struct ProcessTracker {
     child: Arc<Mutex<tokio::process::Child>>,
     start_time: SystemTime,
+    /// Command used to start the process - preserved for debugging and future process info display
+    #[allow(dead_code)]
     command: String,
+    /// Working directory when the process was started - preserved for debugging and future process info display
+    #[allow(dead_code)]
     working_dir: String,
     resource_limits: Option<ProcessResourceLimits>,
     stdout_buffer: Arc<RwLock<CircularBuffer<ProcessOutputChunk>>>,

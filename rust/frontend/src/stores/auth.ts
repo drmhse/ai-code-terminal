@@ -252,25 +252,28 @@ export const useAuthStore = defineStore('auth', () => {
     if (!isAuthenticated.value) {
       throw new Error('User not authenticated')
     }
-    
+
     // Prevent multiple initializations
     if (isAppInitialized.value || isInitializing.value) {
       console.log('⚠️ App already initialized or initializing, skipping...')
       return
     }
-    
+
     isInitializing.value = true
-    
+
     try {
       // Set up WebSocket stats subscription
       setupStatsSubscription()
-      
+
       // Subscribe to WebSocket stats (every 5 seconds)
       socketService.subscribeToStats(5)
-      
+
+      // Re-initialize theme system with user preferences
+      // Note: This will be called from App.vue for logged-in users
+
       isAppInitialized.value = true
       console.log('✅ Auth store app initialization complete')
-      
+
     } catch (err) {
       console.error('Failed to initialize app:', err)
       throw err
@@ -316,16 +319,25 @@ export const useAuthStore = defineStore('auth', () => {
           statsListener.value({ detail: event } as CustomEvent<unknown>)
         }
       })
-      
+
       socketService.subscribe('websocket:auth_error', (error) => {
         console.warn('WebSocket authentication error received:', error)
-        
+
         if (error.code === 'JWT_EXPIRED' || error.code === 'JWT_INVALID') {
           console.log('JWT token is invalid, logging out')
           logout()
         }
       })
-      
+
+      socketService.subscribe('websocket:reconnection_failed', (event) => {
+        console.warn('WebSocket reconnection failed, redirecting to login:', event)
+        logout()
+        // Navigate to login using window.location to avoid router dependency
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login'
+        }
+      })
+
       // Handle WebSocket connection errors
       socketService.connectionState$.subscribe((state) => {
         if (state === ConnectionState.ERROR) {
