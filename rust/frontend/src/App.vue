@@ -3,12 +3,12 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, watch } from 'vue'
 import { useAuthStore } from './stores/auth'
 import { useTheme } from './composables/useTheme'
 
 const authStore = useAuthStore()
-const { initialize: initializeTheme } = useTheme()
+const { initialize: initializeTheme, reinitializeForUser } = useTheme()
 
 onMounted(async () => {
   // First initialize auth
@@ -16,11 +16,27 @@ onMounted(async () => {
 
   // Then initialize theme system (will load user's saved theme if authenticated)
   try {
-    await initializeTheme()
+    await initializeTheme(authStore.isAuthenticated)
   } catch (error) {
     console.warn('Theme initialization failed, using default theme:', error)
   }
 })
+
+// Watch for authentication status changes to reinitialize theme with user preferences
+watch(
+  () => authStore.isAuthenticated,
+  async (isAuthenticated, wasAuthenticated) => {
+    // If user just logged in, reinitialize theme to load their preferences
+    if (isAuthenticated && !wasAuthenticated) {
+      try {
+        console.log('🔄 User authenticated, reinitializing theme with user preferences')
+        await reinitializeForUser()
+      } catch (error) {
+        console.warn('Failed to load user theme preferences:', error)
+      }
+    }
+  }
+)
 </script>
 
 <style scoped>

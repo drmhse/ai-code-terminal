@@ -6,8 +6,8 @@ services:
     container_name: act_rust_backend
     restart: unless-stopped
 
-    ports:
-      - "${PORT:-3001}:${ACT_SERVER_PORT:-3001}"
+    # ports:
+      # - "${PORT:-3001}:${ACT_SERVER_PORT:-3001}"
 
     # Environment variables using the same convention as Node version
     # but mapping to Rust backend's expected variable names
@@ -28,7 +28,7 @@ services:
       - ACT_AUTH_TENANT_GITHUB_USERNAME=${ACT_AUTH_TENANT_GITHUB_USERNAME}
 
       # CORS Configuration
-      - ACT_CORS_ALLOWED_ORIGINS=${ACT_CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+      - ACT_CORS_ALLOWED_ORIGINS=${ACT_CORS_ALLOWED_ORIGINS:-https://localhost:3002,http://localhost:3002,https://waterproof-outsourcing-spies-even.trycloudflare.com}
       - ACT_CORS_ALLOWED_HEADERS=content-type,authorization,x-requested-with
 
       # Logging Configuration
@@ -62,9 +62,29 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+  caddy:
+      image: caddy:2-alpine
+      container_name: act_caddy
+      restart: unless-stopped
+      ports:
+        # Expose standard web ports
+        - "80:80"
+        - "443:443"
+        - "443:443/udp" # For HTTP/3
+        - "3002:3002"
+      volumes:
+        # Mount the Caddyfile for configuration
+        - ./Caddyfile:/etc/caddy/Caddyfile
+        # Mount the built frontend 'dist' directory
+        - ../frontend/dist:/srv/frontend
+        # Caddy needs persistent volumes for certificates and state
+        - caddy_data:/data
+        - caddy_config:/config
 
 # Define volumes consistent with Node version naming
 volumes:
   act_rust_data:
   act_rust_workspaces:
   act_rust_logs:
+  caddy_data:
+  caddy_config:

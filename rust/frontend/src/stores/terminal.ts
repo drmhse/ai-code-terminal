@@ -109,8 +109,11 @@ export const useTerminalStore = defineStore('terminal', () => {
     socketSubscriptions.push(
       socketService.subscribe('terminal:output', (event) => {
         console.log(`📥 Terminal output received for session ${event.sessionId}:`, JSON.stringify(event.output))
+
+        // VS Code approach: NO FILTERING - trust xterm.js to handle all sequences properly
         appendOutput(event.sessionId, event.output)
-        // Notify all registered output handlers
+
+        // Notify all registered output handlers with raw output
         outputHandlers.forEach(handler => {
           try {
             handler(event.sessionId, event.output)
@@ -170,6 +173,7 @@ export const useTerminalStore = defineStore('terminal', () => {
     for (const pane of panes.value) {
       const tab = pane.tabs.find(t => t.sessionId === sessionId)
       if (tab) {
+        // Output is already cleaned in the socket subscription, no need to filter again
         tab.buffer += output
 
         // Keep buffer size manageable (last 10000 characters)
@@ -500,6 +504,54 @@ export const useTerminalStore = defineStore('terminal', () => {
     return pane
   }
 
+  const reconnectToExistingSession = async (workspaceId: string, sessionId: string, sessionName: string = 'Terminal', sessionBuffer: string = '') => {
+    console.log(`🔄 Reconnecting to existing session ${sessionId} for workspace ${workspaceId}`)
+
+    const paneId = `pane-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    const tabId = `tab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
+    const newTab: TerminalTab = {
+      id: tabId,
+      sessionId, // Use the existing session ID
+      name: sessionName,
+      isActive: false,
+      order: 0,
+      buffer: sessionBuffer, // Load existing buffer
+      size: { cols: 80, rows: 24 },
+    }
+
+    const newPane: TerminalPane = {
+      id: paneId,
+      name: sessionName,
+      isActive: false,
+      tabs: [newTab],
+      activeTabId: tabId,
+      size: { cols: 80, rows: 24 },
+    }
+
+    panes.value.push(newPane)
+
+    // Set as active if it's the first pane
+    if (panes.value.length === 1) {
+      activePane.value = paneId
+      newPane.isActive = true
+    }
+
+    // Set the tab as active
+    setActiveTabInPane(paneId, tabId)
+
+    // For existing sessions, call createTerminal to establish output routing
+    // The backend now handles existing sessions properly and sets up WebSocket output
+    if (socketService.isConnected) {
+      console.log(`🔌 Establishing output routing for existing session ${sessionId}`)
+      socketService.switchWorkspace(workspaceId)
+      socketService.createTerminal(workspaceId, sessionId)
+    }
+
+    console.log(`✅ Reconnected to session ${sessionId} in pane ${paneId}`)
+    return newPane
+  }
+
   const closeTerminal = async (paneId: string) => {
     const pane = panes.value.find(p => p.id === paneId)
     if (pane) {
@@ -733,6 +785,7 @@ export const useTerminalStore = defineStore('terminal', () => {
     clearBuffer,
     renamePane,
     createTerminal,
+    reconnectToExistingSession,
     closeTerminal,
     initialize,
 

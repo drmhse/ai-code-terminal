@@ -17,60 +17,7 @@ use tracing::{info, warn, debug, error};
 use uuid::Uuid;
 use tokio::sync::{mpsc, RwLock};
 
-// UTF-8 stream buffer for handling split sequences
-#[derive(Debug)]
-struct Utf8StreamBuffer {
-    incomplete_bytes: Vec<u8>,
-}
-
-impl Utf8StreamBuffer {
-    fn new() -> Self {
-        Self {
-            incomplete_bytes: Vec::new(),
-        }
-    }
-
-    fn process_chunk(&mut self, mut chunk: Vec<u8>) -> String {
-        // Prepend any incomplete bytes from previous chunk
-        if !self.incomplete_bytes.is_empty() {
-            let mut combined = std::mem::take(&mut self.incomplete_bytes);
-            combined.append(&mut chunk);
-            chunk = combined;
-        }
-
-        // Find the last complete UTF-8 sequence
-        let mut complete_end = chunk.len();
-
-        // Look backwards from the end to find where the last complete UTF-8 sequence ends
-        for i in (1..=4.min(chunk.len())).rev() {
-            let pos = chunk.len() - i;
-            if let Ok(_) = std::str::from_utf8(&chunk[..pos]) {
-                complete_end = pos;
-                break;
-            }
-        }
-
-        // If we couldn't find a valid UTF-8 sequence, keep the last few bytes for next chunk
-        if complete_end < chunk.len() {
-            self.incomplete_bytes = chunk[complete_end..].to_vec();
-        }
-
-        // Convert the complete portion to string
-        match std::str::from_utf8(&chunk[..complete_end]) {
-            Ok(s) => s.to_string(),
-            Err(_) => {
-                // Fallback to lossy conversion if we still have issues
-                String::from_utf8_lossy(&chunk[..complete_end]).to_string()
-            }
-        }
-    }
-
-    fn flush(&mut self) -> String {
-        let result = String::from_utf8_lossy(&self.incomplete_bytes).to_string();
-        self.incomplete_bytes.clear();
-        result
-    }
-}
+// Removed complex UTF-8 buffering - VS Code approach uses simple conversion
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionState {
@@ -143,7 +90,6 @@ impl OutputForwarder {
 #[derive(Debug)]
 pub struct SessionWebSocketManager {
     connections: Arc<RwLock<HashMap<String, Vec<mpsc::UnboundedSender<String>>>>>,
-    utf8_buffers: Arc<RwLock<HashMap<String, Utf8StreamBuffer>>>,
 }
 
 impl Default for SessionWebSocketManager {
@@ -156,7 +102,6 @@ impl SessionWebSocketManager {
     pub fn new() -> Self {
         Self {
             connections: Arc::new(RwLock::new(HashMap::new())),
-            utf8_buffers: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -164,10 +109,6 @@ impl SessionWebSocketManager {
         let (tx, rx) = mpsc::unbounded_channel();
         let mut connections = self.connections.write().await;
         connections.entry(session_id.clone()).or_insert_with(Vec::new).push(tx);
-
-        // Initialize UTF-8 buffer for this session
-        let mut buffers = self.utf8_buffers.write().await;
-        buffers.entry(session_id.clone()).or_insert_with(Utf8StreamBuffer::new);
 
         info!("Registered WebSocket connection for session {}", session_id);
         rx
@@ -538,16 +479,8 @@ pub async fn create_session(&self, user_id: &str, options: CreateSessionOptions)
                 Some(event) = output_rx.recv() => {
                     match event {
                         PtyEvent::Output(data) => {
-                            // Use proper UTF-8 stream buffer instead of lossy conversion
-                            let output = {
-                                let mut buffers = websocket_manager.utf8_buffers.write().await;
-                                if let Some(buffer) = buffers.get_mut(&session_id) {
-                                    buffer.process_chunk(data)
-                                } else {
-                                    // Fallback if buffer not found
-                                    String::from_utf8_lossy(&data).to_string()
-                                }
-                            };
+                            // VS Code approach: Simple, direct conversion
+                            let output = String::from_utf8_lossy(&data).to_string();
 
                             if !output.is_empty() {
                                 debug!("✅ Forwarding PTY output for session {}: {} bytes", session_id, output.len());
@@ -557,26 +490,8 @@ pub async fn create_session(&self, user_id: &str, options: CreateSessionOptions)
                         PtyEvent::Closed => {
                             info!("PTY session {} closed", session_id);
 
-                            // Flush any remaining bytes in the buffer
-                            let final_output = {
-                                let mut buffers = websocket_manager.utf8_buffers.write().await;
-                                if let Some(buffer) = buffers.get_mut(&session_id) {
-                                    buffer.flush()
-                                } else {
-                                    String::new()
-                                }
-                            };
-
-                            if !final_output.is_empty() {
-                                websocket_manager.forward_to_websockets(&session_id, final_output).await;
-                            }
-
                             websocket_manager.forward_to_websockets(&session_id,
                                 "\r\n\x1b[1;31m● Session terminated\x1b[0m\r\n".to_string()).await;
-
-                            // Clean up UTF-8 buffer
-                            let mut buffers = websocket_manager.utf8_buffers.write().await;
-                            buffers.remove(&session_id);
 
                             break;
                         }

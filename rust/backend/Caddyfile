@@ -1,0 +1,48 @@
+# Replace with your actual domain name, or localhost for local dev
+localhost:3002 {
+    # Enable gzip compression for better performance
+    encode gzip
+
+    # Serve the static frontend files
+    # The root path points to the volume where we mount the 'dist' folder
+    root * /srv/frontend
+    file_server
+
+    # Proxy API and WebSocket traffic to the Rust backend service
+    # The name 'act' is the service name from docker-compose.yml
+    reverse_proxy /api/* act:3001
+    reverse_proxy /socket.io/* act:3001 {
+        # Required for WebSocket proxying
+        header_up Host {host}
+        header_up X-Forwarded-For {remote_ip}
+    }
+
+    # Handle SPA routing: for any path that is not a file, serve index.html
+    try_files {path} {path}/ /index.html
+}
+
+# Handle all other hosts (like tunnel URLs) with the same configuration
+:3002 {
+    # Enable gzip compression for better performance
+    encode gzip
+
+    # Handle API routes first
+    handle /api/* {
+        reverse_proxy act:3001
+    }
+
+    # Handle WebSocket routes
+    handle /socket.io/* {
+        reverse_proxy act:3001 {
+            header_up Host {host}
+            header_up X-Forwarded-For {remote_ip}
+        }
+    }
+
+    # Handle static files and SPA
+    handle {
+        root * /srv/frontend
+        try_files {path} {path}/ /index.html
+        file_server
+    }
+}

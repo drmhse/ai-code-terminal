@@ -48,12 +48,18 @@ export interface ConnectionStateEvent {
   reconnectAttempt?: number
 }
 
+export interface ReconnectionFailedEvent {
+  attempts: number
+  reason: string
+}
+
 export interface SocketEventMap {
   'terminal:output': TerminalOutputEvent
   'terminal:created': TerminalCreatedEvent
   'terminal:destroyed': TerminalDestroyedEvent
   'stats:data': StatsDataEvent
   'websocket:auth_error': WebSocketAuthErrorEvent
+  'websocket:reconnection_failed': ReconnectionFailedEvent
   'connection:state': ConnectionStateEvent
 }
 

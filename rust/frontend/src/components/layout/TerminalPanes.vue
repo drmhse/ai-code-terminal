@@ -123,31 +123,76 @@ const showSessionReconnect = ref(false)
 const creatingTerminal = ref(false)
 
 const loadPersistentSessions = async () => {
-  // Disabled: Session restoration is now handled automatically by workspace switching logic
-  // This prevents the manual "Restore Terminals" dialog from appearing
-  console.log('ℹ️ Persistent session loading disabled - handled by workspace store')
-  return
-
   if (!workspaceStore.selectedWorkspace || !workspaceStore.selectedWorkspace.id) return
 
   try {
+    console.log('🔄 Loading persistent sessions for workspace:', workspaceStore.selectedWorkspace.id)
     const sessions = await apiService.getSessions(workspaceStore.selectedWorkspace.id)
-    persistentSessions.value = sessions.filter(session =>
+    const activeSessions = sessions.filter(session =>
       session.status === 'active' || session.status === 'disconnected'
     )
-    showSessionReconnect.value = persistentSessions.value.length > 0
+
+    console.log(`Found ${activeSessions.length} persistent sessions`)
+
+    // Automatically reconnect to all persistent sessions with robust error handling
+    if (activeSessions.length > 0) {
+      const reconnectionPromises = activeSessions.map(async (session, index) => {
+        // Stagger reconnections to prevent layout conflicts
+        await new Promise(resolve => setTimeout(resolve, index * 150))
+
+        try {
+          await reconnectToSession(session)
+          return { success: true, sessionId: session.id }
+        } catch (error) {
+          console.error(`Failed to reconnect session ${session.id}:`, error)
+          return { success: false, sessionId: session.id, error }
+        }
+      })
+
+      const results = await Promise.allSettled(reconnectionPromises)
+      const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length
+      const failed = results.length - successful
+
+      if (successful > 0) {
+        console.log(`✅ Successfully reconnected ${successful}/${activeSessions.length} sessions`)
+      }
+      if (failed > 0) {
+        console.warn(`⚠️ Failed to reconnect ${failed}/${activeSessions.length} sessions`)
+      }
+    }
+
+    persistentSessions.value = activeSessions
   } catch (error) {
     console.error('Failed to load persistent sessions:', error)
   }
 }
 
-watch(() => workspaceStore.selectedWorkspace, async (newWorkspace) => {
-  // Disabled: Session restoration is now handled automatically by workspace switching logic
-  console.log('ℹ️ Workspace change detected, but session restoration is handled automatically')
+watch(() => workspaceStore.selectedWorkspace, async (newWorkspace, oldWorkspace) => {
+  console.log('🔄 Workspace changed:', newWorkspace?.name || 'none')
 
   if (!newWorkspace) {
     persistentSessions.value = []
     showSessionReconnect.value = false
+    terminalStore.cleanup()
+  } else {
+    // Load sessions on initial workspace selection OR workspace switch
+    const isWorkspaceSwitch = oldWorkspace && oldWorkspace.id !== newWorkspace.id
+    const isInitialLoad = !oldWorkspace
+
+    if (isWorkspaceSwitch) {
+      console.log('🔄 Switching workspaces, reloading sessions')
+      terminalStore.cleanup()
+    } else if (isInitialLoad) {
+      console.log('🔄 Initial workspace load, loading sessions')
+    }
+
+    await loadPersistentSessions()
+
+    // Only create a new terminal if no sessions were restored
+    if (terminalStore.panes.length === 0) {
+      console.log('No persistent sessions found, creating new terminal')
+      await createNewTerminal()
+    }
   }
 })
 
@@ -192,29 +237,52 @@ watch(layoutSignature, (newSignature, oldSignature) => {
   }
 })
 
-const reconnectToSession = async (session: Session) => {
+const reconnectToSession = async (session: Session): Promise<void> => {
   if (!workspaceStore.selectedWorkspace || !workspaceStore.selectedWorkspace.id) {
-    console.error('No workspace selected for session reconnection')
-    return
+    throw new Error('No workspace selected for session reconnection')
   }
 
-  try {
-    const pane = await terminalStore.createTerminal(workspaceStore.selectedWorkspace.id)
-    if (pane) {
-      const terminalInstance = terminalStore.panes.find(p => p.id === pane.id)
-      if (terminalInstance) {
-        try {
-          const history = await apiService.getSessionHistory(session.id)
-          console.log(`Restored history for session ${session.id}:`, history);
-        } catch (historyError) {
-          console.warn('Failed to load session history:', historyError)
-        }
-      }
-    }
-    showSessionReconnect.value = false
-  } catch (error) {
-    console.error('Failed to reconnect to session:', error)
+  if (!session || !session.id) {
+    throw new Error('Invalid session data provided')
   }
+
+  console.log(`🔄 Reconnecting to session ${session.id}`)
+
+  // Load session history to populate buffer with timeout
+  let sessionBuffer = ''
+  try {
+    const historyPromise = apiService.getSessionHistory(session.id)
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('History load timeout')), 3000)
+    )
+
+    const history = await Promise.race([historyPromise, timeoutPromise])
+
+    if (Array.isArray(history)) {
+      sessionBuffer = history.join('')
+    } else if (typeof history === 'string') {
+      sessionBuffer = history
+    }
+    console.log(`📜 Loaded session history for ${session.id}: ${sessionBuffer.length} characters`)
+  } catch (historyError) {
+    console.warn(`Failed to load session history for ${session.id}:`, historyError)
+    // Continue without history - this is not a fatal error
+  }
+
+  // Reconnect to existing session with validation
+  const pane = await terminalStore.reconnectToExistingSession(
+    workspaceStore.selectedWorkspace.id,
+    session.id,
+    session.session_name || 'Terminal',
+    sessionBuffer
+  )
+
+  if (!pane) {
+    throw new Error(`Failed to create pane for session ${session.id}`)
+  }
+
+  console.log(`✅ Successfully reconnected to session ${session.id} in pane ${pane.id}`)
+  showSessionReconnect.value = false
 }
 
 const createNewSession = async () => {
@@ -298,12 +366,8 @@ onMounted(async () => {
   terminalStore.initialize()
   await initializeSocketConnection()
 
-  if (workspaceStore.selectedWorkspace) {
-    await loadPersistentSessions()
-    if (!showSessionReconnect.value && terminalStore.panes.length === 0) {
-      await createNewTerminal()
-    }
-  }
+  // Don't load sessions here - let the workspace watcher handle it
+  // This prevents double loading when workspace is set after mount
 })
 
 onUnmounted(() => {

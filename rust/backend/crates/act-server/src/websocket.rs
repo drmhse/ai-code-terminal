@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{broadcast, RwLock};
+use tokio::sync::RwLock;
 use tokio_tungstenite::{
-    accept_async, accept_hdr_async,
-    tungstenite::{protocol::WebSocketConfig, Message, Result as WsResult},
+    accept_async,
+    tungstenite::Message,
 };
 use futures_util::{SinkExt, StreamExt};
 use uuid::Uuid;
@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{info, warn, error, debug};
 
 use act_core::{
-    events::{ProcessEvent, DomainEvent, EventPublisher, InMemoryEventPublisher},
+    events::{ProcessEvent, DomainEvent, InMemoryEventPublisher},
     auth::AuthenticatedUser,
 };
 
@@ -243,12 +243,12 @@ impl WebSocketManager {
                     info!("WebSocket connection closed: {}", connection_id);
                     break;
                 }
-                Ok(Message::Ping(payload)) => {
+                Ok(Message::Ping(_payload)) => {
                     // Send pong response
                     let pong_msg = WebSocketMessage::Pong {
                         timestamp: chrono::Utc::now().timestamp(),
                     };
-                    if let Ok(msg_text) = serde_json::to_string(&pong_msg) {
+                    if let Ok(_msg_text) = serde_json::to_string(&pong_msg) {
                         let _ = manager.send_to_connection(&connection_id, pong_msg).await;
                     }
                 }
@@ -271,7 +271,7 @@ impl WebSocketManager {
     async fn handle_websocket_message(
         &self,
         connection_id: &ConnectionId,
-        user: &AuthenticatedUser,
+        _user: &AuthenticatedUser,
         message: &str,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let parsed_message: WebSocketMessage = serde_json::from_str(message)?;
@@ -417,9 +417,9 @@ pub struct ConnectionStats {
 
 /// WebSocket upgrade handler for HTTP requests
 pub async fn handle_websocket_upgrade(
-    mut req: hyper::Request<hyper::Body>,
-    user: AuthenticatedUser,
-    websocket_manager: Arc<WebSocketManager>,
+    req: hyper::Request<hyper::Body>,
+    _user: AuthenticatedUser,
+    _websocket_manager: Arc<WebSocketManager>,
 ) -> Result<hyper::Response<hyper::Body>, hyper::Error> {
     use hyper::{Response, StatusCode};
 

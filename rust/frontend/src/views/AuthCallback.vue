@@ -77,8 +77,8 @@ onMounted(async () => {
     }
 
     // Send code and state to backend to exchange for token
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
-    const url = state 
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || ''
+    const url = state
       ? `${apiBaseUrl}/api/v1/auth/github/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`
       : `${apiBaseUrl}/api/v1/auth/github/callback?code=${encodeURIComponent(code)}`
     const response = await fetch(url, {

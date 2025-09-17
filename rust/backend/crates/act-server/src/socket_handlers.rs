@@ -131,13 +131,8 @@ impl SocketSessionManager {
         let mut forwarder = SessionOutputForwarder::new(self.socket.clone(), session_id.clone());
         forwarder.start(state.clone()).await?;
 
-        // Send welcome message in background to avoid blocking
-        let socket_clone = self.socket.clone();
-        let session_id_clone = session_id.clone();
-        tokio::spawn(async move {
-            let welcome_forwarder = SessionOutputForwarder::new(socket_clone, session_id_clone);
-            welcome_forwarder.send_welcome_message().await;
-        });
+        // Disable welcome message completely to prevent initialization conflicts
+        // The shell prompt will provide sufficient indication of connection status
 
         self.sessions.insert(session_id, forwarder);
         Ok(())
@@ -284,17 +279,8 @@ impl SessionOutputForwarder {
         }
     }
 
-    pub async fn send_welcome_message(&self) {
-        // Send a single, clean welcome message after a brief delay to ensure terminal is ready
-        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
-        let event = TerminalOutputEvent {
-            session_id: self.session_id.clone(),
-            output: "\x1b[0m\x1b[2J\x1b[H\x1b[1;32m● Connected to AI Code Terminal\x1b[0m\r\n".to_string(),
-        };
-        if let Err(e) = self.socket.emit("terminal:output", event) {
-            error!("Failed to send welcome message for session {}: {}", self.session_id, e);
-        }
-    }
+    // VS Code approach: No welcome messages
+    // The shell prompt is sufficient indication of connection status
 }
 
 use crate::middleware::auth::Claims;
@@ -386,13 +372,13 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                     match state.domain_services.session_service.create_session(&user_id, options).await {
                         Ok(session_state) => {
                             info!("Created terminal session: {}", session_state.session_id);
-                            
+
                             // Add session to socket manager
                             let mut session_managers = session_mgrs.write().await;
                             let session_manager = session_managers.entry(socket_id.clone()).or_insert_with(|| {
                                 SocketSessionManager::new(socket.clone())
                             });
-                            
+
                             if let Err(e) = session_manager.add_session(session_state.session_id.clone(), state.clone()).await {
                                 error!("Failed to add session to socket manager: {}", e);
                                 socket.emit("terminal:error", ErrorEvent {
@@ -400,13 +386,13 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                                 }).ok();
                                 return;
                             }
-                            
+
                             // Get session info to extract PID
                             let pid = match state.pty_service.get_session_info(&session_state.session_id).await {
                                 Ok(info) => info.pid.unwrap_or(0),
                                 Err(_) => 0, // Fallback to 0 if we can't get session info
                             };
-                            
+
                             // Send the correct format that frontend expects
                             socket.emit("terminal:created", serde_json::json!({
                                 "sessionId": session_state.session_id,
@@ -414,6 +400,42 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                             })).ok();
                         }
                         Err(err) => {
+                            // Check if this is a session that already exists (reconnection case)
+                            if err.to_string().contains("UNIQUE constraint failed") || err.to_string().contains("already exists") {
+                                info!("Session {} already exists, attempting to reconnect output routing", data.session_id.clone().unwrap_or_default());
+
+                                let existing_session_id = data.session_id.clone().unwrap_or_default();
+                                if !existing_session_id.is_empty() {
+                                    // Set up output forwarding for existing session
+                                    let mut session_managers = session_mgrs.write().await;
+                                    let session_manager = session_managers.entry(socket_id.clone()).or_insert_with(|| {
+                                        SocketSessionManager::new(socket.clone())
+                                    });
+
+                                    if let Err(e) = session_manager.add_session(existing_session_id.clone(), state.clone()).await {
+                                        error!("Failed to reconnect to existing session {}: {}", existing_session_id, e);
+                                        socket.emit("terminal:error", ErrorEvent {
+                                            error: format!("Failed to reconnect to session: {}", e),
+                                        }).ok();
+                                        return;
+                                    }
+
+                                    // Get session info for existing session
+                                    let pid = match state.pty_service.get_session_info(&existing_session_id).await {
+                                        Ok(info) => info.pid.unwrap_or(0),
+                                        Err(_) => 0,
+                                    };
+
+                                    info!("✅ Successfully reconnected output routing for existing session: {}", existing_session_id);
+                                    socket.emit("terminal:created", serde_json::json!({
+                                        "sessionId": existing_session_id,
+                                        "pid": pid,
+                                        "reconnected": true
+                                    })).ok();
+                                    return;
+                                }
+                            }
+
                             error!("Failed to create terminal session: {}", err);
                             socket.emit("terminal:error", ErrorEvent {
                                 error: format!("Failed to create session: {}", err),
