@@ -30,6 +30,7 @@ pub fn routes() -> Router<AppState> {
         .route("/:id", delete(terminate_session))
         .route("/:id/resize", post(resize_session))
         .route("/:id/history", get(get_session_history))
+        .route("/:id/buffer", get(get_session_buffer))
         .route("/recover", post(recover_session))
         .route("/cleanup", post(cleanup_sessions))
 }
@@ -200,14 +201,30 @@ pub async fn get_session_history(
     State(state): State<AppState>
 ) -> Result<Json<ApiResponse<Vec<String>>>, ServerError> {
     info!("Session history requested: {}", session_id);
-    
+
     let domain_session = state.domain_services.session_service
         .get_session(&auth_user.user_id, &session_id)
         .await?;
-    
+
     // Extract shell history from the session
     let history = domain_session.shell_history.unwrap_or_default();
-    
+
     info!("Retrieved history for session {}: {} commands", session_id, history.len());
     Ok(Json(ApiResponse::success(history)))
+}
+
+pub async fn get_session_buffer(
+    auth_user: AuthenticatedUser,
+    Path(session_id): Path<String>,
+    State(state): State<AppState>
+) -> Result<Json<ApiResponse<String>>, ServerError> {
+    info!("Session buffer requested: {}", session_id);
+
+    // Get terminal buffer from session service
+    let buffer_content = state.domain_services.session_service
+        .get_terminal_buffer(&session_id)
+        .await?;
+
+    info!("Retrieved buffer for session {}: {} characters", session_id, buffer_content.len());
+    Ok(Json(ApiResponse::success(buffer_content)))
 }

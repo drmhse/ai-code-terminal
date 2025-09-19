@@ -152,30 +152,63 @@ const loadPersistentSessions = async () => {
 
     console.log(`Found ${activeSessions.length} persistent sessions`)
 
-    // Automatically reconnect to all persistent sessions with robust error handling
+    // Try to restore the saved pane structure first
     if (activeSessions.length > 0) {
-      const reconnectionPromises = activeSessions.map(async (session, index) => {
-        // Stagger reconnections to prevent layout conflicts
-        await new Promise(resolve => setTimeout(resolve, index * 150))
+      console.log('🔄 Attempting to restore pane structure for sessions')
+      const restored = await terminalStore.restorePaneStructure(
+        workspaceStore.selectedWorkspace.id,
+        activeSessions
+      )
 
-        try {
-          await reconnectToSession(session)
-          return { success: true, sessionId: session.id }
-        } catch (error) {
-          console.error(`Failed to reconnect session ${session.id}:`, error)
-          return { success: false, sessionId: session.id, error }
+      if (restored) {
+        console.log('✅ Pane structure restored successfully')
+
+        // Establish WebSocket connections for all restored sessions
+        const connectPromises = activeSessions.map(async (session, index) => {
+          // Stagger connections to prevent overload
+          await new Promise(resolve => setTimeout(resolve, index * 100))
+
+          try {
+            if (socketService.isConnected) {
+              socketService.createTerminal(workspaceStore.selectedWorkspace.id, session.id)
+            }
+            return { success: true, sessionId: session.id }
+          } catch (error) {
+            console.error(`Failed to connect session ${session.id}:`, error)
+            return { success: false, sessionId: session.id, error }
+          }
+        })
+
+        const results = await Promise.allSettled(connectPromises)
+        const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length
+        console.log(`🔌 Connected ${successful}/${activeSessions.length} sessions to WebSocket`)
+      } else {
+        console.log('⚠️ Could not restore pane structure, falling back to individual panes')
+
+        // Fallback: create individual panes as before
+        const reconnectionPromises = activeSessions.map(async (session, index) => {
+          // Stagger reconnections to prevent layout conflicts
+          await new Promise(resolve => setTimeout(resolve, index * 150))
+
+          try {
+            await reconnectToSession(session)
+            return { success: true, sessionId: session.id }
+          } catch (error) {
+            console.error(`Failed to reconnect session ${session.id}:`, error)
+            return { success: false, sessionId: session.id, error }
+          }
+        })
+
+        const results = await Promise.allSettled(reconnectionPromises)
+        const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length
+        const failed = results.length - successful
+
+        if (successful > 0) {
+          console.log(`✅ Successfully reconnected ${successful}/${activeSessions.length} sessions`)
         }
-      })
-
-      const results = await Promise.allSettled(reconnectionPromises)
-      const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length
-      const failed = results.length - successful
-
-      if (successful > 0) {
-        console.log(`✅ Successfully reconnected ${successful}/${activeSessions.length} sessions`)
-      }
-      if (failed > 0) {
-        console.warn(`⚠️ Failed to reconnect ${failed}/${activeSessions.length} sessions`)
+        if (failed > 0) {
+          console.warn(`⚠️ Failed to reconnect ${failed}/${activeSessions.length} sessions`)
+        }
       }
     }
 
@@ -193,6 +226,10 @@ watch(() => workspaceStore.selectedWorkspace, async (newWorkspace, oldWorkspace)
     showSessionReconnect.value = false
     terminalStore.cleanup()
   } else {
+    // Save pane structure for the old workspace before switching
+    if (oldWorkspace && terminalStore.hasPanes) {
+      terminalStore.savePaneStructure(oldWorkspace.id)
+    }
     // Load sessions on initial workspace selection OR workspace switch
     const isWorkspaceSwitch = oldWorkspace && oldWorkspace.id !== newWorkspace.id
     const isInitialLoad = !oldWorkspace
@@ -224,6 +261,14 @@ const layoutSignature = computed(() => {
   return `${terminalStore.currentLayout}|${paneSignatures}`;
 });
 
+// Pane structure signature for persistence
+const paneStructureSignature = computed(() => {
+  if (!terminalStore.hasPanes) return '';
+  const paneStructure = terminalStore.panes
+    .map(p => `${p.id}:${p.tabs.map(t => t.sessionId).join(',')}`);
+  return `${paneStructure.join('|')}|active:${terminalStore.activePane}`;
+});
+
 watch(layoutSignature, (newSignature, oldSignature) => {
   if (newSignature && oldSignature && newSignature !== oldSignature && workspaceStore.selectedWorkspace && terminalStore.panes.length > 0) {
     const layoutConfig = {
@@ -252,6 +297,14 @@ watch(layoutSignature, (newSignature, oldSignature) => {
       { ...layoutConfig, type: layoutConfig.layout_type || 'single' },
       false
     )
+  }
+})
+
+// Watch for pane structure changes and save them
+watch(paneStructureSignature, (newSignature, oldSignature) => {
+  if (newSignature && oldSignature && newSignature !== oldSignature && workspaceStore.selectedWorkspace) {
+    console.log('🔄 Pane structure changed, saving to localStorage')
+    terminalStore.savePaneStructure(workspaceStore.selectedWorkspace.id)
   }
 })
 
@@ -389,6 +442,10 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  // Save pane structure before unmounting
+  if (workspaceStore.selectedWorkspace && terminalStore.hasPanes) {
+    terminalStore.savePaneStructure(workspaceStore.selectedWorkspace.id)
+  }
   terminalStore.cleanup()
 })
 </script>

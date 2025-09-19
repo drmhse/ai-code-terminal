@@ -1,5 +1,6 @@
 import './assets/main.css'
 import './styles/global.css'
+import '@xterm/xterm/css/xterm.css'
 
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'

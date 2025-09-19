@@ -213,6 +213,9 @@ export const useTerminalStore = defineStore('terminal', () => {
     // Create first tab in the pane
     createTabInPane(paneId, workspaceId, 'Terminal')
 
+    // Save pane structure after creating new pane
+    triggerPaneStructureSave()
+
     return newPane
   }
 
@@ -242,6 +245,9 @@ export const useTerminalStore = defineStore('terminal', () => {
         activePane.value = null
       }
     }
+
+    // Save pane structure after closing pane
+    triggerPaneStructureSave()
   }
 
   const setActivePane = (paneId: string) => {
@@ -258,6 +264,8 @@ export const useTerminalStore = defineStore('terminal', () => {
     if (newPane) {
       newPane.isActive = true
       activePane.value = paneId
+      // Save pane structure after changing active pane
+      triggerPaneStructureSave()
     }
   }
 
@@ -298,6 +306,9 @@ export const useTerminalStore = defineStore('terminal', () => {
     pane.tabs.forEach((tab, index) => {
       tab.order = index
     })
+
+    // Save pane structure after closing tab
+    triggerPaneStructureSave()
   }
 
   const setActiveTabInPane = (paneId: string, tabId: string) => {
@@ -317,6 +328,8 @@ export const useTerminalStore = defineStore('terminal', () => {
     if (newTab) {
       newTab.isActive = true
       pane.activeTabId = tabId
+      // Save pane structure after changing active tab
+      triggerPaneStructureSave()
     }
   }
 
@@ -349,6 +362,9 @@ export const useTerminalStore = defineStore('terminal', () => {
       setActiveTabInPane(targetPaneId, tabId)
       setActivePane(targetPaneId)
     }
+
+    // Save pane structure after moving tab
+    triggerPaneStructureSave()
   }
 
   const sendInput = (paneId: string, data: string) => {
@@ -700,6 +716,9 @@ export const useTerminalStore = defineStore('terminal', () => {
   const switchToWorkspace = (workspaceId: string) => {
     // Save current workspace state if we have one
     if (currentWorkspaceId.value) {
+      // Save pane structure to localStorage
+      savePaneStructure(currentWorkspaceId.value)
+
       workspaceTerminals.value.set(currentWorkspaceId.value, {
         panes: [...panes.value],
         activePane: activePane.value,
@@ -731,6 +750,157 @@ export const useTerminalStore = defineStore('terminal', () => {
     if (!currentWorkspaceId.value) return 0
     const workspaceState = workspaceTerminals.value.get(currentWorkspaceId.value)
     return workspaceState ? workspaceState.panes.length : panes.value.length
+  }
+
+  // Helper to trigger pane structure save
+  const triggerPaneStructureSave = () => {
+    if (currentWorkspaceId.value) {
+      savePaneStructure(currentWorkspaceId.value)
+    }
+  }
+
+  // Pane structure persistence
+  const savePaneStructure = (workspaceId: string) => {
+    if (!workspaceId || panes.value.length === 0) return
+
+    const paneStructure = {
+      panes: panes.value.map(pane => ({
+        id: pane.id,
+        name: pane.name,
+        tabs: pane.tabs.map(tab => ({
+          id: tab.id,
+          sessionId: tab.sessionId,
+          name: tab.name,
+          order: tab.order,
+          isActive: tab.isActive
+        })),
+        activeTabId: pane.activeTabId,
+        isActive: pane.isActive
+      })),
+      activePane: activePane.value,
+      currentLayout: currentLayout.value,
+      timestamp: Date.now()
+    }
+
+    try {
+      localStorage.setItem(`pane_structure_${workspaceId}`, JSON.stringify(paneStructure))
+      console.log(`💾 Saved pane structure for workspace ${workspaceId}`)
+    } catch (error) {
+      console.warn('Failed to save pane structure:', error)
+    }
+  }
+
+  const loadPaneStructure = (workspaceId: string) => {
+    if (!workspaceId) return null
+
+    try {
+      const stored = localStorage.getItem(`pane_structure_${workspaceId}`)
+      if (stored) {
+        const paneStructure = JSON.parse(stored)
+        // Check if structure is less than 24 hours old
+        const maxAge = 24 * 60 * 60 * 1000 // 24 hours
+        if (Date.now() - paneStructure.timestamp < maxAge) {
+          console.log(`📖 Loaded pane structure for workspace ${workspaceId}`)
+          return paneStructure
+        } else {
+          // Remove stale data
+          localStorage.removeItem(`pane_structure_${workspaceId}`)
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load pane structure:', error)
+    }
+    return null
+  }
+
+  const restorePaneStructure = async (workspaceId: string, sessions: Array<{id: string, session_name?: string}>) => {
+    const paneStructure = loadPaneStructure(workspaceId)
+    if (!paneStructure || !sessions.length) return false
+
+    console.log(`🔄 Restoring pane structure with ${paneStructure.panes.length} panes`)
+
+    // Clear existing panes
+    panes.value = []
+    activePane.value = null
+
+    // Create a map of sessionId to session info
+    const sessionMap = new Map(sessions.map(s => [s.id, s]))
+
+    // Restore each pane with its tabs
+    for (const savedPane of paneStructure.panes) {
+      const paneId = `pane-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
+      const newPane: TerminalPane = {
+        id: paneId,
+        name: savedPane.name,
+        isActive: false,
+        tabs: [],
+        activeTabId: null,
+        size: { cols: 80, rows: 24 }
+      }
+
+      // Add tabs that still have valid sessions
+      for (const savedTab of savedPane.tabs) {
+        const sessionInfo = sessionMap.get(savedTab.sessionId)
+        if (sessionInfo) {
+          const tabId = `tab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+          const newTab: TerminalTab = {
+            id: tabId,
+            sessionId: savedTab.sessionId,
+            name: sessionInfo.session_name || savedTab.name,
+            isActive: false,
+            order: savedTab.order,
+            buffer: '',
+            size: { cols: 80, rows: 24 }
+          }
+          newPane.tabs.push(newTab)
+        }
+      }
+
+      // Only add pane if it has tabs
+      if (newPane.tabs.length > 0) {
+        panes.value.push(newPane)
+
+        // Set active tab based on saved state
+        const savedActiveTab = savedPane.tabs.find(t => t.isActive) || savedPane.tabs[0]
+        if (savedActiveTab) {
+          const activeTab = newPane.tabs.find(t => t.sessionId === savedActiveTab.sessionId)
+          if (activeTab) {
+            setActiveTabInPane(paneId, activeTab.id)
+          }
+        }
+      }
+    }
+
+    // Restore active pane
+    if (panes.value.length > 0) {
+      if (paneStructure.activePane) {
+        // Find pane with same tab structure as the previously active one
+        const savedActivePane = paneStructure.panes.find(p => p.isActive)
+        if (savedActivePane) {
+          const matchingPane = panes.value.find(p =>
+            p.tabs.some(t => savedActivePane.tabs.some(st => st.sessionId === t.sessionId))
+          )
+          if (matchingPane) {
+            setActivePane(matchingPane.id)
+          } else {
+            setActivePane(panes.value[0].id)
+          }
+        } else {
+          setActivePane(panes.value[0].id)
+        }
+      } else {
+        setActivePane(panes.value[0].id)
+      }
+    }
+
+    // Restore layout if available
+    if (paneStructure.currentLayout) {
+      currentLayout.value = paneStructure.currentLayout
+    }
+
+    console.log(`✅ Restored ${panes.value.length} panes with preserved tab grouping`)
+    return true
   }
 
   const cleanup = () => {
@@ -818,5 +988,10 @@ export const useTerminalStore = defineStore('terminal', () => {
     // Workspace-aware functions
     switchToWorkspace,
     getCurrentWorkspaceTerminalCount,
+
+    // Pane structure persistence
+    savePaneStructure,
+    loadPaneStructure,
+    restorePaneStructure,
   }
 })

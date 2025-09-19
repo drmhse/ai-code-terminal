@@ -135,9 +135,14 @@
 
     <!-- Terminal Content -->
     <div class="terminal-content">
+      <!-- Container for each terminal tab -->
       <div
-        ref="terminalRef"
+        v-for="tab in pane.tabs"
+        :key="tab.id"
+        :ref="el => terminalRefs.set(tab.id, el as HTMLDivElement)"
         class="xterm-container"
+        :class="{ active: tab.isActive }"
+        :data-tab-id="tab.id"
         @click="focus"
         tabindex="0"
       ></div>
@@ -150,6 +155,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
+import { WebglAddon } from '@xterm/addon-webgl'
 import type { TerminalPane as TerminalPaneType, TerminalTab } from '@/stores/terminal'
 import type { TerminalTheme } from '@/types/terminal'
 import { useTerminalStore } from '@/stores/terminal'
@@ -187,16 +193,18 @@ const workspaceStore = useWorkspaceStore()
 
 const draggedTab = ref<TerminalTab | null>(null)
 const dragOverTab = ref<TerminalTab | null>(null)
-const terminalRef = ref<HTMLDivElement>()
-const terminalInstance = ref<Terminal>()
-const fitAddon = ref<FitAddon>()
-const webLinksAddon = ref<WebLinksAddon>()
+// Track terminal container refs per tab ID
+const terminalRefs = ref<Map<string, HTMLDivElement>>(new Map())
+// Store terminal instances per tab ID
+const terminalInstances = ref<Map<string, Terminal>>(new Map())
+const fitAddons = ref<Map<string, FitAddon>>(new Map())
+const webLinksAddons = ref<Map<string, WebLinksAddon>>(new Map())
+const webglAddons = ref<Map<string, WebglAddon>>(new Map())
 const resizeObserver = ref<ResizeObserver>()
 const isDisposed = ref(false)
 
-// Track addon loading states to prevent disposal errors
-const fitAddonLoaded = ref(false)
-const webLinksAddonLoaded = ref(false)
+// Track addon loading states per tab
+const addonStates = ref<Map<string, { fitLoaded: boolean, webLinksLoaded: boolean, webglLoaded: boolean }>>(new Map())
 
 // Output throttling for large data
 const outputBuffer = ref<{ terminal: Terminal; data: string }[]>([])
@@ -236,8 +244,56 @@ const getActiveTab = (): TerminalTab | undefined => {
   return props.pane.tabs.find(tab => tab.isActive)
 }
 
+// Helper functions for multi-terminal management
+const getActiveTerminal = (): Terminal | undefined => {
+  const activeTab = getActiveTab()
+  return activeTab ? terminalInstances.value.get(activeTab.id) : undefined
+}
+
+const getTerminalForTab = (tabId: string): Terminal | undefined => {
+  return terminalInstances.value.get(tabId)
+}
+
+const createTerminalForTab = (tabId: string): Terminal => {
+  // Configure for WebGL/Canvas rendering performance
+  const terminal = new Terminal({
+    theme: props.theme || defaultTheme,
+    fontSize: 14,
+    fontFamily: '"JetBrains Mono", "Fira Code", "SF Mono", Monaco, Consolas, monospace',
+    cursorBlink: true,
+    allowProposedApi: true,
+    scrollback: 10000,
+    fastScrollModifier: 'alt',
+    fastScrollSensitivity: 5,
+    scrollSensitivity: 3,
+    convertEol: true,
+    tabStopWidth: 4,
+    rightClickSelectsWord: true,
+    macOptionIsMeta: true,
+    windowsMode: false,
+    macOptionClickForcesSelection: false,
+    disableStdin: false,
+    smoothScrollDuration: 0,
+    altClickMovesCursor: false,
+    logLevel: 'warn',
+    allowTransparency: false, // Required for WebGL
+    drawBoldTextInBrightColors: true,
+    minimumContrastRatio: 1,
+    customGlyphs: true, // Forces canvas rendering - doesn't work with DOM
+    rescaleOverlappingGlyphs: true // Also forces canvas rendering
+  })
+
+  // Store terminal instance
+  terminalInstances.value.set(tabId, terminal)
+
+  // Initialize addon state
+  addonStates.value.set(tabId, { fitLoaded: false, webLinksLoaded: false, webglLoaded: false })
+
+  return terminal
+}
+
 // Production-level container readiness check
-const waitForContainerReady = (): Promise<void> => {
+const waitForContainerReady = (tabId: string): Promise<void> => {
   return new Promise((resolve, reject) => {
     const startTime = Date.now()
     let retryCount = 0
@@ -250,12 +306,11 @@ const waitForContainerReady = (): Promise<void> => {
       }
 
       // Check if component is disposed
-      if (isDisposed.value || !terminalRef.value) {
+      const container = terminalRefs.value.get(tabId)
+      if (isDisposed.value || !container) {
         reject(new Error('Terminal component disposed during initialization'))
         return
       }
-
-      const container = terminalRef.value
       const rect = container.getBoundingClientRect()
 
       // Check if container is visible and has reasonable dimensions
@@ -302,10 +357,15 @@ const debouncedFit = () => {
 
   // Set new timeout
   resizeTimeout.value = setTimeout(() => {
-    if (fitAddon.value && terminalInstance.value && !isResizing.value && !isDisposed.value) {
+    const activeTerminal = getActiveTerminal()
+    const activeTab = getActiveTab()
+    const fitAddon = activeTab ? fitAddons.value.get(activeTab.id) : undefined
+
+    if (fitAddon && activeTerminal && !isResizing.value && !isDisposed.value) {
       // Validate container dimensions before fitting
-      if (terminalRef.value) {
-        const rect = terminalRef.value.getBoundingClientRect()
+      const activeContainer = activeTab ? terminalRefs.value.get(activeTab.id) : undefined
+      if (activeContainer) {
+        const rect = activeContainer.getBoundingClientRect()
         const isValidSize = rect.width >= MIN_CONTAINER_WIDTH && rect.height >= MIN_CONTAINER_HEIGHT
         const isVisible = rect.width > 0 && rect.height > 0
 
@@ -324,8 +384,8 @@ const debouncedFit = () => {
         isResizing.value = true
         lastResizeTime.value = Date.now()
 
-        // Simple fit without aggressive scroll position manipulation
-        fitAddon.value.fit()
+        // Fit the active terminal
+        fitAddon.fit()
 
         setTimeout(() => {
           if (!isDisposed.value) {
@@ -369,115 +429,136 @@ const defaultTheme: TerminalTheme = {
 
 // Removed createTerminalForSession - using simple single instance approach
 
-const initializeTerminal = () => {
-  if (!terminalRef.value || isDisposed.value) return
+const initializeTerminalForTab = async (tabId: string) => {
+  if (isDisposed.value) return
 
-  // Force canvas renderer - xterm.js v5+ sometimes falls back to DOM
-  terminalInstance.value = new Terminal({
-    theme: props.theme || defaultTheme,
-    fontSize: 14,
-    fontFamily: '"JetBrains Mono", "Fira Code", "SF Mono", Monaco, Consolas, monospace',
-    cursorBlink: true,
-    allowProposedApi: true,
-    scrollback: 10000,
-    fastScrollModifier: 'alt',
-    fastScrollSensitivity: 5,
-    scrollSensitivity: 3,
-    convertEol: true,
-    tabStopWidth: 4,
-    rightClickSelectsWord: true,
-    macOptionIsMeta: true,
-    windowsMode: false,
-    macOptionClickForcesSelection: false,
-    disableStdin: false,
-    smoothScrollDuration: 0,
-    altClickMovesCursor: false,
-    logLevel: 'warn',
-    allowTransparency: false, // Required for canvas
-    drawBoldTextInBrightColors: true,
-    minimumContrastRatio: 1,
-    // Force canvas - these are the correct options for v5+
-    rendererType: 'canvas'
-  })
+  // Check if terminal already exists for this tab
+  if (terminalInstances.value.has(tabId)) {
+    console.log(`Terminal already exists for tab ${tabId}`)
+    return
+  }
+
+  // Get the container for this tab - wait for it to be available
+  let container = terminalRefs.value.get(tabId)
+  if (!container) {
+    // Wait for DOM to be ready with a short timeout
+    await nextTick()
+    container = terminalRefs.value.get(tabId)
+    if (!container) {
+      console.warn(`No container found for tab ${tabId} after nextTick, skipping initialization`)
+      return
+    }
+  }
+
+  const terminal = createTerminalForTab(tabId)
+  const state = addonStates.value.get(tabId)!
 
   // Load addons
   try {
-    fitAddon.value = new FitAddon()
-    terminalInstance.value.loadAddon(fitAddon.value)
-    fitAddonLoaded.value = true
+    const fitAddon = new FitAddon()
+    terminal.loadAddon(fitAddon)
+    fitAddons.value.set(tabId, fitAddon)
+    state.fitLoaded = true
   } catch (error) {
-    console.warn('FitAddon loading failed:', error)
+    console.warn(`FitAddon loading failed for tab ${tabId}:`, error)
   }
 
   try {
-    webLinksAddon.value = new WebLinksAddon()
-    terminalInstance.value.loadAddon(webLinksAddon.value)
-    webLinksAddonLoaded.value = true
+    const webLinksAddon = new WebLinksAddon()
+    terminal.loadAddon(webLinksAddon)
+    webLinksAddons.value.set(tabId, webLinksAddon)
+    state.webLinksLoaded = true
   } catch (error) {
-    console.warn('WebLinksAddon loading failed:', error)
+    console.warn(`WebLinksAddon loading failed for tab ${tabId}:`, error)
   }
 
-  // Open terminal in container
-  terminalInstance.value.open(terminalRef.value)
+  // Open terminal in its dedicated container
+  terminal.open(container)
 
-  // Debug: Check which renderer is actually being used
-  setTimeout(() => {
-    if (terminalRef.value) {
-      const hasCanvas = terminalRef.value.querySelector('canvas')
-      const hasDomRenderer = terminalRef.value.querySelector('.xterm-dom-renderer-owner-1')
-      console.log(`🎨 Renderer check: Canvas=${!!hasCanvas}, DOM=${!!hasDomRenderer}`)
-
-      if (hasDomRenderer && !hasCanvas) {
-        console.warn('⚠️ Canvas renderer failed to load, using DOM fallback')
-      } else if (hasCanvas) {
-        console.log('✅ Canvas renderer successfully loaded')
-      }
-    }
-  }, 500)
-
-  // Only clear selection artifacts, not terminal content
-  terminalInstance.value.clearSelection()
-
+  // Load WebGL addon after terminal is opened
+  try {
+    const webglAddon = new WebglAddon()
+    terminal.loadAddon(webglAddon)
+    webglAddons.value.set(tabId, webglAddon)
+    state.webglLoaded = true
+    console.log(`✅ WebGL renderer activated for tab ${tabId}`)
+  } catch (error) {
+    console.warn(`⚠️ WebGL addon failed for tab ${tabId}:`, error)
+  }
 
   // Set up event handlers
-  terminalInstance.value.onData((data) => emit('data', data))
-  terminalInstance.value.onResize(({ cols, rows }) => {
+  terminal.onData((data) => {
+    // Only emit data if this is the active terminal
+    const activeTab = getActiveTab()
+    if (activeTab?.id === tabId) {
+      emit('data', data)
+    }
+  })
+
+  terminal.onResize(({ cols, rows }) => {
     if (cols < 10 || rows < 5 || cols > 500 || rows > 200) {
       console.warn(`Invalid terminal dimensions: ${cols}x${rows}, ignoring`)
       return
     }
-    emit('resize', cols, rows)
+    // Only emit resize if this is the active terminal
+    const activeTab = getActiveTab()
+    if (activeTab?.id === tabId) {
+      emit('resize', cols, rows)
+    }
   })
 
-  // Set up resize observer for active terminal
-  if (terminalInstance.value) {
+  console.log(`✅ Terminal initialized for tab ${tabId}`)
+}
+
+const initializeTerminal = async () => {
+  if (isDisposed.value) return
+
+  // Initialize terminals for all tabs
+  for (const tab of props.pane.tabs) {
+    await initializeTerminalForTab(tab.id)
+  }
+
+  // Set up resize observer for the main terminal content area
+  const terminalContent = document.querySelector(`[data-pane-id="${props.pane.id}"] .terminal-content`) as HTMLElement
+  if (terminalContent) {
     resizeObserver.value = new ResizeObserver(() => debouncedFit())
-    resizeObserver.value.observe(terminalRef.value)
-
-    // Focus the terminal
-    terminalInstance.value.focus()
-    console.log(`🎯 Terminal focused for pane ${props.pane.id}`)
-
-    // Initial fit
-    waitForContainerReady().then(() => {
-      if (!isDisposed.value && terminalInstance.value) {
-        debouncedFit()
-      }
-    }).catch(error => {
-      console.error(`Failed to initialize terminal ${props.pane.id}:`, error)
-    })
+    resizeObserver.value.observe(terminalContent)
   }
 
   console.log(`✅ Terminal initialized for pane ${props.pane.id}`)
 }
 
-// Watch for tab changes and focus terminal (removed clear to preserve scroll)
-watch(() => props.pane.activeTabId, (newTabId, oldTabId) => {
-  if (newTabId && newTabId !== oldTabId && terminalInstance.value) {
-    // Just focus the terminal - let content flow naturally without clearing
-    setTimeout(() => terminalInstance.value?.focus(), 50);
+const switchToTab = async (tabId: string) => {
+  if (isDisposed.value) return
+
+  // Ensure terminal exists for the target tab
+  let terminal = getTerminalForTab(tabId)
+  if (!terminal) {
+    await initializeTerminalForTab(tabId)
+    terminal = getTerminalForTab(tabId)
   }
-}, { immediate: true });
+
+  if (terminal) {
+    // Focus and fit the terminal (CSS handles visibility via :class="{ active: tab.isActive }")
+    setTimeout(() => {
+      terminal?.focus()
+
+      const fitAddon = fitAddons.value.get(tabId)
+      if (fitAddon) {
+        fitAddon.fit()
+      }
+    }, 50)
+
+    console.log(`🔄 Switched to terminal for tab ${tabId}`)
+  }
+}
+
+// Watch for tab changes and switch terminal instances (after component is mounted)
+watch(() => props.pane.activeTabId, (newTabId, oldTabId) => {
+  if (newTabId && newTabId !== oldTabId) {
+    switchToTab(newTabId)
+  }
+});
 
 const selectTab = (tabId: string) => {
   terminalStore.setActiveTabInPane(props.pane.id, tabId)
@@ -674,15 +755,28 @@ const handlePaneDrop = (event: DragEvent) => {
 }
 
 const focus = () => {
-  terminalInstance.value?.focus()
+  const activeTerminal = getActiveTerminal()
+  activeTerminal?.focus()
   emit('focus', props.pane.id)
 }
 
 const write = (data: string, sessionId?: string) => {
   if (!isDisposed.value) {
-    // Use current terminal instance
-    if (terminalInstance.value) {
-      writeThrottledToTerminal(terminalInstance.value, data)
+    if (sessionId) {
+      // Route output to the specific terminal for this session
+      const targetTab = props.pane.tabs.find(tab => tab.sessionId === sessionId)
+      if (targetTab) {
+        const targetTerminal = terminalInstances.value.get(targetTab.id)
+        if (targetTerminal) {
+          writeThrottledToTerminal(targetTerminal, data)
+        }
+      }
+    } else {
+      // Use active terminal instance for general writes
+      const activeTerminal = getActiveTerminal()
+      if (activeTerminal) {
+        writeThrottledToTerminal(activeTerminal, data)
+      }
     }
   }
 }
@@ -694,8 +788,11 @@ const writeln = (data: string) => {
 }
 
 const clear = () => {
-  if (!isDisposed.value && terminalInstance.value) {
-    terminalInstance.value.clear()
+  if (!isDisposed.value) {
+    const activeTerminal = getActiveTerminal()
+    if (activeTerminal) {
+      activeTerminal.clear()
+    }
   }
 }
 
@@ -754,8 +851,9 @@ const writeThrottledToTerminal = (terminal: Terminal, data: string) => {
 }
 
 const writeThrottled = (data: string) => {
-  if (terminalInstance.value) {
-    writeThrottledToTerminal(terminalInstance.value, data)
+  const activeTerminal = getActiveTerminal()
+  if (activeTerminal) {
+    writeThrottledToTerminal(activeTerminal, data)
   }
 }
 
@@ -817,6 +915,81 @@ const cleanTerminalBuffer = (buffer: string): string => {
   return cleaned
 }
 
+const restoreTerminalBuffers = async () => {
+  if (isDisposed.value) return
+
+  console.log(`🔄 Restoring terminal buffers for pane ${props.pane.id}`)
+
+  for (const tab of props.pane.tabs) {
+    const terminal = terminalInstances.value.get(tab.id)
+    if (!terminal || !tab.sessionId) continue
+
+    let bufferToRestore = tab.buffer
+
+    // If tab buffer is empty, fetch from backend
+    if (!bufferToRestore) {
+      try {
+        // Import apiService
+        const { apiService } = await import('@/services/api')
+        const backendBuffer = await apiService.getSessionBuffer(tab.sessionId)
+        if (backendBuffer) {
+          bufferToRestore = backendBuffer
+          console.log(`🌐 Retrieved buffer from backend for session ${tab.sessionId}: ${backendBuffer.length} chars`)
+        }
+      } catch (error) {
+        console.warn(`Failed to retrieve backend buffer for ${tab.sessionId}:`, error)
+      }
+    }
+
+    // Fallback to localStorage if both tab buffer and backend are empty
+    if (!bufferToRestore) {
+      try {
+        const storedBuffer = localStorage.getItem(`terminal_buffer_${tab.sessionId}`)
+        if (storedBuffer) {
+          bufferToRestore = storedBuffer
+          console.log(`📦 Retrieved localStorage backup for session ${tab.sessionId}`)
+        }
+      } catch (error) {
+        console.warn(`Failed to retrieve localStorage buffer for ${tab.sessionId}:`, error)
+      }
+    }
+
+    if (!bufferToRestore) continue
+
+    try {
+      // Clean the buffer to prevent corruption
+      const cleanedBuffer = cleanTerminalBuffer(bufferToRestore)
+
+      if (cleanedBuffer.length > 0) {
+        console.log(`📋 Restoring ${cleanedBuffer.length} characters to terminal ${tab.id}`)
+
+        // Write the buffer content to restore visual state
+        terminal.write(cleanedBuffer)
+
+        console.log(`✅ Buffer restored for terminal ${tab.id}`)
+      }
+    } catch (error) {
+      console.warn(`⚠️ Failed to restore buffer for terminal ${tab.id}:`, error)
+      // Continue with other terminals even if one fails
+    }
+  }
+}
+
+// Save terminal buffers to localStorage for persistence
+const saveTerminalBuffers = () => {
+  for (const tab of props.pane.tabs) {
+    if (tab.buffer && tab.sessionId) {
+      try {
+        // Keep only last 5000 characters to prevent localStorage bloat
+        const trimmedBuffer = tab.buffer.length > 5000 ? tab.buffer.slice(-5000) : tab.buffer
+        localStorage.setItem(`terminal_buffer_${tab.sessionId}`, trimmedBuffer)
+      } catch (error) {
+        console.warn(`Failed to save buffer for session ${tab.sessionId}:`, error)
+      }
+    }
+  }
+}
+
 const dispose = () => {
   if (isDisposed.value) return // Prevent double disposal
 
@@ -841,38 +1014,46 @@ const dispose = () => {
       resizeObserver.value = undefined
     }
 
-    // Dispose terminal instance
-    if (terminalInstance.value) {
+    // Dispose all terminal instances
+    terminalInstances.value.forEach((terminal, tabId) => {
       try {
-        terminalInstance.value.dispose()
+        terminal.dispose()
       } catch (error) {
-        console.warn('Terminal disposal error:', error)
+        console.warn(`Terminal disposal error for tab ${tabId}:`, error)
       }
-    }
+    })
 
-    // Dispose addons
-    if (fitAddon.value && fitAddonLoaded.value) {
+    // Dispose all addons
+    fitAddons.value.forEach((addon, tabId) => {
       try {
-        fitAddon.value.dispose()
+        addon.dispose()
       } catch (error) {
-        console.warn('FitAddon disposal error:', error)
+        console.warn(`FitAddon disposal error for tab ${tabId}:`, error)
       }
-    }
+    })
 
-    if (webLinksAddon.value && webLinksAddonLoaded.value) {
+    webLinksAddons.value.forEach((addon, tabId) => {
       try {
-        webLinksAddon.value.dispose()
+        addon.dispose()
       } catch (error) {
-        console.warn('WebLinksAddon disposal error:', error)
+        console.warn(`WebLinksAddon disposal error for tab ${tabId}:`, error)
       }
-    }
+    })
 
-    // Clear references
-    terminalInstance.value = undefined
-    fitAddon.value = undefined
-    webLinksAddon.value = undefined
-    fitAddonLoaded.value = false
-    webLinksAddonLoaded.value = false
+    webglAddons.value.forEach((addon, tabId) => {
+      try {
+        addon.dispose()
+      } catch (error) {
+        console.warn(`WebglAddon disposal error for tab ${tabId}:`, error)
+      }
+    })
+
+    // Clear all references
+    terminalInstances.value.clear()
+    fitAddons.value.clear()
+    webLinksAddons.value.clear()
+    webglAddons.value.clear()
+    addonStates.value.clear()
 
     isDisposed.value = true
   } catch (error) {
@@ -885,22 +1066,34 @@ const dispose = () => {
 defineExpose({ write, writeln, clear, fit, focus, dispose })
 
 onMounted(() => {
-  nextTick(() => {
-    initializeTerminal()
+  nextTick(async () => {
+    await initializeTerminal()
+
+    // Initialize the active tab after terminals are set up
+    const activeTab = getActiveTab()
+    if (activeTab) {
+      await switchToTab(activeTab.id)
+    }
 
     // Route output to correct session terminal instead of active tab only
     cleanupOutputHandler = terminalStore.onTerminalOutput((sessionId, output) => {
       write(output, sessionId);
     });
 
-    // DO NOT restore buffers - let terminals maintain their own state naturally
-    // This prevents the corruption caused by replaying partial escape sequences
+    // Restore terminal buffers for session persistence
+    await restoreTerminalBuffers()
 
     // Set up tab overflow detection
     updateTabOverflow()
 
     // Watch for resize to update overflow state
     window.addEventListener('resize', updateTabOverflow)
+
+    // Periodic saving of terminal buffers (every 30 seconds)
+    const saveInterval = setInterval(saveTerminalBuffers, 30000)
+
+    // Store interval ref for cleanup
+    ;(window as any).terminalBufferSaveInterval = saveInterval
   })
 })
 
@@ -909,16 +1102,21 @@ watch(() => props.pane.tabs.length, () => {
   nextTick(updateTabOverflow)
 }, { immediate: true })
 
-// Watch for theme changes and update terminal theme dynamically
+// Watch for theme changes and update all terminal themes dynamically
 watch(() => props.theme, (newTheme) => {
-  if (terminalInstance.value && newTheme) {
-    // Update terminal theme using xterm.js options API
-    terminalInstance.value.options.theme = newTheme
+  if (newTheme) {
+    // Update theme for all terminal instances
+    terminalInstances.value.forEach((terminal) => {
+      terminal.options.theme = newTheme
+    })
   }
 }, { deep: true })
 
 onUnmounted(() => {
   try {
+    // Save terminal buffers before disposal
+    saveTerminalBuffers()
+
     // Clean up terminal
     dispose()
 
@@ -926,6 +1124,12 @@ onUnmounted(() => {
     if (cleanupOutputHandler) {
       cleanupOutputHandler()
       cleanupOutputHandler = null
+    }
+
+    // Clear periodic buffer saving
+    if ((window as any).terminalBufferSaveInterval) {
+      clearInterval((window as any).terminalBufferSaveInterval)
+      delete (window as any).terminalBufferSaveInterval
     }
 
     // Remove event listeners
@@ -1112,16 +1316,25 @@ onUnmounted(() => {
   position: relative;
   background: var(--terminal-bg);
   border-radius: 0 0 8px 8px;
+  min-height: 300px; /* Ensure minimum height for terminal */
+  display: flex;
+  flex-direction: column;
 }
 
 .xterm-container {
   width: 100%;
   height: 100%;
+  flex: 1; /* Take all available space in terminal-content */
   background: var(--terminal-bg);
   border-radius: 0 0 8px 8px;
   position: relative;
   min-height: 0;
   box-sizing: border-box;
+  display: none; /* Hide by default */
+}
+
+.xterm-container.active {
+  display: block; /* Show active terminal */
 }
 
 /* ONLY hide the font measurement elements - these contain ╚╚╚╚ test characters */

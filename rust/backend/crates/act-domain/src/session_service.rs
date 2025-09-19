@@ -12,7 +12,7 @@ use act_core::{
 
 use chrono::{DateTime, Utc, Duration};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use tracing::{info, warn, debug, error};
 use uuid::Uuid;
 use tokio::sync::{mpsc, RwLock};
@@ -60,6 +60,72 @@ impl Default for CreateSessionOptions {
             max_idle_minutes: 1440, // 24 hours
             working_directory: None,
         }
+    }
+}
+
+// Line-based rolling buffer for terminal output persistence (tmux/screen approach)
+#[derive(Debug, Clone)]
+pub struct RollingBuffer {
+    complete_lines: VecDeque<String>,  // Only complete lines (ending with \n)
+    pending_line: String,              // Accumulates until newline arrives
+    max_lines: usize,                  // Maximum number of complete lines to keep
+}
+
+impl RollingBuffer {
+    pub fn new(max_lines: usize) -> Self {
+        Self {
+            complete_lines: VecDeque::with_capacity(max_lines),
+            pending_line: String::new(),
+            max_lines,
+        }
+    }
+
+    pub fn append(&mut self, output: String) {
+        // Add new output to pending line
+        self.pending_line.push_str(&output);
+
+        // Process any complete lines (ending with \n or \r\n)
+        while let Some(newline_pos) = self.pending_line.find('\n') {
+            // Extract complete line including the newline
+            let mut complete_line = self.pending_line[..=newline_pos].to_string();
+
+            // Handle \r\n by normalizing to \n
+            if complete_line.ends_with("\r\n") {
+                complete_line = complete_line.replace("\r\n", "\n");
+            }
+
+            // Move to complete lines buffer
+            self.complete_lines.push_back(complete_line);
+
+            // Keep remainder in pending
+            self.pending_line = self.pending_line[newline_pos + 1..].to_string();
+
+            // Trim if exceeding line limit (safe - only removes complete lines)
+            if self.complete_lines.len() > self.max_lines {
+                self.complete_lines.pop_front();
+            }
+        }
+    }
+
+    pub fn get_content(&self) -> String {
+        let mut result = String::new();
+
+        // Add all complete lines
+        for line in &self.complete_lines {
+            result.push_str(line);
+        }
+
+        // Add pending line (without newline)
+        if !self.pending_line.is_empty() {
+            result.push_str(&self.pending_line);
+        }
+
+        result
+    }
+
+    pub fn clear(&mut self) {
+        self.complete_lines.clear();
+        self.pending_line.clear();
     }
 }
 
@@ -166,6 +232,7 @@ pub struct SessionService {
     pty_service: Arc<dyn PtyService>,
     websocket_manager: Arc<SessionWebSocketManager>,
     output_forwarders: Arc<RwLock<HashMap<String, OutputForwarder>>>,
+    terminal_buffers: Arc<RwLock<HashMap<String, RollingBuffer>>>,
     recovery_timeout_hours: i64,
 }
 
@@ -180,6 +247,7 @@ impl SessionService {
             pty_service,
             websocket_manager: Arc::new(SessionWebSocketManager::new()),
             output_forwarders: Arc::new(RwLock::new(HashMap::new())),
+            terminal_buffers: Arc::new(RwLock::new(HashMap::new())),
             recovery_timeout_hours: recovery_timeout_hours.unwrap_or(24),
         }
     }
@@ -238,11 +306,18 @@ pub async fn create_session(&self, user_id: &str, options: CreateSessionOptions)
                 forwarders.insert(session.id.clone(), forwarder);
             }
 
+            // Initialize rolling buffer for this session (5000 lines max)
+            {
+                let mut buffers = self.terminal_buffers.write().await;
+                buffers.insert(session.id.clone(), RollingBuffer::new(5000));
+            }
+
             // Start output forwarding task
             let websocket_manager = self.websocket_manager.clone();
+            let terminal_buffers = self.terminal_buffers.clone();
             let session_id_clone = session.id.clone();
             tokio::spawn(async move {
-                Self::handle_pty_output(output_rx, websocket_manager, session_id_clone, internal_rx).await;
+                Self::handle_pty_output(output_rx, websocket_manager, terminal_buffers, session_id_clone, internal_rx).await;
             });
 
             info!("Created PTY session for session {} with output forwarding", session.id);
@@ -402,6 +477,13 @@ pub async fn create_session(&self, user_id: &str, options: CreateSessionOptions)
             }
         }
 
+        // Clean up terminal buffer
+        {
+            let mut buffers = self.terminal_buffers.write().await;
+            buffers.remove(session_id);
+            debug!("Cleaned up terminal buffer for session {}", session_id);
+        }
+
         // Send termination message to any connected WebSockets
         self.websocket_manager.forward_to_websockets(session_id,
             "\r\n\x1b[1;31m● Session terminated by server\x1b[0m\r\n".to_string()).await;
@@ -471,6 +553,7 @@ pub async fn create_session(&self, user_id: &str, options: CreateSessionOptions)
     async fn handle_pty_output(
         mut output_rx: mpsc::UnboundedReceiver<PtyEvent>,
         websocket_manager: Arc<SessionWebSocketManager>,
+        terminal_buffers: Arc<RwLock<HashMap<String, RollingBuffer>>>,
         session_id: String,
         mut internal_rx: mpsc::UnboundedReceiver<PtyEvent>,
     ) {
@@ -484,6 +567,16 @@ pub async fn create_session(&self, user_id: &str, options: CreateSessionOptions)
 
                             if !output.is_empty() {
                                 debug!("✅ Forwarding PTY output for session {}: {} bytes", session_id, output.len());
+
+                                // Capture output to rolling buffer for persistence
+                                {
+                                    let mut buffers = terminal_buffers.write().await;
+                                    if let Some(buffer) = buffers.get_mut(&session_id) {
+                                        buffer.append(output.clone());
+                                    }
+                                }
+
+                                // Forward to WebSocket connections
                                 websocket_manager.forward_to_websockets(&session_id, output).await;
                             }
                         }
@@ -540,6 +633,16 @@ pub async fn create_session(&self, user_id: &str, options: CreateSessionOptions)
             self.websocket_manager.forward_to_websockets(session_id, output).await;
         }
         Ok(())
+    }
+
+    /// Get terminal buffer contents for session restoration
+    pub async fn get_terminal_buffer(&self, session_id: &str) -> Result<String> {
+        let buffers = self.terminal_buffers.read().await;
+        if let Some(buffer) = buffers.get(session_id) {
+            Ok(buffer.get_content())
+        } else {
+            Ok(String::new()) // Return empty string if session not found or no buffer
+        }
     }
 
     fn get_default_environment_vars(&self) -> HashMap<String, String> {
@@ -698,11 +801,18 @@ pub async fn create_session(&self, user_id: &str, options: CreateSessionOptions)
                 forwarders.insert(session.id.clone(), forwarder);
             }
 
+            // Recreate rolling buffer for this session (5000 lines max)
+            {
+                let mut buffers = self.terminal_buffers.write().await;
+                buffers.insert(session.id.clone(), RollingBuffer::new(5000));
+            }
+
             // Start output forwarding task
             let websocket_manager = self.websocket_manager.clone();
+            let terminal_buffers = self.terminal_buffers.clone();
             let session_id_clone = session.id.clone();
             tokio::spawn(async move {
-                Self::handle_pty_output(output_rx, websocket_manager, session_id_clone, internal_rx).await;
+                Self::handle_pty_output(output_rx, websocket_manager, terminal_buffers, session_id_clone, internal_rx).await;
             });
 
             // Update session status to active
@@ -740,6 +850,12 @@ pub async fn create_session(&self, user_id: &str, options: CreateSessionOptions)
             if let Some(forwarder) = forwarders.remove(session_id) {
                 let _ = forwarder.forward_event(PtyEvent::Closed);
             }
+        }
+
+        // Clean up terminal buffer
+        {
+            let mut buffers = self.terminal_buffers.write().await;
+            buffers.remove(session_id);
         }
 
         // Destroy PTY session

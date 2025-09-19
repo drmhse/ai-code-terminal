@@ -501,6 +501,13 @@ details?: Record<string, unknown>
     return response.data.data
   }
 
+  async getSessionBuffer(sessionId: string): Promise<string> {
+    const response: AxiosResponse<ApiResponse<string>> = await this.client.get(
+      `/api/v1/sessions/${sessionId}/buffer`
+    )
+    return response.data.data
+  }
+
   // Repository endpoints
   async getRepositories(page = 1, searchTerm = ''): Promise<{ repositories: Repository[], hasMore: boolean }> {
     const response = await this.client.get('/api/v1/github/repositories', {
