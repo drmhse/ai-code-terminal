@@ -70,6 +70,9 @@ pub enum CoreError {
     
     #[error("External service error: {0}")]
     External(String),
+
+    #[error("GitHub authentication required")]
+    GitHubAuthRequired,
 }
 
 impl From<std::io::Error> for CoreError {

@@ -14,22 +14,17 @@ interface DirectoryListing {
 }
 
 // Layout types
-interface LayoutConfiguration {
-  type: string
-  [key: string]: unknown
-}
-
 interface CreateLayoutRequest {
   name: string
   layout_type: string
-  configuration: LayoutConfiguration
+  tree_structure: string
   is_default?: boolean
   workspace_id: string
 }
 
 interface UpdateLayoutRequest {
   name?: string
-  configuration?: LayoutConfiguration
+  tree_structure?: string
   is_default?: boolean
 }
 
@@ -37,7 +32,7 @@ interface LayoutResponse {
   id: string
   name: string
   layout_type: string
-  configuration: LayoutConfiguration
+  tree_structure: string
   is_default: boolean
   workspace_id: string
   created_at: string
@@ -159,14 +154,14 @@ class ApiService {
         return response
       },
       (error) => {
-        const enhancedError = this.enhanceError(error)
-        this.handleApiError(enhancedError)
-
         // Handle authentication errors
         if (error.response?.status === 401) {
           this.handleAuthenticationError()
+          return Promise.reject(error)
         }
 
+        const enhancedError = this.enhanceError(error)
+        this.handleApiError(enhancedError)
         return Promise.reject(enhancedError)
       }
     )
@@ -444,6 +439,7 @@ details?: Record<string, unknown>
       window.location.href = '/login'
     }, 1500)
   }
+
 
   // Auth endpoints
   async getCurrentUser(): Promise<User> {

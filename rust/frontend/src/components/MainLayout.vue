@@ -31,7 +31,7 @@ import { useUIStore } from '@/stores/ui'
 import { useWorkspaceStore } from '@/stores/workspace'
 import TopNavBar from './layout/TopNavBar.vue'
 import Sidebar from './layout/Sidebar.vue'
-import TerminalPanes from './layout/TerminalPanes.vue'
+import TerminalPanes from './layout/TerminalPanes-tree.vue'
 import BottomStatusBar from './layout/BottomStatusBar.vue'
 import BackgroundTasksDrawer from './layout/BackgroundTasksDrawer.vue'
 

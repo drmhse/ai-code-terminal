@@ -117,7 +117,7 @@ pub struct UpdateSessionRequest {
 pub struct CreateLayoutRequest {
     pub name: String,
     pub layout_type: String,
-    pub configuration: crate::models::TerminalLayoutConfig,
+    pub tree_structure: String, // Required - JSON string of hierarchical layout
     pub is_default: Option<bool>,
     pub workspace_id: WorkspaceId,
 }
@@ -125,7 +125,7 @@ pub struct CreateLayoutRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateLayoutRequest {
     pub name: Option<String>,
-    pub configuration: Option<crate::models::TerminalLayoutConfig>,
+    pub tree_structure: Option<String>, // JSON string of hierarchical layout
     pub is_default: Option<bool>,
 }
 

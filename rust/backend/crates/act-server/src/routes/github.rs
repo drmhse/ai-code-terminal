@@ -70,6 +70,10 @@ pub async fn list_repositories(
                 }
                 Err(e) => {
                     error!("Failed to fetch repositories: {}", e);
+                    // If it's an Auth error, propagate it as 401 to trigger re-login
+                    if matches!(e, act_core::CoreError::Auth(_)) {
+                        return Err(ServerError::from(e));
+                    }
                     let response = RepositoriesResponse {
                         success: false,
                         repositories: vec![],
@@ -113,6 +117,10 @@ pub async fn get_repository_info(
                 }
                 Err(e) => {
                     error!("Failed to fetch repository info: {}", e);
+                    // If it's an Auth error, propagate it as 401 to trigger re-login
+                    if matches!(e, act_core::CoreError::Auth(_)) {
+                        return Err(ServerError::from(e));
+                    }
                     let response = RepoInfoResponse {
                         success: false,
                         repository: None,
@@ -181,6 +189,10 @@ pub async fn clone_repository(
                 }
                 Err(e) => {
                     error!("Failed to clone repository: {}", e);
+                    // If it's an Auth error, propagate it as 401 to trigger re-login
+                    if matches!(e, act_core::CoreError::Auth(_)) {
+                        return Err(ServerError::from(e));
+                    }
                     let response = CloneResponse {
                         success: false,
                         workspace: None,

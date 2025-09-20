@@ -153,17 +153,8 @@ impl AuthService {
     pub async fn get_current_user(&self, jwt_token: &str) -> Result<AuthenticatedUser> {
         let claims = self.jwt_service.validate_token(jwt_token)?;
         tracing::debug!("JWT claims for get_current_user: sub={}, username={}", claims.sub, claims.username);
-        
-        let access_token = self.auth_repository
-            .get_github_token(&claims.sub)
-            .await?
-            .ok_or_else(|| act_core::CoreError::NotFound(format!("GitHub token not found for user {}", claims.sub)))?;
-        
-        // We don't need to call GitHub API again since we already have the user info in JWT
-        // Just validate that the token is valid by making a simple call
-        self.github_service.validate_token(&access_token).await?;
-        
-        // Return the user with the UUID as user_id, not the GitHub ID
+
+        // Return the user based on JWT claims only - GitHub token not required for basic auth
         Ok(AuthenticatedUser {
             user_id: claims.sub, // Use the UUID from JWT claims
             username: claims.username,

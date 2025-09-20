@@ -1,0 +1,1086 @@
+<template>
+  <!-- Container Node - renders its children with flex layout -->
+  <div
+    v-if="node.type === 'container'"
+    class="pane-container"
+    :class="`direction-${node.direction}`"
+    :style="containerStyle"
+  >
+    <PaneTreeNode
+      v-for="(child, index) in node.children"
+      :key="child.id"
+      :node="child"
+      :workspace-path="workspacePath"
+      :theme="theme"
+      :is-active="child.id === activeNodeId"
+      @focus="$emit('focus', $event)"
+      @split="$emit('split', $event)"
+      @data="$emit('data', $event)"
+      @resize="$emit('resize', $event)"
+      @move-tab-to-pane="$emit('move-tab-to-pane', $event)"
+      @close-pane="$emit('close-pane', $event)"
+      :style="{ flex: childFlexValues[index]?.flex || '1 1 0%' }"
+    />
+  </div>
+
+  <!-- Terminal Node - renders actual terminal pane -->
+  <div
+    v-else
+    class="terminal-pane-wrapper"
+    :class="{
+      active: isActive,
+      'drop-target': isDragOverPane,
+      'has-empty-tab-area': !node.tabs || node.tabs.length === 0
+    }"
+    :data-pane-id="node.id"
+    @dragover.prevent="handlePaneDragOver"
+    @dragleave="handlePaneDragLeave"
+    @drop="handlePaneDrop"
+  >
+    <!-- Terminal Pane Header -->
+    <div class="pane-header">
+      <div class="pane-info">
+        <span class="pane-title">{{ node.name || `Terminal ${node.id}` }}</span>
+        <span class="pane-cwd">{{ getActiveTab()?.cwd || workspacePath }}</span>
+      </div>
+      <div class="pane-actions" v-show="isActive">
+        <!-- Horizontal Split Button -->
+        <button
+          @click="$emit('split', { paneId: node.id, direction: 'horizontal' })"
+          class="action-btn"
+          title="Split horizontally"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="8" y1="6" x2="16" y2="6"></line>
+            <line x1="8" y1="12" x2="16" y2="12"></line>
+            <line x1="8" y1="18" x2="16" y2="18"></line>
+          </svg>
+        </button>
+        <!-- Vertical Split Button -->
+        <button
+          @click="$emit('split', { paneId: node.id, direction: 'vertical' })"
+          class="action-btn"
+          title="Split vertically"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="6" y1="8" x2="6" y2="16"></line>
+            <line x1="12" y1="8" x2="12" y2="16"></line>
+            <line x1="18" y1="8" x2="18" y2="16"></line>
+          </svg>
+        </button>
+        <!-- Close Pane Button (only show if there are multiple terminal nodes) -->
+        <button
+          v-if="showCloseButton"
+          @click="$emit('close-pane', node.id)"
+          class="close-btn"
+          title="Close pane"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Enhanced Tabs Bar -->
+    <div v-if="node.tabs && node.tabs.length > 0" class="pane-tabs" :class="{ 'single-tab': node.tabs.length === 1, 'multi-tab': node.tabs.length > 1 }">
+      <div class="tabs-container">
+        <!-- Tab Navigation Arrow (for overflow) -->
+        <button
+          v-if="showTabOverflow"
+          class="tab-nav-arrow tab-nav-left"
+          @click="scrollTabsLeft"
+          :disabled="scrollPosition <= 0"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15,18 9,12 15,6"></polyline>
+          </svg>
+        </button>
+
+        <!-- Tabs Scrollable Container -->
+        <div ref="tabsScrollContainer" class="tabs-scroll-container" @scroll="handleTabsScroll">
+          <div
+            v-for="tab in sortedTabs"
+            :key="tab.id"
+            class="tab"
+            :class="{
+              active: tab.isActive,
+              dragging: draggedTab?.id === tab.id,
+              'drag-over': dragOverTab?.id === tab.id
+            }"
+            :draggable="true"
+            @click="selectTab(tab.id)"
+            @dragstart="handleDragStart($event, tab)"
+            @dragover.prevent="handleDragOver($event, tab)"
+            @dragleave="handleDragLeave"
+            @drop="handleDrop($event, tab)"
+            @dragend="handleDragEnd"
+          >
+            <div class="tab-content">
+              <span class="tab-name" :title="tab.name">{{ tab.name }}</span>
+              <button
+                v-if="node.tabs && node.tabs.length > 1"
+                @click.stop="closeTab(tab.id)"
+                class="tab-close"
+                title="Close tab"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab Navigation Arrow (for overflow) -->
+        <button
+          v-if="showTabOverflow"
+          class="tab-nav-arrow tab-nav-right"
+          @click="scrollTabsRight"
+          :disabled="scrollPosition >= maxScrollPosition"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9,18 15,12 9,6"></polyline>
+          </svg>
+        </button>
+
+        <!-- Add New Tab Button -->
+        <button
+          @click="createNewTab"
+          class="tab-new"
+          title="New terminal tab"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Terminal Content -->
+    <div class="terminal-content">
+      <!-- Container for each terminal tab -->
+      <div
+        v-for="tab in node.tabs"
+        :key="tab.id"
+        :ref="el => terminalRefs.set(tab.id, el as HTMLDivElement)"
+        class="xterm-container"
+        :class="{ active: tab.isActive }"
+        :data-tab-id="tab.id"
+        @click="focus"
+        tabindex="0"
+      ></div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { Terminal } from '@xterm/xterm'
+import { FitAddon } from '@xterm/addon-fit'
+import { WebLinksAddon } from '@xterm/addon-web-links'
+import { WebglAddon } from '@xterm/addon-webgl'
+import type { PaneNode, TerminalTab } from '@/types/pane-tree'
+import type { TerminalTheme } from '@/types/terminal'
+import { useTerminalTreeStore } from '@/stores/terminal-tree'
+import { useWorkspaceStore } from '@/stores/workspace'
+import { calculateFlexProperties, getFlexDirection } from '@/utils/pane-tree'
+
+interface Props {
+  node: PaneNode
+  isActive: boolean
+  activeNodeId?: string
+  workspacePath?: string
+  showCloseButton?: boolean
+  theme?: TerminalTheme
+}
+
+interface Emits {
+  (e: 'focus', paneId: string): void
+  (e: 'split', payload: { paneId: string, direction: 'horizontal' | 'vertical' }): void
+  (e: 'data', payload: { paneId: string, data: string }): void
+  (e: 'resize', payload: { paneId: string, cols: number, rows: number }): void
+  (e: 'move-tab-to-pane', payload: { sourcePaneId: string, targetPaneId: string, tabId: string, targetIndex: number }): void
+  (e: 'close-pane', paneId: string): void
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  isActive: false,
+  showCloseButton: true
+})
+
+const emit = defineEmits<Emits>()
+
+const terminalStore = useTerminalTreeStore()
+const workspaceStore = useWorkspaceStore()
+
+// Container-specific computed properties
+const containerStyle = computed(() => {
+  if (props.node.type !== 'container' || !props.node.direction) return {}
+
+  return {
+    display: 'flex',
+    flexDirection: getFlexDirection(props.node.direction),
+    width: '100%',
+    height: '100%'
+  }
+})
+
+const childFlexValues = computed(() => {
+  if (props.node.type !== 'container') return []
+  return calculateFlexProperties(props.node)
+})
+
+// Terminal-specific properties (reused from original TerminalPane component)
+const draggedTab = ref<TerminalTab | null>(null)
+const dragOverTab = ref<TerminalTab | null>(null)
+const terminalRefs = ref<Map<string, HTMLDivElement>>(new Map())
+const terminalInstances = ref<Map<string, Terminal>>(new Map())
+const fitAddons = ref<Map<string, FitAddon>>(new Map())
+const webLinksAddons = ref<Map<string, WebLinksAddon>>(new Map())
+const webglAddons = ref<Map<string, WebglAddon>>(new Map())
+const addonStates = ref<Map<string, { fitLoaded: boolean, webLinksLoaded: boolean, webglLoaded: boolean }>>(new Map())
+const isDisposed = ref(false)
+
+// Terminal management state
+const resizeObserver = ref<ResizeObserver>()
+let cleanupOutputHandler: (() => void) | null = null
+
+// Tab management
+const tabsScrollContainer = ref<HTMLDivElement>()
+const scrollPosition = ref(0)
+const showTabOverflow = ref(false)
+const maxScrollPosition = ref(0)
+const isDragOverPane = ref(false)
+
+const sortedTabs = computed(() => {
+  if (!props.node.tabs) return []
+  return [...props.node.tabs].sort((a, b) => a.order - b.order)
+})
+
+const getActiveTab = (): TerminalTab | undefined => {
+  return props.node.tabs?.find(tab => tab.isActive)
+}
+
+// Terminal management functions
+const getActiveTerminal = (): Terminal | undefined => {
+  const activeTab = getActiveTab()
+  return activeTab ? terminalInstances.value.get(activeTab.id) : undefined
+}
+
+const createTerminalForTab = (tabId: string): Terminal => {
+  const terminal = new Terminal({
+    theme: props.theme || defaultTheme,
+    fontSize: 14,
+    fontFamily: '"JetBrains Mono", "Fira Code", "SF Mono", Monaco, Consolas, monospace',
+    cursorBlink: true,
+    allowProposedApi: true,
+    scrollback: 10000,
+    fastScrollModifier: 'alt',
+    fastScrollSensitivity: 5,
+    scrollSensitivity: 3,
+    convertEol: true,
+    tabStopWidth: 4,
+    rightClickSelectsWord: true,
+    macOptionIsMeta: true,
+    windowsMode: false,
+    macOptionClickForcesSelection: false,
+    disableStdin: false,
+    smoothScrollDuration: 0,
+    altClickMovesCursor: false,
+    logLevel: 'warn',
+    allowTransparency: false,
+    drawBoldTextInBrightColors: true,
+    minimumContrastRatio: 1,
+    customGlyphs: true,
+    rescaleOverlappingGlyphs: true
+  })
+
+  terminalInstances.value.set(tabId, terminal)
+  addonStates.value.set(tabId, { fitLoaded: false, webLinksLoaded: false, webglLoaded: false })
+
+  return terminal
+}
+
+const initializeTerminalForTab = async (tabId: string) => {
+  if (isDisposed.value) return
+
+  if (terminalInstances.value.has(tabId)) {
+    console.log(`Terminal already exists for tab ${tabId}`)
+    return
+  }
+
+  let container = terminalRefs.value.get(tabId)
+  if (!container) {
+    await nextTick()
+    container = terminalRefs.value.get(tabId)
+    if (!container) {
+      console.warn(`No container found for tab ${tabId}`)
+      return
+    }
+  }
+
+  const terminal = createTerminalForTab(tabId)
+  const state = addonStates.value.get(tabId)!
+
+  try {
+    const fitAddon = new FitAddon()
+    terminal.loadAddon(fitAddon)
+    fitAddons.value.set(tabId, fitAddon)
+    state.fitLoaded = true
+  } catch (error) {
+    console.warn(`FitAddon loading failed for tab ${tabId}:`, error)
+  }
+
+  try {
+    const webLinksAddon = new WebLinksAddon()
+    terminal.loadAddon(webLinksAddon)
+    webLinksAddons.value.set(tabId, webLinksAddon)
+    state.webLinksLoaded = true
+  } catch (error) {
+    console.warn(`WebLinksAddon loading failed for tab ${tabId}:`, error)
+  }
+
+  terminal.open(container)
+
+  try {
+    const webglAddon = new WebglAddon()
+    terminal.loadAddon(webglAddon)
+    webglAddons.value.set(tabId, webglAddon)
+    state.webglLoaded = true
+    console.log(`✅ WebGL renderer activated for tab ${tabId}`)
+  } catch (error) {
+    console.warn(`⚠️ WebGL addon failed for tab ${tabId}:`, error)
+  }
+
+  // Set up event handlers
+  terminal.onData((data) => {
+    const activeTab = getActiveTab()
+    if (activeTab?.id === tabId) {
+      emit('data', { paneId: props.node.id, data })
+    }
+  })
+
+  terminal.onResize(({ cols, rows }) => {
+    if (cols < 10 || rows < 5 || cols > 500 || rows > 200) {
+      console.warn(`Invalid terminal dimensions: ${cols}x${rows}`)
+      return
+    }
+    const activeTab = getActiveTab()
+    if (activeTab?.id === tabId) {
+      emit('resize', { paneId: props.node.id, cols, rows })
+    }
+  })
+
+  console.log(`✅ Terminal initialized for tab ${tabId}`)
+}
+
+const initializeTerminals = async () => {
+  if (isDisposed.value || props.node.type !== 'terminal') return
+
+  for (const tab of (props.node.tabs || [])) {
+    await initializeTerminalForTab(tab.id)
+  }
+
+  // Set up resize observer for the terminal content area
+  const terminalContent = document.querySelector(`[data-pane-id="${props.node.id}"] .terminal-content`) as HTMLElement
+  if (terminalContent && !resizeObserver.value) {
+    resizeObserver.value = new ResizeObserver(() => {
+      // Debounced fit
+      setTimeout(() => {
+        if (!isDisposed.value) {
+          fit()
+        }
+      }, 100)
+    })
+    resizeObserver.value.observe(terminalContent)
+  }
+
+  console.log(`✅ Terminals initialized for pane ${props.node.id}`)
+}
+
+const write = (data: string, sessionId?: string) => {
+  if (!isDisposed.value && props.node.type === 'terminal') {
+    if (sessionId) {
+      const targetTab = props.node.tabs?.find(tab => tab.sessionId === sessionId)
+      if (targetTab) {
+        const targetTerminal = terminalInstances.value.get(targetTab.id)
+        if (targetTerminal) {
+          targetTerminal.write(data)
+        }
+      }
+    } else {
+      const activeTerminal = getActiveTerminal()
+      if (activeTerminal) {
+        activeTerminal.write(data)
+      }
+    }
+  }
+}
+
+const fit = () => {
+  if (!isDisposed.value) {
+    const activeTab = getActiveTab()
+    if (activeTab) {
+      const fitAddon = fitAddons.value.get(activeTab.id)
+      if (fitAddon) {
+        fitAddon.fit()
+      }
+    }
+  }
+}
+
+const dispose = () => {
+  if (isDisposed.value) return
+
+  try {
+    if (resizeObserver.value) {
+      resizeObserver.value.disconnect()
+      resizeObserver.value = undefined
+    }
+
+    terminalInstances.value.forEach((terminal, tabId) => {
+      try {
+        terminal.dispose()
+      } catch (error) {
+        console.warn(`Terminal disposal error for tab ${tabId}:`, error)
+      }
+    })
+
+    fitAddons.value.forEach((addon, tabId) => {
+      try {
+        addon.dispose()
+      } catch (error) {
+        console.warn(`FitAddon disposal error for tab ${tabId}:`, error)
+      }
+    })
+
+    webLinksAddons.value.forEach((addon, tabId) => {
+      try {
+        addon.dispose()
+      } catch (error) {
+        console.warn(`WebLinksAddon disposal error for tab ${tabId}:`, error)
+      }
+    })
+
+    webglAddons.value.forEach((addon, tabId) => {
+      try {
+        addon.dispose()
+      } catch (error) {
+        console.warn(`WebglAddon disposal error for tab ${tabId}:`, error)
+      }
+    })
+
+    terminalInstances.value.clear()
+    fitAddons.value.clear()
+    webLinksAddons.value.clear()
+    webglAddons.value.clear()
+    addonStates.value.clear()
+
+    isDisposed.value = true
+  } catch (error) {
+    console.error('Error during terminal disposal:', error)
+    isDisposed.value = true
+  }
+}
+
+// Terminal initialization and management (simplified version from original)
+const defaultTheme: TerminalTheme = {
+  background: '#1a1a1a',
+  foreground: '#ffffff',
+  cursor: '#ffffff',
+  cursorAccent: '#000000',
+  selection: 'rgba(255, 255, 255, 0.3)',
+  black: '#000000',
+  red: '#e06c75',
+  green: '#98c379',
+  yellow: '#e5c07b',
+  blue: '#61afef',
+  magenta: '#c678dd',
+  cyan: '#56b6c2',
+  white: '#dcdfe4',
+  brightBlack: '#5c6370',
+  brightRed: '#e06c75',
+  brightGreen: '#98c379',
+  brightYellow: '#e5c07b',
+  brightBlue: '#61afef',
+  brightMagenta: '#c678dd',
+  brightCyan: '#56b6c2',
+  brightWhite: '#ffffff'
+}
+
+// Event handlers
+const selectTab = (tabId: string) => {
+  terminalStore.setActiveTabInPane(props.node.id, tabId)
+  emit('focus', props.node.id)
+}
+
+const createNewTab = () => {
+  if (workspaceStore.selectedWorkspace) {
+    terminalStore.createTabInPane(props.node.id, workspaceStore.selectedWorkspace.id, 'Terminal')
+  }
+}
+
+const closeTab = (tabId: string) => {
+  terminalStore.closeTabInPane(props.node.id, tabId)
+}
+
+const focus = () => {
+  const activeTerminal = getActiveTerminal()
+  if (activeTerminal) {
+    activeTerminal.focus()
+  }
+  emit('focus', props.node.id)
+}
+
+// Tab scrolling and overflow
+const updateTabOverflow = () => {
+  if (tabsScrollContainer.value) {
+    const container = tabsScrollContainer.value
+    showTabOverflow.value = container.scrollWidth > container.clientWidth
+    maxScrollPosition.value = container.scrollWidth - container.clientWidth
+  }
+}
+
+const scrollTabsLeft = () => {
+  if (tabsScrollContainer.value) {
+    tabsScrollContainer.value.scrollBy({ left: -150, behavior: 'smooth' })
+  }
+}
+
+const scrollTabsRight = () => {
+  if (tabsScrollContainer.value) {
+    tabsScrollContainer.value.scrollBy({ left: 150, behavior: 'smooth' })
+  }
+}
+
+const handleTabsScroll = () => {
+  if (tabsScrollContainer.value) {
+    scrollPosition.value = tabsScrollContainer.value.scrollLeft
+  }
+}
+
+// Drag and drop (simplified for now)
+const handleDragStart = (event: DragEvent, tab: TerminalTab) => {
+  draggedTab.value = tab
+  if (event.dataTransfer) {
+    event.dataTransfer.setData('text/plain', tab.id)
+  }
+}
+
+const handleDragOver = (event: DragEvent, tab: TerminalTab) => {
+  event.preventDefault()
+  if (draggedTab.value && draggedTab.value.id !== tab.id) {
+    dragOverTab.value = tab
+  }
+}
+
+const handleDragLeave = () => {
+  dragOverTab.value = null
+}
+
+const handleDrop = (event: DragEvent, targetTab: TerminalTab) => {
+  event.preventDefault()
+  draggedTab.value = null
+  dragOverTab.value = null
+}
+
+const handleDragEnd = () => {
+  draggedTab.value = null
+  dragOverTab.value = null
+}
+
+// Pane drag and drop
+const handlePaneDragOver = (event: DragEvent) => {
+  event.preventDefault()
+  isDragOverPane.value = true
+}
+
+const handlePaneDragLeave = () => {
+  isDragOverPane.value = false
+}
+
+const handlePaneDrop = (event: DragEvent) => {
+  event.preventDefault()
+  isDragOverPane.value = false
+}
+
+// Watch for tab changes
+watch(() => props.node.tabs?.length, () => {
+  nextTick(updateTabOverflow)
+}, { immediate: true })
+
+// Watch for theme changes and update all terminal themes dynamically
+watch(() => props.theme, (newTheme) => {
+  if (newTheme) {
+    terminalInstances.value.forEach((terminal) => {
+      terminal.options.theme = newTheme
+    })
+  }
+}, { deep: true })
+
+// Expose methods for parent component
+defineExpose({ write, fit, focus, dispose })
+
+onMounted(() => {
+  if (props.node.type === 'terminal') {
+    nextTick(async () => {
+      await initializeTerminals()
+
+      // Set up output handler
+      cleanupOutputHandler = terminalStore.onTerminalOutput((sessionId, output) => {
+        write(output, sessionId)
+      })
+
+      // Focus the active terminal and fit it
+      setTimeout(() => {
+        const activeTerminal = getActiveTerminal()
+        if (activeTerminal) {
+          activeTerminal.focus()
+          fit()
+        }
+      }, 100)
+
+      updateTabOverflow()
+      window.addEventListener('resize', updateTabOverflow)
+    })
+  }
+})
+
+onUnmounted(() => {
+  if (props.node.type === 'terminal') {
+    dispose()
+
+    if (cleanupOutputHandler) {
+      cleanupOutputHandler()
+      cleanupOutputHandler = null
+    }
+
+    window.removeEventListener('resize', updateTabOverflow)
+  }
+})
+</script>
+
+<style scoped>
+/* Container Styles */
+.pane-container {
+  min-height: 0;
+  min-width: 0;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+}
+
+.pane-container.direction-horizontal {
+  flex-direction: column;
+}
+
+.pane-container.direction-vertical {
+  flex-direction: row;
+}
+
+/* Terminal Pane Wrapper Styles */
+.terminal-pane-wrapper {
+  display: flex;
+  flex-direction: column;
+  background: var(--terminal-bg);
+  overflow: hidden;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.15s ease-in-out;
+}
+
+.terminal-pane-wrapper:hover {
+  border-color: var(--text-muted);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.terminal-pane-wrapper.active {
+  border: 1px solid var(--primary);
+  box-shadow: 0 0 0 1px rgba(0, 123, 204, 0.1);
+}
+
+.terminal-pane-wrapper.active::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  right: -1px;
+  height: 2px;
+  background: var(--primary);
+  border-radius: 8px 8px 0 0;
+  z-index: 1;
+}
+
+/* Pane Header */
+.pane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 8px 8px 0 0;
+  min-height: 28px;
+  position: relative;
+}
+
+.pane-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.pane-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pane-title::before {
+  content: '●';
+  color: var(--success);
+  font-size: 10px;
+  animation: pulse 2s infinite;
+}
+
+.terminal-pane-wrapper.active .pane-title::before {
+  color: var(--primary);
+  animation: none;
+}
+
+.pane-cwd {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 4px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  max-width: 200px;
+}
+
+.pane-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.action-btn, .close-btn {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.action-btn:hover {
+  background: var(--button-hover);
+  color: var(--text-primary);
+  border-color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.close-btn:hover {
+  background: var(--error);
+  border-color: var(--error);
+  color: white;
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(241, 76, 76, 0.3);
+}
+
+/* Terminal Content */
+.terminal-content {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  background: var(--terminal-bg);
+  border-radius: 0 0 8px 8px;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+.xterm-container {
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  background: var(--terminal-bg);
+  border-radius: 0 0 8px 8px;
+  position: relative;
+  min-height: 0;
+  box-sizing: border-box;
+  display: none;
+}
+
+.xterm-container.active {
+  display: block;
+}
+
+/* Tabs (simplified version of existing styles) */
+.pane-tabs {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  min-height: 32px;
+  position: relative;
+}
+
+.tabs-container {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  position: relative;
+  padding: 0 8px;
+}
+
+.tabs-scroll-container {
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex: 1;
+  margin: 0 4px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-behavior: smooth;
+  padding: 6px 0;
+}
+
+.tabs-scroll-container::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  display: flex;
+  align-items: stretch;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  min-width: 80px;
+  max-width: 180px;
+  height: 28px;
+  margin-right: 1px;
+  transition: all 0.15s ease;
+  position: relative;
+  border-radius: 4px 4px 0 0;
+  overflow: hidden;
+}
+
+.tab-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  background: transparent;
+  width: 100%;
+  height: 100%;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.tab:hover .tab-content {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tab.active .tab-content {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--primary);
+}
+
+.tab-name {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  margin-right: 4px;
+}
+
+.tab.active .tab-name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.tab-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.tab:hover .tab-close {
+  opacity: 0.7;
+}
+
+.tab.active .tab-close {
+  opacity: 0.5;
+}
+
+.tab-close:hover {
+  opacity: 1 !important;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.tab-new {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin-left: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.tab-new:hover {
+  background: var(--button-hover);
+  color: var(--text-primary);
+  border-color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Tab navigation arrows */
+.tab-nav-arrow {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  margin: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 2;
+  position: relative;
+}
+
+.tab-nav-arrow:hover:not(:disabled) {
+  background: var(--button-hover);
+  color: var(--text-primary);
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.tab-nav-arrow:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Drag states */
+.tab.dragging {
+  opacity: 0.6;
+  transform: rotate(2deg) scale(0.95);
+  z-index: 1000;
+}
+
+.tab.drag-over {
+  transform: translateY(-2px);
+  border-left: 3px solid var(--primary);
+}
+
+.terminal-pane-wrapper.drop-target {
+  border: 2px dashed var(--primary);
+  background: rgba(0, 123, 204, 0.05);
+  transform: scale(1.02);
+  transition: all 0.2s ease;
+}
+
+/* Pulse animation */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* XTerm.js specific styling for proper functionality */
+:deep(.xterm-helper-textarea) {
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  opacity: 0 !important;
+  z-index: -1 !important;
+  pointer-events: auto !important;
+}
+
+:deep(.xterm-composition-view) {
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  opacity: 0 !important;
+  pointer-events: auto !important;
+}
+
+:deep(.xterm) {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+:deep(.xterm-screen) {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+:deep(.xterm canvas) {
+  outline: none !important;
+}
+</style>

@@ -24,15 +24,11 @@ impl SqlLayoutRepository {
     }
 
     async fn map_row_to_layout(row: sqlx::sqlite::SqliteRow) -> Result<TerminalLayout, PersistenceError> {
-        let configuration_json: String = row.get("configuration");
-        let configuration = serde_json::from_str(&configuration_json)
-            .map_err(|e| PersistenceError::SerializationError(format!("Failed to parse layout configuration: {}", e)))?;
-
         Ok(TerminalLayout {
             id: row.get("id"),
             name: row.get("name"),
             layout_type: row.get("layout_type"),
-            configuration,
+            tree_structure: row.get("tree_structure"),
             is_default: row.get("is_default"),
             workspace_id: row.get("workspace_id"),
             user_id: row.get("user_id"),
@@ -48,14 +44,11 @@ impl LayoutRepository for SqlLayoutRepository {
         let layout_id = uuid::Uuid::new_v4().to_string();
         let now = Utc::now();
         let is_default = request.is_default.unwrap_or(false);
-        
-        let configuration_json = serde_json::to_string(&request.configuration)
-            .map_err(|e| act_core::error::CoreError::Serialization(format!("Failed to serialize layout configuration: {}", e)))?;
 
         let row = handle_db_error!(
             sqlx::query(
                 r#"
-                INSERT INTO terminal_layouts (id, name, layout_type, configuration, is_default, workspace_id, user_id, created_at, updated_at)
+                INSERT INTO terminal_layouts (id, name, layout_type, tree_structure, is_default, workspace_id, user_id, created_at, updated_at)
                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
                 RETURNING *
                 "#,
@@ -63,7 +56,7 @@ impl LayoutRepository for SqlLayoutRepository {
             .bind(&layout_id)
             .bind(&request.name)
             .bind(&request.layout_type)
-            .bind(&configuration_json)
+            .bind(&request.tree_structure)
             .bind(is_default)
             .bind(&request.workspace_id)
             .bind(user_id)
@@ -135,28 +128,21 @@ impl LayoutRepository for SqlLayoutRepository {
 
     async fn update(&self, user_id: &str, id: &LayoutId, request: UpdateLayoutRequest) -> Result<TerminalLayout, act_core::error::CoreError> {
         let now = Utc::now();
-        
-        let configuration_json = if let Some(config) = &request.configuration {
-            Some(serde_json::to_string(config)
-                .map_err(|e| act_core::error::CoreError::Serialization(format!("Failed to serialize layout configuration: {}", e)))?)
-        } else {
-            None
-        };
-        
+
         let row = handle_db_error!(
             sqlx::query(
                 r#"
-                UPDATE terminal_layouts 
+                UPDATE terminal_layouts
                 SET name = COALESCE(?1, name),
-                    configuration = COALESCE(?2, configuration),
+                    tree_structure = COALESCE(?2, tree_structure),
                     is_default = COALESCE(?3, is_default),
                     updated_at = ?4
-                WHERE id = ?5 AND user_id = ?6 
+                WHERE id = ?5 AND user_id = ?6
                 RETURNING *
                 "#,
             )
             .bind(&request.name)
-            .bind(&configuration_json)
+            .bind(&request.tree_structure)
             .bind(request.is_default)
             .bind(now)
             .bind(id)

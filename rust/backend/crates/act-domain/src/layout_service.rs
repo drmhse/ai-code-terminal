@@ -157,7 +157,7 @@ impl LayoutService {
         let create_request = CreateLayoutRequest {
             name,
             layout_type: original_layout.layout_type.clone(),
-            configuration: original_layout.configuration.clone(),
+            tree_structure: original_layout.tree_structure.clone(),
             is_default: Some(false), // Never duplicate as default
             workspace_id: original_layout.workspace_id.clone(),
         };

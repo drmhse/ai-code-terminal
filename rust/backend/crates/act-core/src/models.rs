@@ -35,8 +35,8 @@ pub struct Settings {
 pub struct TerminalLayout {
     pub id: LayoutId,
     pub name: String,
-    pub layout_type: String,
-    pub configuration: TerminalLayoutConfig,
+    pub layout_type: String, // "hierarchical" - keeping for potential future layout types
+    pub tree_structure: String, // JSON string of hierarchical layout (required)
     pub is_default: bool,
     pub workspace_id: WorkspaceId,
     pub user_id: String,
@@ -44,52 +44,71 @@ pub struct TerminalLayout {
     pub updated_at: DateTime<Utc>,
 }
 
+
+// New hierarchical layout models (matching frontend TypeScript interfaces)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TerminalLayoutConfig {
-    pub layout_type: String,
-    pub panes: Vec<PaneConfig>,
-    pub active_pane: Option<String>,
+pub struct HierarchicalLayout {
+    pub root: PaneNode,
+    pub active_node_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PaneConfig {
+pub struct PaneNode {
     pub id: String,
-    pub name: String,
-    pub pane_type: PaneType,
-    pub tabs: Vec<TabConfig>,
-    pub active_tab: Option<String>,
-    pub size: Option<PanelSize>,
-    pub position: Option<PanelPosition>,
+    #[serde(rename = "type")]
+    pub node_type: PaneNodeType,
+    pub size: f32, // Percentage of parent space (0-100)
+
+    // Container properties
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub direction: Option<SplitDirection>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub children: Option<Vec<PaneNode>>,
+
+    // Terminal properties
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tabs: Option<Vec<TerminalTabConfig>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub active_tab_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_active: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TabConfig {
+#[serde(rename_all = "lowercase")]
+pub enum PaneNodeType {
+    Container,
+    Terminal,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SplitDirection {
+    Horizontal,
+    Vertical,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TerminalTabConfig {
     pub id: String,
     pub session_id: String,
     pub name: String,
     pub is_active: bool,
     pub order: i32,
+    pub buffer: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cwd: Option<String>,
+    pub size: TerminalTabSize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pid: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum PaneType {
-    Terminal,
-    Editor,
-    Split,
-    Custom(String),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PanelSize {
-    pub width: Option<u16>,
-    pub height: Option<u16>,
-    pub percentage: Option<f32>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PanelPosition {
-    pub x: i32,
-    pub y: i32,
+pub struct TerminalTabSize {
+    pub cols: i32,
+    pub rows: i32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

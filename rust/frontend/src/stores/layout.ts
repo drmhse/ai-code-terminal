@@ -7,10 +7,7 @@ export interface Layout {
   id: string
   name: string
   layout_type: string
-  configuration: {
-    type: string
-    [key: string]: unknown
-  }
+  tree_structure: string
   is_default: boolean
   workspace_id: string
   created_at: string
@@ -69,10 +66,7 @@ export const useLayoutStore = defineStore('layout', () => {
   const createLayout = async (layoutData: {
     name: string
     layout_type: string
-    configuration: {
-      type: string
-      [key: string]: unknown
-    }
+    tree_structure: string
     workspace_id: string
     is_default?: boolean
   }) => {
@@ -105,10 +99,7 @@ export const useLayoutStore = defineStore('layout', () => {
 
   const updateLayout = async (id: string, updates: {
     name?: string
-    configuration?: {
-      type: string
-      [key: string]: unknown
-    }
+    tree_structure?: string
     is_default?: boolean
   }) => {
     try {
@@ -256,24 +247,21 @@ export const useLayoutStore = defineStore('layout', () => {
     currentLayout.value = layout
   }
 
-  const saveCurrentLayout = async (name: string, workspaceId: string, configuration: {
-  type: string
-  [key: string]: unknown
-}, isDefault = false) => {
+  const saveCurrentLayout = async (name: string, workspaceId: string, treeStructure: string, layoutType = 'hierarchical', isDefault = false) => {
     try {
       if (currentLayout.value) {
         // Update existing layout
         await updateLayout(currentLayout.value.id, {
           name,
-          configuration,
+          tree_structure: treeStructure,
           is_default: isDefault
         })
       } else {
         // Create new layout
         const newLayout = await createLayout({
           name,
-          layout_type: configuration.type || 'custom',
-          configuration,
+          layout_type: layoutType,
+          tree_structure: treeStructure,
           workspace_id: workspaceId,
           is_default: isDefault
         })
@@ -285,16 +273,13 @@ export const useLayoutStore = defineStore('layout', () => {
     }
   }
 
-  const debouncedSaveLayout = (name: string, workspaceId: string, configuration: {
-  type: string
-  [key: string]: unknown
-}, isDefault = false) => {
+  const debouncedSaveLayout = (name: string, workspaceId: string, treeStructure: string, layoutType = 'hierarchical', isDefault = false) => {
     if (saveTimeout.value) {
       clearTimeout(saveTimeout.value)
     }
-    
+
     saveTimeout.value = window.setTimeout(() => {
-      saveCurrentLayout(name, workspaceId, configuration, isDefault)
+      saveCurrentLayout(name, workspaceId, treeStructure, layoutType, isDefault)
     }, 1000) // 1 second debounce
   }
 

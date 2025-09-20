@@ -45,32 +45,40 @@
       </div>
     </div>
 
-    <!-- Terminal Panes (Full Space Utilization) -->
+    <!-- Hierarchical Terminal Panes -->
     <template v-else>
-      <div
-        class="terminal-grid"
-        :class="`layout-${terminalStore.currentLayout}`"
-        :style="{
-          'grid-template-columns': terminalStore.gridTemplateColumns,
-          'grid-template-rows': terminalStore.gridTemplateRows
-        }"
-      >
-        <TerminalPane
-          v-for="pane in terminalStore.panes"
-          :key="pane.id"
-          :pane="pane as any"
-          :is-active="pane.id === terminalStore.activePane"
+      <div class="terminal-tree-container" v-if="terminalStore.layout">
+        <!-- Render the root of the pane tree -->
+        <PaneTreeNode
+          :node="terminalStore.layout.root as PaneNode"
+          :is-active="false"
+          :active-node-id="terminalStore.layout.activeNodeId"
           :workspace-path="workspaceStore.selectedWorkspace?.path"
-          :can-split="terminalStore.panes.length < 4"
-          :show-close-button="terminalStore.panes.length > 1"
           :theme="terminalTheme"
+          :show-close-button="canShowCloseButtons"
           @focus="handleTerminalFocus"
-          @close="closeTerminal(pane.id)"
           @split="handleSplit"
-          @data="(data: string) => handleTerminalData(pane.id, data)"
-          @resize="(cols: number, rows: number) => handleTerminalResize(pane.id, cols, rows)"
+          @data="handleTerminalData"
+          @resize="handleTerminalResize"
           @move-tab-to-pane="handleMoveTabToPane"
+          @close-pane="handleClosePane"
         />
+      </div>
+
+      <!-- No Layout State -->
+      <div v-else class="no-terminals">
+        <div class="no-terminals-content">
+          <h3>No Terminal Sessions</h3>
+          <p>Create your first terminal to get started</p>
+          <button @click="createNewTerminal" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+            Create Terminal
+          </button>
+        </div>
       </div>
 
       <!-- Floating Action Button for Quick Actions -->
@@ -108,7 +116,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useWorkspaceStore } from '@/stores/workspace'
-import { useTerminalStore } from '@/stores/terminal'
+import { useTerminalTreeStore } from '@/stores/terminal-tree'
 import { useAuthStore } from '@/stores/auth'
 import { useLayoutStore } from '@/stores/layout'
 import { useUIStore } from '@/stores/ui'
@@ -116,13 +124,14 @@ import { useTheme } from '@/composables/useTheme'
 import { getCurrentTerminalTheme } from '@/utils/themeConverter'
 import { socketService } from '@/services/socket'
 import { apiService } from '@/services/api'
-import TerminalPane from '../TerminalPane.vue'
+import PaneTreeNode from './PaneTreeNode.vue'
 import QuickCommandOverlay from '../QuickCommandOverlay.vue'
 import type { Session } from '@/types'
-import type { LayoutType } from '@/types/layout'
+import type { SplitDirection, PaneNode } from '@/types/pane-tree'
+import { getAllTerminalNodes } from '@/utils/pane-tree'
 
 const workspaceStore = useWorkspaceStore()
-const terminalStore = useTerminalStore()
+const terminalStore = useTerminalTreeStore()
 const authStore = useAuthStore()
 const layoutStore = useLayoutStore()
 const uiStore = useUIStore()
@@ -140,6 +149,14 @@ const persistentSessions = ref<Session[]>([])
 const showSessionReconnect = ref(false)
 const creatingTerminal = ref(false)
 
+// Computed for UI state
+const canShowCloseButtons = computed(() => {
+  if (!terminalStore.layout) return false
+  const terminalNodes = getAllTerminalNodes(terminalStore.layout.root as PaneNode)
+  return terminalNodes.length > 1
+})
+
+// Session management
 const loadPersistentSessions = async () => {
   if (!workspaceStore.selectedWorkspace || !workspaceStore.selectedWorkspace.id) return
 
@@ -155,17 +172,13 @@ const loadPersistentSessions = async () => {
     // Try to restore the saved pane structure first
     if (activeSessions.length > 0) {
       console.log('🔄 Attempting to restore pane structure for sessions')
-      const restored = await terminalStore.restorePaneStructure(
-        workspaceStore.selectedWorkspace.id,
-        activeSessions
-      )
+      const restored = await restorePaneStructureFromSessions(activeSessions)
 
       if (restored) {
         console.log('✅ Pane structure restored successfully')
 
         // Establish WebSocket connections for all restored sessions
         const connectPromises = activeSessions.map(async (session, index) => {
-          // Stagger connections to prevent overload
           await new Promise(resolve => setTimeout(resolve, index * 100))
 
           try {
@@ -183,32 +196,8 @@ const loadPersistentSessions = async () => {
         const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length
         console.log(`🔌 Connected ${successful}/${activeSessions.length} sessions to WebSocket`)
       } else {
-        console.log('⚠️ Could not restore pane structure, falling back to individual panes')
-
-        // Fallback: create individual panes as before
-        const reconnectionPromises = activeSessions.map(async (session, index) => {
-          // Stagger reconnections to prevent layout conflicts
-          await new Promise(resolve => setTimeout(resolve, index * 150))
-
-          try {
-            await reconnectToSession(session)
-            return { success: true, sessionId: session.id }
-          } catch (error) {
-            console.error(`Failed to reconnect session ${session.id}:`, error)
-            return { success: false, sessionId: session.id, error }
-          }
-        })
-
-        const results = await Promise.allSettled(reconnectionPromises)
-        const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length
-        const failed = results.length - successful
-
-        if (successful > 0) {
-          console.log(`✅ Successfully reconnected ${successful}/${activeSessions.length} sessions`)
-        }
-        if (failed > 0) {
-          console.warn(`⚠️ Failed to reconnect ${failed}/${activeSessions.length} sessions`)
-        }
+        console.log('⚠️ Could not restore pane structure, falling back to individual reconnection')
+        showSessionReconnect.value = true
       }
     }
 
@@ -218,6 +207,80 @@ const loadPersistentSessions = async () => {
   }
 }
 
+const restorePaneStructureFromSessions = async (sessions: Session[]): Promise<boolean> => {
+  if (!workspaceStore.selectedWorkspace) return false
+
+  // First try to load saved layouts from database
+  let savedLayout = null
+  try {
+    await layoutStore.fetchLayouts(workspaceStore.selectedWorkspace.id)
+    const defaultLayout = layoutStore.workspaceLayouts(workspaceStore.selectedWorkspace.id)
+      .find(layout => layout.is_default) || layoutStore.workspaceLayouts(workspaceStore.selectedWorkspace.id)[0]
+
+    if (defaultLayout && defaultLayout.tree_structure) {
+      try {
+        savedLayout = JSON.parse(defaultLayout.tree_structure)
+        console.log('📖 Loaded pane tree structure from database')
+      } catch (error) {
+        console.warn('Failed to parse tree structure from database layout:', error)
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to fetch layouts from database:', error)
+  }
+
+  // Fallback to localStorage if no database layout found
+  if (!savedLayout) {
+    savedLayout = terminalStore.loadPaneStructure(workspaceStore.selectedWorkspace.id)
+    if (savedLayout) {
+      console.log('📖 Loaded pane tree structure from localStorage')
+    }
+  }
+
+  if (!savedLayout) {
+    console.log('⚠️ No saved layout found in database or localStorage')
+    return false
+  }
+
+  // Create session map
+  const sessionMap = new Map(sessions.map(s => [s.id, s]))
+
+  // Validate that all sessions in the layout still exist
+  const terminalNodes = getAllTerminalNodes(savedLayout.root)
+  const allSessionsExist = terminalNodes.every(node =>
+    node.tabs?.every(tab => sessionMap.has(tab.sessionId))
+  )
+
+  if (!allSessionsExist) {
+    console.log('⚠️ Some sessions from saved layout no longer exist')
+    return false
+  }
+
+  // Restore the layout using the proper store method
+  terminalStore.restoreLayout(savedLayout)
+
+  // Load session history for each tab
+  for (const node of terminalNodes) {
+    if (node.tabs) {
+      for (const tab of node.tabs) {
+        try {
+          const history = await apiService.getSessionHistory(tab.sessionId)
+          if (Array.isArray(history)) {
+            tab.buffer = history.join('')
+          } else if (typeof history === 'string') {
+            tab.buffer = history
+          }
+        } catch (error) {
+          console.warn(`Failed to load history for session ${tab.sessionId}:`, error)
+        }
+      }
+    }
+  }
+
+  return true
+}
+
+// Workspace change handling
 watch(() => workspaceStore.selectedWorkspace, async (newWorkspace, oldWorkspace) => {
   console.log('🔄 Workspace changed:', newWorkspace?.name || 'none')
 
@@ -227,133 +290,57 @@ watch(() => workspaceStore.selectedWorkspace, async (newWorkspace, oldWorkspace)
     terminalStore.cleanup()
   } else {
     // Save pane structure for the old workspace before switching
-    if (oldWorkspace && terminalStore.hasPanes) {
+    if (oldWorkspace && terminalStore.layout) {
       terminalStore.savePaneStructure(oldWorkspace.id)
     }
-    // Load sessions on initial workspace selection OR workspace switch
+
+    // Switch to new workspace
+    terminalStore.switchToWorkspace(newWorkspace.id)
+
     const isWorkspaceSwitch = oldWorkspace && oldWorkspace.id !== newWorkspace.id
     const isInitialLoad = !oldWorkspace
 
     if (isWorkspaceSwitch) {
       console.log('🔄 Switching workspaces, reloading sessions')
-      terminalStore.cleanup()
     } else if (isInitialLoad) {
       console.log('🔄 Initial workspace load, loading sessions')
     }
 
     await loadPersistentSessions()
 
-    // Only create a new terminal if no sessions were restored
-    if (terminalStore.panes.length === 0) {
-      console.log('No persistent sessions found, creating new terminal')
+    // Always ensure we have a working terminal
+    if (!terminalStore.layout) {
+      console.log('No layout found, creating new terminal')
       await createNewTerminal()
+    } else {
+      console.log('Layout exists, checking if it has active terminals...')
+      const terminalNodes = getAllTerminalNodes(terminalStore.layout.root as PaneNode)
+      const hasActiveTabs = terminalNodes.some(node => node.tabs && node.tabs.length > 0)
+
+      if (!hasActiveTabs) {
+        console.log('Layout exists but no active tabs, creating new terminal')
+        await createNewTerminal()
+      } else {
+        console.log(`Layout has ${terminalNodes.length} terminal nodes with tabs`)
+      }
     }
   }
 })
 
-// Layout signature for auto-save
-const layoutSignature = computed(() => {
-  if (!terminalStore.hasPanes) return '';
-  const paneSignatures = terminalStore.panes
-    .map(p => `${p.id}:${p.tabs.length}`)
-    .sort()
-    .join('|');
-  return `${terminalStore.currentLayout}|${paneSignatures}`;
-});
-
-// Pane structure signature for persistence
-const paneStructureSignature = computed(() => {
-  if (!terminalStore.hasPanes) return '';
-  const paneStructure = terminalStore.panes
-    .map(p => `${p.id}:${p.tabs.map(t => t.sessionId).join(',')}`);
-  return `${paneStructure.join('|')}|active:${terminalStore.activePane}`;
-});
-
-watch(layoutSignature, (newSignature, oldSignature) => {
-  if (newSignature && oldSignature && newSignature !== oldSignature && workspaceStore.selectedWorkspace && terminalStore.panes.length > 0) {
-    const layoutConfig = {
-      layout_type: terminalStore.currentLayout,
-      type: terminalStore.currentLayout,
-      panes: terminalStore.panes.map(pane => ({
-        id: pane.id,
-        name: pane.name,
-        pane_type: 'Terminal',
-        tabs: pane.tabs.map(tab => ({
-          id: tab.id,
-          session_id: tab.sessionId,
-          name: tab.name,
-          is_active: tab.isActive,
-          order: tab.order
-        })),
-        active_tab: pane.activeTabId
-      })),
-      active_pane: terminalStore.activePane,
-      timestamp: new Date().toISOString()
-    }
-
-    layoutStore.debouncedSaveLayout(
-      `Auto-saved ${terminalStore.currentLayout} layout`,
-      workspaceStore.selectedWorkspace.id,
-      JSON.stringify({ ...layoutConfig, type: layoutConfig.layout_type || 'single' }),
-      terminalStore.currentLayout || 'single',
-      false
-    )
-  }
-})
-
-// Watch for pane structure changes and save them
-watch(paneStructureSignature, (newSignature, oldSignature) => {
-  if (newSignature && oldSignature && newSignature !== oldSignature && workspaceStore.selectedWorkspace) {
-    console.log('🔄 Pane structure changed, saving to localStorage')
-    terminalStore.savePaneStructure(workspaceStore.selectedWorkspace.id)
-  }
-})
-
+// Event handlers
 const reconnectToSession = async (session: Session): Promise<void> => {
-  if (!workspaceStore.selectedWorkspace || !workspaceStore.selectedWorkspace.id) {
-    throw new Error('No workspace selected for session reconnection')
-  }
-
-  if (!session || !session.id) {
-    throw new Error('Invalid session data provided')
-  }
+  if (!workspaceStore.selectedWorkspace) return
 
   console.log(`🔄 Reconnecting to session ${session.id}`)
 
-  // Load session history to populate buffer with timeout
-  let sessionBuffer = ''
-  try {
-    const historyPromise = apiService.getSessionHistory(session.id)
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('History load timeout')), 3000)
-    )
+  // For now, create a simple single-terminal layout
+  // TODO: Implement proper session reconnection with saved layout
+  terminalStore.initializeLayout(workspaceStore.selectedWorkspace.id)
 
-    const history = await Promise.race([historyPromise, timeoutPromise])
-
-    if (Array.isArray(history)) {
-      sessionBuffer = history.join('')
-    } else if (typeof history === 'string') {
-      sessionBuffer = history
-    }
-    console.log(`📜 Loaded session history for ${session.id}: ${sessionBuffer.length} characters`)
-  } catch (historyError) {
-    console.warn(`Failed to load session history for ${session.id}:`, historyError)
-    // Continue without history - this is not a fatal error
+  if (terminalStore.layout && socketService.isConnected) {
+    socketService.createTerminal(workspaceStore.selectedWorkspace.id, session.id)
   }
 
-  // Reconnect to existing session with validation
-  const pane = await terminalStore.reconnectToExistingSession(
-    workspaceStore.selectedWorkspace.id,
-    session.id,
-    session.session_name || 'Terminal',
-    sessionBuffer
-  )
-
-  if (!pane) {
-    throw new Error(`Failed to create pane for session ${session.id}`)
-  }
-
-  console.log(`✅ Successfully reconnected to session ${session.id} in pane ${pane.id}`)
   showSessionReconnect.value = false
 }
 
@@ -374,12 +361,12 @@ const createNewTerminal = async () => {
   }
 }
 
-const handleTerminalData = (paneId: string, data: string) => {
-  terminalStore.sendInput(paneId, data)
+const handleTerminalData = (payload: { paneId: string, data: string }) => {
+  terminalStore.sendInput(payload.paneId, payload.data)
 }
 
-const handleTerminalResize = (paneId: string, cols: number, rows: number) => {
-  terminalStore.resizePane(paneId, cols, rows)
+const handleTerminalResize = (payload: { paneId: string, cols: number, rows: number }) => {
+  terminalStore.resizePane(payload.paneId, payload.cols, payload.rows)
 }
 
 const handleTerminalFocus = (paneId: string) => {
@@ -387,40 +374,55 @@ const handleTerminalFocus = (paneId: string) => {
 }
 
 const handleMoveTabToPane = (payload: { sourcePaneId: string, targetPaneId: string, tabId: string, targetIndex: number }) => {
-  terminalStore.moveTabBetweenPanes(
-    payload.sourcePaneId,
-    payload.targetPaneId,
-    payload.tabId,
-    payload.targetIndex
-  )
-  terminalStore.setActivePane(payload.targetPaneId)
+  // TODO: Implement tab moving between panes in tree structure
+  console.log('Moving tab between panes:', payload)
 }
 
-const handleSplit = async (direction: 'horizontal' | 'vertical') => {
+const handleClosePane = (paneId: string) => {
+  // TODO: Implement pane closing in tree structure
+  console.log('Closing pane:', paneId)
+}
+
+const handleSplit = (payload: { paneId: string, direction: SplitDirection }) => {
   if (!workspaceStore.selectedWorkspace) return
 
-  const currentLayout = terminalStore.currentLayout
-  let newLayout: typeof currentLayout = currentLayout
+  console.log(`🔄 Splitting pane ${payload.paneId} ${payload.direction}`)
 
-  if (currentLayout === 'single') {
-    newLayout = direction === 'horizontal' ? 'horizontal-split' : 'vertical-split'
-  } else if (currentLayout === 'horizontal-split' && direction === 'vertical') {
-    newLayout = 'grid-2x2'
-  } else if (currentLayout === 'vertical-split' && direction === 'horizontal') {
-    newLayout = 'grid-2x2'
+  const newPaneId = terminalStore.splitPane(payload.direction, payload.paneId)
+  if (newPaneId && workspaceStore.selectedWorkspace) {
+    // Create initial tab in the new pane
+    terminalStore.createTabInPane(newPaneId, workspaceStore.selectedWorkspace.id, 'Terminal')
   }
-
-  if (newLayout !== currentLayout) {
-    await terminalStore.setLayout(newLayout)
-  }
-
-  await createNewTerminal()
 }
 
-const closeTerminal = async (paneId: string) => {
-  await terminalStore.closeTerminal(paneId)
-}
+// Auto-save layout changes
+const layoutSignature = computed(() => {
+  if (!terminalStore.layout) return ''
+  const terminalNodes = getAllTerminalNodes(terminalStore.layout.root as PaneNode)
+  return `${terminalNodes.length}:${terminalStore.layout.activeNodeId}`
+})
 
+watch(layoutSignature, (newSignature, oldSignature) => {
+  if (newSignature && oldSignature && newSignature !== oldSignature && workspaceStore.selectedWorkspace && terminalStore.layout) {
+    console.log('🔄 Layout changed, auto-saving')
+
+    // Save to localStorage
+    terminalStore.savePaneStructure(workspaceStore.selectedWorkspace.id)
+
+    // Also save to database for persistence
+    const treeStructure = JSON.stringify(terminalStore.layout)
+
+    layoutStore.debouncedSaveLayout(
+      `Auto-saved hierarchical layout`,
+      workspaceStore.selectedWorkspace.id,
+      treeStructure,
+      'hierarchical',
+      false
+    )
+  }
+})
+
+// Initialization
 const initializeSocketConnection = async () => {
   try {
     await authStore.connectWebSocket()
@@ -437,14 +439,11 @@ const initializeSocketConnection = async () => {
 onMounted(async () => {
   terminalStore.initialize()
   await initializeSocketConnection()
-
-  // Don't load sessions here - let the workspace watcher handle it
-  // This prevents double loading when workspace is set after mount
 })
 
 onUnmounted(() => {
   // Save pane structure before unmounting
-  if (workspaceStore.selectedWorkspace && terminalStore.hasPanes) {
+  if (workspaceStore.selectedWorkspace && terminalStore.layout) {
     terminalStore.savePaneStructure(workspaceStore.selectedWorkspace.id)
   }
   terminalStore.cleanup()
@@ -461,6 +460,7 @@ onUnmounted(() => {
   position: relative;
 }
 
+/* Welcome Screen and Session Reconnect styles remain the same */
 .welcome-screen {
   display: flex;
   flex-direction: column;
@@ -598,20 +598,45 @@ onUnmounted(() => {
   color: var(--text-primary);
 }
 
-.terminal-grid {
+/* Terminal Tree Container */
+.terminal-tree-container {
   flex: 1;
-  display: grid;
-  gap: 4px;
-  padding: 8px;
+  padding: 4px;
   overflow: hidden;
   min-height: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
-.terminal-grid.layout-single {
-  gap: 0;
-  padding: 4px;
+/* No Terminals State */
+.no-terminals {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 64px 32px;
 }
 
+.no-terminals-content {
+  text-align: center;
+}
+
+.no-terminals-content h3 {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+
+.no-terminals-content p {
+  color: var(--text-secondary);
+  font-size: 16px;
+  margin-bottom: 32px;
+}
+
+/* Floating Actions */
 .floating-actions {
   position: absolute;
   bottom: 20px;

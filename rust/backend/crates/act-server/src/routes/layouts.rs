@@ -18,7 +18,7 @@ use tracing::{info, error};
 pub struct CreateLayoutRequest {
     pub name: String,
     pub layout_type: String,
-    pub configuration: serde_json::Value,
+    pub tree_structure: String, // Required JSON string of hierarchical layout
     pub is_default: Option<bool>,
     pub workspace_id: String,
 }
@@ -26,7 +26,7 @@ pub struct CreateLayoutRequest {
 #[derive(Debug, Deserialize)]
 pub struct UpdateLayoutRequest {
     pub name: Option<String>,
-    pub configuration: Option<serde_json::Value>,
+    pub tree_structure: Option<String>, // JSON string of hierarchical layout
     pub is_default: Option<bool>,
 }
 
@@ -40,7 +40,7 @@ pub struct LayoutResponse {
     pub id: String,
     pub name: String,
     pub layout_type: String,
-    pub configuration: serde_json::Value,
+    pub tree_structure: String, // JSON string of hierarchical layout
     pub is_default: bool,
     pub workspace_id: String,
     pub created_at: String,
@@ -53,7 +53,7 @@ impl From<act_core::models::TerminalLayout> for LayoutResponse {
             id: layout.id,
             name: layout.name,
             layout_type: layout.layout_type,
-            configuration: serde_json::to_value(layout.configuration).unwrap_or_default(),
+            tree_structure: layout.tree_structure,
             is_default: layout.is_default,
             workspace_id: layout.workspace_id,
             created_at: layout.created_at.to_rfc3339(),
@@ -99,17 +99,10 @@ async fn create_layout(
 ) -> Result<Json<ApiResponse<LayoutResponse>>, ServerError> {
     info!("Creating layout '{}' for user {}", request.name, user.user_id);
 
-    // Convert the JSON configuration to the domain model
-    let configuration: act_core::models::TerminalLayoutConfig = serde_json::from_value(request.configuration.clone())
-        .map_err(|e| {
-            error!("Failed to parse layout configuration: {}", e);
-            ServerError(act_core::error::CoreError::Validation(format!("Invalid layout configuration: {}", e)))
-        })?;
-
     let domain_request = act_core::repository::CreateLayoutRequest {
         name: request.name,
         layout_type: request.layout_type,
-        configuration,
+        tree_structure: request.tree_structure,
         is_default: request.is_default,
         workspace_id: request.workspace_id,
     };
@@ -143,19 +136,9 @@ async fn update_layout(
 ) -> Result<Json<ApiResponse<LayoutResponse>>, ServerError> {
     info!("Updating layout {} for user {}", id, user.user_id);
 
-    let configuration = if let Some(config) = &request.configuration {
-        Some(serde_json::from_value(config.clone())
-            .map_err(|e| {
-                error!("Failed to parse layout configuration: {}", e);
-                ServerError(act_core::error::CoreError::Validation(format!("Invalid layout configuration: {}", e)))
-            })?)
-    } else {
-        None
-    };
-
     let domain_request = act_core::repository::UpdateLayoutRequest {
         name: request.name,
-        configuration,
+        tree_structure: request.tree_structure,
         is_default: request.is_default,
     };
 

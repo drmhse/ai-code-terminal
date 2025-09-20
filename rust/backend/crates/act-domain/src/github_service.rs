@@ -39,7 +39,7 @@ impl GitHubService {
         let access_token = self.auth_repository
             .get_github_token(user_id)
             .await?
-            .ok_or_else(|| act_core::CoreError::NotFound(format!("GitHub token not found for user {}", user_id)))?;
+            .ok_or_else(|| act_core::CoreError::Auth("GitHub authentication required".to_string()))?;
 
         let options = RepositoryListOptions {
             page: query.page,
@@ -75,7 +75,7 @@ impl GitHubService {
         let access_token = self.auth_repository
             .get_github_token(user_id)
             .await?
-            .ok_or_else(|| act_core::CoreError::NotFound("GitHub token not found for user".to_string()))?;
+            .ok_or_else(|| act_core::CoreError::Auth("GitHub authentication required".to_string()))?;
 
         self.github_repo_service
             .get_repository(&access_token, owner, repo)
