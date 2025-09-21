@@ -2,7 +2,7 @@
   <div class="modal-overlay" @click="closeModal">
     <div class="modal-content" @click.stop>
       <div class="modal-header">
-        <h3>Clone Repository</h3>
+        <h3>Create Workspace</h3>
         <button @click="closeModal" class="close-btn">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -10,19 +10,43 @@
           </svg>
         </button>
       </div>
+
+      <!-- Workspace Type Selection -->
+      <div class="workspace-tabs">
+        <button
+          @click="activeTab = 'empty'"
+          class="tab-button"
+          :class="{ active: activeTab === 'empty' }"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+          </svg>
+          Empty Workspace
+        </button>
+        <button
+          @click="activeTab = 'clone'"
+          class="tab-button"
+          :class="{ active: activeTab === 'clone' }"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15 14c-2.5-1-3.7-3-3.7-3-.8 1.5-3.3 3-3.3 3h7zm-7.5 2c0 1.4 1.1 2.5 2.5 2.5s2.5-1.1 2.5-2.5h-5zm10 0c0 1.4 1.1 2.5 2.5 2.5s2.5-1.1 2.5-2.5h-5z"></path>
+          </svg>
+          Clone Repository
+        </button>
+      </div>
       
-      <!-- Search Bar -->
-      <div class="search-section">
+      <!-- Search Bar (Clone Tab Only) -->
+      <div v-if="activeTab === 'clone'" class="search-section">
         <div class="search-input-container">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="search-icon">
             <circle cx="11" cy="11" r="8"></circle>
             <path d="m21 21-4.35-4.35"></path>
           </svg>
-          <input 
+          <input
             v-model="searchTerm"
             @input="handleSearch"
-            type="text" 
-            placeholder="Search repositories..." 
+            type="text"
+            placeholder="Search repositories..."
             class="search-input"
           >
           <button v-if="searchTerm" @click="clearSearch" class="search-clear">
@@ -35,11 +59,70 @@
       </div>
       
       <div class="modal-body">
-        <!-- Loading State -->
-        <div v-if="repositoriesLoading" class="loading-state">
-          <div class="loading-spinner"></div>
-          <p>Loading repositories...</p>
+        <!-- Empty Workspace Tab -->
+        <div v-if="activeTab === 'empty'" class="empty-workspace-form">
+          <div class="form-section">
+            <label for="workspace-name" class="form-label">Workspace Name</label>
+            <input
+              id="workspace-name"
+              v-model="emptyWorkspaceForm.name"
+              type="text"
+              placeholder="Enter workspace name..."
+              class="form-input"
+              :class="{ 'error': emptyWorkspaceError && !emptyWorkspaceForm.name }"
+            >
+            <p v-if="emptyWorkspaceError && !emptyWorkspaceForm.name" class="form-error">
+              Workspace name is required
+            </p>
+          </div>
+
+          <div class="form-section">
+            <label for="workspace-description" class="form-label">Description</label>
+            <textarea
+              id="workspace-description"
+              v-model="emptyWorkspaceForm.description"
+              placeholder="Enter workspace description (optional)..."
+              class="form-textarea"
+              rows="3"
+            ></textarea>
+          </div>
+
+          <div class="form-section">
+            <label for="workspace-path" class="form-label">Location</label>
+            <input
+              id="workspace-path"
+              v-model="emptyWorkspaceForm.path"
+              type="text"
+              placeholder="Leave empty for default location..."
+              class="form-input"
+            >
+            <p class="form-hint">
+              Leave empty to create workspace in the default location
+            </p>
+          </div>
+
+          <div v-if="creatingEmptyWorkspace" class="creating-state">
+            <div class="loading-spinner"></div>
+            <p>Creating workspace...</p>
+          </div>
+
+          <div v-if="emptyWorkspaceError" class="error-message">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            {{ emptyWorkspaceError }}
+          </div>
         </div>
+
+        <!-- Clone Repository Tab -->
+        <div v-else-if="activeTab === 'clone'">
+          <!-- Loading State -->
+          <div v-if="repositoriesLoading" class="loading-state">
+            <div class="loading-spinner"></div>
+            <p>Loading repositories...</p>
+          </div>
         
         <!-- Error State -->
         <div v-else-if="repositoryError" class="error-state">
@@ -199,19 +282,29 @@
           </div>
         </div>
         
-        <!-- Clone Error -->
-        <div v-if="cloneError" class="clone-error">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="12" y1="8" x2="12" y2="12"></line>
-            <line x1="12" y1="16" x2="12.01" y2="16"></line>
-          </svg>
-          <span>{{ cloneError }}</span>
+          <!-- Clone Error -->
+          <div v-if="cloneError" class="clone-error">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span>{{ cloneError }}</span>
+          </div>
         </div>
       </div>
       
       <div class="modal-footer">
         <button @click="closeModal" class="btn btn-secondary">Cancel</button>
+        <button
+          v-if="activeTab === 'empty'"
+          @click="createEmptyWorkspace"
+          class="btn btn-primary"
+          :disabled="creatingEmptyWorkspace || !emptyWorkspaceForm.name.trim()"
+        >
+          <div v-if="creatingEmptyWorkspace" class="loading-spinner small"></div>
+          <span v-else>Create Workspace</span>
+        </button>
       </div>
     </div>
   </div>
@@ -221,9 +314,11 @@
 import { ref, onMounted, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useWorkspaceStore } from '@/stores/workspace'
+import { useUIStore } from '@/stores/ui'
 import type { Repository } from '@/stores/workspace'
 
 const workspaceStore = useWorkspaceStore()
+const uiStore = useUIStore()
 const { 
   repositories, 
   repositoriesLoading, 
@@ -235,12 +330,24 @@ const {
   cloneError
 } = storeToRefs(workspaceStore)
 
-// Search functionality
+// Tab management
+const activeTab = ref<'empty' | 'clone'>('empty')
+
+// Search functionality (for clone tab)
 const searchTerm = ref('')
 const repositoryListRef = ref<HTMLElement>()
 
+// Empty workspace form
+const emptyWorkspaceForm = ref({
+  name: '',
+  description: '',
+  path: ''
+})
+const creatingEmptyWorkspace = ref(false)
+const emptyWorkspaceError = ref<string | null>(null)
+
 const closeModal = () => {
-  workspaceStore.closeRepositoriesModal()
+  uiStore.closeRepositoriesModal()
 }
 
 const handleSearch = () => {
@@ -269,6 +376,34 @@ const cloneRepository = async (repository: Repository) => {
     await workspaceStore.cloneRepository(repository)
   } catch (err) {
     console.error('Failed to clone repository:', err)
+  }
+}
+
+const createEmptyWorkspace = async () => {
+  // Validate form
+  if (!emptyWorkspaceForm.value.name.trim()) {
+    emptyWorkspaceError.value = 'Workspace name is required'
+    return
+  }
+
+  creatingEmptyWorkspace.value = true
+  emptyWorkspaceError.value = null
+
+  try {
+    await workspaceStore.createEmptyWorkspace({
+      name: emptyWorkspaceForm.value.name.trim(),
+      description: emptyWorkspaceForm.value.description.trim() || undefined,
+      path: emptyWorkspaceForm.value.path.trim() || undefined
+    })
+
+    // Reset form and close modal on success
+    emptyWorkspaceForm.value = { name: '', description: '', path: '' }
+    closeModal()
+  } catch (err) {
+    emptyWorkspaceError.value = err instanceof Error ? err.message : 'Failed to create workspace'
+    console.error('Failed to create empty workspace:', err)
+  } finally {
+    creatingEmptyWorkspace.value = false
   }
 }
 
@@ -403,6 +538,41 @@ onMounted(async () => {
   color: var(--text-primary);
 }
 
+/* Workspace Tabs */
+.workspace-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+}
+
+.tab-button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 20px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border-bottom: 2px solid transparent;
+}
+
+.tab-button:hover {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+
+.tab-button.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  background: var(--bg-secondary);
+}
+
 .close-btn {
   background: none;
   border: none;
@@ -473,6 +643,87 @@ onMounted(async () => {
 .search-clear:hover {
   background: var(--bg-tertiary);
   color: var(--text-primary);
+}
+
+/* Empty Workspace Form */
+.empty-workspace-form {
+  padding: 24px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.form-section {
+  margin-bottom: 20px;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.form-input,
+.form-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+  font-family: inherit;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  border-color: var(--primary);
+}
+
+.form-input.error {
+  border-color: var(--error);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.form-hint {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.form-error {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--error);
+}
+
+.creating-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 20px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--error);
+  color: white;
+  border-radius: 6px;
+  font-size: 14px;
+  margin-top: 16px;
 }
 
 /* Modal Body */
@@ -795,6 +1046,22 @@ onMounted(async () => {
 
 .btn-secondary:hover {
   background: var(--button-secondary-hover);
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 @keyframes fadeIn {

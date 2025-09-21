@@ -8,6 +8,6 @@ pub use events::*;
 
 // Re-export core types for convenience
 pub use act_core::{
-    PtyService, PtyEvent, PtySize, SessionConfig, SessionInfo, SessionStatus,
-    SessionId, WorkspaceId, Result
+    PtyService, PtyEvent, PtySize, SessionConfig, SessionInfo,
+    WorkspaceId, Result
 };

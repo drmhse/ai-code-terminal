@@ -3,7 +3,7 @@
   <div class="sidebar" :class="{ 'mobile-open': uiStore.isMobile && uiStore.sidebarOpen }">
     <div class="sidebar-header">
       <h2>Workspaces</h2>
-      <button @click="workspaceStore.openRepositoriesModal" class="btn btn-small btn-icon">
+      <button @click="uiStore.openRepositoriesModal" class="btn btn-small btn-icon">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="12" y1="5" x2="12" y2="19"></line>
           <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -14,7 +14,7 @@
     <div class="workspaces-section">
       <div v-if="!workspaceStore.hasWorkspaces" class="empty-state">
         <p>No workspaces yet</p>
-        <button @click="workspaceStore.openRepositoriesModal" class="btn btn-small">
+        <button @click="uiStore.openRepositoriesModal" class="btn btn-small">
           Clone Repository
         </button>
       </div>
@@ -35,7 +35,7 @@
           </div>
         </div>
         <button 
-          @click.stop="workspaceStore.openDeleteModal(workspace)" 
+          @click.stop="openDeleteModal(workspace)" 
           class="delete-btn" 
           :title="`Delete ${workspace.name} workspace`"
         >
@@ -164,6 +164,11 @@ const openCreateItemModal = () => {
 
 const openCreateFolderModal = () => {
   uiStore.openCreateItemModal(fileStore.currentPath)
+}
+
+const openDeleteModal = (workspace: Workspace) => {
+  workspaceStore.prepareWorkspaceForDeletion(workspace)
+  uiStore.openDeleteModal()
 }
 
 </script>

@@ -1,7 +1,7 @@
 import { ref, computed, readonly } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useWorkspaceStore } from '@/stores/workspace'
-import { useTerminalStore } from '@/stores/terminal'
+import { useTerminalTreeStore } from '@/stores/terminal-tree'
 import { useFileStore } from '@/stores/file'
 import { useUIStore } from '@/stores/ui'
 import { socketService } from '@/services/socket'
@@ -13,7 +13,7 @@ import { socketService } from '@/services/socket'
 export function useAppCore() {
   const authStore = useAuthStore()
   const workspaceStore = useWorkspaceStore()
-  const terminalStore = useTerminalStore()
+  const terminalTreeStore = useTerminalTreeStore()
   const fileStore = useFileStore()
   const uiStore = useUIStore()
 
@@ -36,7 +36,6 @@ export function useAppCore() {
       // 1. Check mobile state and set up viewport listeners
       uiStore.checkMobile()
       window.addEventListener('resize', uiStore.checkMobile)
-      window.addEventListener('resize', terminalStore.updateViewportWidth)
 
       // 2. Check for authentication token in URL parameters
       const urlParams = new URLSearchParams(window.location.search)
@@ -74,10 +73,9 @@ export function useAppCore() {
       console.log('✅ Theme system initialized')
 
       // 5. Load workspaces and repositories
-      const ownerId = authStore.user?.id || authStore.user?.login
-      console.log('🔄 Loading workspaces for user:', ownerId, 'User object:', authStore.user)
+      console.log('🔄 Loading workspaces for user:', authStore.user)
       try {
-        await workspaceStore.fetchWorkspaces(ownerId)
+        await workspaceStore.fetchWorkspaces()
         console.log('✅ Workspaces loaded successfully:', workspaceStore.workspaces.length, 'workspaces found')
         console.log('Workspaces data:', workspaceStore.workspaces)
       } catch (wsError) {
@@ -92,7 +90,7 @@ export function useAppCore() {
       }
 
       // 6. Initialize terminal system
-      terminalStore.updateLayoutRecommendations()
+      terminalTreeStore.initialize()
       console.log('✅ Terminal system initialized')
 
       // 7. Set up keyboard event handlers
@@ -145,9 +143,8 @@ export function useAppCore() {
       // Close modals on Escape key
       if (e.key === 'Escape') {
         uiStore.closeThemeModal()
-        workspaceStore.closeRepositoriesModal()
-        workspaceStore.closeDeleteModal()
-        fileStore.closeFilePreviewModal()
+        uiStore.closeRepositoriesModal()
+        uiStore.closeDeleteModal()
         fileStore.closeContextMenu()
         uiStore.closeMobileInput()
       }
@@ -155,10 +152,9 @@ export function useAppCore() {
       // File explorer keyboard navigation
       if (workspaceStore.selectedWorkspace && 
           !fileStore.fileExplorerCollapsed &&
-          !workspaceStore.showRepositoriesModal && 
+          !uiStore.showRepositoriesModal &&
           !uiStore.showThemeModal &&
-          !workspaceStore.showDeleteModal && 
-          !fileStore.showFilePreviewModal &&
+          !uiStore.showDeleteModal && 
           !document.querySelector('input:focus') &&
           !isTerminalFocused()) {
 
@@ -217,7 +213,6 @@ export function useAppCore() {
   // Clean up resources when component unmounts
   const cleanup = () => {
     window.removeEventListener('resize', uiStore.checkMobile)
-    window.removeEventListener('resize', terminalStore.updateViewportWidth)
     
     // Stop any polling intervals
     if (authStore.stats) {

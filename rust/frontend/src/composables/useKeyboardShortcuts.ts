@@ -191,12 +191,10 @@ export function useKeyboardShortcuts() {
     // Close modals in order of priority
     if (uiStore.showThemeModal) {
       uiStore.closeThemeModal()
-    } else if (workspaceStore.showRepositoriesModal) {
-      workspaceStore.closeRepositoriesModal()
-    } else if (workspaceStore.showDeleteModal) {
-      workspaceStore.closeDeleteModal()
-    } else if (fileStore.showFilePreviewModal) {
-      fileStore.closeFilePreviewModal()
+    } else if (uiStore.showRepositoriesModal) {
+      uiStore.closeRepositoriesModal()
+    } else if (uiStore.showDeleteModal) {
+      uiStore.closeDeleteModal()
     } else if (fileStore.showDiscardModal) {
       fileStore.closeDiscardModal()
     } else if (fileStore.showContextMenu) {
@@ -259,9 +257,7 @@ export function useKeyboardShortcuts() {
   }
 
   const handleCloseFile = () => {
-    if (fileStore.showFilePreviewModal) {
-      fileStore.closeFilePreviewModal()
-    } else if (editorStore.editMode) {
+    if (editorStore.editMode) {
       editorStore.exitEditMode()
     }
   }
@@ -357,10 +353,9 @@ export function useKeyboardShortcuts() {
   const handleHardRefresh = async () => {
     // Clear all caches and refresh everything
     fileStore.clearCache()
-    const ownerId = authStore.user?.id || authStore.user?.login
     await Promise.all([
       fileOperations.refreshFiles(undefined, false),
-      workspaceStore.fetchWorkspaces(ownerId)
+      workspaceStore.fetchWorkspaces()
     ])
     
     uiStore.addResourceAlert({

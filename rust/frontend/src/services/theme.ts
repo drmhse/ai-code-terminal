@@ -1,7 +1,7 @@
 import type { Theme, ThemePreference } from '@/types/theme'
 import { themes, getThemeById, getSystemPreferredTheme, getDefaultTheme } from '@/data/themes'
 import { apiService } from './api'
-import { transformToLegacyTheme, applyLegacyTheme, getDefaultLegacyTheme, type LegacyTheme } from '@/utils/themeCompat'
+import { transformToLegacyTheme, applyLegacyTheme } from '@/utils/themeCompat'
 
 interface ThemeApiService {
   getCurrentTheme(): Promise<ThemePreference | null>
@@ -21,6 +21,7 @@ class ThemeService {
   }
   private themePreference: ThemePreference | null = null
   private systemMediaQuery: MediaQueryList | null = null
+  private systemThemeChangeHandler: (() => void) | null = null
   private cssRoot: HTMLElement | null = null
 
   constructor() {
@@ -227,7 +228,7 @@ class ThemeService {
 
     this.systemMediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
     
-    const handleSystemThemeChange = async () => {
+    this.systemThemeChangeHandler = async () => {
       // Only respond if user has auto-switch enabled
       if (this.themePreference?.autoSwitch) {
         const systemTheme = getSystemPreferredTheme()
@@ -235,7 +236,7 @@ class ThemeService {
       }
     }
 
-    this.systemMediaQuery.addEventListener('change', handleSystemThemeChange)
+    this.systemMediaQuery.addEventListener('change', this.systemThemeChangeHandler)
   }
 
   /**
@@ -302,8 +303,9 @@ class ThemeService {
    * Cleanup resources
    */
   dispose(): void {
-    if (this.systemMediaQuery) {
-      this.systemMediaQuery.removeEventListener('change', () => {})
+    if (this.systemMediaQuery && this.systemThemeChangeHandler) {
+      this.systemMediaQuery.removeEventListener('change', this.systemThemeChangeHandler)
+      this.systemThemeChangeHandler = null
     }
   }
 }

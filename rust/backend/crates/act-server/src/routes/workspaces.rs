@@ -14,7 +14,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use tracing::info;
 use act_core::{DirectoryListing, FileContent, CreateFileRequest};
-use crate::models::{Session, session_from_domain};
+use crate::models::{Session, session_info_from_domain};
 
 // Response wrapper for file content that properly encodes content as string
 #[derive(Debug, Serialize, Deserialize)]
@@ -34,6 +34,13 @@ pub struct CreateWorkspaceRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct CreateEmptyWorkspaceRequest {
+    pub name: String,
+    pub description: Option<String>,
+    pub path: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct UpdateWorkspaceRequest {
     pub name: Option<String>,
     pub is_active: Option<bool>,
@@ -47,6 +54,7 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/", get(list_workspaces))
         .route("/", post(create_workspace))
+        .route("/empty", post(create_empty_workspace))
         .route("/:workspace_id", get(get_workspace))
         .route("/:workspace_id", put(update_workspace))
         .route("/:workspace_id", delete(delete_workspace))
@@ -78,7 +86,7 @@ pub async fn create_workspace(
     // CSRF verification is handled by the middleware layer
     // This handler only executes if CSRF validation passes
     info!("Workspace creation requested: {} for user {}", request.name, auth_user.user_id);
-    
+
     let workspace = state.domain_services.workspace_service
         .create_workspace(
             &auth_user.user_id,
@@ -87,8 +95,30 @@ pub async fn create_workspace(
             request.github_url
         )
         .await?;
-    
+
     info!("Workspace created successfully: {}", workspace.id);
+    Ok(Json(ApiResponse::success(workspace)))
+}
+
+pub async fn create_empty_workspace(
+    auth_user: AuthenticatedUser,
+    State(state): State<AppState>,
+    Json(request): Json<CreateEmptyWorkspaceRequest>
+) -> Result<Json<ApiResponse<act_core::repository::Workspace>>, ServerError> {
+    // CSRF verification is handled by the middleware layer
+    // This handler only executes if CSRF validation passes
+    info!("Empty workspace creation requested: {} for user {}", request.name, auth_user.user_id);
+
+    let workspace = state.domain_services.workspace_service
+        .create_empty_workspace(
+            &auth_user.user_id,
+            request.name,
+            request.description,
+            request.path
+        )
+        .await?;
+
+    info!("Empty workspace created successfully: {}", workspace.id);
     Ok(Json(ApiResponse::success(workspace)))
 }
 
@@ -152,7 +182,11 @@ pub async fn get_workspace_sessions(
         .list_workspace_sessions(&auth_user.user_id, &workspace_id)
         .await?;
     
-    let sessions: Vec<Session> = domain_sessions.into_iter().map(session_from_domain).collect();
+    let sessions: Vec<Session> = domain_sessions.into_iter().map(|session_info| {
+        let mut session = session_info_from_domain(session_info);
+        session.user_id = auth_user.user_id.clone();
+        session
+    }).collect();
     
     info!("Retrieved {} sessions for workspace {}", sessions.len(), workspace_id);
     Ok(Json(ApiResponse::success(sessions)))

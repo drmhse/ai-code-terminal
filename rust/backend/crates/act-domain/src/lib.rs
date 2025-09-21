@@ -8,13 +8,14 @@ pub mod layout_service;
 pub mod process_service;
 pub mod process_recovery_service;
 pub mod theme_service;
+pub mod user_preferences_service;
 
 pub use workspace_service::{
     WorkspaceService, GitService, WorkspaceSettings, GitStatus, GitCommit, CloneRequest
 };
 
 pub use session_service::{
-    SessionService, SessionState, CreateSessionOptions
+    SessionService, RollingBuffer, UserLiveState, TerminalOutputEvent, OutputEventHandler, UserId, ConnectionId
 };
 
 pub use system_service::{
@@ -32,12 +33,14 @@ pub use layout_service::{LayoutService};
 pub use process_service::{ProcessService};
 pub use process_recovery_service::{ProcessRecoveryService, ProcessRecoveryConfig};
 pub use theme_service::{ThemeService};
+pub use user_preferences_service::{UserPreferencesService};
 
 use std::sync::Arc;
 
 use act_core::{
-    repository::{WorkspaceRepository, SessionRepository, LayoutRepository, ProcessRepository, ProcessRunner},
+    repository::{WorkspaceRepository, LayoutRepository, ProcessRepository, ProcessRunner},
     theme::ThemeRepository,
+    user_preferences::UserPreferencesRepository,
     filesystem::FileSystem,
     pty::PtyService,
     events::EventPublisher,
@@ -55,17 +58,18 @@ pub struct DomainServices {
     pub process_service: ProcessService,
     pub process_recovery_service: ProcessRecoveryService,
     pub theme_service: ThemeService,
+    pub user_preferences_service: UserPreferencesService,
 }
 
 impl DomainServices {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         workspace_repository: Arc<dyn WorkspaceRepository>,
-        session_repository: Arc<dyn SessionRepository>,
         layout_repository: Arc<dyn LayoutRepository>,
         process_repository: Arc<dyn ProcessRepository>,
         process_runner: Arc<dyn ProcessRunner>,
         theme_repository: Arc<dyn ThemeRepository>,
+        user_preferences_repository: Arc<dyn UserPreferencesRepository>,
         filesystem: Arc<dyn FileSystem>,
         pty_service: Arc<dyn PtyService>,
         git_service: Arc<dyn GitService>,
@@ -88,11 +92,7 @@ impl DomainServices {
             workspace_root,
         );
 
-        let session_service = SessionService::new(
-            session_repository,
-            pty_service,
-            Some(24), // 24 hour recovery timeout
-        );
+        let session_service = SessionService::new(pty_service);
 
         let system_service = SystemService::new(
             metrics_repository,
@@ -134,6 +134,10 @@ impl DomainServices {
             theme_repository,
         );
 
+        let user_preferences_service = UserPreferencesService::new(
+            user_preferences_repository,
+        );
+
         Self {
             workspace_service,
             session_service,
@@ -144,6 +148,7 @@ impl DomainServices {
             process_service,
             process_recovery_service,
             theme_service,
+            user_preferences_service,
         }
     }
 }

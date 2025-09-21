@@ -2,7 +2,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import type { Theme, ThemePreference } from '@/types/theme'
 import { themeService } from '@/services/theme'
 import { apiService } from '@/services/api'
-import { transformToLegacyTheme, type LegacyTheme } from '@/utils/themeCompat'
+import { transformToLegacyTheme } from '@/utils/themeCompat'
 
 // SINGLETON STATE - shared across all component instances
 const currentTheme = ref<Theme | null>(null)

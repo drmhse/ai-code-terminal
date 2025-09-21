@@ -208,7 +208,7 @@ impl ProcessRepository for SqlProcessRepository {
         Ok(processes)
     }
 
-    async fn list_for_session(&self, user_id: &str, session_id: &String) -> Result<Vec<UserProcess>, act_core::error::CoreError> {
+    async fn list_for_session(&self, user_id: &str, session_id: &str) -> Result<Vec<UserProcess>, act_core::error::CoreError> {
         let rows = handle_db_error!(
             sqlx::query(
                 "SELECT * FROM process_info WHERE session_id = ?1 AND user_id = ?2 ORDER BY created_at DESC"

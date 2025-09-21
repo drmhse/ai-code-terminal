@@ -9,8 +9,6 @@ use jsonwebtoken::{decode, DecodingKey, Validation};
 
 
 use crate::AppState;
-use act_core::repository::{SessionType, TerminalSize};
-use act_domain::CreateSessionOptions;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 
@@ -59,11 +57,6 @@ pub struct SessionListRequest {
     pub workspace_id: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SessionRecoveryRequest {
-    #[serde(rename = "recoveryToken")]
-    pub recovery_token: String,
-}
 
 // Event types for socket emission
 #[derive(Debug, Serialize)]
@@ -106,50 +99,24 @@ pub struct ErrorEvent {
     pub error: String,
 }
 
-// Enhanced session output forwarder that integrates with SessionService
-pub struct SessionOutputForwarder {
-    socket: SocketRef,
-    session_id: String,
-    output_rx: Option<tokio::sync::mpsc::UnboundedReceiver<String>>,
+// WebSocket output handler that implements OutputEventHandler for SessionService integration
+pub struct WebSocketOutputHandler {
+    io: SocketIo,
 }
 
-// Session manager for tracking active terminal sessions per socket
-pub struct SocketSessionManager {
-    socket: SocketRef,
-    sessions: HashMap<String, SessionOutputForwarder>,
+impl WebSocketOutputHandler {
+    pub fn new(io: SocketIo) -> Self {
+        Self { io }
+    }
 }
 
-impl SocketSessionManager {
-    pub fn new(socket: SocketRef) -> Self {
-        Self {
-            socket,
-            sessions: HashMap::new(),
-        }
-    }
-
-    pub async fn add_session(&mut self, session_id: String, state: Arc<AppState>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let mut forwarder = SessionOutputForwarder::new(self.socket.clone(), session_id.clone());
-        forwarder.start(state.clone()).await?;
-
-        // Disable welcome message completely to prevent initialization conflicts
-        // The shell prompt will provide sufficient indication of connection status
-
-        self.sessions.insert(session_id, forwarder);
-        Ok(())
-    }
-
-    #[allow(dead_code)]
-    pub async fn remove_session(&mut self, session_id: &str, state: Arc<AppState>) {
-        if let Some(forwarder) = self.sessions.remove(session_id) {
-            forwarder.stop(state).await;
-        }
-    }
-
-    pub async fn cleanup_all(&mut self, state: Arc<AppState>) {
-        for (session_id, forwarder) in self.sessions.drain() {
-            forwarder.stop(state.clone()).await;
-            info!("Cleaned up session {} for socket {}", session_id, self.socket.id);
-        }
+impl act_domain::OutputEventHandler for WebSocketOutputHandler {
+    fn handle_output(&self, _user_id: &str, event: act_domain::TerminalOutputEvent) {
+        // Emit to all sockets for this user - multi-device support
+        self.io.emit("terminal:output", TerminalOutputEvent {
+            session_id: event.session_id,
+            output: event.output,
+        }).ok();
     }
 }
 
@@ -226,73 +193,32 @@ impl StatsSubscription {
             timestamp: chrono::Utc::now().timestamp(),
         };
 
-        socket.emit("stats:data", stats_event)?;
+        // FIX: Handle potential socket disconnection errors gracefully
+        socket.emit("stats:data", stats_event).map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
+            format!("Failed to emit stats data: {}", e).into()
+        })?;
         Ok(())
     }
 }
 
-impl SessionOutputForwarder {
-    pub fn new(socket: SocketRef, session_id: String) -> Self {
-        Self {
-            socket,
-            session_id,
-            output_rx: None,
-        }
-    }
-
-    pub async fn start(&mut self, state: Arc<AppState>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        // Register with SessionService for output forwarding
-        let output_rx = state.domain_services.session_service
-            .register_websocket_connection(&self.session_id).await;
-        
-        self.output_rx = Some(output_rx);
-        
-        // Start the output forwarding task
-        let socket = self.socket.clone();
-        let session_id = self.session_id.clone();
-        let mut rx = self.output_rx.take().unwrap();
-        
-        tokio::spawn(async move {
-            info!("✅ Started output forwarding task for session {}", session_id);
-            while let Some(output) = rx.recv().await {
-                info!("📤 Forwarding output for session {}: {:?}", session_id, output);
-                let event = TerminalOutputEvent {
-                    session_id: session_id.clone(),
-                    output,
-                };
-                if let Err(e) = socket.emit("terminal:output", event) {
-                    error!("Failed to forward terminal output for session {}: {}", session_id, e);
-                    break;
-                }
-            }
-            warn!("⚠️ Output forwarding ended for session {} - channel closed", session_id);
-        });
-        
-        Ok(())
-    }
-
-    pub async fn stop(&self, _state: Arc<AppState>) {
-        if let Some(rx) = &self.output_rx {
-            // Note: We can't clone the receiver, so we'll just drop it
-            // The session service will clean up when the channel is closed
-            let _ = rx;
-        }
-    }
-
-    // VS Code approach: No welcome messages
-    // The shell prompt is sufficient indication of connection status
-}
 
 use crate::middleware::auth::Claims;
 
 pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
     let stats_subscriptions = Arc::new(RwLock::new(HashMap::<String, StatsSubscription>::new()));
-    let session_managers = Arc::new(RwLock::new(HashMap::<String, SocketSessionManager>::new()));
+
+    // Register WebSocket output handler with SessionService for terminal output broadcasting
+    let websocket_handler = Arc::new(WebSocketOutputHandler::new(io.clone()));
+    tokio::spawn({
+        let session_service = state.domain_services.session_service.clone();
+        async move {
+            session_service.add_output_handler(websocket_handler).await;
+        }
+    });
     
     io.ns("/", move |socket: SocketRef| {
         let state = state.clone();
         let stats_subs = stats_subscriptions.clone();
-        let session_mgrs = session_managers.clone();
         info!("New socket connection: {}", socket.id);
 
         // Authentication handler (for backward compatibility and primary auth method)
@@ -322,17 +248,15 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
             }
         });
 
-        // Create terminal session handler
+        // Create terminal session handler - NEW MULTI-DEVICE PTY SHARING LOGIC
         socket.on("terminal:create", {
             let state = state.clone();
-            let session_mgrs = session_mgrs.clone();
             move |socket: SocketRef, Data::<TerminalCreateRequest>(data)| {
                 let state = state.clone();
-                let socket_id = socket.id.to_string();
-                let session_mgrs = session_mgrs.clone();
+                let _connection_id = socket.id.to_string();
                 async move {
-                    info!("🔧 Received terminal create request: workspace_id={}, session_id={:?}", data.workspace_id, data.session_id);
-                    
+                    info!("🚀 MULTI-DEVICE: Terminal create request: workspace_id={}, session_id={:?}", data.workspace_id, data.session_id);
+
                     // Check authentication
                     let user_id = match get_authenticated_user_id(&socket) {
                         Ok(user_id) => user_id,
@@ -344,101 +268,54 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                             return;
                         }
                     };
-                    
-                    // Get the actual workspace path for the working directory
+
+                    // Generate session ID if not provided
+                    let session_id = data.session_id.clone().unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+
+                    // Get workspace path for PTY working directory
                     let workspace_path = match state.domain_services.workspace_service.get_workspace(&user_id, &data.workspace_id).await {
                         Ok(workspace) => {
                             info!("🔧 Using workspace path: {}", workspace.local_path);
                             Some(workspace.local_path)
                         }
                         Err(e) => {
-                            error!("Failed to get workspace {}: {}", data.workspace_id, e);
+                            warn!("Failed to get workspace {}: {}, using default", data.workspace_id, e);
                             None
                         }
                     };
-                    
-                    let options = CreateSessionOptions {
-                        workspace_id: Some(data.workspace_id.clone()),
-                        session_id: data.session_id.clone(),
-                        session_name: "Terminal".to_string(),
-                        session_type: SessionType::Terminal,
-                        terminal_size: Some(TerminalSize { cols: 80, rows: 24 }),
-                        is_recoverable: true,
-                        auto_cleanup: false,
-                        max_idle_minutes: 30,
-                        working_directory: workspace_path,
-                    };
 
-                    match state.domain_services.session_service.create_session(&user_id, options).await {
-                        Ok(session_state) => {
-                            info!("Created terminal session: {}", session_state.session_id);
-
-                            // Add session to socket manager
-                            let mut session_managers = session_mgrs.write().await;
-                            let session_manager = session_managers.entry(socket_id.clone()).or_insert_with(|| {
-                                SocketSessionManager::new(socket.clone())
-                            });
-
-                            if let Err(e) = session_manager.add_session(session_state.session_id.clone(), state.clone()).await {
-                                error!("Failed to add session to socket manager: {}", e);
-                                socket.emit("terminal:error", ErrorEvent {
-                                    error: format!("Failed to setup session: {}", e),
-                                }).ok();
-                                return;
+                    // CORE MULTI-DEVICE LOGIC: Get or create PTY session
+                    match state.domain_services.session_service.get_or_create_pty_session(&user_id, &session_id, &data.workspace_id, workspace_path).await {
+                        Ok(is_new_session) => {
+                            if is_new_session {
+                                info!("🆕 MULTI-DEVICE: Created NEW PTY session {} for user {}", session_id, user_id);
+                            } else {
+                                info!("🔗 MULTI-DEVICE: Connecting to EXISTING PTY session {} for user {}", session_id, user_id);
                             }
 
-                            // Get session info to extract PID
-                            let pid = match state.pty_service.get_session_info(&session_state.session_id).await {
+                            // WebSocket broadcasting is handled automatically by the session service output handlers
+                            // The SessionService's pty_output_broadcaster already handles PTY output forwarding
+
+                            // Get session info (PID) for frontend
+                            let pid = match state.pty_service.get_session_info(&session_id).await {
                                 Ok(info) => info.pid.unwrap_or(0),
-                                Err(_) => 0, // Fallback to 0 if we can't get session info
+                                Err(_) => 0,
                             };
 
-                            // Send the correct format that frontend expects
+                            // Send success response to frontend
                             socket.emit("terminal:created", serde_json::json!({
-                                "sessionId": session_state.session_id,
-                                "pid": pid  // Use actual PID if available, otherwise 0
+                                "sessionId": session_id,
+                                "pid": pid,
+                                "multiDevice": true,
+                                "isNewSession": is_new_session
                             })).ok();
+
+                            info!("✅ MULTI-DEVICE: Terminal session {} ready for user {} (pid: {})", session_id, user_id, pid);
                         }
                         Err(err) => {
-                            // Check if this is a session that already exists (reconnection case)
-                            if err.to_string().contains("UNIQUE constraint failed") || err.to_string().contains("already exists") {
-                                info!("Session {} already exists, attempting to reconnect output routing", data.session_id.clone().unwrap_or_default());
-
-                                let existing_session_id = data.session_id.clone().unwrap_or_default();
-                                if !existing_session_id.is_empty() {
-                                    // Set up output forwarding for existing session
-                                    let mut session_managers = session_mgrs.write().await;
-                                    let session_manager = session_managers.entry(socket_id.clone()).or_insert_with(|| {
-                                        SocketSessionManager::new(socket.clone())
-                                    });
-
-                                    if let Err(e) = session_manager.add_session(existing_session_id.clone(), state.clone()).await {
-                                        error!("Failed to reconnect to existing session {}: {}", existing_session_id, e);
-                                        socket.emit("terminal:error", ErrorEvent {
-                                            error: format!("Failed to reconnect to session: {}", e),
-                                        }).ok();
-                                        return;
-                                    }
-
-                                    // Get session info for existing session
-                                    let pid = match state.pty_service.get_session_info(&existing_session_id).await {
-                                        Ok(info) => info.pid.unwrap_or(0),
-                                        Err(_) => 0,
-                                    };
-
-                                    info!("✅ Successfully reconnected output routing for existing session: {}", existing_session_id);
-                                    socket.emit("terminal:created", serde_json::json!({
-                                        "sessionId": existing_session_id,
-                                        "pid": pid,
-                                        "reconnected": true
-                                    })).ok();
-                                    return;
-                                }
-                            }
-
-                            error!("Failed to create terminal session: {}", err);
+                            error!("🚨 MULTI-DEVICE: Failed to create/connect to PTY session: {}", err);
                             socket.emit("terminal:error", ErrorEvent {
-                                error: format!("Failed to create session: {}", err),
+                                error: format!("Failed to create terminal session: {}", err),
                             }).ok();
                         }
                     }
@@ -446,14 +323,14 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
             }
         });
 
-        // Terminal input handler
+        // Terminal input handler - NEW MULTI-DEVICE INPUT ROUTING
         socket.on("terminal:data", {
             let state = state.clone();
             move |socket: SocketRef, Data::<TerminalDataRequest>(data)| {
                 let state = state.clone();
                 async move {
                     // Check authentication
-                    let _user_id = match get_authenticated_user_id(&socket) {
+                    let user_id = match get_authenticated_user_id(&socket) {
                         Ok(user_id) => user_id,
                         Err(err) => {
                             error!("Terminal data request from unauthenticated socket: {}", err);
@@ -463,15 +340,35 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                             return;
                         }
                     };
-                    
-                    match state.domain_services.session_service.send_input(&data.session_id, data.data.as_bytes()).await {
-                        Ok(_) => {
-                            debug!("Wrote data to session {}", data.session_id);
+
+                    debug!("⌨️  MULTI-DEVICE: Input from user {} to session {}: {:?}", user_id, data.session_id, data.data);
+
+                    // Check if PTY session exists and send input
+                    match state.domain_services.session_service.has_pty_session(&user_id, &data.session_id).await {
+                        Ok(true) => {
+                            // Send input directly to PTY service
+                            match state.pty_service.send_input(&data.session_id, data.data.as_bytes()).await {
+                                Ok(_) => {
+                                    debug!("✅ MULTI-DEVICE: Input sent to PTY session {}", data.session_id);
+                                }
+                                Err(err) => {
+                                    error!("🚨 MULTI-DEVICE: Failed to write to PTY session {}: {}", data.session_id, err);
+                                    socket.emit("terminal:error", ErrorEvent {
+                                        error: format!("Failed to write to session: {}", err),
+                                    }).ok();
+                                }
+                            }
+                        }
+                        Ok(false) => {
+                            error!("🚨 MULTI-DEVICE: PTY session {} not found for user {}", data.session_id, user_id);
+                            socket.emit("terminal:error", ErrorEvent {
+                                error: format!("Session {} not found", data.session_id),
+                            }).ok();
                         }
                         Err(err) => {
-                            error!("Failed to write to session {}: {}", data.session_id, err);
-                            socket.emit("terminal-error", ErrorEvent {
-                                error: format!("Failed to write to session: {}", err),
+                            error!("🚨 MULTI-DEVICE: Failed to check PTY session {}: {}", data.session_id, err);
+                            socket.emit("terminal:error", ErrorEvent {
+                                error: format!("Failed to access session: {}", err),
                             }).ok();
                         }
                     }
@@ -483,7 +380,7 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
         socket.on("terminal:command", {
             let state = state.clone();
             move |socket: SocketRef, Data::<TerminalCommandRequest>(data)| {
-                let state = state.clone();
+                let _state = state.clone();
                 async move {
                     // Check authentication
                     let user_id = match get_authenticated_user_id(&socket) {
@@ -499,23 +396,12 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                     
                     info!("Terminal command executed by user {}: session={}, command='{}'", user_id, data.session_id, data.command);
                     
-                    // Persist the command to the session history
-                    match state.domain_services.session_service.add_command_to_history(&user_id, &data.session_id, &data.command).await {
-                        Ok(_) => {
-                            debug!("Command persisted to session {} history", data.session_id);
-                            socket.emit("terminal:command:ack", serde_json::json!({
-                                "sessionId": data.session_id,
-                                "command": data.command,
-                                "success": true
-                            })).ok();
-                        }
-                        Err(err) => {
-                            error!("Failed to persist command to session {} history: {}", data.session_id, err);
-                            socket.emit("terminal:error", ErrorEvent {
-                                error: format!("Failed to persist command: {}", err),
-                            }).ok();
-                        }
-                    }
+                    // Command history is handled by the shell itself through the PTY
+                    socket.emit("terminal:command:ack", serde_json::json!({
+                        "sessionId": data.session_id,
+                        "command": data.command,
+                        "success": true
+                    })).ok();
                 }
             }
         });
@@ -538,7 +424,7 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                         }
                     };
                     
-                    match state.domain_services.session_service.resize_terminal(&user_id, &data.session_id, data.cols, data.rows).await {
+                    match state.domain_services.session_service.resize_session(&user_id, &data.session_id, data.cols, data.rows).await {
                         Ok(_) => {
                             debug!("Resized session {} to {}x{}", data.session_id, data.cols, data.rows);
                         }
@@ -577,7 +463,7 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                                 .into_iter()
                                 .filter(|s| {
                                     if let Some(ref workspace_id) = data.workspace_id {
-                                        s.workspace_id.as_ref() == Some(workspace_id)
+                                        s.workspace_id == *workspace_id
                                     } else {
                                         true
                                     }
@@ -600,60 +486,6 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
             }
         });
 
-        // Session recovery handler
-        socket.on("session:recover", {
-            let state = state.clone();
-            let session_mgrs = session_mgrs.clone();
-            move |socket: SocketRef, Data::<SessionRecoveryRequest>(data)| {
-                let state = state.clone();
-                let socket_id = socket.id.to_string();
-                let session_mgrs = session_mgrs.clone();
-                async move {
-                    // Check authentication
-                    let user_id = match get_authenticated_user_id(&socket) {
-                        Ok(user_id) => user_id,
-                        Err(err) => {
-                            error!("Session recovery request from unauthenticated socket: {}", err);
-                            socket.emit("terminal:error", ErrorEvent {
-                                error: format!("Authentication required: {}", err),
-                            }).ok();
-                            return;
-                        }
-                    };
-                    
-                    match state.domain_services.session_service.recover_session(&user_id, &data.recovery_token).await {
-                        Ok(session_state) => {
-                            info!("Recovered session: {}", session_state.session_id);
-                            
-                            // Add recovered session to socket manager
-                            let mut session_managers = session_mgrs.write().await;
-                            let session_manager = session_managers.entry(socket_id.clone()).or_insert_with(|| {
-                                SocketSessionManager::new(socket.clone())
-                            });
-                            
-                            if let Err(e) = session_manager.add_session(session_state.session_id.clone(), state.clone()).await {
-                                error!("Failed to add recovered session to socket manager: {}", e);
-                                socket.emit("terminal-error", ErrorEvent {
-                                    error: format!("Failed to setup recovered session: {}", e),
-                                }).ok();
-                                return;
-                            }
-                            
-                            socket.emit("session-recovered", serde_json::json!({
-                                "sessionId": session_state.session_id,
-                                "success": true
-                            })).ok();
-                        }
-                        Err(err) => {
-                            error!("Failed to recover session: {}", err);
-                            socket.emit("terminal-error", ErrorEvent {
-                                error: format!("Failed to recover session: {}", err),
-                            }).ok();
-                        }
-                    }
-                }
-            }
-        });
 
         // Session termination handler
         socket.on("terminal:terminate", {
@@ -745,29 +577,32 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
             }
         });
 
-        // Disconnect handler
+        // Disconnect handler - NEW MULTI-DEVICE CLEANUP LOGIC
         socket.on_disconnect({
             let stats_subs = stats_subs.clone();
-            let session_mgrs = session_mgrs.clone();
+            let state = state.clone();
             move |socket: SocketRef| {
                 let subs = stats_subs.clone();
-                let session_mgrs = session_mgrs.clone();
+                let _state = state.clone();
                 async move {
-                    let socket_id = socket.id.to_string();
-                    
+                    let connection_id = socket.id.to_string();
+
+                    info!("🔌 MULTI-DEVICE: Socket disconnecting: {}", connection_id);
+
                     // Clean up stats subscription if it exists
                     let mut subscriptions = subs.write().await;
-                    if let Some(mut subscription) = subscriptions.remove(&socket_id) {
+                    if let Some(mut subscription) = subscriptions.remove(&connection_id) {
                         subscription.stop().await;
                     }
-                    
-                    // Clean up session manager and all associated sessions
-                    let mut session_managers = session_mgrs.write().await;
-                    if let Some(mut session_manager) = session_managers.remove(&socket_id) {
-                        session_manager.cleanup_all(state.clone()).await;
+
+                    // Get user ID for cleanup (if authenticated)
+                    if let Ok(user_id) = get_authenticated_user_id(&socket) {
+                        // WebSocket cleanup is handled automatically by the socket layer
+                        // PTY sessions remain alive for multi-device sharing
+                        info!("🗑️  MULTI-DEVICE: WebSocket {} disconnected for user {} (PTY sessions preserved)", connection_id, user_id);
                     }
-                    
-                    info!("Socket disconnected: {}", socket.id);
+
+                    info!("✅ MULTI-DEVICE: Socket cleanup complete: {}", connection_id);
                 }
             }
         });

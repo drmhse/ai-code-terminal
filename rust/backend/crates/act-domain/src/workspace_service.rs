@@ -131,6 +131,43 @@ impl WorkspaceService {
         Ok(workspace)
     }
 
+    pub async fn create_empty_workspace(&self, user_id: &str, name: String, description: Option<String>, path: Option<String>) -> Result<Workspace> {
+        let workspace_id = Uuid::new_v4().to_string();
+
+        // Use provided path or generate default path
+        let local_path = match path {
+            Some(custom_path) if !custom_path.is_empty() => custom_path,
+            _ => format!("{}/{}", self.workspace_root, workspace_id)
+        };
+
+        // Create the workspace directory
+        let create_request = act_core::filesystem::CreateDirectoryRequest {
+            path: std::path::PathBuf::from(&local_path),
+            create_parent_dirs: true,
+        };
+        self.filesystem.create_directory(create_request).await
+            .map_err(|e| CoreError::FileSystem(format!("Failed to create empty workspace directory: {}", e)))?;
+
+        // Create workspace record without GitHub info
+        let request = CreateWorkspaceRequest {
+            name: name.clone(),
+            github_repo: format!("local/{}", name), // Use a local identifier for empty workspaces
+            github_url: format!("local:{}", name), // Use a local identifier
+            local_path: Some(local_path.clone()),
+        };
+
+        let workspace = self.repository.create(user_id, request).await?;
+        info!("Empty workspace created: {} at {}", workspace.id, local_path);
+
+        // TODO: If description is provided, we could store it in workspace settings or metadata
+        if let Some(_desc) = description {
+            // For now, we'll ignore the description as the current schema doesn't support it
+            // In the future, this could be stored in workspace_settings or metadata
+        }
+
+        Ok(workspace)
+    }
+
     pub async fn clone_repository(&self, user_id: &str, request: CloneRequest, github_token: Option<&str>) -> Result<Workspace> {
         info!("Cloning repository: {} -> {}", request.git_url, request.name);
 

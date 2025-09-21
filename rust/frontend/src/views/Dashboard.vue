@@ -35,9 +35,8 @@
 
       <!-- Modals and Overlays -->
       <ThemeModal v-if="uiStore.showThemeModal" />
-      <RepositoriesModal v-if="workspaceStore.showRepositoriesModal" />
-      <DeleteWorkspaceModal v-if="workspaceStore.showDeleteModal" />
-      <FilePreviewModal v-if="fileStore.showFilePreviewModal" />
+      <RepositoriesModal v-if="uiStore.showRepositoriesModal" />
+      <DeleteWorkspaceModal v-if="uiStore.showDeleteModal" />
       <DiscardChangesModal v-if="fileStore.showDiscardModal" />
       <CreateItemModal
         v-if="uiStore.showCreateItemModal"
@@ -62,7 +61,7 @@
       <MobileInterface v-if="uiStore.isMobile" />
 
       <!-- Context Menu -->
-      <ContextMenu v-if="fileStore.showContextMenu" />
+      <ContextMenu v-if="uiStore.showContextMenu" />
 
       <!-- Resource Alerts -->
       <ResourceAlerts />
@@ -87,7 +86,6 @@ import MainLayout from '@/components/MainLayout.vue'
 import ThemeModal from '@/components/modals/ThemeModal.vue'
 import RepositoriesModal from '@/components/modals/RepositoriesModal.vue'
 import DeleteWorkspaceModal from '@/components/modals/DeleteWorkspaceModal.vue'
-import FilePreviewModal from '@/components/modals/FilePreviewModal.vue'
 import DiscardChangesModal from '@/components/modals/DiscardChangesModal.vue'
 import CreateItemModal from '@/components/CreateItemModal.vue'
 import ConfirmDeleteModal from '@/components/ConfirmDeleteModal.vue'
@@ -176,10 +174,9 @@ onMounted(async () => {
 
   // Always ensure workspaces are loaded when dashboard mounts
   if (authStore.isAuthenticated) {
-    const ownerId = authStore.user?.id || authStore.user?.login
-    console.log('🚀 TRACE: Loading workspaces for authenticated user:', ownerId)
+    console.log('🚀 TRACE: Loading workspaces for authenticated user')
     try {
-      await workspaceStore.fetchWorkspaces(ownerId)
+      await workspaceStore.fetchWorkspaces()
       console.log('✅ TRACE: Workspaces loaded successfully')
 
       // If there's a selected workspace, fetch its layouts

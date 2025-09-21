@@ -40,6 +40,8 @@ export const useUIStore = defineStore('ui', () => {
   const showDiscardModal = ref(false)
   const showCreateItemModal = ref(false)
   const showConfirmDeleteModal = ref(false)
+  const showRepositoriesModal = ref(false)
+  const showContextMenu = ref(false)
   const showBackgroundTasks = ref(false)
   const showQuickCommandOverlay = ref(false)
   
@@ -56,6 +58,11 @@ export const useUIStore = defineStore('ui', () => {
     confirmationText?: string
     onConfirm: () => Promise<void> | void
   } | null>(null)
+
+  // Context menu data
+  const contextMenuX = ref(0)
+  const contextMenuY = ref(0)
+  const contextMenuFile = ref<any | null>(null)
   
   // Mobile actions menu
   const showMobileActionsMenu = ref(false)
@@ -260,6 +267,50 @@ export const useUIStore = defineStore('ui', () => {
     confirmDeleteModalData.value = null
   }
 
+  // Repositories modal
+  const openRepositoriesModal = async () => {
+    showRepositoriesModal.value = true
+    // Load repositories if needed
+    const workspaceStore = await import('@/stores/workspace').then(m => m.useWorkspaceStore())
+    if (!workspaceStore.hasRepositories) {
+      await workspaceStore.loadRepositories()
+    }
+  }
+
+  const closeRepositoriesModal = async () => {
+    showRepositoriesModal.value = false
+    // Clear cloning state
+    const workspaceStore = await import('@/stores/workspace').then(m => m.useWorkspaceStore())
+    workspaceStore.clearCloningState()
+  }
+
+  // Delete modal
+  const openDeleteModal = () => {
+    showDeleteModal.value = true
+  }
+
+  const closeDeleteModal = async () => {
+    showDeleteModal.value = false
+    // Clear delete state
+    const workspaceStore = await import('@/stores/workspace').then(m => m.useWorkspaceStore())
+    workspaceStore.clearDeleteState()
+  }
+
+  // Context menu
+  const openContextMenu = (x: number, y: number, file: any) => {
+    contextMenuX.value = x
+    contextMenuY.value = y
+    contextMenuFile.value = file
+    showContextMenu.value = true
+  }
+
+  const closeContextMenu = () => {
+    showContextMenu.value = false
+    contextMenuX.value = 0
+    contextMenuY.value = 0
+    contextMenuFile.value = null
+  }
+
   // Mobile input management
   const openMobileInput = () => {
     mobileInputOpen.value = true
@@ -400,10 +451,15 @@ export const useUIStore = defineStore('ui', () => {
     showDiscardModal: readonly(showDiscardModal),
     showCreateItemModal: readonly(showCreateItemModal),
     showConfirmDeleteModal: readonly(showConfirmDeleteModal),
+    showRepositoriesModal: readonly(showRepositoriesModal),
+    showContextMenu: readonly(showContextMenu),
     showBackgroundTasks: readonly(showBackgroundTasks),
     showQuickCommandOverlay: readonly(showQuickCommandOverlay),
     createItemModalData: readonly(createItemModalData),
     confirmDeleteModalData: readonly(confirmDeleteModalData),
+    contextMenuX: readonly(contextMenuX),
+    contextMenuY: readonly(contextMenuY),
+    contextMenuFile: readonly(contextMenuFile),
     showMobileActionsMenu: readonly(showMobileActionsMenu),
     showUtilityActions: readonly(showUtilityActions),
     showSecondaryFAB: readonly(showSecondaryFAB),
@@ -456,6 +512,12 @@ export const useUIStore = defineStore('ui', () => {
     closeCreateItemModal,
     openConfirmDeleteModal,
     closeConfirmDeleteModal,
+    openRepositoriesModal,
+    closeRepositoriesModal,
+    openDeleteModal,
+    closeDeleteModal,
+    openContextMenu,
+    closeContextMenu,
     openMobileInput,
     closeMobileInput,
     updateMobileInputText,

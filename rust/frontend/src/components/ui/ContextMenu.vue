@@ -1,14 +1,14 @@
 <template>
-  <div 
-    v-if="fileStore.showContextMenu"
+  <div
+    v-if="uiStore.showContextMenu"
     class="context-menu"
-    :style="{ 
-      left: fileStore.contextMenuX + 'px', 
-      top: fileStore.contextMenuY + 'px' 
+    :style="{
+      left: uiStore.contextMenuX + 'px',
+      top: uiStore.contextMenuY + 'px'
     }"
     @click.stop
   >
-    <div v-if="fileStore.contextMenuFile" class="context-menu-header">
+    <div v-if="uiStore.contextMenuFile" class="context-menu-header">
       <svg 
         :width="16" 
         :height="16" 
@@ -19,21 +19,21 @@
         class="file-icon"
       >
         <!-- Directory icon -->
-        <path v-if="fileStore.contextMenuFile.type === 'directory'" d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+        <path v-if="uiStore.contextMenuFile.type === 'directory'" d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
         <!-- File icon -->
         <template v-else>
           <path d="M14,2H6A2,2 0,0 0,4,4V20a2,2 0,0 0,2,2H18a2,2 0,0 0,2-2V8Z"></path>
           <polyline points="14,2 14,8 20,8"></polyline>
         </template>
       </svg>
-      <span class="file-name">{{ fileStore.contextMenuFile.name }}</span>
+      <span class="file-name">{{ uiStore.contextMenuFile.name }}</span>
     </div>
     
     <div class="context-menu-divider"></div>
     
     <div class="context-menu-items">
       <!-- File-specific actions -->
-      <template v-if="fileStore.contextMenuFile?.type === 'file'">
+      <template v-if="uiStore.contextMenuFile?.type === 'file'">
         <button @click="previewFile" class="context-menu-item">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -75,7 +75,7 @@
       </template>
       
       <!-- Directory-specific actions -->
-      <template v-if="fileStore.contextMenuFile?.type === 'directory'">
+      <template v-if="uiStore.contextMenuFile?.type === 'directory'">
         <button @click="openDirectory" class="context-menu-item">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
@@ -174,45 +174,45 @@ const uiStore = useUIStore()
 const fileOperations = useFileOperations()
 
 const previewFile = async () => {
-  if (!fileStore.contextMenuFile) return
+  if (!uiStore.contextMenuFile) return
   
-  await fileOperations.showFilePreview(fileStore.contextMenuFile as FileItem)
-  fileStore.closeContextMenu()
+  await fileOperations.showFilePreview(uiStore.contextMenuFile as FileItem)
+  uiStore.closeContextMenu()
 }
 
 const editFile = async () => {
-  if (!fileStore.contextMenuFile) return
+  if (!uiStore.contextMenuFile) return
   
-  await fileOperations.showFilePreview(fileStore.contextMenuFile as FileItem)
+  await fileOperations.showFilePreview(uiStore.contextMenuFile as FileItem)
   // The file preview modal will handle edit mode
-  fileStore.closeContextMenu()
+  uiStore.closeContextMenu()
 }
 
 const openDirectory = async () => {
-  if (!fileStore.contextMenuFile || fileStore.contextMenuFile.type !== 'directory') return
+  if (!uiStore.contextMenuFile || uiStore.contextMenuFile.type !== 'directory') return
   
-  await fileOperations.handleFileDoubleClick(fileStore.contextMenuFile as FileItem)
-  fileStore.closeContextMenu()
+  await fileOperations.handleFileDoubleClick(uiStore.contextMenuFile as FileItem)
+  uiStore.closeContextMenu()
 }
 
 const openInTerminal = () => {
-  if (!fileStore.contextMenuFile) return
+  if (!uiStore.contextMenuFile) return
   
   // This would send a command to the terminal to cd into the directory
   // or open the file location
-  const path = fileStore.contextMenuFile.type === 'directory' 
-    ? fileStore.contextMenuFile.path 
-    : fileStore.contextMenuFile.path.substring(0, fileStore.contextMenuFile.path.lastIndexOf('/'))
+  const path = uiStore.contextMenuFile.type === 'directory' 
+    ? uiStore.contextMenuFile.path 
+    : uiStore.contextMenuFile.path.substring(0, uiStore.contextMenuFile.path.lastIndexOf('/'))
   
   runCommand(`cd "${path}"`)
-  fileStore.closeContextMenu()
+  uiStore.closeContextMenu()
 }
 
 const runCommand = (command: string) => {
-  if (!fileStore.contextMenuFile) return
+  if (!uiStore.contextMenuFile) return
   
   // Replace placeholder with actual file path
-  const filePath = fileStore.contextMenuFile.path
+  const filePath = uiStore.contextMenuFile.path
   const finalCommand = command.includes('cat') ? `${command} "${filePath}"` : command
   
   // This would send the command to the active terminal
@@ -224,30 +224,30 @@ const runCommand = (command: string) => {
   })
   
   console.log('Running terminal command:', finalCommand)
-  fileStore.closeContextMenu()
+  uiStore.closeContextMenu()
 }
 
 const copyFileName = () => {
-  if (!fileStore.contextMenuFile) return
+  if (!uiStore.contextMenuFile) return
   
-  fileOperations.copyToClipboard(fileStore.contextMenuFile.name)
-  fileStore.closeContextMenu()
+  fileOperations.copyToClipboard(uiStore.contextMenuFile.name)
+  uiStore.closeContextMenu()
 }
 
 const copyFilePath = () => {
-  if (!fileStore.contextMenuFile) return
+  if (!uiStore.contextMenuFile) return
   
-  fileOperations.copyToClipboard(fileStore.contextMenuFile.path)
-  fileStore.closeContextMenu()
+  fileOperations.copyToClipboard(uiStore.contextMenuFile.path)
+  uiStore.closeContextMenu()
 }
 
 const renameFile = async () => {
-  if (!fileStore.contextMenuFile) return
+  if (!uiStore.contextMenuFile) return
   
-  const newName = prompt('Enter new name:', fileStore.contextMenuFile.name)
-  if (newName && newName !== fileStore.contextMenuFile.name) {
+  const newName = prompt('Enter new name:', uiStore.contextMenuFile.name)
+  if (newName && newName !== uiStore.contextMenuFile.name) {
     try {
-      await fileStore.renameFile(fileStore.contextMenuFile as FileItem, newName)
+      await fileStore.renameFile(uiStore.contextMenuFile as FileItem, newName)
       
       uiStore.addResourceAlert({
         type: 'info',
@@ -263,18 +263,18 @@ const renameFile = async () => {
     }
   }
   
-  fileStore.closeContextMenu()
+  uiStore.closeContextMenu()
 }
 
 const duplicateFile = async () => {
-  if (!fileStore.contextMenuFile) return
+  if (!uiStore.contextMenuFile) return
   
-  const extension = fileStore.contextMenuFile.name.includes('.') 
-    ? fileStore.contextMenuFile.name.substring(fileStore.contextMenuFile.name.lastIndexOf('.'))
+  const extension = uiStore.contextMenuFile.name.includes('.') 
+    ? uiStore.contextMenuFile.name.substring(uiStore.contextMenuFile.name.lastIndexOf('.'))
     : ''
   const baseName = extension 
-    ? fileStore.contextMenuFile.name.substring(0, fileStore.contextMenuFile.name.lastIndexOf('.'))
-    : fileStore.contextMenuFile.name
+    ? uiStore.contextMenuFile.name.substring(0, uiStore.contextMenuFile.name.lastIndexOf('.'))
+    : uiStore.contextMenuFile.name
   
   const newName = `${baseName}_copy${extension}`
   
@@ -286,7 +286,7 @@ const duplicateFile = async () => {
       message: `Created ${newName}`
     })
     
-    console.log('Duplicating file:', fileStore.contextMenuFile.name, 'to', newName)
+    console.log('Duplicating file:', uiStore.contextMenuFile.name, 'to', newName)
   } catch (err) {
     uiStore.addResourceAlert({
       type: 'error',
@@ -295,30 +295,30 @@ const duplicateFile = async () => {
     })
   }
   
-  fileStore.closeContextMenu()
+  uiStore.closeContextMenu()
 }
 
 const deleteFile = async () => {
-  if (!fileStore.contextMenuFile) return
+  if (!uiStore.contextMenuFile) return
   
   uiStore.openConfirmDeleteModal({
-    itemName: fileStore.contextMenuFile.name,
-    itemType: fileStore.contextMenuFile.type === 'directory' ? 'folder' : 'file',
-    additionalInfo: fileStore.contextMenuFile.type === 'directory' 
+    itemName: uiStore.contextMenuFile.name,
+    itemType: uiStore.contextMenuFile.type === 'directory' ? 'folder' : 'file',
+    additionalInfo: uiStore.contextMenuFile.type === 'directory' 
       ? 'This will delete the folder and all its contents. This action cannot be undone.'
       : 'This action cannot be undone.',
     onConfirm: async () => {
-      await fileStore.deleteFile(fileStore.contextMenuFile! as FileItem)
+      await fileStore.deleteFile(uiStore.contextMenuFile! as FileItem)
       
       uiStore.addResourceAlert({
         type: 'info',
         title: 'Item Deleted',
-        message: `Deleted ${fileStore.contextMenuFile!.name}`
+        message: `Deleted ${uiStore.contextMenuFile!.name}`
       })
     }
   })
   
-  fileStore.closeContextMenu()
+  uiStore.closeContextMenu()
 }
 </script>
 

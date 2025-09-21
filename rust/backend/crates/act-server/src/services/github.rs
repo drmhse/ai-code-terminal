@@ -149,8 +149,8 @@ impl GitHubService {
             return Err(anyhow::anyhow!("GitHub OAuth is not configured"));
         }
 
-        // Verify state parameter
-        let user_id = self.verify_state(state)?;
+        // Verify state parameter (for CSRF protection)
+        self.verify_state_csrf_protection(state)?;
         
         // Exchange code for access token using reqwest directly for better control
         let response = self.client
@@ -200,8 +200,8 @@ impl GitHubService {
             expires_at,
             token_type: token_data.token_type.unwrap_or_else(|| "bearer".to_string()),
             scope: token_data.scope.unwrap_or_default(),
-            user: user_info,
-            user_id,
+            user: user_info.clone(),
+            user_id: user_info.id.to_string(),
         })
     }
 
@@ -369,12 +369,12 @@ impl GitHubService {
         Ok(general_purpose::STANDARD.encode(payload.to_string().as_bytes()))
     }
 
-    fn verify_state(&self, state: &str) -> anyhow::Result<String> {
+    fn verify_state_csrf_protection(&self, state: &str) -> anyhow::Result<()> {
         // Try to decode as base64-encoded JSON (backend-generated state)
         if let Ok(payload_bytes) = general_purpose::STANDARD.decode(state) {
             if let Ok(payload_str) = String::from_utf8(payload_bytes) {
                 if let Ok(payload) = serde_json::from_str::<serde_json::Value>(&payload_str) {
-                    if let Some(user_id) = payload["user_id"].as_str() {
+                    if payload["user_id"].is_string() && payload["timestamp"].is_number() {
                         if let Some(timestamp) = payload["timestamp"].as_i64() {
                             // Check if state is not older than 10 minutes
                             let max_age = 10 * 60; // 10 minutes
@@ -383,23 +383,23 @@ impl GitHubService {
                                 warn!("GitHub OAuth state parameter expired");
                                 return Err(anyhow::anyhow!("State parameter expired"));
                             }
-                            return Ok(user_id.to_string());
+                            return Ok(()); // Valid backend-generated state
                         }
                     }
                 }
             }
         }
-        
+
         // If not backend-generated state, accept any valid state (frontend-generated UUID)
         // This provides CSRF protection while allowing frontend-generated states
         if state.len() >= 16 && !state.is_empty() {
-            // For frontend-generated states, return a default user_id
-            return Ok("single-tenant".to_string());
+            return Ok(()); // Valid frontend-generated state
         }
-        
+
         Err(anyhow::anyhow!("Invalid state parameter"))
     }
 
+  
     /// Get user repositories with pagination
     pub async fn get_user_repositories(
         &self,
@@ -613,8 +613,8 @@ impl GitHubService {
             expires_at,
             token_type: token_data.token_type.unwrap_or_else(|| "bearer".to_string()),
             scope: token_data.scope.unwrap_or_default(),
-            user: user_info,
-            user_id: "single-tenant".to_string(),
+            user: user_info.clone(),
+            user_id: user_info.id.to_string(),
         })
     }
 }

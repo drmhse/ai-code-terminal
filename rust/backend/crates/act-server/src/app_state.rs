@@ -4,7 +4,8 @@ use act_core::{
     filesystem::FileSystem,
     pty::PtyService,
     GitHubAuthService, JwtService, GitHubRepositoryService,
-    repository::{ProcessRunner},
+    repository::ProcessRunner,
+    Result, CoreError,
 };
 use act_domain::{DomainServices, GitService, git_service::LocalGitService, ProcessRecoveryConfig};
 use act_core::{EventPublisher, SecurityAuditLogger};
@@ -18,6 +19,7 @@ use crate::metrics::RealSystemMonitor;
 use act_persistence::SqlxMetricsRepository;
 use crate::services::{ServerGitHubAuthService, ServerJwtService, GitHubService, GitHubRepositoryServiceAdapter};
 use act_process::TokioProcessRunner;
+
 
 /// Application state with dependency injection container
 #[derive(Clone)]
@@ -36,7 +38,7 @@ pub struct AppState {
 
 impl AppState {
     /// Create new application state with all dependencies injected
-    pub async fn new(config: Config) -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn new(config: Config) -> Result<Self> {
         // Initialize database
         let database = Database::new(&config.database.url).await?;
         
@@ -57,8 +59,7 @@ impl AppState {
         let mut sandboxed_fs = SandboxedFileSystem::new(workspace_root.clone());
         
         // Initialize the filesystem (create workspace directory if needed)
-        sandboxed_fs.initialize().await
-            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+        sandboxed_fs.initialize().await?;
             
         let filesystem: Arc<dyn FileSystem> = Arc::new(sandboxed_fs);
         
@@ -77,7 +78,7 @@ impl AppState {
         let auth_repository = repositories.auth_repo();
         
         // Create GitHub service for repository operations
-        let github_service = Arc::new(GitHubService::new(Arc::new(config.clone()))?);
+        let github_service = Arc::new(GitHubService::new(Arc::new(config.clone())).map_err(|e| CoreError::External(e.to_string()))?);
         let github_repository_service: Arc<dyn GitHubRepositoryService> = Arc::new(
             GitHubRepositoryServiceAdapter::new(github_service)
         );
@@ -93,11 +94,11 @@ impl AppState {
         
         let domain_services = Arc::new(DomainServices::new(
             repositories.workspace_repo(),
-            repositories.session_repo(),
             repositories.layout_repo(),
             repositories.process_repo(),
             process_runner.clone(),
             repositories.theme_repo(),
+            repositories.user_preferences_repo(),
             filesystem.clone(),
             pty_service.clone(),
             git_service,

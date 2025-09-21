@@ -145,9 +145,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { useTerminalStore } from '@/stores/terminal'
+import { useTerminalTreeStore } from '@/stores/terminal-tree'
 import { useUIStore } from '@/stores/ui'
-import type { TerminalPane } from '@/stores/terminal'
 import { CommandHistory } from '@/utils/claudeCommands'
 
 // Heroicons
@@ -166,7 +165,7 @@ import {
   WrenchScrewdriverIcon
 } from '@heroicons/vue/24/outline'
 
-const terminalStore = useTerminalStore()
+const terminalTreeStore = useTerminalTreeStore()
 const uiStore = useUIStore()
 
 // Component state
@@ -376,18 +375,18 @@ const getActiveTabName = (pane: TerminalPane): string => {
 
 // Initialize selected terminal
 const initializeSelectedTerminal = () => {
-  if (terminalStore.activePane) {
-    selectedTerminal.value = terminalStore.activePane
-  } else if (terminalStore.panes.length > 0) {
-    selectedTerminal.value = terminalStore.panes[0].id
+  if (terminalTreeStore.activePane) {
+    selectedTerminal.value = terminalTreeStore.activePane
+  } else if (terminalTreeStore.panes.length > 0) {
+    selectedTerminal.value = terminalTreeStore.panes[0].id
   }
 }
 
 // Get selected terminal display
 const getSelectedTerminalDisplay = () => {
-  const pane = terminalStore.panes.find(p => p.id === selectedTerminal.value)
+  const pane = terminalTreeStore.panes.find(p => p.id === selectedTerminal.value)
   if (!pane) return 'No Terminal'
-  const tabName = getActiveTabName(pane as TerminalPane)
+  const tabName = getActiveTabName(pane)
   return `${pane.name} - ${tabName}`
 }
 
@@ -428,7 +427,7 @@ const executeCommand = (command: string) => {
   addToHistory(command)
 
   // Send to terminal
-  terminalStore.sendInput(selectedTerminal.value, command)
+  terminalTreeStore.sendInput(selectedTerminal.value, command)
 
   // Close overlay
   close()

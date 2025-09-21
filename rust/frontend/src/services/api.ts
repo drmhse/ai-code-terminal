@@ -6,6 +6,11 @@ import type { ThemePreference } from '@/types/theme'
 import type { AppStats } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 
+// User preferences types
+interface UserPreferences {
+  current_workspace_id?: string | null
+}
+
 interface DirectoryListing {
   path: string
   items: FileItem[]
@@ -15,6 +20,14 @@ interface DirectoryListing {
 
 // Layout types
 interface CreateLayoutRequest {
+  name: string
+  layout_type: string
+  tree_structure: string
+  is_default?: boolean
+  workspace_id: string
+}
+
+interface SaveLayoutRequest {
   name: string
   layout_type: string
   tree_structure: string
@@ -456,12 +469,11 @@ details?: Record<string, unknown>
   }
 
   // Workspace endpoints
-  async getWorkspaces(ownerId?: string): Promise<Workspace[]> {
-    console.log('🚀 API: getWorkspaces called with ownerId:', ownerId)
-    const params = ownerId ? { owner_id: ownerId } : undefined
-    console.log('🔄 API: Making request to /api/v1/workspaces with params:', params)
+  async getWorkspaces(): Promise<Workspace[]> {
+    console.log('🚀 API: getWorkspaces called')
+    console.log('🔄 API: Making request to /api/v1/workspaces')
 
-    const response: AxiosResponse<ApiResponse<Workspace[]>> = await this.client.get('/api/v1/workspaces', { params })
+    const response: AxiosResponse<ApiResponse<Workspace[]>> = await this.client.get('/api/v1/workspaces')
     console.log('✅ API: Received response:', response.data)
     return response.data.data
   }
@@ -474,11 +486,29 @@ details?: Record<string, unknown>
     return response.data.data
   }
 
+  async createEmptyWorkspace(options: {
+    name: string
+    description?: string
+    path?: string
+  }): Promise<Workspace> {
+    const response: AxiosResponse<ApiResponse<Workspace>> = await this.client.post('/api/v1/workspaces/empty', {
+      name: options.name,
+      description: options.description,
+      path: options.path,
+    })
+    return response.data.data
+  }
+
   async deleteWorkspace(id: string): Promise<void> {
     await this.client.delete(`/api/v1/workspaces/${id}`)
   }
 
   // Session endpoints
+  async getAllSessions(): Promise<Session[]> {
+    const response: AxiosResponse<ApiResponse<Session[]>> = await this.client.get('/api/v1/sessions')
+    return response.data.data
+  }
+
   async getSessions(workspaceId: string): Promise<Session[]> {
     if (!workspaceId) {
       throw new Error('Workspace ID is required for getSessions')
@@ -490,16 +520,17 @@ details?: Record<string, unknown>
     return response.data.data
   }
 
-  async getSessionHistory(sessionId: string): Promise<string[]> {
-    const response: AxiosResponse<ApiResponse<string[]>> = await this.client.get(
-      `/api/v1/sessions/${sessionId}/history`
-    )
-    return response.data.data
-  }
 
   async getSessionBuffer(sessionId: string): Promise<string> {
     const response: AxiosResponse<ApiResponse<string>> = await this.client.get(
       `/api/v1/sessions/${sessionId}/buffer`
+    )
+    return response.data.data
+  }
+
+  async getSessionHistory(sessionId: string): Promise<string> {
+    const response: AxiosResponse<ApiResponse<string>> = await this.client.get(
+      `/api/v1/sessions/${sessionId}/history`
     )
     return response.data.data
   }
@@ -653,6 +684,28 @@ details?: Record<string, unknown>
     await this.client.post('/api/v1/themes/current', backendPreferences)
   }
 
+  // User preferences endpoints
+  async getUserPreferences(): Promise<UserPreferences | null> {
+    try {
+      const response: AxiosResponse<ApiResponse<UserPreferences | null>> = await this.client.get('/api/v1/user/preferences')
+      return response.data.data
+    } catch {
+      return null
+    }
+  }
+
+  async updateUserPreferences(preferences: UserPreferences): Promise<void> {
+    await this.client.patch('/api/v1/user/preferences', preferences)
+  }
+
+  // Convenience method for updating current workspace
+  async setCurrentWorkspace(workspaceId: string | null): Promise<void> {
+    const preferences: UserPreferences = {
+      current_workspace_id: workspaceId
+    }
+    await this.updateUserPreferences(preferences)
+  }
+
   // System stats endpoints
   async getSystemStats(): Promise<AppStats> {
     const response: AxiosResponse<ApiResponse<AppStats>> = await this.client.get('/api/v1/system/stats')
@@ -696,6 +749,11 @@ details?: Record<string, unknown>
 
   async duplicateLayout(id: string, name?: string): Promise<LayoutResponse> {
     const response: AxiosResponse<ApiResponse<LayoutResponse>> = await this.client.post(`/api/v1/layouts/${id}/duplicate`, { name })
+    return response.data.data
+  }
+
+  async saveLayout(layout: SaveLayoutRequest): Promise<LayoutResponse> {
+    const response: AxiosResponse<ApiResponse<LayoutResponse>> = await this.client.post('/api/v1/layouts', layout)
     return response.data.data
   }
 

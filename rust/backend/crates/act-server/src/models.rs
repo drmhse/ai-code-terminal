@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
 // Import domain models for conversion
-use act_core::repository::{Session as DomainSession, SessionStatus as DomainSessionStatus, SessionType as DomainSessionType, TerminalSize as DomainTerminalSize};
+use act_core::pty::{SessionInfo as DomainSessionInfo, SessionStatus as DomainSessionStatus, PtySize as DomainTerminalSize};
 
 // JSON field types for proper handling
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -96,12 +96,6 @@ pub struct Session {
     pub terminal_size: Option<String>,
     pub last_command: Option<String>,
     pub session_timeout: Option<i32>,
-    pub recovery_token: Option<String>,
-    
-    // Recovery metadata
-    pub can_recover: bool,
-    pub max_idle_time: i32,
-    pub auto_cleanup: bool,
     
     // Relations
     pub layout_id: Option<String>,
@@ -210,31 +204,31 @@ impl<T> ApiResponse<T> {
     }
 }
 
-pub fn session_from_domain(domain: DomainSession) -> Session {
+pub fn session_info_from_domain(domain: DomainSessionInfo) -> Session {
+    let session_id = domain.session_id.clone();
     Session {
-        id: domain.id,
-        shell_pid: domain.shell_pid,
-        socket_id: domain.socket_id,
+        id: domain.session_id,
+        shell_pid: domain.pid.map(|pid| pid as i32),
+        socket_id: None, // Not available in SessionInfo
         status: session_status_to_string(domain.status),
-        last_activity_at: domain.last_activity_at,
+        last_activity_at: domain.created_at, // Use created_at as fallback
         created_at: domain.created_at,
-        ended_at: domain.ended_at,
-        session_name: domain.session_name,
-        session_type: session_type_to_string(domain.session_type),
-        is_default_session: domain.is_default_session,
-        current_working_dir: domain.current_working_dir,
-        environment_vars: domain.environment_vars.map(|env| serde_json::to_string(&env).unwrap_or_default()),
-        shell_history: domain.shell_history.map(|history| serde_json::to_string(&history).unwrap_or_default()),
-        terminal_size: domain.terminal_size.map(|size| serde_json::to_string(&size).unwrap_or_default()),
-        last_command: domain.last_command,
-        session_timeout: domain.session_timeout,
-        recovery_token: domain.recovery_token,
-        can_recover: domain.can_recover,
-        max_idle_time: domain.max_idle_time,
-        auto_cleanup: domain.auto_cleanup,
-        layout_id: domain.layout_id,
-        workspace_id: domain.workspace_id,
-        user_id: domain.user_id,
+        ended_at: None, // Not available in SessionInfo
+        session_name: format!("Session {}", session_id), // Generate a name
+        session_type: "terminal".to_string(), // Default to terminal
+        is_default_session: false, // Default value
+        current_working_dir: None, // Not available in SessionInfo
+        environment_vars: None, // Not available in SessionInfo
+        shell_history: None, // Not available in SessionInfo
+        terminal_size: Some(serde_json::to_string(&TerminalSize {
+            cols: domain.size.cols,
+            rows: domain.size.rows,
+        }).unwrap_or_default()),
+        last_command: None, // Not available in SessionInfo
+        session_timeout: None, // Not available in SessionInfo
+        layout_id: None, // Not available in SessionInfo
+        workspace_id: Some(domain.workspace_id),
+        user_id: "".to_string(), // Will need to be set by caller
     }
 }
 
@@ -247,14 +241,6 @@ pub fn session_status_to_string(status: DomainSessionStatus) -> String {
     }
 }
 
-pub fn session_type_to_string(session_type: DomainSessionType) -> String {
-    match session_type {
-        DomainSessionType::Terminal => "terminal".to_string(),
-        DomainSessionType::Editor => "editor".to_string(),
-        DomainSessionType::Debug => "debug".to_string(),
-        DomainSessionType::Custom(custom) => custom,
-    }
-}
 
 #[allow(dead_code)]
 pub fn terminal_size_from_domain(domain: DomainTerminalSize) -> TerminalSize {

@@ -462,11 +462,7 @@ export function useFileOperations() {
   const hasFiles = computed(() => fileStore.hasFiles)
   const loadingFiles = computed(() => fileStore.loadingFiles)
   const fileError = computed(() => fileStore.fileError)
-  const showFilePreviewModal = computed(() => fileStore.showFilePreviewModal)
   const previewFile = computed(() => fileStore.previewFile)
-  const previewData = computed(() => fileStore.previewData)
-  const previewLoading = computed(() => fileStore.previewLoading)
-  const previewError = computed(() => fileStore.previewError)
   const showContextMenu = computed(() => fileStore.showContextMenu)
   const fileSearchTerm = computed(() => fileStore.fileSearchTerm)
 
@@ -483,11 +479,7 @@ export function useFileOperations() {
     hasFiles,
     loadingFiles,
     fileError,
-    showFilePreviewModal,
     previewFile,
-    previewData,
-    previewLoading,
-    previewError,
     showContextMenu,
     fileSearchTerm,
     

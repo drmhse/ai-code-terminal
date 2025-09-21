@@ -94,12 +94,14 @@
 
 <script setup lang="ts">
 import { useWorkspaceStore } from '@/stores/workspace'
+import { useUIStore } from '@/stores/ui'
 
 const workspaceStore = useWorkspaceStore()
+const uiStore = useUIStore()
 
 const closeModal = () => {
   if (!workspaceStore.deletingWorkspace) {
-    workspaceStore.closeDeleteModal()
+    uiStore.closeDeleteModal()
   }
 }
 

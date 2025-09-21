@@ -223,7 +223,7 @@ class SocketService {
       try {
         const sessionData = data as WorkspaceSessionsEvent
         this.workspaceSessions$.next(sessionData)
-      } catch (error) {
+      } catch {
         console.warn('Invalid workspace sessions data received:', data)
       }
     })
@@ -233,7 +233,7 @@ class SocketService {
       try {
         const recoveryData = data as SessionRecoveredEvent
         this.sessionRecovered$.next(recoveryData)
-      } catch (error) {
+      } catch {
         console.warn('Invalid session recovery data received:', data)
       }
     })

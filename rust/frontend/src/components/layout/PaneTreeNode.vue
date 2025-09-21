@@ -6,21 +6,30 @@
     :class="`direction-${node.direction}`"
     :style="containerStyle"
   >
-    <PaneTreeNode
-      v-for="(child, index) in node.children"
-      :key="child.id"
-      :node="child"
-      :workspace-path="workspacePath"
-      :theme="theme"
-      :is-active="child.id === activeNodeId"
-      @focus="$emit('focus', $event)"
-      @split="$emit('split', $event)"
-      @data="$emit('data', $event)"
-      @resize="$emit('resize', $event)"
-      @move-tab-to-pane="$emit('move-tab-to-pane', $event)"
-      @close-pane="$emit('close-pane', $event)"
-      :style="{ flex: childFlexValues[index]?.flex || '1 1 0%' }"
-    />
+    <template v-for="(child, index) in node.children" :key="child.id">
+      <!-- Render child node -->
+      <PaneTreeNode
+        :node="child"
+        :workspace-path="workspacePath"
+        :theme="theme"
+        :is-active="child.id === activeNodeId"
+        @focus="$emit('focus', $event)"
+        @split="$emit('split', $event)"
+        @data="$emit('data', $event)"
+        @resize="$emit('resize', $event)"
+        @move-tab-to-pane="$emit('move-tab-to-pane', $event)"
+        @close-pane="$emit('close-pane', $event)"
+        :style="{ flex: childFlexValues[index]?.flex || '1 1 0%' }"
+      />
+
+      <!-- Render splitter between children (not after the last child) -->
+      <Splitter
+        v-if="index < node.children.length - 1"
+        :direction="node.direction || 'horizontal'"
+        :index="index"
+        @resize="handleSplitterResize"
+      />
+    </template>
   </div>
 
   <!-- Terminal Node - renders actual terminal pane -->
@@ -71,7 +80,7 @@
         <!-- Close Pane Button (only show if there are multiple terminal nodes) -->
         <button
           v-if="showCloseButton"
-          @click="$emit('close-pane', node.id)"
+          @click="handleClosePane"
           class="close-btn"
           title="Close pane"
         >
@@ -188,6 +197,7 @@ import type { TerminalTheme } from '@/types/terminal'
 import { useTerminalTreeStore } from '@/stores/terminal-tree'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { calculateFlexProperties, getFlexDirection } from '@/utils/pane-tree'
+import Splitter from './Splitter.vue'
 
 interface Props {
   node: PaneNode
@@ -584,6 +594,43 @@ const handleDragLeave = () => {
 
 const handleDrop = (event: DragEvent, targetTab: TerminalTab) => {
   event.preventDefault()
+
+  if (draggedTab.value && draggedTab.value.id !== targetTab.id) {
+    // Find source pane for the dragged tab
+    const sourcePane = allTerminalNodes.value.find(node =>
+      node.tabs?.some(tab => tab.id === draggedTab.value!.id)
+    )
+
+    if (sourcePane && sourcePane.id !== props.node.id) {
+      // Moving tab between different panes
+      const targetIndex = props.node.tabs?.findIndex(tab => tab.id === targetTab.id) || 0
+      terminalStore.moveTabBetweenPanes(sourcePane.id, props.node.id, draggedTab.value.id, targetIndex)
+      emit('move-tab-to-pane', {
+        sourcePaneId: sourcePane.id,
+        targetPaneId: props.node.id,
+        tabId: draggedTab.value.id,
+        targetIndex
+      })
+    } else if (sourcePane && sourcePane.id === props.node.id) {
+      // Reordering tabs within the same pane
+      const draggedIndex = props.node.tabs?.findIndex(tab => tab.id === draggedTab.value!.id) || 0
+      const targetIndex = props.node.tabs?.findIndex(tab => tab.id === targetTab.id) || 0
+
+      if (draggedIndex !== targetIndex && props.node.tabs) {
+        const tabs = [...props.node.tabs]
+        const [draggedTabObj] = tabs.splice(draggedIndex, 1)
+        tabs.splice(targetIndex, 0, draggedTabObj)
+
+        // Update tab orders
+        tabs.forEach((tab, index) => {
+          tab.order = index
+        })
+
+        props.node.tabs = tabs
+      }
+    }
+  }
+
   draggedTab.value = null
   dragOverTab.value = null
 }
@@ -606,6 +653,61 @@ const handlePaneDragLeave = () => {
 const handlePaneDrop = (event: DragEvent) => {
   event.preventDefault()
   isDragOverPane.value = false
+
+  if (draggedTab.value) {
+    // Find source pane for the dragged tab
+    const sourcePane = allTerminalNodes.value.find(node =>
+      node.tabs?.some(tab => tab.id === draggedTab.value!.id)
+    )
+
+    if (sourcePane && sourcePane.id !== props.node.id) {
+      // Moving tab to a different pane (at the end)
+      terminalStore.moveTabBetweenPanes(sourcePane.id, props.node.id, draggedTab.value.id)
+      emit('move-tab-to-pane', {
+        sourcePaneId: sourcePane.id,
+        targetPaneId: props.node.id,
+        tabId: draggedTab.value.id,
+        targetIndex: props.node.tabs?.length || 0
+      })
+    }
+
+    draggedTab.value = null
+  }
+}
+
+// Splitter resizing
+const handleSplitterResize = (payload: { index: number, delta: number }) => {
+  if (props.node.type !== 'container' || !props.node.children) return
+
+  const children = props.node.children
+  const { index, delta } = payload
+
+  // Calculate current sizes as percentages
+  const currentSizes = children.map(child => child.size || (100 / children.length))
+
+  // Determine pixel-to-percentage conversion factor
+  // This is a rough approximation - in production you'd want to get the actual container size
+  const containerSize = props.node.direction === 'horizontal' ? window.innerHeight : window.innerWidth
+  const deltaPercentage = (delta / containerSize) * 100
+
+  // Adjust the two adjacent panes
+  if (index >= 0 && index < children.length - 1) {
+    const newLeftSize = Math.max(5, Math.min(95, currentSizes[index] + deltaPercentage))
+    const newRightSize = Math.max(5, Math.min(95, currentSizes[index + 1] - deltaPercentage))
+
+    // Update the sizes array
+    const newSizes = [...currentSizes]
+    newSizes[index] = newLeftSize
+    newSizes[index + 1] = newRightSize
+
+    // Call the store action to update sizes
+    terminalStore.resizePanes(props.node.id, newSizes)
+  }
+}
+
+// Pane closing
+const handleClosePane = () => {
+  terminalStore.closePane(props.node.id)
 }
 
 // Watch for tab changes

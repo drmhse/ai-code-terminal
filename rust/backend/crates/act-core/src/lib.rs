@@ -6,6 +6,7 @@ pub mod repository;
 pub mod models;
 pub mod auth;
 pub mod theme;
+pub mod user_preferences;
 pub mod events;
 pub mod security;
 
@@ -18,10 +19,9 @@ pub use filesystem::{
     CreateFileRequest, CreateDirectoryRequest, MoveRequest, CopyRequest
 };
 pub use repository::{
-    WorkspaceRepository, SessionRepository, Workspace, Session, SessionStatus, SessionType,
-    TerminalSize, CreateWorkspaceRequest, UpdateWorkspaceRequest,
-    CreateSessionRequest, UpdateSessionRequest,
-    WorkspaceId, SessionId, LayoutId, UserId
+    WorkspaceRepository, Workspace,
+    CreateWorkspaceRequest, UpdateWorkspaceRequest,
+    WorkspaceId, LayoutId, UserId
 };
 pub use models::{
     Settings, TerminalLayout, UserProcess, ProcessStatus, SystemMetrics, ApiResponse,
@@ -33,6 +33,7 @@ pub use auth::{
     GitHubRepository, GitHubRepositoryOwner, GitHubRepositoryService, RepositoryListOptions
 };
 pub use theme::{ThemePreference, ThemeRepository};
+pub use user_preferences::{UserPreferences, UserPreferencesRepository};
 pub use events::{
     DomainEvent, ProcessEvent, EventPublisher, InMemoryEventPublisher,
     ProcessCreatedEvent, ProcessStartedEvent, ProcessStoppedEvent,

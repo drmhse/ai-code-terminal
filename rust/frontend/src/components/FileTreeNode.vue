@@ -12,6 +12,7 @@
       :style="{ paddingLeft: `${level * 16 + 8}px` }"
       @click="handleClick"
       @dblclick="handleDoubleClick"
+      @contextmenu="(event) => handleFileContextMenu(event, node)"
     >
       <!-- Directory Toggle Arrow or Loading Spinner -->
       <button 
@@ -67,6 +68,7 @@
 import { computed } from 'vue'
 import type { FileItem } from '@/stores/file'
 import { useFileStore } from '@/stores/file'
+import { useFileOperations } from '@/composables/useFileOperations'
 
 const props = defineProps<{
   node: FileItem
@@ -78,6 +80,9 @@ const emit = defineEmits<{
   select: [node: FileItem]
   toggle: [node: FileItem]
 }>()
+
+// Use file operations for context menu
+const { handleFileContextMenu } = useFileOperations()
 
 // Computed property for selected path with proper typing
 const selectedPath = computed(() => props.selectedPath ?? undefined)
@@ -105,11 +110,11 @@ const handleDoubleClick = async () => {
   if (props.node.type === 'directory') {
     toggleExpanded()
   } else {
-    // For files, emit a preview event
+    // For files, open in the docked editor
     emit('select', props.node)
-    // Use the file store to show preview
+    // Use the file store to open in editor
     const fileStore = useFileStore()
-    await fileStore.showFilePreview(props.node)
+    await fileStore.openFileInEditor(props.node)
   }
 }
 

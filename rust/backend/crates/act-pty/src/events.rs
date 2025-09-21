@@ -1,5 +1,6 @@
 // Re-export events from core for convenience
-pub use act_core::{PtyEvent, SessionStatus};
+pub use act_core::PtyEvent;
+pub use act_core::pty::SessionStatus;
 
 use serde::{Deserialize, Serialize};
 

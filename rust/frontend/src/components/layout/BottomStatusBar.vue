@@ -8,16 +8,16 @@
       </div>
 
       <!-- Active Sessions Count -->
-      <div v-if="terminalStore.panes.length > 0" class="status-item">
+      <div v-if="terminalTreeStore.panes.length > 0" class="status-item">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="4,17 10,11 4,5"></polyline>
           <line x1="12" y1="19" x2="20" y2="19"></line>
         </svg>
-        <span>{{ terminalStore.panes.length }} session{{ terminalStore.panes.length > 1 ? 's' : '' }}</span>
+        <span>{{ terminalTreeStore.panes.length }} session{{ terminalTreeStore.panes.length > 1 ? 's' : '' }}</span>
       </div>
 
       <!-- Current Layout -->
-      <div v-if="terminalStore.panes.length > 0" class="status-item">
+      <div v-if="terminalTreeStore.panes.length > 0" class="status-item">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
           <line x1="9" y1="9" x2="15" y2="9"></line>
@@ -96,14 +96,14 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useWorkspaceStore } from '@/stores/workspace'
-import { useTerminalStore } from '@/stores/terminal'
+import { useTerminalTreeStore } from '@/stores/terminal-tree'
 import { useUIStore } from '@/stores/ui'
 import { useAuthStore } from '@/stores/auth'
 import { socketService } from '@/services/socket'
 import type { Subscription } from '@/utils/reactive'
 
 const workspaceStore = useWorkspaceStore()
-const terminalStore = useTerminalStore()
+const terminalTreeStore = useTerminalTreeStore()
 const uiStore = useUIStore()
 const authStore = useAuthStore()
 
@@ -135,16 +135,9 @@ const connectionStatusText = computed(() => {
   }
 })
 
-// Layout display name
+// Layout display name - Tree-based layout
 const layoutDisplayName = computed(() => {
-  const layout = terminalStore.currentLayout
-  switch (layout) {
-    case 'single': return 'Single'
-    case 'horizontal-split': return 'Horizontal'
-    case 'vertical-split': return 'Vertical'
-    case 'grid-2x2': return 'Grid 2×2'
-    default: return 'Unknown'
-  }
+  return 'Tree Layout'
 })
 
 // Background tasks

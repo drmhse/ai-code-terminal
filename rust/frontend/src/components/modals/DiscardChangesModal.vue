@@ -86,8 +86,6 @@ const saveChanges = async () => {
       // Perform the original action after saving
       if (fileStore.discardAction === 'exitEdit') {
         editorStore.exitEditMode()
-      } else if (fileStore.discardAction === 'closeModal') {
-        fileStore.closeFilePreviewModal()
       }
     }
   } catch (err) {
@@ -103,9 +101,7 @@ const discardChanges = () => {
   closeModal()
   
   // Perform the original action after discarding
-  if (fileStore.discardAction === 'closeModal') {
-    fileStore.closeFilePreviewModal()
-  }
+  // Modal actions now handled by docked editor
 }
 </script>
 

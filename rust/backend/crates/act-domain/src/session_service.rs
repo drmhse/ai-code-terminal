@@ -1,69 +1,17 @@
 use std::sync::Arc;
-
-use act_core::{
-    repository::{
-        Session, SessionRepository, CreateSessionRequest, UpdateSessionRequest,
-        SessionId, SessionStatus, SessionType, TerminalSize, WorkspaceId
-    },
-    pty::{PtyService, PtyEvent},
-    Result, CoreError
-};
-
-
-use chrono::{DateTime, Utc, Duration};
-use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
-use tracing::{info, warn, debug, error};
-use uuid::Uuid;
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{RwLock, Mutex};
+use act_core::{
+    Result, CoreError,
+    pty::{PtyService, SessionConfig, SessionInfo, PtySize, PtyEvent, SessionId},
+};
+use tracing::{info, error, debug};
 
-// Removed complex UTF-8 buffering - VS Code approach uses simple conversion
+// Type aliases for clarity
+pub type UserId = String;
+pub type ConnectionId = String;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SessionState {
-    pub session_id: String,
-    pub workspace_id: Option<String>,
-    pub current_working_dir: Option<String>,
-    pub environment_vars: HashMap<String, String>,
-    pub shell_history: Vec<String>,
-    pub terminal_size: Option<TerminalSize>,
-    pub last_command: Option<String>,
-    pub recovery_token: String,
-    pub is_recoverable: bool,
-    pub created_at: DateTime<Utc>,
-    pub last_activity: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CreateSessionOptions {
-    pub workspace_id: Option<WorkspaceId>,
-    pub session_id: Option<String>,
-    pub session_name: String,
-    pub session_type: SessionType,
-    pub terminal_size: Option<TerminalSize>,
-    pub is_recoverable: bool,
-    pub auto_cleanup: bool,
-    pub max_idle_minutes: i32,
-    pub working_directory: Option<String>,
-}
-
-impl Default for CreateSessionOptions {
-    fn default() -> Self {
-        Self {
-            workspace_id: None,
-            session_id: None,
-            session_name: "Terminal".to_string(),
-            session_type: SessionType::Terminal,
-            terminal_size: Some(TerminalSize { cols: 80, rows: 24 }),
-            is_recoverable: true,
-            auto_cleanup: true,
-            max_idle_minutes: 1440, // 24 hours
-            working_directory: None,
-        }
-    }
-}
-
-// Line-based rolling buffer for terminal output persistence (tmux/screen approach)
+/// Line-based rolling buffer for terminal output persistence (tmux/screen approach)
 #[derive(Debug, Clone)]
 pub struct RollingBuffer {
     complete_lines: VecDeque<String>,  // Only complete lines (ending with \n)
@@ -129,508 +77,315 @@ impl RollingBuffer {
     }
 }
 
-// Forwarding channel for PTY output
-#[derive(Debug, Clone)]
-pub struct OutputForwarder {
-    session_id: String,
-    output_tx: mpsc::UnboundedSender<PtyEvent>,
-}
-
-impl OutputForwarder {
-    pub fn new(session_id: String) -> (Self, mpsc::UnboundedReceiver<PtyEvent>) {
-        let (output_tx, output_rx) = mpsc::unbounded_channel();
-        (Self { session_id, output_tx }, output_rx)
-    }
-
-    pub fn forward_event(&self, event: PtyEvent) -> Result<()> {
-        self.output_tx.send(event)
-            .map_err(|e| CoreError::Pty(format!("Failed to forward PTY event: {}", e)))
-    }
-
-    pub fn session_id(&self) -> &str {
-        &self.session_id
-    }
-}
-
-// Manages WebSocket connections for output forwarding
+/// In-memory state for a single user's live session data
 #[derive(Debug)]
-pub struct SessionWebSocketManager {
-    connections: Arc<RwLock<HashMap<String, Vec<mpsc::UnboundedSender<String>>>>>,
+pub struct UserLiveState {
+    /// Active PTY sessions for this user (sessionId -> SessionInfo)
+    pub pty_sessions: HashMap<SessionId, SessionInfo>,
 }
 
-impl Default for SessionWebSocketManager {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl SessionWebSocketManager {
+impl UserLiveState {
     pub fn new() -> Self {
         Self {
-            connections: Arc::new(RwLock::new(HashMap::new())),
+            pty_sessions: HashMap::new(),
         }
-    }
-
-    pub async fn register_connection(&self, session_id: String) -> mpsc::UnboundedReceiver<String> {
-        let (tx, rx) = mpsc::unbounded_channel();
-        let mut connections = self.connections.write().await;
-        connections.entry(session_id.clone()).or_insert_with(Vec::new).push(tx);
-
-        info!("Registered WebSocket connection for session {}", session_id);
-        rx
-    }
-
-    pub async fn unregister_connection(&self, session_id: &str, _rx: mpsc::UnboundedReceiver<String>) {
-        let mut connections = self.connections.write().await;
-        if let Some(senders) = connections.get_mut(session_id) {
-            senders.retain(|sender| !sender.is_closed());
-            if senders.is_empty() {
-                connections.remove(session_id);
-                info!("Unregistered last WebSocket connection for session {}", session_id);
-            }
-        }
-    }
-
-    pub async fn forward_to_websockets(&self, session_id: &str, output: String) {
-        let connections = self.connections.read().await;
-        if let Some(senders) = connections.get(session_id) {
-            info!("✅ Forwarding output to {} WebSocket connections for session {}: {:?}", senders.len(), session_id, output);
-            let mut active_senders = Vec::new();
-            for sender in senders {
-                if !sender.is_closed() {
-                    if let Err(e) = sender.send(output.clone()) {
-                        warn!("Failed to send output to WebSocket: {}", e);
-                    } else {
-                        active_senders.push(sender.clone());
-                    }
-                }
-            }
-
-            // Clean up closed senders
-            if active_senders.len() != senders.len() {
-                drop(connections);
-                let mut connections = self.connections.write().await;
-                if let Some(senders) = connections.get_mut(session_id) {
-                    senders.retain(|sender| !sender.is_closed());
-                    if senders.is_empty() {
-                        connections.remove(session_id);
-                    }
-                }
-            }
-        }
-    }
-
-    pub async fn has_connections(&self, session_id: &str) -> bool {
-        let connections = self.connections.read().await;
-        connections.get(session_id).is_some_and(|senders| !senders.is_empty())
     }
 }
 
+/// Terminal output event for broadcasting
+#[derive(serde::Serialize, Debug, Clone)]
+pub struct TerminalOutputEvent {
+    pub session_id: String,
+    pub output: String,
+}
+
+/// Output event callback trait for handling PTY output
+pub trait OutputEventHandler: Send + Sync {
+    fn handle_output(&self, user_id: &str, event: TerminalOutputEvent);
+}
+
+/// Refactored SessionService - now the authority on managing live PTY sessions
 #[derive(Clone)]
 pub struct SessionService {
-    repository: Arc<dyn SessionRepository>,
-    pty_service: Arc<dyn PtyService>,
-    websocket_manager: Arc<SessionWebSocketManager>,
-    output_forwarders: Arc<RwLock<HashMap<String, OutputForwarder>>>,
+    /// Terminal buffers for session restoration
     terminal_buffers: Arc<RwLock<HashMap<String, RollingBuffer>>>,
-    recovery_timeout_hours: i64,
+    /// PTY service for terminal operations
+    pty_service: Arc<dyn PtyService>,
+    /// In-memory live state for real-time multi-device synchronization
+    live_state: Arc<RwLock<HashMap<UserId, UserLiveState>>>,
+    /// Output event handlers (injected by server layer)
+    output_handlers: Arc<RwLock<Vec<Arc<dyn OutputEventHandler>>>>,
 }
 
 impl SessionService {
-    pub fn new(
-        repository: Arc<dyn SessionRepository>,
-        pty_service: Arc<dyn PtyService>,
-        recovery_timeout_hours: Option<i64>,
-    ) -> Self {
+    pub fn new(pty_service: Arc<dyn PtyService>) -> Self {
         Self {
-            repository,
-            pty_service,
-            websocket_manager: Arc::new(SessionWebSocketManager::new()),
-            output_forwarders: Arc::new(RwLock::new(HashMap::new())),
             terminal_buffers: Arc::new(RwLock::new(HashMap::new())),
-            recovery_timeout_hours: recovery_timeout_hours.unwrap_or(24),
+            pty_service,
+            live_state: Arc::new(RwLock::new(HashMap::new())),
+            output_handlers: Arc::new(RwLock::new(Vec::new())),
         }
     }
 
-pub async fn create_session(&self, user_id: &str, options: CreateSessionOptions) -> Result<SessionState> {
-        // Use provided session_id if available, otherwise generate a new one
-        let session_id = options.session_id.unwrap_or_else(|| Uuid::new_v4().to_string());
-        let recovery_token = session_id.clone();
-
-        let terminal_size = options.terminal_size.unwrap_or(TerminalSize { cols: 80, rows: 24 });
-
-        let environment_vars = self.get_default_environment_vars();
-
-        let request = CreateSessionRequest {
-            session_id: Some(session_id.clone()),
-            workspace_id: options.workspace_id.clone(),
-            session_name: options.session_name.clone(),
-            session_type: options.session_type,
-            terminal_size: Some(terminal_size.clone()),
-            layout_id: None,
-        };
-
-        let mut session = self.repository.create(user_id, request).await?;
-
-        session.recovery_token = Some(recovery_token.clone());
-        session.can_recover = options.is_recoverable;
-        session.auto_cleanup = options.auto_cleanup;
-        session.max_idle_time = options.max_idle_minutes;
-        session.environment_vars = Some(environment_vars.clone());
-        session.current_working_dir = options.working_directory.clone();
-
-        if let Some(ref workspace_id) = options.workspace_id {
-            info!("🔧 Creating PTY for session {} in workspace {}", session.id, workspace_id);
-            let config = act_core::pty::SessionConfig {
-                session_id: session.id.clone(),
-                workspace_id: workspace_id.clone(),
-                size: act_core::pty::PtySize {
-                    cols: terminal_size.cols.max(80),
-                    rows: terminal_size.rows.max(24),
-                    pixel_width: 0,
-                    pixel_height: 0,
-                },
-                shell: None,
-                working_dir: session.current_working_dir.clone().or_else(|| Some("/tmp".to_string())),
-                environment: session.environment_vars.clone(),
-            };
-
-            info!("🔧 About to call pty_service.create_session");
-            let (output_rx, _session_info) = self.pty_service.create_session(config).await?;
-            info!("🔧 PTY service returned output_rx channel");
-
-            // Create output forwarder for this session
-            let (forwarder, internal_rx) = OutputForwarder::new(session.id.clone());
-            {
-                let mut forwarders = self.output_forwarders.write().await;
-                forwarders.insert(session.id.clone(), forwarder);
-            }
-
-            // Initialize rolling buffer for this session (5000 lines max)
-            {
-                let mut buffers = self.terminal_buffers.write().await;
-                buffers.insert(session.id.clone(), RollingBuffer::new(5000));
-            }
-
-            // Start output forwarding task
-            let websocket_manager = self.websocket_manager.clone();
-            let terminal_buffers = self.terminal_buffers.clone();
-            let session_id_clone = session.id.clone();
-            tokio::spawn(async move {
-                Self::handle_pty_output(output_rx, websocket_manager, terminal_buffers, session_id_clone, internal_rx).await;
-            });
-
-            info!("Created PTY session for session {} with output forwarding", session.id);
-        }
-
-        let session_state = SessionState {
-            session_id: session.id.clone(),
-            workspace_id: options.workspace_id,
-            current_working_dir: session.current_working_dir.clone(),
-            environment_vars,
-            shell_history: Vec::new(),
-            terminal_size: Some(terminal_size),
-            last_command: None,
-            recovery_token,
-            is_recoverable: options.is_recoverable,
-            created_at: session.created_at,
-            last_activity: session.last_activity_at,
-        };
-
-        info!("Created session {} with recovery capabilities", session.id);
-        Ok(session_state)
+    /// Add an output event handler (typically called by server layer)
+    pub async fn add_output_handler(&self, handler: Arc<dyn OutputEventHandler>) {
+        let mut handlers = self.output_handlers.write().await;
+        handlers.push(handler);
     }
 
-    pub async fn recover_session(&self, user_id: &str, recovery_token: &str) -> Result<SessionState> {
-        let sessions = self.repository.list_active(user_id).await?;
-
-        let session = sessions
-            .into_iter()
-            .find(|s| {
-                s.recovery_token.as_ref() == Some(&recovery_token.to_string())
-                && s.can_recover
-                && s.status != SessionStatus::Terminated
-            })
-            .ok_or_else(|| CoreError::NotFound("Recovery token not found or session not recoverable".to_string()))?;
-
-        let now = Utc::now();
-        let created_duration = now.signed_duration_since(session.created_at);
-
-        if created_duration > Duration::hours(self.recovery_timeout_hours) {
-            warn!("Session {} recovery token expired", session.id);
-            return Err(CoreError::Validation("Recovery token expired".to_string()));
-        }
-
-        self.repository.update_activity(user_id, &session.id).await?;
-
-        let session_state = SessionState {
-            session_id: session.id.clone(),
-            workspace_id: session.workspace_id.clone(),
-            current_working_dir: session.current_working_dir.clone(),
-            environment_vars: session.environment_vars.unwrap_or_default(),
-            shell_history: session.shell_history.unwrap_or_default(),
-            terminal_size: session.terminal_size.clone(),
-            last_command: session.last_command.clone(),
-            recovery_token: recovery_token.to_string(),
-            is_recoverable: session.can_recover,
-            created_at: session.created_at,
-            last_activity: now,
-        };
-
-        info!("Recovered session {} using recovery token", session.id);
-        Ok(session_state)
-    }
-
-    pub async fn add_command_to_history(&self, user_id: &str, session_id: &SessionId, command: &str) -> Result<()> {
-        let session = self.repository.get_by_id(user_id, session_id).await?;
-
-        let mut history = session.shell_history.unwrap_or_default();
-
-        // Add the command to history
-        history.push(command.to_string());
-
-        // Limit history size to prevent memory bloat
-        if history.len() > 1000 {
-            history.remove(0);
-        }
-
-        // Update the session with the new history
-        let update_request = UpdateSessionRequest {
-            status: None,
-            current_working_dir: None,
-            environment_vars: None,
-            terminal_size: None,
-            last_command: Some(command.to_string()),
-            last_activity_at: Some(Utc::now()),
-            shell_history: Some(history),
-        };
-
-        self.repository.update(user_id, session_id, update_request).await?;
-
-        debug!("Added command '{}' to session {} history", command, session_id);
-        Ok(())
-    }
-
-    pub async fn update_session_state(
+    /// Get or create a PTY session for multi-device sharing
+    /// This is the core method implementing the multi-device synchronization logic
+    pub async fn get_or_create_pty_session(
         &self,
         user_id: &str,
-        session_id: &SessionId,
-        current_dir: Option<String>,
-        last_command: Option<String>,
-        history_entry: Option<String>,
+        session_id: &str,
+        workspace_id: &str,
+        workspace_path: Option<String>,
+    ) -> Result<bool> {
+        let mut live_state = self.live_state.write().await;
+
+        // Get or create user state
+        let user_state = live_state.entry(user_id.to_string()).or_insert_with(UserLiveState::new);
+
+        // Check if PTY session already exists
+        if user_state.pty_sessions.contains_key(session_id) {
+            info!("🔗 PTY session {} already exists for user {}, sharing across devices", session_id, user_id);
+
+            // Send existing buffer content to newly connected client
+            self.send_buffer_to_handlers(session_id).await?;
+
+            return Ok(false); // Session already existed
+        }
+
+        // Create new PTY session
+        info!("🆕 Creating new PTY session {} for user {}", session_id, user_id);
+
+        let config = SessionConfig {
+            session_id: session_id.to_string(),
+            workspace_id: workspace_id.to_string(),
+            size: PtySize {
+                cols: 80,
+                rows: 24,
+                pixel_width: 0,
+                pixel_height: 0,
+            },
+            shell: None,
+            working_dir: workspace_path,
+            environment: None,
+        };
+
+        let (event_receiver, session_info) = self.pty_service.create_session(config).await?;
+
+        // Store session info in live state
+        user_state.pty_sessions.insert(
+            session_id.to_string(),
+            session_info.clone()
+        );
+
+        // Initialize terminal buffer for this session
+        self.initialize_terminal_buffer(session_id).await?;
+
+        // Start PTY output broadcasting task
+        let service_clone = self.clone();
+        let user_id_clone = user_id.to_string();
+        let session_id_clone = session_id.to_string();
+
+        tokio::spawn(async move {
+            service_clone.pty_output_broadcaster(
+                user_id_clone,
+                session_id_clone,
+                Arc::new(Mutex::new(event_receiver))
+            ).await;
+        });
+
+        Ok(true) // New session was created
+    }
+
+    /// PTY output broadcasting task - listens to PTY events and broadcasts to handlers
+    async fn pty_output_broadcaster(
+        &self,
+        user_id: String,
+        session_id: String,
+        event_receiver: Arc<Mutex<tokio::sync::mpsc::UnboundedReceiver<PtyEvent>>>
+    ) {
+        info!("🎯 Starting PTY output broadcaster for session {}", session_id);
+
+        let mut receiver = event_receiver.lock().await;
+        while let Some(event) = receiver.recv().await {
+            match event {
+                PtyEvent::Output(data) => {
+                    let output = String::from_utf8_lossy(&data);
+
+                    // Append to terminal buffer for persistence
+                    if let Err(e) = self.append_to_buffer(&session_id, &output).await {
+                        error!("Failed to append to terminal buffer: {}", e);
+                    }
+
+                    // Notify output handlers
+                    let output_event = TerminalOutputEvent {
+                        session_id: session_id.clone(),
+                        output: output.to_string(),
+                    };
+
+                    let handlers = self.output_handlers.read().await;
+                    for handler in handlers.iter() {
+                        handler.handle_output(&user_id, output_event.clone());
+                    }
+                }
+                PtyEvent::Closed => {
+                    info!("🔚 PTY session {} closed", session_id);
+                    // Remove session from live state
+                    if let Err(e) = self.remove_pty_session(&user_id, &session_id).await {
+                        error!("Failed to remove PTY session: {}", e);
+                    }
+                    break;
+                }
+                PtyEvent::Error(error) => {
+                    error!("🚨 PTY session {} error: {}", session_id, error);
+                    break;
+                }
+                PtyEvent::Resized { cols, rows } => {
+                    debug!("📐 PTY session {} resized to {}x{}", session_id, cols, rows);
+                }
+            }
+        }
+
+        info!("🏁 PTY output broadcaster ended for session {}", session_id);
+    }
+
+    /// Check if a PTY session exists for a user
+    pub async fn has_pty_session(
+        &self,
+        user_id: &str,
+        session_id: &str,
+    ) -> Result<bool> {
+        let live_state = self.live_state.read().await;
+
+        if let Some(user_state) = live_state.get(user_id) {
+            return Ok(user_state.pty_sessions.contains_key(session_id));
+        }
+
+        Ok(false)
+    }
+
+    /// Remove a PTY session from live state
+    pub async fn remove_pty_session(
+        &self,
+        user_id: &str,
+        session_id: &str,
     ) -> Result<()> {
-        let update_request = UpdateSessionRequest {
-            status: None,
-            current_working_dir: current_dir,
-            environment_vars: None,
-            terminal_size: None,
-            last_command,
-            last_activity_at: Some(Utc::now()),
-            shell_history: None,
-        };
+        let mut live_state = self.live_state.write().await;
 
-        if let Some(entry) = history_entry {
-        let session = self.repository.get_by_id(user_id, session_id).await?;
-            let mut history = session.shell_history.unwrap_or_default();
-
-            history.push(entry);
-            if history.len() > 1000 {
-                history.remove(0);
-            }
-
-            // Note: This would need to be handled differently in actual implementation
-            // as UpdateSessionRequest doesn't have shell_history field
+        if let Some(user_state) = live_state.get_mut(user_id) {
+            user_state.pty_sessions.remove(session_id);
+            info!("🗑️ Removed PTY session {} for user {}", session_id, user_id);
         }
 
-        self.repository.update(user_id, session_id, update_request).await?;
+        // Also remove terminal buffer
+        self.remove_terminal_buffer(session_id).await?;
 
-        debug!("Updated session {} state", session_id);
         Ok(())
     }
 
-    pub async fn get_session(&self, user_id: &str, session_id: &SessionId) -> Result<Session> {
-        self.repository.get_by_id(user_id, session_id).await
-    }
-
-    pub async fn list_active_sessions(&self, user_id: &str) -> Result<Vec<Session>> {
-        self.repository.list_active(user_id).await
-    }
-
-    pub async fn count_all_active_sessions(&self) -> Result<u64> {
-        self.repository.count_all_active().await
-    }
-
-    pub async fn list_workspace_sessions(&self, user_id: &str, workspace_id: &WorkspaceId) -> Result<Vec<Session>> {
-        self.repository.list_by_workspace(user_id, workspace_id).await
-    }
-
-    pub async fn terminate_session(&self, user_id: &str, session_id: &SessionId) -> Result<()> {
-        let _session = self.repository.get_by_id(user_id, session_id).await?;
-
-        // Clean up output forwarder
-        {
-            let mut forwarders = self.output_forwarders.write().await;
-            if let Some(forwarder) = forwarders.remove(session_id) {
-                // Send close signal
-                let _ = forwarder.forward_event(PtyEvent::Closed);
-                debug!("Cleaned up output forwarder for session {}", session_id);
-            }
+    /// Send input to a PTY session
+    pub async fn send_input_to_session(
+        &self,
+        user_id: &str,
+        session_id: &str,
+        input: &[u8],
+    ) -> Result<()> {
+        // Check if session exists for this user
+        if !self.has_pty_session(user_id, session_id).await? {
+            return Err(CoreError::NotFound(format!("Session {} not found for user {}", session_id, user_id)));
         }
 
-        // Clean up terminal buffer
-        {
-            let mut buffers = self.terminal_buffers.write().await;
-            buffers.remove(session_id);
-            debug!("Cleaned up terminal buffer for session {}", session_id);
-        }
-
-        // Send termination message to any connected WebSockets
-        self.websocket_manager.forward_to_websockets(session_id,
-            "\r\n\x1b[1;31m● Session terminated by server\x1b[0m\r\n".to_string()).await;
-
-        if let Err(e) = self.pty_service.destroy_session(session_id).await {
-            warn!("Failed to destroy PTY session {}: {}", session_id, e);
-        }
-
-        let update_request = UpdateSessionRequest {
-            status: Some(SessionStatus::Terminated),
-            current_working_dir: None,
-            environment_vars: None,
-            terminal_size: None,
-            last_command: None,
-            last_activity_at: Some(Utc::now()),
-            shell_history: None,
-        };
-
-        self.repository.update(user_id, session_id, update_request).await?;
-
-        info!("Terminated session {}", session_id);
-        Ok(())
+        self.pty_service.send_input(&session_id.to_string(), input).await
     }
 
-    pub async fn cleanup_expired_sessions(&self, user_id: &str) -> Result<usize> {
-        let cleanup_threshold = Utc::now() - Duration::hours(24);
-        let cleaned_count = self.repository.cleanup_inactive(user_id, cleanup_threshold).await?;
-
-        if cleaned_count > 0 {
-            info!("Cleaned up {} expired sessions", cleaned_count);
+    /// Resize a PTY session
+    pub async fn resize_session(
+        &self,
+        user_id: &str,
+        session_id: &str,
+        cols: u16,
+        rows: u16,
+    ) -> Result<()> {
+        // Check if session exists for this user
+        if !self.has_pty_session(user_id, session_id).await? {
+            return Err(CoreError::NotFound(format!("Session {} not found for user {}", session_id, user_id)));
         }
 
-        Ok(cleaned_count)
-    }
-
-    pub async fn resize_terminal(&self, user_id: &str, session_id: &SessionId, cols: u16, rows: u16) -> Result<()> {
-        let terminal_size = TerminalSize { cols, rows };
-
-        let pty_size = act_core::pty::PtySize {
-            cols,
-            rows,
+        let size = PtySize {
+            cols: cols.max(1),
+            rows: rows.max(1),
             pixel_width: 0,
             pixel_height: 0,
         };
-        self.pty_service.resize_session(session_id, pty_size).await?;
 
-        let update_request = UpdateSessionRequest {
-            status: None,
-            current_working_dir: None,
-            environment_vars: None,
-            terminal_size: Some(terminal_size),
-            last_command: None,
-            last_activity_at: Some(Utc::now()),
-            shell_history: None,
-        };
+        self.pty_service.resize_session(&session_id.to_string(), size).await
+    }
 
-        self.repository.update(user_id, session_id, update_request).await?;
+    /// Terminate a PTY session
+    pub async fn terminate_session(
+        &self,
+        user_id: &str,
+        session_id: &str,
+    ) -> Result<()> {
+        // Check if session exists for this user
+        if !self.has_pty_session(user_id, session_id).await? {
+            return Err(CoreError::NotFound(format!("Session {} not found for user {}", session_id, user_id)));
+        }
 
-        debug!("Resized terminal for session {} to {}x{}", session_id, cols, rows);
+        // Destroy the PTY session
+        self.pty_service.destroy_session(&session_id.to_string()).await?;
+
+        // Remove from live state and buffers
+        self.remove_pty_session(user_id, session_id).await?;
+
         Ok(())
     }
 
-    pub async fn send_input(&self, session_id: &SessionId, data: &[u8]) -> Result<()> {
-        self.pty_service.send_input(session_id, data).await
-    }
+    /// List active sessions for a user
+    pub async fn list_active_sessions(&self, user_id: &str) -> Result<Vec<SessionInfo>> {
+        let live_state = self.live_state.read().await;
 
-    async fn handle_pty_output(
-        mut output_rx: mpsc::UnboundedReceiver<PtyEvent>,
-        websocket_manager: Arc<SessionWebSocketManager>,
-        terminal_buffers: Arc<RwLock<HashMap<String, RollingBuffer>>>,
-        session_id: String,
-        mut internal_rx: mpsc::UnboundedReceiver<PtyEvent>,
-    ) {
-        loop {
-            tokio::select! {
-                Some(event) = output_rx.recv() => {
-                    match event {
-                        PtyEvent::Output(data) => {
-                            // VS Code approach: Simple, direct conversion
-                            let output = String::from_utf8_lossy(&data).to_string();
-
-                            if !output.is_empty() {
-                                debug!("✅ Forwarding PTY output for session {}: {} bytes", session_id, output.len());
-
-                                // Capture output to rolling buffer for persistence
-                                {
-                                    let mut buffers = terminal_buffers.write().await;
-                                    if let Some(buffer) = buffers.get_mut(&session_id) {
-                                        buffer.append(output.clone());
-                                    }
-                                }
-
-                                // Forward to WebSocket connections
-                                websocket_manager.forward_to_websockets(&session_id, output).await;
-                            }
-                        }
-                        PtyEvent::Closed => {
-                            info!("PTY session {} closed", session_id);
-
-                            websocket_manager.forward_to_websockets(&session_id,
-                                "\r\n\x1b[1;31m● Session terminated\x1b[0m\r\n".to_string()).await;
-
-                            break;
-                        }
-                        PtyEvent::Error(error_msg) => {
-                            error!("PTY error for session {}: {}", session_id, error_msg);
-                            websocket_manager.forward_to_websockets(&session_id,
-                                format!("\r\n\x1b[1;31m● PTY Error: {}\x1b[0m\r\n", error_msg)).await;
-                        }
-                        PtyEvent::Resized { cols, rows } => {
-                            debug!("PTY session {} resized to {}x{}", session_id, cols, rows);
-                        }
-                    }
-                }
-                Some(event) = internal_rx.recv() => {
-                    // Handle internal events (if any)
-                    match event {
-                        PtyEvent::Output(data) => {
-                            let output = String::from_utf8_lossy(&data).to_string();
-                            websocket_manager.forward_to_websockets(&session_id, output).await;
-                        }
-                        PtyEvent::Closed => {
-                            info!("Internal close signal for session {}", session_id);
-                            break;
-                        }
-                        _ => {}
-                    }
-                }
-            }
+        if let Some(user_state) = live_state.get(user_id) {
+            return Ok(user_state.pty_sessions.values().cloned().collect());
         }
+
+        Ok(vec![])
     }
 
-    // Public methods for WebSocket integration
-    pub async fn register_websocket_connection(&self, session_id: &str) -> mpsc::UnboundedReceiver<String> {
-        self.websocket_manager.register_connection(session_id.to_string()).await
+    /// List active sessions for a user in a specific workspace
+    pub async fn list_workspace_sessions(&self, user_id: &str, workspace_id: &str) -> Result<Vec<SessionInfo>> {
+        let live_state = self.live_state.read().await;
+
+        if let Some(user_state) = live_state.get(user_id) {
+            let workspace_sessions: Vec<SessionInfo> = user_state.pty_sessions
+                .values()
+                .filter(|session| session.workspace_id == workspace_id)
+                .cloned()
+                .collect();
+            return Ok(workspace_sessions);
+        }
+
+        Ok(vec![])
     }
 
-    pub async fn unregister_websocket_connection(&self, session_id: &str, rx: mpsc::UnboundedReceiver<String>) {
-        self.websocket_manager.unregister_connection(session_id, rx).await;
+    // === Terminal buffer management methods ===
+
+    /// Initialize terminal buffer for a session
+    pub async fn initialize_terminal_buffer(&self, session_id: &str) -> Result<()> {
+        let mut buffers = self.terminal_buffers.write().await;
+        buffers.insert(session_id.to_string(), RollingBuffer::new(5000));
+        Ok(())
     }
 
-    pub async fn send_custom_output(&self, session_id: &str, output: String) -> Result<()> {
-        if let Some(forwarder) = self.output_forwarders.read().await.get(session_id) {
-            forwarder.forward_event(PtyEvent::Output(output.into_bytes()))?;
-        } else {
-            // If no forwarder exists, send directly through websocket manager
-            self.websocket_manager.forward_to_websockets(session_id, output).await;
+    /// Append output to terminal buffer
+    pub async fn append_to_buffer(&self, session_id: &str, output: &str) -> Result<()> {
+        let mut buffers = self.terminal_buffers.write().await;
+        if let Some(buffer) = buffers.get_mut(session_id) {
+            buffer.append(output.to_string());
         }
         Ok(())
     }
@@ -645,293 +400,99 @@ pub async fn create_session(&self, user_id: &str, options: CreateSessionOptions)
         }
     }
 
-    fn get_default_environment_vars(&self) -> HashMap<String, String> {
-        std::env::vars().collect()
+    /// Remove terminal buffer when session ends
+    pub async fn remove_terminal_buffer(&self, session_id: &str) -> Result<()> {
+        let mut buffers = self.terminal_buffers.write().await;
+        buffers.remove(session_id);
+        Ok(())
     }
 
-    /// Session reconciliation - detects and handles orphaned/dead sessions
-    pub async fn reconcile_sessions(&self, user_id: &str) -> Result<SessionReconciliationResult> {
-        info!("Starting session reconciliation for user {}", user_id);
+    /// Send existing buffer content to all output handlers (for session reconnection)
+    async fn send_buffer_to_handlers(&self, session_id: &str) -> Result<()> {
+        // Get the existing buffer content
+        let buffer_content = self.get_terminal_buffer(session_id).await?;
 
-        let mut result = SessionReconciliationResult {
-            recovered_sessions: 0,
-            cleaned_sessions: 0,
-            failed_sessions: 0,
-            reconciliation_errors: Vec::new(),
-        };
+        if !buffer_content.is_empty() {
+            info!("📤 Sending {} characters of buffered content for session {}", buffer_content.len(), session_id);
 
-        // Get all active sessions for the user
-        let active_sessions = match self.repository.list_active(user_id).await {
-            Ok(sessions) => sessions,
-            Err(e) => {
-                error!("Failed to list active sessions for reconciliation: {}", e);
-                result.reconciliation_errors.push(format!("Failed to list sessions: {}", e));
-                return Ok(result);
+            // Send buffer content to all registered output handlers
+            let handlers = self.output_handlers.read().await;
+            for handler in &*handlers {
+                handler.handle_output(session_id, TerminalOutputEvent {
+                    session_id: session_id.to_string(),
+                    output: buffer_content.clone(),
+                });
             }
-        };
+        } else {
+            debug!("📭 No buffered content to send for session {}", session_id);
+        }
 
-        let now = Utc::now();
+        Ok(())
+    }
 
-        for session in active_sessions {
-            debug!("Reconciling session {} (status: {:?})", session.id, session.status);
+    /// Get session info for a specific session
+    pub async fn get_session_info(
+        &self,
+        user_id: &str,
+        session_id: &str,
+    ) -> Result<Option<SessionInfo>> {
+        let live_state = self.live_state.read().await;
 
-            // Check if session is actually alive by testing PTY connection
-            let is_alive = self.is_session_alive(&session.id).await;
+        if let Some(user_state) = live_state.get(user_id) {
+            if let Some(session_info) = user_state.pty_sessions.get(session_id) {
+                return Ok(Some(session_info.clone()));
+            }
+        }
 
-            if !is_alive {
-                info!("Session {} appears to be dead, attempting recovery", session.id);
+        Ok(None)
+    }
 
-                if session.can_recover && session.recovery_token.is_some() {
-                    // Attempt to recover the session
-                    match self.recover_dead_session(user_id, &session).await {
-                        Ok(_) => {
-                            info!("Successfully recovered session {}", session.id);
-                            result.recovered_sessions += 1;
-                        }
-                        Err(e) => {
-                            warn!("Failed to recover session {}: {}", session.id, e);
-                            result.failed_sessions += 1;
-                            result.reconciliation_errors.push(
-                                format!("Failed to recover session {}: {}", session.id, e)
-                            );
+    /// Count all active sessions across all users
+    pub async fn count_all_active_sessions(&self) -> Result<usize> {
+        let live_state = self.live_state.read().await;
 
-                            // Clean up the failed session
-                            if let Err(cleanup_err) = self.cleanup_failed_session(user_id, &session.id).await {
-                                error!("Failed to cleanup session {}: {}", session.id, cleanup_err);
-                                result.reconciliation_errors.push(
-                                    format!("Failed to cleanup session {}: {}", session.id, cleanup_err)
-                                );
-                            } else {
-                                result.cleaned_sessions += 1;
-                            }
+        let total_sessions = live_state.values()
+            .map(|user_state| user_state.pty_sessions.len())
+            .sum();
+
+        Ok(total_sessions)
+    }
+
+    /// Clean up terminated sessions for a user
+    pub async fn cleanup_terminated_sessions(&self, user_id: &str) -> Result<usize> {
+        let mut live_state = self.live_state.write().await;
+        let mut cleaned_count = 0;
+
+        if let Some(user_state) = live_state.get_mut(user_id) {
+            let mut sessions_to_remove = Vec::new();
+
+            // Check each session's status via PTY service
+            for (session_id, _session_info) in &user_state.pty_sessions {
+                match self.pty_service.get_session_info(session_id).await {
+                    Ok(current_info) => {
+                        // If session is terminated, mark for removal
+                        if matches!(current_info.status, act_core::pty::SessionStatus::Terminated | act_core::pty::SessionStatus::Error(_)) {
+                            sessions_to_remove.push(session_id.clone());
                         }
                     }
-                } else {
-                    // Session is not recoverable, clean it up
-                    info!("Session {} is not recoverable, cleaning up", session.id);
-                    if let Err(e) = self.cleanup_failed_session(user_id, &session.id).await {
-                        error!("Failed to cleanup session {}: {}", session.id, e);
-                        result.reconciliation_errors.push(
-                            format!("Failed to cleanup session {}: {}", session.id, e)
-                        );
-                        result.failed_sessions += 1;
-                    } else {
-                        result.cleaned_sessions += 1;
+                    Err(_) => {
+                        // If we can't get session info, it's likely dead
+                        sessions_to_remove.push(session_id.clone());
                     }
                 }
-            } else {
-                debug!("Session {} is alive and healthy", session.id);
-            }
-        }
-
-        // Clean up expired sessions based on idle time
-        let idle_cleanup_threshold = now - chrono::Duration::hours(self.recovery_timeout_hours);
-        match self.repository.cleanup_inactive(user_id, idle_cleanup_threshold).await {
-            Ok(cleaned_count) => {
-                if cleaned_count > 0 {
-                    info!("Cleaned up {} idle sessions during reconciliation", cleaned_count);
-                    result.cleaned_sessions += cleaned_count;
-                }
-            }
-            Err(e) => {
-                error!("Failed to cleanup idle sessions: {}", e);
-                result.reconciliation_errors.push(format!("Failed to cleanup idle sessions: {}", e));
-            }
-        }
-
-        info!("Session reconciliation completed for user {}: recovered={}, cleaned={}, failed={}",
-              user_id, result.recovered_sessions, result.cleaned_sessions, result.failed_sessions);
-
-        Ok(result)
-    }
-
-    /// Check if a session is actually alive by testing the PTY connection
-    async fn is_session_alive(&self, session_id: &str) -> bool {
-        // Try to send a simple command to test if the PTY is responsive
-        let session_id_string = session_id.to_string();
-        match self.pty_service.send_input(&session_id_string, b"echo 'ping'\n").await {
-            Ok(_) => {
-                // If we can send input, assume the session is alive
-                // In a real implementation, we might want to wait for a response
-                true
-            }
-            Err(_) => {
-                // If we can't send input, the session is likely dead
-                false
-            }
-        }
-    }
-
-    /// Attempt to recover a dead session
-    async fn recover_dead_session(&self, user_id: &str, session: &Session) -> Result<()> {
-        info!("Attempting to recover dead session {}", session.id);
-
-        // First, clean up the old PTY session
-        if let Err(e) = self.pty_service.destroy_session(&session.id).await {
-            warn!("Failed to destroy old PTY session {}: {}", session.id, e);
-            // Continue anyway, as the session might already be destroyed
-        }
-
-        // Create a new PTY session with the same configuration
-        if let Some(ref workspace_id) = session.workspace_id {
-            let terminal_size = session.terminal_size.clone()
-                .unwrap_or(TerminalSize { cols: 80, rows: 24 });
-
-            let config = act_core::pty::SessionConfig {
-                session_id: session.id.clone(),
-                workspace_id: workspace_id.clone(),
-                size: act_core::pty::PtySize {
-                    cols: terminal_size.cols.max(80),
-                    rows: terminal_size.rows.max(24),
-                    pixel_width: 0,
-                    pixel_height: 0,
-                },
-                shell: None,
-                working_dir: session.current_working_dir.clone().or_else(|| Some("/tmp".to_string())),
-                environment: session.environment_vars.clone(),
-            };
-
-            // Create new PTY session
-            let (output_rx, _session_info) = self.pty_service.create_session(config).await?;
-
-            // Recreate output forwarder
-            let (forwarder, internal_rx) = OutputForwarder::new(session.id.clone());
-            {
-                let mut forwarders = self.output_forwarders.write().await;
-                forwarders.insert(session.id.clone(), forwarder);
             }
 
-            // Recreate rolling buffer for this session (5000 lines max)
-            {
+            // Remove terminated sessions
+            for session_id in sessions_to_remove {
+                user_state.pty_sessions.remove(&session_id);
+                // Also clean up terminal buffer
                 let mut buffers = self.terminal_buffers.write().await;
-                buffers.insert(session.id.clone(), RollingBuffer::new(5000));
-            }
-
-            // Start output forwarding task
-            let websocket_manager = self.websocket_manager.clone();
-            let terminal_buffers = self.terminal_buffers.clone();
-            let session_id_clone = session.id.clone();
-            tokio::spawn(async move {
-                Self::handle_pty_output(output_rx, websocket_manager, terminal_buffers, session_id_clone, internal_rx).await;
-            });
-
-            // Update session status to active
-            let update_request = UpdateSessionRequest {
-                status: Some(SessionStatus::Active),
-                current_working_dir: None,
-                environment_vars: None,
-                terminal_size: None,
-                last_command: None,
-                last_activity_at: Some(Utc::now()),
-                shell_history: None,
-            };
-
-            self.repository.update(user_id, &session.id, update_request).await?;
-
-            // Send recovery notification to any connected clients
-            self.websocket_manager.forward_to_websockets(&session.id,
-                "\r\n\x1b[1;33m● Session recovered after disconnection\x1b[0m\r\n".to_string()).await;
-
-            info!("Successfully recovered session {}", session.id);
-        } else {
-            return Err(CoreError::Validation("Cannot recover session without workspace".to_string()));
-        }
-
-        Ok(())
-    }
-
-    /// Clean up a failed session
-    async fn cleanup_failed_session(&self, user_id: &str, session_id: &str) -> Result<()> {
-        info!("Cleaning up failed session {}", session_id);
-
-        // Clean up output forwarder
-        {
-            let mut forwarders = self.output_forwarders.write().await;
-            if let Some(forwarder) = forwarders.remove(session_id) {
-                let _ = forwarder.forward_event(PtyEvent::Closed);
+                buffers.remove(&session_id);
+                cleaned_count += 1;
+                info!("Cleaned up terminated session: {}", session_id);
             }
         }
 
-        // Clean up terminal buffer
-        {
-            let mut buffers = self.terminal_buffers.write().await;
-            buffers.remove(session_id);
-        }
-
-        // Destroy PTY session
-        let session_id_string = session_id.to_string();
-        if let Err(e) = self.pty_service.destroy_session(&session_id_string).await {
-            warn!("Failed to destroy PTY session during cleanup: {}", e);
-        }
-
-        // Send cleanup message to any connected WebSockets
-        self.websocket_manager.forward_to_websockets(session_id,
-            "\r\n\x1b[1;31m● Session cleaned up due to inactivity\x1b[0m\r\n".to_string()).await;
-
-        // Mark session as terminated
-        let update_request = UpdateSessionRequest {
-            status: Some(SessionStatus::Terminated),
-            current_working_dir: None,
-            environment_vars: None,
-            terminal_size: None,
-            last_command: None,
-            last_activity_at: Some(Utc::now()),
-            shell_history: None,
-        };
-
-        self.repository.update(user_id, &session_id_string, update_request).await?;
-
-        info!("Successfully cleaned up session {}", session_id);
-        Ok(())
-    }
-
-    /// Start periodic session reconciliation task
-    pub fn start_periodic_reconciliation(&self, user_id: String, interval_minutes: u64) -> tokio::task::JoinHandle<()> {
-        let service = self.clone();
-        let user_id_clone = user_id.clone();
-
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(interval_minutes * 60));
-
-            loop {
-                interval.tick().await;
-                info!("Running periodic session reconciliation for user {}", user_id_clone);
-
-                match service.reconcile_sessions(&user_id_clone).await {
-                    Ok(result) => {
-                        if result.recovered_sessions > 0 || result.cleaned_sessions > 0 {
-                            info!("Periodic reconciliation: recovered={}, cleaned={}, failed={}",
-                                  result.recovered_sessions, result.cleaned_sessions, result.failed_sessions);
-                        }
-                    }
-                    Err(e) => {
-                        error!("Periodic session reconciliation failed: {}", e);
-                    }
-                }
-            }
-        })
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct SessionReconciliationResult {
-    pub recovered_sessions: usize,
-    pub cleaned_sessions: usize,
-    pub failed_sessions: usize,
-    pub reconciliation_errors: Vec<String>,
-}
-
-impl SessionReconciliationResult {
-    pub fn total_processed(&self) -> usize {
-        self.recovered_sessions + self.cleaned_sessions + self.failed_sessions
-    }
-
-    pub fn success_rate(&self) -> f64 {
-        let total = self.total_processed();
-        if total == 0 {
-            0.0
-        } else {
-            (self.recovered_sessions + self.cleaned_sessions) as f64 / total as f64
-        }
+        Ok(cleaned_count)
     }
 }

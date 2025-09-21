@@ -1,4 +1,5 @@
-use act_core::{SessionId, WorkspaceId, PtySize};
+use act_core::{PtySize};
+use act_core::pty::{SessionId, WorkspaceId};
 use portable_pty::{Child, MasterPty};
 use tokio::sync::mpsc;
 use chrono::{DateTime, Utc};

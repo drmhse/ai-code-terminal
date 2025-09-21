@@ -1,10 +1,9 @@
 pub use crate::repository::{
-    Workspace, Session, SessionStatus, SessionType, TerminalSize,
-    CreateWorkspaceRequest, UpdateWorkspaceRequest, 
-    CreateSessionRequest, UpdateSessionRequest,
+    Workspace,
+    CreateWorkspaceRequest, UpdateWorkspaceRequest,
     CreateLayoutRequest, UpdateLayoutRequest,
     CreateProcessRequest, UpdateProcessRequest,
-    WorkspaceId, SessionId, LayoutId, UserId
+    WorkspaceId, LayoutId, UserId
 };
 
 pub use crate::filesystem::{
@@ -131,7 +130,7 @@ pub struct UserProcess {
     pub auto_restart: bool,
     pub user_id: String,
     pub workspace_id: Option<WorkspaceId>,
-    pub session_id: Option<SessionId>,
+    pub session_id: Option<String>,
     pub tags: Option<Vec<String>>,
     pub data: Option<serde_json::Value>,
     pub created_at: DateTime<Utc>,

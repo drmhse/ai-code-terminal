@@ -1,134 +1,108 @@
--- Initial schema migration from Prisma schema
--- Converted from SQLite Prisma schema to raw SQL
+-- AI Code Terminal - Consolidated Initial Schema
+-- Version: 1.0
+-- Date: 2025-09-20
 
--- Single-user system: minimal global settings
-CREATE TABLE settings (
-    id TEXT PRIMARY KEY DEFAULT 'singleton',
-    github_token TEXT,                  -- Encrypted GitHub OAuth access token
-    github_refresh_token TEXT,          -- Encrypted GitHub OAuth refresh token
-    github_token_expires_at DATETIME,   -- The expiration date of the current access token
-    theme TEXT,                         -- Theme preference JSON
+-- =============================================================================
+--  Users & Authentication
+-- =============================================================================
+
+-- Stores core user information, linked to their GitHub identity.
+CREATE TABLE users (
+    id TEXT PRIMARY KEY,                            -- Internal unique UUID for the user
+    github_id TEXT NOT NULL UNIQUE,                 -- GitHub's unique user ID
+    username TEXT NOT NULL,                         -- GitHub username
+    email TEXT,
+    avatar_url TEXT,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Workspace management
+-- Stores user-specific settings, including sensitive tokens and preferences.
+CREATE TABLE user_settings (
+    user_id TEXT PRIMARY KEY,
+    github_token TEXT,                              -- Encrypted GitHub OAuth access token
+    github_refresh_token TEXT,                      -- Encrypted GitHub OAuth refresh token
+    github_token_expires_at DATETIME,
+    theme TEXT,                                     -- JSON string of user's ThemePreference
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_user_settings_user_id ON user_settings(user_id);
+
+
+-- =============================================================================
+--  Workspaces & Layouts
+-- =============================================================================
+
+-- Defines a workspace, which is a sandboxed directory on the server.
 CREATE TABLE workspaces (
-    id TEXT PRIMARY KEY,                -- Using CUID-like IDs
-    name TEXT NOT NULL,
-    github_repo TEXT NOT NULL UNIQUE,   -- Format: "owner/repo" - unique across system
-    github_url TEXT NOT NULL,           -- Full GitHub repository URL
-    local_path TEXT NOT NULL,           -- Local filesystem path
-    is_active BOOLEAN NOT NULL DEFAULT 1,
-    last_sync_at DATETIME,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
--- Terminal layout management
-CREATE TABLE terminal_layouts (
     id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,                 -- Layout name (e.g., "Development", "Debugging")
-    layout_type TEXT NOT NULL DEFAULT 'tabs', -- tabs, horizontal-split, vertical-split, grid
-    configuration TEXT NOT NULL,       -- JSON configuration for layout structure
-    is_default BOOLEAN NOT NULL DEFAULT 0,    -- Whether this is the default layout
-    workspace_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    github_repo TEXT,                           -- Format: "owner/repo", can be NULL for empty workspaces
+    github_url TEXT,                            -- Full Git URL, can be NULL
+    local_path TEXT NOT NULL UNIQUE,            -- Absolute path on the server's file system
+    is_active BOOLEAN NOT NULL DEFAULT 1,
+    last_sync_at DATETIME,                      -- Last synchronization timestamp
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+-- A user cannot clone the same repository twice.
+CREATE UNIQUE INDEX idx_workspaces_user_repo ON workspaces(user_id, github_repo) WHERE github_repo IS NOT NULL;
+CREATE INDEX idx_workspaces_user_id ON workspaces(user_id);
 
--- Terminal sessions
-CREATE TABLE sessions (
+
+-- Stores user-defined terminal pane layouts for each workspace.
+CREATE TABLE terminal_layouts (
     id TEXT PRIMARY KEY,
-    shell_pid INTEGER,                  -- Process ID of the shell session
-    socket_id TEXT,                     -- Current Socket.IO connection ID
-    status TEXT NOT NULL DEFAULT 'active', -- active, paused, terminated
-    last_activity_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    user_id TEXT NOT NULL,
+    workspace_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    layout_type TEXT NOT NULL DEFAULT 'hierarchical',
+    -- The entire state of the pane tree, including tabs and their buffers, is stored here.
+    -- This is the key to session continuity on reload.
+    tree_structure TEXT NOT NULL,
+    is_default BOOLEAN NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    ended_at DATETIME,
-    
-    -- Session identification and multiplexing
-    session_name TEXT NOT NULL DEFAULT 'Terminal', -- Display name for the session/tab
-    session_type TEXT NOT NULL DEFAULT 'terminal', -- terminal, split, tmux
-    is_default_session BOOLEAN NOT NULL DEFAULT 0, -- Whether this is the default session for the workspace
-    
-    -- Session state persistence
-    current_working_dir TEXT,           -- Current working directory of the shell
-    environment_vars TEXT,              -- JSON string of environment variables
-    shell_history TEXT,                 -- JSON array of recent shell commands
-    terminal_size TEXT,                 -- JSON object with terminal dimensions {cols, rows}
-    last_command TEXT,                  -- Last executed command
-    session_timeout INTEGER,            -- Timeout in minutes for idle sessions
-    recovery_token TEXT,                -- Unique token for session recovery
-    
-    -- Recovery metadata
-    can_recover BOOLEAN NOT NULL DEFAULT 1,         -- Whether this session can be recovered
-    max_idle_time INTEGER NOT NULL DEFAULT 1440,    -- Max idle time in minutes (24 hours)
-    auto_cleanup BOOLEAN NOT NULL DEFAULT 1,        -- Whether to auto-cleanup on timeout
-    
-    -- Layout positioning
-    layout_id TEXT,                     -- Reference to terminal layout
-    
-    -- Foreign keys
-    workspace_id TEXT,
-    
-    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE SET NULL,
-    FOREIGN KEY (layout_id) REFERENCES terminal_layouts(id) ON DELETE SET NULL
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY(workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
 );
+CREATE INDEX idx_layouts_user_workspace ON terminal_layouts(user_id, workspace_id);
 
--- User processes
-CREATE TABLE user_processes (
-    id TEXT PRIMARY KEY,
-    pid INTEGER NOT NULL,               -- Process ID
-    command TEXT NOT NULL,              -- Command that was executed
-    args TEXT,                          -- Command arguments (JSON array)
-    cwd TEXT NOT NULL,                  -- Working directory when process was started
-    status TEXT NOT NULL DEFAULT 'running', -- running, stopped, crashed, killed
-    exit_code INTEGER,                  -- Exit code when process ends
-    started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    ended_at DATETIME,
-    last_seen DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, -- Last time process was verified alive
-    auto_restart BOOLEAN NOT NULL DEFAULT 0,               -- Whether to restart if process dies
-    restart_count INTEGER NOT NULL DEFAULT 0,              -- Number of times process has been restarted
-    
-    -- Foreign keys
-    session_id TEXT,
-    workspace_id TEXT,
-    
-    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE SET NULL,
-    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE SET NULL
-);
 
--- Rate limiting
-CREATE TABLE rate_limits (
-    id TEXT PRIMARY KEY,
-    client_ip TEXT NOT NULL,            -- Client IP address
-    key_prefix TEXT NOT NULL,           -- Rate limit category (auth, github, workspace, general)
-    request_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, -- When the request was made
-    expires_at DATETIME NOT NULL       -- When this entry expires
-);
+-- =============================================================================
+--  Background Tasks & Metrics (Formerly user_processes)
+-- =============================================================================
 
--- CSRF tokens
-CREATE TABLE csrf_tokens (
+-- Stores the DEFINITION of long-running tasks, not their live state.
+CREATE TABLE background_tasks (
     id TEXT PRIMARY KEY,
-    token TEXT NOT NULL UNIQUE,         -- The CSRF token
-    user_id TEXT NOT NULL,              -- User ID this token belongs to
+    user_id TEXT NOT NULL,
+    workspace_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    command TEXT NOT NULL,
+    args TEXT DEFAULT '[]',                     -- JSON array of arguments
+    working_directory TEXT NOT NULL,
+    auto_restart BOOLEAN NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    expires_at DATETIME NOT NULL        -- When this token expires
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY(workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
 );
+CREATE INDEX idx_tasks_user_workspace ON background_tasks(user_id, workspace_id);
 
--- Create indexes for performance
-CREATE INDEX idx_terminal_layouts_workspace_default ON terminal_layouts(workspace_id, is_default);
-CREATE INDEX idx_sessions_recovery_token ON sessions(recovery_token);
-CREATE INDEX idx_sessions_status ON sessions(status);
-CREATE INDEX idx_sessions_last_activity ON sessions(last_activity_at);
-CREATE INDEX idx_sessions_workspace_default ON sessions(workspace_id, is_default_session);
-CREATE INDEX idx_user_processes_pid ON user_processes(pid);
-CREATE INDEX idx_user_processes_status ON user_processes(status);
-CREATE INDEX idx_user_processes_session ON user_processes(session_id);
-CREATE INDEX idx_user_processes_workspace ON user_processes(workspace_id);
-CREATE INDEX idx_rate_limits_client_key ON rate_limits(client_ip, key_prefix);
-CREATE INDEX idx_rate_limits_expires ON rate_limits(expires_at);
-CREATE INDEX idx_csrf_tokens_token ON csrf_tokens(token);
-CREATE INDEX idx_csrf_tokens_expires ON csrf_tokens(expires_at);
+
+-- Stores analytics events for system monitoring and usage tracking.
+CREATE TABLE metric_events (
+    id TEXT PRIMARY KEY,
+    user_id TEXT,
+    event_type TEXT NOT NULL,               -- e.g., 'command', 'session', 'workspace'
+    event_name TEXT NOT NULL,               -- e.g., 'execute', 'create'
+    properties TEXT DEFAULT '{}',           -- JSON blob for event-specific data
+    timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    duration_ms INTEGER,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE INDEX idx_metric_events_timestamp ON metric_events(timestamp);
+CREATE INDEX idx_metric_events_type_name ON metric_events(event_type, event_name);

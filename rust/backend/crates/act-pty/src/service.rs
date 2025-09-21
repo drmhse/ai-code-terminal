@@ -1,8 +1,8 @@
 use act_core::{
     PtyService, PtyEvent, PtySize, SessionConfig, SessionInfo,
-    SessionId, Result, CoreError
+    Result, CoreError
 };
-use act_core::pty::SessionStatus;
+use act_core::pty::{SessionId, SessionStatus};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;

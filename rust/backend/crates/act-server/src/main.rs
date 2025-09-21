@@ -7,11 +7,10 @@ mod socket_handlers;
 mod app_state;
 mod error;
 mod metrics;
-mod websocket;
 
 use axum::Router;
 use config::Config;
-use tracing::{info, warn};
+use tracing::info;
 use app_state::AppState;
 use socketioxide::SocketIo;
 
@@ -43,40 +42,6 @@ async fn main() -> anyhow::Result<()> {
     
     info!("Application state initialized with domain services");
 
-    // Perform initial session reconciliation
-    info!("Performing initial session reconciliation...");
-    
-    // Get all users from the system
-    let users_to_reconcile = match state.domain_services.auth_service.get_all_users().await {
-        Ok(users) => {
-            let user_ids: Vec<String> = users.into_iter().map(|user| user.user_id).collect();
-            info!("Found {} users for session reconciliation", user_ids.len());
-            user_ids
-        }
-        Err(e) => {
-            warn!("Failed to get users for session reconciliation: {}", e);
-            // Fallback to single user mode for backward compatibility
-            vec!["single-tenant".to_string()]
-        }
-    };
-    
-    for user_id in users_to_reconcile {
-        match state.domain_services.session_service.reconcile_sessions(&user_id).await {
-            Ok(result) => {
-                info!("Session reconciliation for user {}: recovered={}, cleaned={}, failed={}", 
-                      user_id, result.recovered_sessions, result.cleaned_sessions, result.failed_sessions);
-            }
-            Err(e) => {
-                warn!("Session reconciliation failed for user {}: {}", user_id, e);
-            }
-        }
-        
-        // Start periodic reconciliation for this user (every 30 minutes)
-        state.domain_services.session_service
-            .start_periodic_reconciliation(user_id.clone(), 30);
-    }
-    
-    info!("Session reconciliation initialized");
 
     // Create Socket.IO server
     let (socket_layer, io) = SocketIo::new_layer();

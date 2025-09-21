@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import type { Workspace, Session } from '@/types'
 import { socketService } from '@/services/socket'
 import { useLayoutStore } from '@/stores/layout'
+import { useUIStore } from '@/stores/ui'
 import { apiService } from '@/services/api'
 
 export interface Repository {
@@ -47,6 +48,8 @@ export interface CloneProgress {
 }
 
 export const useWorkspaceStore = defineStore('workspace', () => {
+  const uiStore = useUIStore()
+
   // Workspace switching control
   let isWorkspaceSwitching = false
   let pendingWorkspaceSwitch: string | null = null
@@ -70,14 +73,12 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const repositorySearchTerm = ref('')
   const searchTimeout = ref<number | null>(null)
   
-  // Repository modals and UI state
-  const showRepositoriesModal = ref(false)
+  // Repository cloning state
   const cloningRepository = ref<Repository | null>(null)
   const cloneProgress = ref<CloneProgress | null>(null)
   const cloneError = ref<string | null>(null)
-  
-  // Workspace deletion state
-  const showDeleteModal = ref(false)
+
+  // Workspace deletion state (modal state moved to UI store)
   const workspaceToDelete = ref<Workspace | null>(null)
   const deleteFiles = ref(false)
   const deletingWorkspace = ref(false)
@@ -99,28 +100,59 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   })
   const selectedWorkspace = computed(() => currentWorkspace.value) // Alias for compatibility
 
-  const fetchWorkspaces = async (ownerId?: string) => {
-    console.log('🚀 fetchWorkspaces called with ownerId:', ownerId)
+  const fetchWorkspaces = async () => {
+    console.log('🚀 fetchWorkspaces called')
     loading.value = true
     error.value = null
 
     try {
       console.log('🔄 Making API call to getWorkspaces...')
-      const data = await apiService.getWorkspaces(ownerId)
+      const data = await apiService.getWorkspaces()
       console.log('✅ API call successful, received:', data)
       workspaces.value = data
       
       // Set current workspace if none selected and workspaces exist
       if (!currentWorkspace.value && data.length > 0) {
-        currentWorkspace.value = data[0]
-        console.log('✅ Set current workspace to:', currentWorkspace.value.name)
+        let targetWorkspace = data[0] // Default fallback
+
+        // Try to restore previously selected workspace from user preferences
+        try {
+          const userPreferences = await apiService.getUserPreferences()
+          if (userPreferences?.current_workspace_id) {
+            const savedWorkspace = data.find(ws => ws.id === userPreferences.current_workspace_id)
+            if (savedWorkspace) {
+              targetWorkspace = savedWorkspace
+              console.log('✅ Restored workspace from user preferences:', targetWorkspace.name)
+            } else {
+              console.warn('⚠️ Saved workspace not found, using first workspace as fallback')
+              // Clear invalid stored workspace preference
+              await apiService.setCurrentWorkspace(null)
+            }
+          } else {
+            console.log('ℹ️ No saved workspace preference, using first workspace')
+          }
+        } catch (preferencesError) {
+          console.warn('⚠️ Failed to load user preferences, using first workspace:', preferencesError)
+        }
+
+        currentWorkspace.value = targetWorkspace
+        console.log('✅ Set current workspace to:', targetWorkspace.name)
+
+        // CRITICAL: Properly initialize terminal context for workspace
+        try {
+          await switchTerminalToWorkspace(targetWorkspace.id)
+          await fetchLayoutsForWorkspace(targetWorkspace.id)
+          console.log('✅ Initialized terminal context for workspace')
+        } catch (terminalError) {
+          console.warn('⚠️ Failed to initialize terminal context for workspace:', terminalError)
+          // Don't throw - workspace loading should continue even if terminal initialization fails
+        }
       }
     } catch (err) {
       error.value = 'Failed to fetch workspaces'
       console.error('❌ Failed to fetch workspaces:', err)
       console.error('Error details:', {
         error: err,
-        ownerId,
         hasToken: !!localStorage.getItem('jwt_token'),
         apiUrl: import.meta.env.VITE_API_BASE_URL
       })
@@ -136,16 +168,46 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     try {
       const newWorkspace = await apiService.createWorkspace(name, path)
       workspaces.value.push(newWorkspace)
-      
+
       // Auto-select the new workspace
       if (!currentWorkspace.value) {
         await switchWorkspace(newWorkspace)
       }
-      
+
       return newWorkspace
     } catch (err) {
       error.value = 'Failed to create workspace'
       console.error('Failed to create workspace:', err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const createEmptyWorkspace = async (options: {
+    name: string
+    description?: string
+    path?: string
+  }) => {
+    loading.value = true
+    error.value = null
+
+    try {
+      const newWorkspace = await apiService.createEmptyWorkspace({
+        name: options.name,
+        description: options.description,
+        path: options.path
+      })
+
+      workspaces.value.push(newWorkspace)
+
+      // Auto-select the new workspace
+      await switchWorkspace(newWorkspace)
+
+      return newWorkspace
+    } catch (err) {
+      error.value = 'Failed to create empty workspace'
+      console.error('Failed to create empty workspace:', err)
       throw err
     } finally {
       loading.value = false
@@ -165,6 +227,17 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         workspaces.value.splice(index, 1)
       }
       
+      // Clean up user preferences if the deleted workspace was saved there
+      try {
+        const userPreferences = await apiService.getUserPreferences()
+        if (userPreferences?.current_workspace_id === id) {
+          await apiService.setCurrentWorkspace(null)
+          console.log('🧹 Removed deleted workspace from user preferences')
+        }
+      } catch (preferencesError) {
+        console.warn('⚠️ Failed to clean up workspace preference:', preferencesError)
+      }
+
       // Switch to another workspace if current one was deleted
       if (currentWorkspace.value?.id === id) {
         currentWorkspace.value = workspaces.value.length > 0 ? workspaces.value[0] : null
@@ -228,6 +301,15 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
       // Update current workspace immediately for UI responsiveness
       currentWorkspace.value = workspace
+
+      // Save workspace preference to backend for multi-device persistence
+      try {
+        await apiService.setCurrentWorkspace(workspace.id)
+        console.log('💾 Saved workspace preference to backend:', workspace.name)
+      } catch (preferencesError) {
+        console.warn('⚠️ Failed to save workspace preference:', preferencesError)
+        // Don't throw - workspace switching should continue even if preference saving fails
+      }
 
       // Switch terminal store to new workspace context with proper cleanup
       await switchTerminalToWorkspace(workspace.id)
@@ -322,11 +404,11 @@ const switchTerminalToWorkspace = async (workspaceId: string) => {
 
   try {
     // Use dynamic import with proper await to avoid warnings
-    const terminalModule = await import('@/stores/terminal')
-    const terminalStore = terminalModule.useTerminalStore()
+    const terminalModule = await import('@/stores/terminal-tree')
+    const terminalTreeStore = terminalModule.useTerminalTreeStore()
 
     // Switch terminal store to workspace context
-    terminalStore.switchToWorkspace(workspaceId)
+    terminalTreeStore.switchToWorkspace(workspaceId)
     console.log(`Terminal store switched to workspace ${workspaceId}`)
   } catch (err) {
     console.error('Failed to switch terminal to workspace:', err)
@@ -342,11 +424,11 @@ const ensureWorkspaceHasTerminal = async (workspaceId: string) => {
 
   try {
     // Use dynamic import with proper await to avoid warnings
-    const terminalModule = await import('@/stores/terminal')
-    const terminalStore = terminalModule.useTerminalStore()
+    const terminalModule = await import('@/stores/terminal-tree')
+    const terminalTreeStore = terminalModule.useTerminalTreeStore()
 
     // Check if workspace already has restored frontend terminals
-    if (terminalStore.hasPanes) {
+    if (terminalTreeStore.hasPanes) {
       console.log(`✅ Workspace ${workspaceId} already has restored frontend terminals`)
       return
     }
@@ -366,13 +448,13 @@ const ensureWorkspaceHasTerminal = async (workspaceId: string) => {
     console.info('ℹ️ Creating fresh terminal session - this is normal for new workspaces')
 
     // Check if this is a known workspace with expected sessions
-    const workspaceState = terminalStore.getCurrentWorkspaceTerminalCount()
-    if (workspaceState > 0) {
-      console.warn(`⚠️ Expected ${workspaceState} terminal sessions but backend has none`)
+    const workspaceTerminalCount = terminalTreeStore.allTerminalNodes.length
+    if (workspaceTerminalCount > 0) {
+      console.warn(`⚠️ Expected ${workspaceTerminalCount} terminal sessions but backend has none`)
       console.warn('📋 User workflows will be interrupted - consider implementing session persistence')
     }
 
-    await terminalStore.createTerminal(workspaceId)
+    await terminalTreeStore.createTerminal(workspaceId)
   } catch (err) {
     console.error('Failed to ensure workspace has terminal:', err)
     // Don't throw here - terminal creation failure shouldn't break workspace switching
@@ -458,18 +540,18 @@ const reconnectToSessions = async (sessions: import('@/services/socket').Workspa
     // Only create new terminal if no sessions were successfully recovered
     if (successCount === 0) {
       console.log('⚠️ No sessions were recovered, creating new terminal')
-      const terminalModule = await import('@/stores/terminal')
-      const terminalStore = terminalModule.useTerminalStore()
-      await terminalStore.createTerminal(workspaceId)
+      const terminalModule = await import('@/stores/terminal-tree')
+      const terminalTreeStore = terminalModule.useTerminalTreeStore()
+      await terminalTreeStore.createTerminal(workspaceId)
     } else {
       console.log(`✅ Successfully recovered ${successCount} out of ${sessions.length} sessions`)
     }
   } catch (error) {
     console.error('Error reconnecting to sessions:', error)
     // Fallback: create new terminal
-    const terminalModule = await import('@/stores/terminal')
-    const terminalStore = terminalModule.useTerminalStore()
-    await terminalStore.createTerminal(workspaceId)
+    const terminalModule = await import('@/stores/terminal-tree')
+    const terminalTreeStore = terminalModule.useTerminalTreeStore()
+    await terminalTreeStore.createTerminal(workspaceId)
   }
 }
 
@@ -609,7 +691,7 @@ const recoverSession = (recoveryToken: string, sessionId: string): Promise<void>
       }
       
       // Close modal and clear state
-      showRepositoriesModal.value = false
+      uiStore.closeRepositoriesModal()
       cloningRepository.value = null
       cloneProgress.value = null
       
@@ -621,41 +703,32 @@ const recoverSession = (recoveryToken: string, sessionId: string): Promise<void>
     }
   }
   
-  const openRepositoriesModal = async () => {
-    showRepositoriesModal.value = true
-    if (!hasRepositories.value) {
-      await loadRepositories()
-    }
-  }
-  
-  const closeRepositoriesModal = () => {
-    showRepositoriesModal.value = false
+  const clearCloningState = () => {
     cloningRepository.value = null
     cloneProgress.value = null
     cloneError.value = null
   }
-  
-  const openDeleteModal = (workspace: Workspace) => {
-    workspaceToDelete.value = workspace
-    deleteFiles.value = false
-    showDeleteModal.value = true
-  }
-  
-  const closeDeleteModal = () => {
-    showDeleteModal.value = false
+
+  const clearDeleteState = () => {
     workspaceToDelete.value = null
     deleteFiles.value = false
     deletingWorkspace.value = false
   }
+
+  const prepareWorkspaceForDeletion = (workspace: Workspace) => {
+    workspaceToDelete.value = workspace
+    deleteFiles.value = false
+  }
   
   const confirmDeleteWorkspace = async () => {
     if (!workspaceToDelete.value) return
-    
+
     deletingWorkspace.value = true
-    
+
     try {
       await deleteWorkspace(workspaceToDelete.value.id)
-      closeDeleteModal()
+      // Close modal and clear state
+      uiStore.closeDeleteModal()
     } catch (err) {
       console.error('Failed to delete workspace:', err)
     } finally {
@@ -681,11 +754,9 @@ const recoverSession = (recoveryToken: string, sessionId: string): Promise<void>
     repositoryHasMore,
     repositoryLoadingMore,
     repositorySearchTerm,
-    showRepositoriesModal,
     cloningRepository,
     cloneProgress,
     cloneError,
-    showDeleteModal,
     workspaceToDelete,
     deleteFiles,
     deletingWorkspace,
@@ -697,6 +768,7 @@ const recoverSession = (recoveryToken: string, sessionId: string): Promise<void>
     // Original actions
     fetchWorkspaces,
     createWorkspace,
+    createEmptyWorkspace,
     deleteWorkspace,
     switchWorkspace,
     selectWorkspace,
@@ -708,12 +780,13 @@ const recoverSession = (recoveryToken: string, sessionId: string): Promise<void>
     loadMoreRepositories,
     searchRepositories,
     cloneRepository,
-    openRepositoriesModal,
-    closeRepositoriesModal,
-    openDeleteModal,
-    closeDeleteModal,
-    confirmDeleteWorkspace,
+    clearCloningState,
     clearRepositoryError,
     clearCloneError,
+
+    // Workspace deletion actions
+    prepareWorkspaceForDeletion,
+    clearDeleteState,
+    confirmDeleteWorkspace,
   }
 })

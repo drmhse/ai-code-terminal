@@ -1,4 +1,4 @@
-use crate::{AppState, models::ApiResponse, error::ServerError, middleware::csrf::CsrfProtection};
+use crate::{AppState, models::ApiResponse, error::ServerError, middleware::{csrf::CsrfProtection, auth::AuthenticatedUser}};
 use act_core::CoreError;
 use axum::{
     extract::{Query, State},
@@ -39,8 +39,11 @@ pub struct GitHubCallbackResponse {
     message: Option<String>,
 }
 
-pub async fn start_authorization(State(state): State<AppState>) -> Result<Redirect> {
-    match state.domain_services.auth_service.get_authorization_url("single-tenant").await {
+pub async fn start_authorization(
+    State(state): State<AppState>,
+    auth_user: AuthenticatedUser
+) -> Result<Redirect> {
+    match state.domain_services.auth_service.get_authorization_url(&auth_user.user_id).await {
         Ok(auth_url) => Ok(Redirect::temporary(&auth_url)),
         Err(e) => {
             error!("Failed to get authorization URL: {}", e);
@@ -98,8 +101,11 @@ pub async fn get_csrf_token(State(state): State<AppState>) -> Result<Json<ApiRes
     }))
 }
 
-pub async fn get_auth_status(State(state): State<AppState>) -> Result<Json<AuthStatusResponse>> {
-    match state.domain_services.auth_service.get_auth_status("default_user").await {
+pub async fn get_auth_status(
+    State(state): State<AppState>,
+    auth_user: AuthenticatedUser
+) -> Result<Json<AuthStatusResponse>> {
+    match state.domain_services.auth_service.get_auth_status(&auth_user.user_id).await {
         Ok(status) => {
             let user_info = status.user_info.map(|u| serde_json::to_value(u).unwrap_or(serde_json::Value::Null));
             Ok(Json(AuthStatusResponse {
@@ -123,8 +129,11 @@ pub async fn get_auth_status(State(state): State<AppState>) -> Result<Json<AuthS
     }
 }
 
-pub async fn logout(State(state): State<AppState>) -> Result<Json<serde_json::Value>> {
-    match state.domain_services.auth_service.logout("default_user").await {
+pub async fn logout(
+    State(state): State<AppState>,
+    auth_user: AuthenticatedUser
+) -> Result<Json<serde_json::Value>> {
+    match state.domain_services.auth_service.logout(&auth_user.user_id).await {
         Ok(_) => {
             info!("User logged out successfully");
             Ok(Json(serde_json::json!({"success": true, "message": "Logged out successfully"})))

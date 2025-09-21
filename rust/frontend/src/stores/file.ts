@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed, readonly } from 'vue'
 import { apiService } from '@/services/api'
 import { useWorkspaceStore } from '@/stores/workspace'
+import { useUIStore } from '@/stores/ui'
 
 export interface FileItem {
   name: string
@@ -54,6 +55,8 @@ export interface DirectoryCacheItem {
 }
 
 export const useFileStore = defineStore('file', () => {
+  const uiStore = useUIStore()
+
   // File explorer state
   const fileExplorerEnabled = ref(true)
   const fileExplorerCollapsed = ref(false)
@@ -79,20 +82,9 @@ export const useFileStore = defineStore('file', () => {
   const fileSearchTimeout = ref<number | null>(null)
   const selectedFileIndex = ref(-1)
   
-  // Context menu
-  const showContextMenu = ref(false)
-  const contextMenuX = ref(0)
-  const contextMenuY = ref(0)
-  const contextMenuFile = ref<FileItem | null>(null)
-  
-  // File preview modal
-  const showFilePreviewModal = ref(false)
+  // Legacy preview state - kept for backward compatibility
   const previewFile = ref<FileItem | null>(null)
-  const previewData = ref<string | null>(null)
-  const previewLoading = ref(false)
   const previewError = ref<string | null>(null)
-  
-  // Discard changes modal
   const showDiscardModal = ref(false)
   const discardAction = ref<'exitEdit' | 'closeModal'>('exitEdit')
   const changesSummary = ref('')
@@ -385,47 +377,21 @@ const clearPreviewError = () => {
 
   // Context menu actions
   const openContextMenu = (file: FileItem, x: number, y: number) => {
-    contextMenuFile.value = file
-    contextMenuX.value = x
-    contextMenuY.value = y
-    showContextMenu.value = true
+    uiStore.openContextMenu(x, y, file)
   }
 
   const closeContextMenu = () => {
-    showContextMenu.value = false
-    contextMenuFile.value = null
-    contextMenuX.value = 0
-    contextMenuY.value = 0
+    uiStore.closeContextMenu()
   }
 
-  // File preview actions
+  // File preview actions - now redirects to docked editor
   const showFilePreview = async (file: FileItem) => {
-    previewFile.value = file
-    previewLoading.value = true
-    previewError.value = null
-    showFilePreviewModal.value = true
-
-    try {
-      const content = await getFileContentWorkspaceAware(file.path)
-      previewData.value = content
-    } catch (err) {
-      previewError.value = err instanceof Error ? err.message : 'Failed to load file'
-      console.error('Failed to preview file:', err)
-    } finally {
-      previewLoading.value = false
-    }
+    // Use the docked editor instead of the modal
+    await openFileInEditor(file)
   }
 
   const refreshFilePreview = async () => {
-    if (!previewFile.value) return
-    await showFilePreview(previewFile.value)
-  }
-
-  const closeFilePreviewModal = () => {
-    showFilePreviewModal.value = false
-    previewFile.value = null
-    previewData.value = null
-    previewError.value = null
+    // Legacy function - now does nothing since files are managed in docked editor
   }
 
   // Discard changes modal
@@ -870,15 +836,7 @@ const clearPreviewError = () => {
     showHiddenFiles: readonly(showHiddenFiles),
     fileSearchTerm: readonly(fileSearchTerm),
     selectedFileIndex: readonly(selectedFileIndex),
-    showContextMenu: readonly(showContextMenu),
-    contextMenuX: readonly(contextMenuX),
-    contextMenuY: readonly(contextMenuY),
-    contextMenuFile: readonly(contextMenuFile),
-    showFilePreviewModal: readonly(showFilePreviewModal),
     previewFile: readonly(previewFile),
-    previewData: readonly(previewData),
-    previewLoading: readonly(previewLoading),
-    previewError: readonly(previewError),
     showDiscardModal: readonly(showDiscardModal),
     discardAction: readonly(discardAction),
     changesSummary: readonly(changesSummary),
@@ -924,7 +882,6 @@ const clearPreviewError = () => {
     closeContextMenu,
     showFilePreview,
     refreshFilePreview,
-    closeFilePreviewModal,
     openDiscardModal,
     closeDiscardModal,
     handleDiscardConfirm,

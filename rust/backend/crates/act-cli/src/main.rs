@@ -11,6 +11,10 @@ use dotenvy::dotenv;
 #[command(name = "act-cli")]
 #[command(about = "A CLI tool demonstrating ACT domain crate extractability")]
 struct Cli {
+    /// User ID (UUID) for all operations
+    #[arg(long, global = true)]
+    user_id: String,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -56,10 +60,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 local_path: Some(format!("/tmp/{}", name)),
             };
             
-            // For demo purposes, use a fixed user ID
-            let user_id = "demo-user-id";
             
-            match real_repo.create(user_id, create_request).await {
+            match real_repo.create(&cli.user_id, create_request).await {
                 Ok(workspace) => {
                     println!("✅ Created workspace: {} (ID: {})", workspace.name, workspace.id);
                 }
@@ -70,10 +72,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         Commands::ListWorkspaces => {
-            // For demo purposes, use a fixed user ID
-            let user_id = "demo-user-id";
             
-            match real_repo.list_all(user_id).await {
+            match real_repo.list_all(&cli.user_id).await {
                 Ok(workspaces) => {
                     println!("📋 Found {} workspaces:", workspaces.len());
                     for workspace in workspaces {

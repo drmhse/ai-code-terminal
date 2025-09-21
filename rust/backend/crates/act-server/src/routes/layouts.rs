@@ -24,6 +24,15 @@ pub struct CreateLayoutRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct SaveLayoutWithBuffersRequest {
+    pub name: String,
+    pub layout_type: String,
+    pub tree_structure: String, // JSON string of hierarchical layout with session IDs
+    pub is_default: Option<bool>,
+    pub workspace_id: String,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct UpdateLayoutRequest {
     pub name: Option<String>,
     pub tree_structure: Option<String>, // JSON string of hierarchical layout
@@ -65,9 +74,11 @@ impl From<act_core::models::TerminalLayout> for LayoutResponse {
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/", get(list_layouts).post(create_layout))
+        .route("/with-buffers", post(save_layout_with_buffers))
         .route("/:id", get(get_layout).put(update_layout).delete(delete_layout))
         .route("/:id/default", post(set_default_layout))
         .route("/:id/duplicate", post(duplicate_layout))
+        .route("/:id/restore-buffers", get(get_layout_with_buffers))
 }
 
 async fn list_layouts(
@@ -198,3 +209,79 @@ async fn duplicate_layout(
 
     Ok(Json(ApiResponse::success(LayoutResponse::from(layout))))
 }
+
+async fn save_layout_with_buffers(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Json(request): Json<SaveLayoutWithBuffersRequest>,
+) -> Result<Json<ApiResponse<LayoutResponse>>, ServerError> {
+    info!("Saving layout '{}' for user {} (session data will not be persisted)", request.name, user.user_id);
+
+    // Strip session IDs and buffers from the tree structure - layouts should not persist session data
+    let clean_tree_structure = match serde_json::from_str::<serde_json::Value>(&request.tree_structure) {
+        Ok(mut tree) => {
+            strip_session_data_from_tree(&mut tree);
+            serde_json::to_string(&tree).map_err(|e| {
+                error!("Failed to serialize cleaned tree: {}", e);
+                ServerError(act_core::CoreError::Internal("Failed to process layout tree".to_string()))
+            })?
+        }
+        Err(e) => {
+            error!("Failed to parse tree structure: {}", e);
+            request.tree_structure // Fallback to original structure
+        }
+    };
+
+    let domain_request = act_core::repository::CreateLayoutRequest {
+        name: request.name,
+        layout_type: request.layout_type,
+        tree_structure: clean_tree_structure,
+        is_default: request.is_default,
+        workspace_id: request.workspace_id,
+    };
+
+    let layout = state.domain_services.layout_service
+        .create_layout(&user.user_id, domain_request)
+        .await?;
+
+    Ok(Json(ApiResponse::success(LayoutResponse::from(layout))))
+}
+
+async fn get_layout_with_buffers(
+    State(_state): State<AppState>,
+    user: AuthenticatedUser,
+    Path(id): Path<String>,
+) -> Result<Json<ApiResponse<serde_json::Value>>, ServerError> {
+    info!("Getting layout {} for user {} (no session data will be restored)", id, user.user_id);
+
+    let layout = _state.domain_services.layout_service
+        .get_layout(&user.user_id, &id)
+        .await?;
+
+    // Return layout without any session data - sessions are purely in-memory
+    let tree_structure = layout.tree_structure.clone();
+    let response = serde_json::json!({
+        "layout": LayoutResponse::from(layout),
+        "tree_with_buffers": serde_json::from_str::<serde_json::Value>(&tree_structure).unwrap_or(serde_json::Value::Null)
+    });
+    Ok(Json(ApiResponse::success(response)))
+}
+
+// Helper function to strip session data from tree structure
+fn strip_session_data_from_tree(tree: &mut serde_json::Value) {
+    if let Some(obj) = tree.as_object_mut() {
+        // Remove session-related fields that should not be persisted
+        obj.remove("session_id");
+        obj.remove("terminal_buffer");
+        obj.remove("current_buffer");
+        obj.remove("pid");
+
+        // Recursively process children
+        if let Some(children) = obj.get_mut("children").and_then(|v| v.as_array_mut()) {
+            for child in children {
+                strip_session_data_from_tree(child);
+            }
+        }
+    }
+}
+

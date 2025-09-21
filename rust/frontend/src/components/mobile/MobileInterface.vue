@@ -234,13 +234,13 @@ import { ref, computed } from 'vue'
 import { useUIStore } from '@/stores/ui'
 import { useFileOperations } from '@/composables/useFileOperations'
 import { useWorkspaceStore } from '@/stores/workspace'
-import { useTerminalStore } from '@/stores/terminal'
+import { useTerminalTreeStore } from '@/stores/terminal-tree'
 import { useTheme } from '@/composables/useTheme'
 
 const uiStore = useUIStore()
 const fileOperations = useFileOperations()
 const workspaceStore = useWorkspaceStore()
-const terminalStore = useTerminalStore()
+const terminalTreeStore = useTerminalTreeStore()
 const { toggleTheme } = useTheme()
 
 // Component state
@@ -376,7 +376,7 @@ const refreshFiles = async () => {
 const createNewTerminal = async () => {
   if (workspaceStore.selectedWorkspace) {
     try {
-      await terminalStore.createTerminal(workspaceStore.selectedWorkspace.id)
+      await terminalTreeStore.createTerminal(workspaceStore.selectedWorkspace.id)
       uiStore.toggleSecondaryFAB() // Close secondary FABs
       
       uiStore.addResourceAlert({

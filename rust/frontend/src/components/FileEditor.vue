@@ -1,5 +1,5 @@
 <template>
-  <div class="file-editor" :class="{ 'editor-visible': showEditor }">
+  <div class="file-editor" :class="{ 'editor-visible': showEditor, 'docked-mode': docked }">
     <!-- Editor Header -->
     <div class="editor-header">
       <div class="editor-tabs">
@@ -114,13 +114,22 @@ import type { EditorState } from '@/stores/file'
 import { useTheme } from '@/composables/useTheme'
 import { transformToLegacyTheme, legacyToEditorTheme } from '@/utils/themeCompat'
 
+// Props
+const props = defineProps<{
+  docked?: boolean
+}>()
+
 const fileStore = useFileStore()
 const { currentTheme } = useTheme()
+
+// Set default docked to false for backward compatibility
+const docked = computed(() => props.docked ?? false)
 
 // State
 const editorContainer = ref<HTMLElement>()
 const editorInstance = ref<EditorInstance>()
 const currentLanguage = ref<string>('plaintext')
+const isUpdatingEditor = ref(false)
 
 // Computed
 const showEditor = computed(() => fileStore.showEditor)
@@ -134,7 +143,9 @@ const editorError = computed(() => fileStore.editorError)
 
 // Watch for active file changes
 watch(activeFile, async (newFile, oldFile) => {
-  if (newFile && newFile.path !== oldFile?.path) {
+  if (newFile) {
+    // Always update the editor when there's an active file
+    // This ensures content displays even when switching between tabs
     await updateEditor(newFile)
   }
 })
@@ -158,8 +169,22 @@ watch(currentTheme, (newTheme) => {
 
 // Methods
 const updateEditor = async (file: EditorState) => {
-  if (!editorContainer.value) return
-  
+  // Prevent concurrent updates
+  if (isUpdatingEditor.value) {
+    console.log('🔄 Editor update already in progress, skipping...')
+    return
+  }
+
+  if (!editorContainer.value) {
+    console.warn('⚠️ Editor container not available, retrying...')
+    await nextTick()
+    if (!editorContainer.value) {
+      console.error('❌ Editor container still not available after nextTick')
+      return
+    }
+  }
+
+  isUpdatingEditor.value = true
   await nextTick()
   
   try {
@@ -208,10 +233,12 @@ const updateEditor = async (file: EditorState) => {
     
     currentLanguage.value = file.language
     console.log('✅ Editor updated successfully for:', file.path)
-    
+
   } catch (error) {
     console.error('❌ Failed to update editor:', error)
     fileStore.editorError = 'Failed to initialize editor'
+  } finally {
+    isUpdatingEditor.value = false
   }
 }
 
@@ -300,21 +327,33 @@ onUnmounted(() => {
 
 <style scoped>
 .file-editor {
+  background: var(--bg-primary);
+  border-left: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+}
+
+/* Floating panel mode (default) */
+.file-editor:not(.docked-mode) {
   position: fixed;
   top: 0;
   right: -100%;
   width: 60%;
   height: 100vh;
-  background: var(--bg-primary);
-  border-left: 1px solid var(--border-color);
-  display: flex;
-  flex-direction: column;
   transition: right 0.3s ease;
-  z-index: 1000;
 }
 
-.file-editor.editor-visible {
+.file-editor:not(.docked-mode).editor-visible {
   right: 0;
+}
+
+/* Docked mode */
+.file-editor.docked-mode {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-left: none; /* Will be handled by parent */
 }
 
 .editor-header {

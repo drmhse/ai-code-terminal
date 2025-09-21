@@ -256,6 +256,120 @@ export function redistributeSizes(siblings: PaneNode[], removedSize: number): Pa
 }
 
 /**
+ * Remove a node from the tree and redistribute space (VS Code/Zed style)
+ */
+export function removeNode(layout: PaneLayout, nodeId: string): PaneLayout {
+  if (layout.root.id === nodeId) {
+    // Can't remove root node - this should not happen in normal usage
+    throw new Error('Cannot remove root node')
+  }
+
+  const nodeResult = findNode(layout.root, nodeId)
+  if (!nodeResult?.parent || nodeResult.parentIndex === undefined) {
+    return layout // Node not found or has no parent
+  }
+
+  const parent = nodeResult.parent
+  const nodeToRemove = nodeResult.node
+  const removedSize = nodeToRemove.size
+
+  // Remove the node from parent's children
+  if (parent.children) {
+    parent.children.splice(nodeResult.parentIndex, 1)
+
+    // Redistribute the removed node's size to remaining siblings
+    parent.children = redistributeSizes(parent.children, removedSize)
+
+    // If parent container now has only one child, collapse the hierarchy (VS Code behavior)
+    if (parent.children.length === 1 && parent !== layout.root) {
+      const singleChild = parent.children[0]
+      singleChild.size = parent.size // Inherit parent's size
+
+      // Find grandparent and replace parent with single child
+      const grandparentResult = findNode(layout.root, parent.id)
+      if (grandparentResult?.parent?.children && grandparentResult.parentIndex !== undefined) {
+        grandparentResult.parent.children[grandparentResult.parentIndex] = singleChild
+      }
+    } else if (parent.children.length === 0) {
+      // Parent has no children left - remove parent too (recursive)
+      return removeNode(layout, parent.id)
+    }
+  }
+
+  // Update active node if the removed node was active
+  let newActiveNodeId = layout.activeNodeId
+  if (layout.activeNodeId === nodeId) {
+    // Find first terminal node to set as active
+    const terminals = getAllTerminalNodes(layout.root)
+    newActiveNodeId = terminals.length > 0 ? terminals[0].id : layout.root.id
+  }
+
+  return {
+    ...layout,
+    activeNodeId: newActiveNodeId
+  }
+}
+
+/**
+ * Move a tab from one pane to another (VS Code/Zed style drag & drop)
+ */
+export function moveTabBetweenPanes(
+  layout: PaneLayout,
+  sourcePaneId: string,
+  targetPaneId: string,
+  tabId: string,
+  targetIndex: number
+): PaneLayout {
+  const sourceResult = findNode(layout.root, sourcePaneId)
+  const targetResult = findNode(layout.root, targetPaneId)
+
+  if (!sourceResult || !targetResult ||
+      sourceResult.node.type !== 'terminal' ||
+      targetResult.node.type !== 'terminal' ||
+      !sourceResult.node.tabs || !targetResult.node.tabs) {
+    return layout // Invalid operation
+  }
+
+  const sourceNode = sourceResult.node
+  const targetNode = targetResult.node
+
+  // Find and remove tab from source
+  const tabIndex = sourceNode.tabs.findIndex(tab => tab.id === tabId)
+  if (tabIndex === -1) return layout
+
+  const tab = sourceNode.tabs.splice(tabIndex, 1)[0]
+
+  // Update source active tab if necessary
+  if (sourceNode.activeTabId === tabId) {
+    if (sourceNode.tabs.length > 0) {
+      const newActiveIndex = Math.min(tabIndex, sourceNode.tabs.length - 1)
+      sourceNode.activeTabId = sourceNode.tabs[newActiveIndex].id
+    } else {
+      sourceNode.activeTabId = null
+    }
+  }
+
+  // Add tab to target at specified index
+  const clampedIndex = Math.min(targetIndex, targetNode.tabs.length)
+  targetNode.tabs.splice(clampedIndex, 0, tab)
+
+  // Update tab orders
+  sourceNode.tabs.forEach((t, i) => { t.order = i })
+  targetNode.tabs.forEach((t, i) => { t.order = i })
+
+  // Set the moved tab as active in target pane
+  targetNode.activeTabId = tab.id
+
+  // If source pane is now empty, remove it (VS Code behavior)
+  if (sourceNode.tabs.length === 0) {
+    return removeNode(layout, sourcePaneId)
+  }
+
+  // Update active pane to target
+  return setActiveNode(layout, targetPaneId)
+}
+
+/**
  * Validate that a pane tree is structurally correct
  */
 export function validatePaneTree(root: PaneNode): { valid: boolean; errors: string[] } {

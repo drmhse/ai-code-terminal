@@ -4,7 +4,7 @@
  */
 
 import type { Theme } from '@/types/theme'
-import type { ThemeColors, EditorThemeData } from '@/types/editor'
+import type { EditorThemeData } from '@/types/editor'
 
 export interface LegacyTheme {
   id: string

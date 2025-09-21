@@ -2,11 +2,9 @@ use crate::Result;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use tokio::sync::mpsc;
 
 pub type WorkspaceId = String;
-pub type SessionId = String;
 pub type LayoutId = String;
 pub type UserId = String;
 
@@ -24,58 +22,9 @@ pub struct Workspace {
     pub user_id: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Session {
-    pub id: SessionId,
-    pub shell_pid: Option<i32>,
-    pub socket_id: Option<String>,
-    pub status: SessionStatus,
-    pub last_activity_at: DateTime<Utc>,
-    pub created_at: DateTime<Utc>,
-    pub ended_at: Option<DateTime<Utc>>,
-    
-    pub session_name: String,
-    pub session_type: SessionType,
-    pub is_default_session: bool,
-    
-    pub current_working_dir: Option<String>,
-    pub environment_vars: Option<HashMap<String, String>>,
-    pub shell_history: Option<Vec<String>>,
-    pub terminal_size: Option<TerminalSize>,
-    pub last_command: Option<String>,
-    pub session_timeout: Option<i32>,
-    pub recovery_token: Option<String>,
-    
-    pub can_recover: bool,
-    pub max_idle_time: i32,
-    pub auto_cleanup: bool,
-    
-    pub layout_id: Option<LayoutId>,
-    pub workspace_id: Option<WorkspaceId>,
-    pub user_id: String,
-}
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum SessionStatus {
-    Active,
-    Inactive,
-    Terminated,
-    Error(String),
-}
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum SessionType {
-    Terminal,
-    Editor,
-    Debug,
-    Custom(String),
-}
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TerminalSize {
-    pub cols: u16,
-    pub rows: u16,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateWorkspaceRequest {
@@ -92,26 +41,7 @@ pub struct UpdateWorkspaceRequest {
     pub last_sync_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CreateSessionRequest {
-    pub session_id: Option<String>,
-    pub workspace_id: Option<WorkspaceId>,
-    pub session_name: String,
-    pub session_type: SessionType,
-    pub terminal_size: Option<TerminalSize>,
-    pub layout_id: Option<LayoutId>,
-}
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UpdateSessionRequest {
-    pub status: Option<SessionStatus>,
-    pub current_working_dir: Option<String>,
-    pub environment_vars: Option<HashMap<String, String>>,
-    pub terminal_size: Option<TerminalSize>,
-    pub last_command: Option<String>,
-    pub last_activity_at: Option<DateTime<Utc>>,
-    pub shell_history: Option<Vec<String>>,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateLayoutRequest {
@@ -148,30 +78,6 @@ pub trait WorkspaceRepository: Send + Sync {
     async fn set_active(&self, user_id: &str, id: &WorkspaceId, active: bool) -> Result<()>;
 }
 
-#[async_trait]
-pub trait SessionRepository: Send + Sync {
-    async fn create(&self, user_id: &str, request: CreateSessionRequest) -> Result<Session>;
-    
-    async fn get_by_id(&self, user_id: &str, id: &SessionId) -> Result<Session>;
-    
-    async fn list_by_workspace(&self, user_id: &str, workspace_id: &WorkspaceId) -> Result<Vec<Session>>;
-    
-    async fn list_active(&self, user_id: &str) -> Result<Vec<Session>>;
-    
-    async fn count_all_active(&self) -> Result<u64>;
-    
-    async fn list_by_status(&self, user_id: &str, status: SessionStatus) -> Result<Vec<Session>>;
-    
-    async fn update(&self, user_id: &str, id: &SessionId, request: UpdateSessionRequest) -> Result<Session>;
-    
-    async fn delete(&self, user_id: &str, id: &SessionId) -> Result<()>;
-    
-    async fn cleanup_inactive(&self, user_id: &str, older_than: DateTime<Utc>) -> Result<usize>;
-    
-    async fn set_shell_pid(&self, user_id: &str, id: &SessionId, pid: Option<i32>) -> Result<()>;
-    
-    async fn update_activity(&self, user_id: &str, id: &SessionId) -> Result<()>;
-}
 
 #[async_trait]
 pub trait LayoutRepository: Send + Sync {
@@ -200,7 +106,7 @@ pub struct CreateProcessRequest {
     pub max_restarts: Option<i32>,
     pub auto_restart: Option<bool>,
     pub workspace_id: Option<WorkspaceId>,
-    pub session_id: Option<SessionId>,
+    pub session_id: Option<String>,
     pub tags: Option<Vec<String>>,
 }
 
@@ -226,7 +132,7 @@ pub trait ProcessRepository: Send + Sync {
     
     async fn list_for_workspace(&self, user_id: &str, workspace_id: &WorkspaceId) -> Result<Vec<crate::models::UserProcess>>;
     
-    async fn list_for_session(&self, user_id: &str, session_id: &SessionId) -> Result<Vec<crate::models::UserProcess>>;
+    async fn list_for_session(&self, user_id: &str, session_id: &str) -> Result<Vec<crate::models::UserProcess>>;
     
     async fn list_by_status(&self, user_id: &str, status: &str) -> Result<Vec<crate::models::UserProcess>>;
     

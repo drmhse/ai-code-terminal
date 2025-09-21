@@ -10,6 +10,7 @@ pub mod processes;
 pub mod metrics;
 pub mod system;
 pub mod themes;
+pub mod user_preferences;
 
 use axum::Router;
 use crate::AppState;
@@ -29,6 +30,7 @@ pub fn api_routes() -> Router<AppState> {
         .nest("/metrics", metrics::routes())
         .nest("/system", system::routes())
         .nest("/themes", themes::routes())
+        .nest("/user/preferences", user_preferences::routes())
 }
 
 fn auth_routes() -> Router<AppState> {
