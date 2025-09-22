@@ -8,10 +8,7 @@
         @click="showCreateModal = true"
         title="Create new process"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="12" y1="5" x2="12" y2="19"></line>
-          <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
+        <PlusIcon class="h-3.5 w-3.5" />
       </button>
     </div>
 
@@ -81,9 +78,7 @@
               class="action-btn stop"
               title="Stop process"
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                <rect x="6" y="6" width="12" height="12"></rect>
-              </svg>
+              <StopIcon class="h-3 w-3" />
             </button>
             <button 
               v-if="process.status === 'Stopped' || process.status === 'Failed'"
@@ -91,20 +86,14 @@
               class="action-btn restart"
               title="Restart process"
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="23 4 23 10 17 10"></polyline>
-                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-              </svg>
+              <ArrowPathIcon class="h-3 w-3" />
             </button>
             <button 
               @click.stop="deleteProcess(process.id)"
               class="action-btn delete"
               title="Delete process"
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="3 6 5 6 21 6"></polyline>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-              </svg>
+              <TrashIcon class="h-3 w-3" />
             </button>
             <button 
               @click.stop="toggleProcessExpand(process.id)"
@@ -112,9 +101,7 @@
               :class="{ 'is-expanded': expandedProcesses.has(process.id) }"
               title="Toggle details"
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="6 9 12 15 18 9"></polyline>
-              </svg>
+              <ChevronDownIcon class="h-3 w-3" />
             </button>
           </div>
         </div>
@@ -287,6 +274,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useProcessStore } from '@/stores/process'
 import { useWorkspaceStore } from '@/stores/workspace'
 import type { Process } from '@/stores/process'
+import { PlusIcon, StopIcon, ArrowPathIcon, TrashIcon, ChevronDownIcon } from '@heroicons/vue/24/outline'
 
 const processStore = useProcessStore()
 const workspaceStore = useWorkspaceStore()

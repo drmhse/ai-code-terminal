@@ -2,11 +2,10 @@ use act_core::{Result, models::SystemMetrics};
 use act_domain::system_service::{MetricsRepository, SystemMonitor, MetricEvent, MetricsSummary, PerformanceMetrics, TimePeriod, UserActivity};
 use chrono::{Utc, Duration};
 use async_trait::async_trait;
-use sysinfo::System;
+use sysinfo::{System, Disks, Networks};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::error;
 
 /// Real implementation of MetricsRepository that stores metrics in memory
 /// In a production environment, this would be replaced with a database-backed implementation
@@ -286,7 +285,7 @@ impl MetricsRepository for InMemoryMetricsRepository {
     }
 }
 
-/// Real implementation of SystemMonitor using sysinfo
+/// Simple, reliable system monitor using sysinfo crate only
 pub struct RealSystemMonitor {
     system: Arc<RwLock<System>>,
 }
@@ -305,161 +304,47 @@ impl RealSystemMonitor {
         system.refresh_all();
     }
 
-    async fn get_real_disk_usage(&self) -> Result<(u64, u64)> {
-        // Since we're targeting Linux Docker environments, we can use statvfs
-        // to get accurate disk usage information from the filesystem
-        
-        use std::os::unix::fs::MetadataExt;
-        use nix::sys::statvfs;
-        
-        // Get the current working directory or default to root
-        let path = std::env::current_dir().unwrap_or_else(|_| "/".into());
-        
-        // Use statvfs to get real filesystem statistics
-        match statvfs::statvfs(&path) {
-            Ok(stat) => {
-                let block_size = stat.block_size() as u64;
-                let total_blocks = stat.blocks() as u64;
-                let available_blocks = stat.blocks_available() as u64;
-                
-                let total_space = total_blocks * block_size;
-                let used_space = total_space - (available_blocks * block_size);
-                
-                // info!("Real disk usage: {} used of {} total ({:.1}% used)", 
-                //       Self::bytes_to_human(used_space), 
-                //       Self::bytes_to_human(total_space),
-                //       (used_space as f64 / total_space as f64) * 100.0);
-                
-                Ok((used_space, total_space))
-            }
-            Err(e) => {
-                error!("Failed to get disk usage with statvfs: {}", e);
-                
-                // Fallback: use filesystem metadata for the current directory
-                match path.metadata() {
-                    Ok(metadata) => {
-                        // This is less accurate but better than hardcoded values
-                        // In Docker, we can make some reasonable assumptions
-                        let _device_size = metadata.dev() as u64;
-                        
-                        // Use a more sophisticated estimation based on common Docker volumes
-                        // This is still a fallback but better than hardcoded values
-                        let estimated_total = match std::env::var("DOCKER_ENV") {
-                            Ok(_) => {
-                                // We're in Docker, use typical Docker volume sizes
-                                10 * 1024 * 1024 * 1024 // 10GB typical Docker volume
-                            }
-                            Err(_) => {
-                                // Not in Docker, use larger typical sizes
-                                100 * 1024 * 1024 * 1024 // 100GB
-                            }
-                        };
-                        
-                        // Estimate usage based on directory size if available
-                        let estimated_used = if let Ok(dir_size) = Self::get_directory_size(&path).await {
-                            std::cmp::min(dir_size, estimated_total)
-                        } else {
-                            estimated_total / 2 // 50% usage as fallback
-                        };
-                        
-                        // warn!("Using fallback disk usage estimation: {} used of {} total", 
-                        //       Self::bytes_to_human(estimated_used), 
-                        //       Self::bytes_to_human(estimated_total));
-                        
-                        Ok((estimated_used, estimated_total))
-                    }
-                    Err(e) => {
-                        error!("Failed to get directory metadata: {}", e);
-                        
-                        // Ultimate fallback - but still better than completely hardcoded
-                        let total = 50 * 1024 * 1024 * 1024; // 50GB
-                        let used = total / 4; // 25% usage as conservative estimate
-                        
-                        error!("Using ultimate fallback disk usage: {} used of {} total", 
-                              Self::bytes_to_human(used), Self::bytes_to_human(total));
-                        
-                        Ok((used, total))
-                    }
-                }
+    async fn get_disk_usage(&self) -> Result<(u64, u64)> {
+        // Create a new Disks instance with refreshed data
+        let disks = Disks::new_with_refreshed_list();
+
+        // Get current working directory
+        let current_path = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/"));
+
+        // Find the disk that contains our current path
+        for disk in disks.list() {
+            if current_path.starts_with(disk.mount_point()) {
+                let total_space = disk.total_space();
+                let available_space = disk.available_space();
+                let used_space = total_space.saturating_sub(available_space);
+                return Ok((used_space, total_space));
             }
         }
-    }
-    
-    /// Helper function to get directory size recursively
-    async fn get_directory_size(path: &std::path::Path) -> Result<u64> {
-        let mut total_size = 0u64;
-        
-        match tokio::fs::read_dir(path).await {
-            Ok(mut entries) => {
-                while let Ok(Some(entry)) = entries.next_entry().await {
-                    let metadata = match entry.metadata().await {
-                        Ok(meta) => meta,
-                        Err(_) => continue,
-                    };
-                    
-                    if metadata.is_file() {
-                        total_size += metadata.len();
-                    } else if metadata.is_dir() {
-                        if let Ok(size) = Box::pin(Self::get_directory_size(&entry.path())).await {
-                            total_size += size;
-                        }
-                    }
-                }
-            }
-            Err(_) => {
-                // If we can't read the directory, return 0
-                return Ok(0);
-            }
+
+        // Fallback: use first available disk if current path matching fails
+        if let Some(disk) = disks.list().first() {
+            let total_space = disk.total_space();
+            let available_space = disk.available_space();
+            let used_space = total_space.saturating_sub(available_space);
+            return Ok((used_space, total_space));
         }
-        
-        Ok(total_size)
-    }
-    
-    /// Helper function to convert bytes to human readable format
-    fn bytes_to_human(bytes: u64) -> String {
-        const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
-        let mut bytes = bytes as f64;
-        let mut unit_index = 0;
-        
-        while bytes >= 1024.0 && unit_index < UNITS.len() - 1 {
-            bytes /= 1024.0;
-            unit_index += 1;
-        }
-        
-        format!("{:.1} {}", bytes, UNITS[unit_index])
+
+        Err(act_core::CoreError::Internal("No disk information available".to_string()))
     }
 
-    async fn get_network_stats(&self) -> Result<(u64, u64)> {
-        // Read network statistics from /proc/net/dev on Linux
-        // This provides real network interface statistics
+    async fn get_network_stats(&self) -> (u64, u64) {
+        // Create a new Networks instance with refreshed data
+        let networks = Networks::new_with_refreshed_list();
+
         let mut total_rx = 0u64;
         let mut total_tx = 0u64;
-        
-        if let Ok(content) = tokio::fs::read_to_string("/proc/net/dev").await {
-            for line in content.lines() {
-                let line = line.trim();
-                // Skip header lines and empty lines
-                if line.starts_with("Inter-") || line.starts_with(" face") || line.is_empty() {
-                    continue;
-                }
-                
-                // Parse interface statistics
-                let parts: Vec<&str> = line.split_whitespace().collect();
-                if parts.len() >= 17 {
-                    // Format: interface rx_bytes rx_packets rx_errs rx_drop ...
-                    if let (Ok(rx_bytes), Ok(tx_bytes)) = (parts[1].parse::<u64>(), parts[9].parse::<u64>()) {
-                        total_rx += rx_bytes;
-                        total_tx += tx_bytes;
-                    }
-                }
-            }
-            
-            // info!("Real network stats: RX={}, TX={}", Self::bytes_to_human(total_rx), Self::bytes_to_human(total_tx));
-        } else {
-            // warn!("Failed to read /proc/net/dev, using fallback network stats");
+
+        for (_, network) in &networks {
+            total_rx = total_rx.saturating_add(network.received());
+            total_tx = total_tx.saturating_add(network.transmitted());
         }
-        
-        Ok((total_rx, total_tx))
+
+        (total_rx, total_tx)
     }
 }
 
@@ -468,16 +353,21 @@ impl SystemMonitor for RealSystemMonitor {
     async fn get_system_metrics(&self) -> Result<SystemMetrics> {
         self.refresh_system().await;
         let system = self.system.read().await;
-        
+
         let cpu_usage = system.global_cpu_usage() as f64;
         let total_memory = system.total_memory();
         let used_memory = system.used_memory();
-        
-        let (used_disk_space, total_disk_space) = self.get_real_disk_usage().await?;
-        let (network_rx, network_tx) = self.get_network_stats().await?;
-        
+
+        // Release the read lock before calling disk operations
+        drop(system);
+
+        let (used_disk_space, total_disk_space) = self.get_disk_usage().await?;
+        let (network_rx, network_tx) = self.get_network_stats().await;
+
+        // Re-acquire the lock for process count
+        let system = self.system.read().await;
         let active_processes = system.processes().len() as u32;
-        
+
         Ok(SystemMetrics {
             timestamp: Utc::now(),
             cpu_usage_percent: cpu_usage,
@@ -487,7 +377,7 @@ impl SystemMonitor for RealSystemMonitor {
             disk_total_bytes: total_disk_space,
             uptime_seconds: System::uptime(),
             load_average: System::load_average().one,
-            process_count: system.processes().len() as u32,
+            process_count: active_processes,
             network_rx,
             network_tx,
             active_sessions: 0, // This will be set by the caller
@@ -510,40 +400,11 @@ impl SystemMonitor for RealSystemMonitor {
     }
 
     async fn get_disk_usage(&self) -> Result<f64> {
-        let (used, total) = self.get_real_disk_usage().await?;
+        let (used, total) = self.get_disk_usage().await?;
         Ok(if total > 0 { (used as f64 / total as f64) * 100.0 } else { 0.0 })
     }
 
     async fn get_network_stats(&self) -> Result<(u64, u64)> {
-        // Read network statistics from /proc/net/dev on Linux
-        // This provides real network interface statistics
-        let mut total_rx = 0u64;
-        let mut total_tx = 0u64;
-        
-        if let Ok(content) = tokio::fs::read_to_string("/proc/net/dev").await {
-            for line in content.lines() {
-                let line = line.trim();
-                // Skip header lines and empty lines
-                if line.starts_with("Inter-") || line.starts_with(" face") || line.is_empty() {
-                    continue;
-                }
-                
-                // Parse interface statistics
-                let parts: Vec<&str> = line.split_whitespace().collect();
-                if parts.len() >= 17 {
-                    // Format: interface rx_bytes rx_packets rx_errs rx_drop ...
-                    if let (Ok(rx_bytes), Ok(tx_bytes)) = (parts[1].parse::<u64>(), parts[9].parse::<u64>()) {
-                        total_rx += rx_bytes;
-                        total_tx += tx_bytes;
-                    }
-                }
-            }
-            
-            // info!("Real network stats: RX={}, TX={}", Self::bytes_to_human(total_rx), Self::bytes_to_human(total_tx));
-        } else {
-            // warn!("Failed to read /proc/net/dev, using fallback network stats");
-        }
-        
-        Ok((total_rx, total_tx))
+        Ok(self.get_network_stats().await)
     }
 }

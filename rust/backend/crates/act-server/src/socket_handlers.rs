@@ -75,6 +75,7 @@ pub struct SystemStatsEvent {
     pub uptime: u64,
     pub load_average: f64,
     pub processes: u32,
+    pub active_sessions: u32,
     pub timestamp: i64,
 }
 
@@ -181,6 +182,10 @@ impl StatsSubscription {
         // Get system metrics using the system service
         let metrics = state.domain_services.system_service.get_current_system_metrics().await?;
 
+        // Get actual active session count from session service
+        let active_sessions = state.domain_services.session_service.count_all_active_sessions().await
+            .unwrap_or(0) as u32;
+
         let stats_event = SystemStatsEvent {
             cpu_usage: metrics.cpu_usage_percent,
             memory_usage: metrics.memory_used_bytes,
@@ -190,6 +195,7 @@ impl StatsSubscription {
             uptime: metrics.uptime_seconds,
             load_average: metrics.load_average,
             processes: metrics.process_count,
+            active_sessions,
             timestamp: chrono::Utc::now().timestamp(),
         };
 

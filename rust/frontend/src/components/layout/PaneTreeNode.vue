@@ -227,6 +227,9 @@ const emit = defineEmits<Emits>()
 const terminalStore = useTerminalTreeStore()
 const workspaceStore = useWorkspaceStore()
 
+// Access all terminal nodes from the store for drag and drop
+const allTerminalNodes = computed(() => terminalStore.allTerminalNodes)
+
 // Container-specific computed properties
 const containerStyle = computed(() => {
   if (props.node.type !== 'container' || !props.node.direction) return {}
@@ -710,10 +713,36 @@ const handleClosePane = () => {
   terminalStore.closePane(props.node.id)
 }
 
-// Watch for tab changes
-watch(() => props.node.tabs?.length, () => {
+// Watch for tab changes and initialize new terminals
+const knownTabIds = ref<Set<string>>(new Set())
+
+watch(() => props.node.tabs, async (newTabs) => {
+  if (!newTabs || props.node.type !== 'terminal') return
+
+  // Find newly added tabs
+  const newTabIds = new Set(newTabs.map(tab => tab.id))
+  const addedTabs = newTabs.filter(tab => !knownTabIds.value.has(tab.id))
+
+  // Initialize terminals for new tabs
+  for (const tab of addedTabs) {
+    await nextTick() // Ensure DOM is updated
+    await initializeTerminalForTab(tab.id)
+
+    // Write any buffered content to the newly initialized terminal
+    if (tab.buffer && terminalInstances.value.has(tab.id)) {
+      const terminal = terminalInstances.value.get(tab.id)
+      if (terminal) {
+        terminal.write(tab.buffer)
+      }
+    }
+  }
+
+  // Update known tabs
+  knownTabIds.value = newTabIds
+
+  // Update tab overflow
   nextTick(updateTabOverflow)
-}, { immediate: true })
+}, { immediate: true, deep: true })
 
 // Watch for theme changes and update all terminal themes dynamically
 watch(() => props.theme, (newTheme) => {
@@ -729,6 +758,11 @@ defineExpose({ write, fit, focus, dispose })
 
 onMounted(() => {
   if (props.node.type === 'terminal') {
+    // Initialize known tabs with current tabs
+    if (props.node.tabs) {
+      knownTabIds.value = new Set(props.node.tabs.map(tab => tab.id))
+    }
+
     nextTick(async () => {
       await initializeTerminals()
 

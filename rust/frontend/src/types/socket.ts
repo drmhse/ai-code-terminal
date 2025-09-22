@@ -32,6 +32,7 @@ export interface StatsDataEvent {
   uptime: number
   load_average: number
   processes: number
+  active_sessions: number
   timestamp: number
 }
 
@@ -96,7 +97,7 @@ export function validateTerminalDestroyedEvent(data: unknown): data is TerminalD
 
 export function validateStatsDataEvent(data: unknown): data is StatsDataEvent {
   if (typeof data !== 'object' || data === null) return false
-  
+
   const event = data as {
     cpu_usage?: unknown
     memory_usage?: unknown
@@ -106,6 +107,7 @@ export function validateStatsDataEvent(data: unknown): data is StatsDataEvent {
     uptime?: unknown
     load_average?: unknown
     processes?: unknown
+    active_sessions?: unknown
     timestamp?: unknown
   }
   return (
@@ -117,6 +119,7 @@ export function validateStatsDataEvent(data: unknown): data is StatsDataEvent {
     typeof event.uptime === 'number' &&
     typeof event.load_average === 'number' &&
     typeof event.processes === 'number' &&
+    typeof event.active_sessions === 'number' &&
     typeof event.timestamp === 'number'
   )
 }

@@ -1,34 +1,17 @@
 <template>
   <div class="title-bar">
     <button v-if="isMobile" @click="toggleSidebar" class="mobile-toggle">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <line x1="3" y1="6" x2="21" y2="6"></line>
-        <line x1="3" y1="12" x2="21" y2="12"></line>
-        <line x1="3" y1="18" x2="21" y2="18"></line>
-      </svg>
+      <Bars3Icon class="h-4 w-4" />
     </button>
     <h1>AI Code Terminal</h1>
     <div class="controls">
       <button @click="uiStore.openThemeModal()" class="theme-button">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="5"></circle>
-          <line x1="12" y1="1" x2="12" y2="3"></line>
-          <line x1="12" y1="21" x2="12" y2="23"></line>
-          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-          <line x1="1" y1="12" x2="3" y2="12"></line>
-          <line x1="21" y1="12" x2="23" y2="12"></line>
-          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-        </svg>
+        <SunIcon class="h-4 w-4" />
         <span v-if="!isMobile">{{ currentTheme?.name || 'Dark' }}</span>
       </button>
       <div class="user-info">{{ authStore.user?.login || 'Developer' }}</div>
       <button @click="logout" class="logout-button" title="Logout">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="m9 21 1-7-1-7h1c2.5 0 5-1.5 7-4.5V21l-7-2.5"></path>
-          <path d="M9 9h7l-3-3m3 3l-3 3"></path>
-        </svg>
+        <ArrowRightOnRectangleIcon class="h-4 w-4" />
       </button>
     </div>
   </div>
@@ -40,6 +23,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useUIStore } from '../stores/ui'
 import { useTheme } from '../composables/useTheme'
+import { Bars3Icon, SunIcon, ArrowRightOnRectangleIcon } from '@heroicons/vue/24/outline'
 
 const router = useRouter()
 const authStore = useAuthStore()

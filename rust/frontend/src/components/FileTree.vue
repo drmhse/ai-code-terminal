@@ -8,20 +8,14 @@
     
     <!-- Error State -->
     <div v-else-if="fileStore.fileError" class="error-state">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10"></circle>
-        <line x1="12" y1="8" x2="12" y2="12"></line>
-        <line x1="12" y1="16" x2="12.01" y2="16"></line>
-      </svg>
+      <ExclamationCircleIcon class="h-4 w-4" />
       <span>{{ fileStore.fileError }}</span>
       <button @click="() => refreshFiles()" class="retry-btn">Retry</button>
     </div>
     
     <!-- Empty State -->
     <div v-else-if="!fileStore.hasFiles" class="empty-state">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-      </svg>
+      <FolderIcon class="h-4 w-4" />
       <span>No files found</span>
     </div>
     
@@ -47,6 +41,7 @@ import { useFileStore } from '@/stores/file'
 import { useFileOperations } from '@/composables/useFileOperations'
 import FileTreeNode from './FileTreeNode.vue'
 import type { FileItem } from '@/stores/file'
+import { ExclamationCircleIcon, FolderIcon } from '@heroicons/vue/24/outline'
 
 const workspaceStore = useWorkspaceStore()
 const fileStore = useFileStore()

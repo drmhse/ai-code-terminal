@@ -8,21 +8,14 @@
       </div>
 
       <!-- Active Sessions Count -->
-      <div v-if="terminalTreeStore.panes.length > 0" class="status-item">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="4,17 10,11 4,5"></polyline>
-          <line x1="12" y1="19" x2="20" y2="19"></line>
-        </svg>
-        <span>{{ terminalTreeStore.panes.length }} session{{ terminalTreeStore.panes.length > 1 ? 's' : '' }}</span>
+      <div class="status-item">
+        <CommandLineIcon class="status-icon" />
+        <span>{{ displaySessionCount }} session{{ displaySessionCount > 1 ? 's' : '' }}</span>
       </div>
 
       <!-- Current Layout -->
       <div v-if="terminalTreeStore.panes.length > 0" class="status-item">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-          <line x1="9" y1="9" x2="15" y2="9"></line>
-          <line x1="9" y1="15" x2="15" y2="15"></line>
-        </svg>
+        <Squares2X2Icon class="status-icon" />
         <span>{{ layoutDisplayName }}</span>
       </div>
     </div>
@@ -30,10 +23,7 @@
     <div class="status-center">
       <!-- Current Working Directory -->
       <div v-if="workspaceStore.selectedWorkspace" class="status-item workspace-info">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
-          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
-        </svg>
+        <FolderIcon class="status-icon" />
         <span class="workspace-path">{{ workspaceStore.selectedWorkspace.path }}</span>
       </div>
     </div>
@@ -41,48 +31,36 @@
     <div class="status-right">
       <!-- Background Tasks Indicator -->
       <div v-if="hasBackgroundTasks" class="status-item background-tasks" @click="toggleBackgroundTasks">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="3"></circle>
-          <path d="m12 1 0 6m0 6 0 6m11-7-6 0m-6 0-6 0m11.66-4.66-4.24 4.24m-5.66 0-4.24-4.24m14.1 9.9-4.24-4.24m-5.66 0-4.24 4.24"></path>
-        </svg>
+        <CogIcon class="status-icon animate-spin" />
         <span>{{ backgroundTasksCount }} task{{ backgroundTasksCount > 1 ? 's' : '' }}</span>
       </div>
 
       <!-- Memory Usage -->
       <div class="status-item memory-usage"
-           :title="`Memory: ${systemInfo.memoryUsage || '0 B'}`">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
-          <rect x="9" y="9" width="6" height="6"></rect>
-          <line x1="9" y1="1" x2="9" y2="4"></line>
-          <line x1="15" y1="1" x2="15" y2="4"></line>
-          <line x1="9" y1="20" x2="9" y2="23"></line>
-          <line x1="15" y1="20" x2="15" y2="23"></line>
-          <line x1="20" y1="9" x2="23" y2="9"></line>
-          <line x1="20" y1="14" x2="23" y2="14"></line>
-          <line x1="1" y1="9" x2="4" y2="9"></line>
-          <line x1="1" y1="14" x2="4" y2="14"></line>
-        </svg>
-        <span>{{ systemInfo.memoryUsage || '0 B' }}</span>
+           :title="`Memory: ${systemInfo.memoryUsage} (${systemInfo.memoryUsagePercent})`">
+        <CpuChipIcon class="status-icon" />
+        <span>{{ systemInfo.memoryUsage }}</span>
       </div>
 
       <!-- CPU Usage -->
       <div class="status-item"
-           :title="`CPU: ${systemInfo.cpuUsage || '0%'}`">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polygon points="13,2 3,14 12,14 11,22 21,10 12,10 13,2"></polygon>
-        </svg>
-        <span>{{ systemInfo.cpuUsage || '0%' }}</span>
+           :title="`CPU: ${systemInfo.cpuUsage}`">
+        <BoltIcon class="status-icon" />
+        <span>{{ systemInfo.cpuUsage }}</span>
+      </div>
+
+      <!-- Disk Usage -->
+      <div class="status-item"
+           :title="`Disk: ${systemInfo.diskUsage} (${systemInfo.diskUsagePercent})`">
+        <CircleStackIcon class="status-icon" />
+        <span>{{ systemInfo.diskUsage }}</span>
       </div>
 
       <!-- System Info -->
       <div class="status-item"
-           :title="`${systemInfo.platform || 'unknown'} • Uptime: ${systemInfo.uptime || '0m'}`">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"></circle>
-          <polyline points="12,6 12,12 16,14"></polyline>
-        </svg>
-        <span>{{ systemInfo.uptime || '0m' }}</span>
+           :title="`Uptime: ${systemInfo.uptime} • Processes: ${systemInfo.processes}`">
+        <ClockIcon class="status-icon" />
+        <span>{{ systemInfo.uptime }}</span>
       </div>
 
       <!-- Version Info -->
@@ -101,6 +79,19 @@ import { useUIStore } from '@/stores/ui'
 import { useAuthStore } from '@/stores/auth'
 import { socketService } from '@/services/socket'
 import type { Subscription } from '@/utils/reactive'
+import type { StatsDataEvent } from '@/types/socket'
+
+// Heroicons imports
+import {
+  CommandLineIcon,
+  Squares2X2Icon,
+  FolderIcon,
+  CogIcon,
+  CpuChipIcon,
+  BoltIcon,
+  CircleStackIcon,
+  ClockIcon
+} from '@heroicons/vue/24/outline'
 
 const workspaceStore = useWorkspaceStore()
 const terminalTreeStore = useTerminalTreeStore()
@@ -108,6 +99,31 @@ const uiStore = useUIStore()
 const authStore = useAuthStore()
 
 const statsOpen = ref(false)
+
+// System stats reactive state
+const statsData = ref<StatsDataEvent | null>(null)
+
+// Utility functions for formatting
+const formatBytes = (bytes: number): string => {
+  if (bytes === 0) return '0 B'
+
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+}
+
+const formatUptime = (seconds: number): string => {
+  if (seconds < 60) return `${Math.floor(seconds)}s`
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`
+  return `${Math.floor(seconds / 86400)}d`
+}
+
+const formatPercentage = (value: number): string => {
+  return `${Math.round(value * 10) / 10}%`
+}
 
 // Mobile detection
 const isMobile = computed(() => {
@@ -140,6 +156,21 @@ const layoutDisplayName = computed(() => {
   return 'Tree Layout'
 })
 
+// Active sessions count from real backend data
+const activeSessions = computed(() => {
+  return statsData.value?.active_sessions || 0
+})
+
+// Display session count - uses backend data when available, falls back to UI panes
+const displaySessionCount = computed(() => {
+  // If we have backend stats data, use the real active sessions count
+  if (statsData.value?.active_sessions !== undefined) {
+    return statsData.value.active_sessions
+  }
+  // Fallback to UI pane count when backend stats aren't loaded yet
+  return terminalTreeStore.panes.length
+})
+
 // Background tasks
 const hasBackgroundTasks = computed(() => backgroundTasksCount.value > 0)
 const backgroundTasksCount = computed(() => {
@@ -152,28 +183,50 @@ const toggleBackgroundTasks = () => {
   uiStore.setShowBackgroundTasks(!uiStore.showBackgroundTasks)
 }
 
-// System info (enhanced from both components)
-const systemInfo = computed(() => ({
-  memoryUsage: '0 B',
-  cpuUsage: '0%',
-  uptime: '0m',
-  platform: 'unknown'
-}))
+// System info with real data processing
+const systemInfo = computed(() => {
+  if (!statsData.value) {
+    return {
+      memoryUsage: '0 B',
+      memoryUsagePercent: '0%',
+      cpuUsage: '0%',
+      diskUsage: '0 B',
+      diskUsagePercent: '0%',
+      uptime: '0s',
+      processes: '0',
+      platform: 'unknown'
+    }
+  }
+
+  const stats = statsData.value
+  const memoryPercent = stats.memory_total > 0 ? (stats.memory_usage / stats.memory_total) * 100 : 0
+  const diskPercent = stats.disk_total > 0 ? (stats.disk_usage / stats.disk_total) * 100 : 0
+
+  return {
+    memoryUsage: formatBytes(stats.memory_usage),
+    memoryUsagePercent: formatPercentage(memoryPercent),
+    cpuUsage: formatPercentage(stats.cpu_usage),
+    diskUsage: formatBytes(stats.disk_usage),
+    diskUsagePercent: formatPercentage(diskPercent),
+    uptime: formatUptime(stats.uptime),
+    processes: stats.processes.toString(),
+    platform: navigator.platform || 'unknown'
+  }
+})
 
 // App version (placeholder)
 const appVersion = '1.0.0'
 
 let statsSubscription: Subscription | null = null
 
-const handleStatsData = () => {
-  // Handle real-time stats data when available
-  // For now, keeping placeholder values
+const handleStatsData = (data: StatsDataEvent) => {
+  statsData.value = data
 }
 
 onMounted(() => {
   // Subscribe to real-time stats
   if (socketService.isConnected) {
-    socketService.subscribeToStats()
+    socketService.subscribeToStats(2) // 2 second interval
   }
 
   // Listen for stats data events
@@ -241,7 +294,9 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.status-item svg {
+.status-item .status-icon {
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
   opacity: 0.7;
   color: var(--text-muted);

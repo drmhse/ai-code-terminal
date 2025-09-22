@@ -4,10 +4,7 @@
       <div class="modal-header">
         <h3>Create New Item</h3>
         <button @click="close" class="close-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
+          <XMarkIcon class="h-4 w-4" />
         </button>
       </div>
       
@@ -37,9 +34,7 @@
                 name="item-type"
               />
               <div class="type-content">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-                </svg>
+                <DocumentIcon class="h-5 w-5" />
                 <span>File</span>
               </div>
             </label>
@@ -52,9 +47,7 @@
                 name="item-type"
               />
               <div class="type-content">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6H12L10,4Z" />
-                </svg>
+                <FolderIcon class="h-5 w-5" />
                 <span>Folder</span>
               </div>
             </label>
@@ -88,6 +81,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
+import { XMarkIcon, DocumentIcon, FolderIcon } from '@heroicons/vue/24/outline'
 
 interface Props {
   isOpen: boolean
