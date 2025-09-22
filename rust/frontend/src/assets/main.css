@@ -1,3 +1,9 @@
 @import './base.css';
 
+/* ===== TAILWIND CSS DIRECTIVES ===== */
+/* Import Tailwind AFTER base styles to ensure design tokens are available */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* No #app styles - handled by global.css */

@@ -59,11 +59,7 @@
           class="action-btn"
           title="Split horizontally"
         >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="8" y1="6" x2="16" y2="6"></line>
-            <line x1="8" y1="12" x2="16" y2="12"></line>
-            <line x1="8" y1="18" x2="16" y2="18"></line>
-          </svg>
+          <Bars3Icon class="h-3 w-3" />
         </button>
         <!-- Vertical Split Button -->
         <button
@@ -71,11 +67,7 @@
           class="action-btn"
           title="Split vertically"
         >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="6" y1="8" x2="6" y2="16"></line>
-            <line x1="12" y1="8" x2="12" y2="16"></line>
-            <line x1="18" y1="8" x2="18" y2="16"></line>
-          </svg>
+          <EllipsisVerticalIcon class="h-3 w-3" />
         </button>
         <!-- Close Pane Button (only show if there are multiple terminal nodes) -->
         <button
@@ -84,10 +76,7 @@
           class="close-btn"
           title="Close pane"
         >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
+          <XMarkIcon class="h-3 w-3" />
         </button>
       </div>
     </div>
@@ -102,9 +91,7 @@
           @click="scrollTabsLeft"
           :disabled="scrollPosition <= 0"
         >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="15,18 9,12 15,6"></polyline>
-          </svg>
+          <ChevronLeftIcon class="h-3 w-3" />
         </button>
 
         <!-- Tabs Scrollable Container -->
@@ -134,10 +121,7 @@
                 class="tab-close"
                 title="Close tab"
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
+                <XMarkIcon class="h-3 w-3" />
               </button>
             </div>
           </div>
@@ -197,6 +181,7 @@ import type { TerminalTheme } from '@/types/terminal'
 import { useTerminalTreeStore } from '@/stores/terminal-tree'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { calculateFlexProperties, getFlexDirection } from '@/utils/pane-tree'
+import { Bars3Icon, EllipsisVerticalIcon, XMarkIcon, ChevronLeftIcon } from '@heroicons/vue/24/outline'
 import Splitter from './Splitter.vue'
 
 interface Props {

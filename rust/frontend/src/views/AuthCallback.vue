@@ -13,9 +13,9 @@
         </div>
         <h2>Authentication Failed</h2>
         <p>{{ error }}</p>
-        <button @click="goToLogin" class="btn btn-primary">
+        <router-link to="/login" class="btn btn-primary">
           Try Again
-        </button>
+        </router-link>
       </div>
       
       <div v-else class="success-state">
@@ -41,10 +41,6 @@ const authStore = useAuthStore()
 
 const loading = ref(true)
 const error = ref<string>('')
-
-const goToLogin = () => {
-  router.push('/login')
-}
 
 onMounted(async () => {
   try {
@@ -188,7 +184,36 @@ onMounted(async () => {
 }
 
 .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  background: var(--color-interactive-primary);
+  color: var(--color-text-inverse);
+  border: 1px solid var(--color-interactive-primary);
+  border-radius: var(--radius-base);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  transition: var(--transition-base);
   margin-top: 8px;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: var(--color-interactive-primary-hover);
+  border-color: var(--color-interactive-primary-hover);
+}
+
+.btn-primary {
+  background: var(--color-interactive-primary);
+  border-color: var(--color-interactive-primary);
+  color: var(--color-text-inverse);
+}
+
+.btn-primary:hover {
+  background: var(--color-interactive-primary-hover);
+  border-color: var(--color-interactive-primary-hover);
 }
 
 @media (max-width: 480px) {

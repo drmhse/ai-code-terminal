@@ -8,11 +8,7 @@
         Once connected, you'll have full terminal access to your repositories.
       </p>
       <button @click="uiStore.openRepositoriesModal" class="btn btn-primary">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="6" y1="3" x2="6" y2="21"></line>
-          <line x1="18" y1="3" x2="18" y2="21"></line>
-          <line x1="8" y1="12" x2="16" y2="12"></line>
-        </svg>
+        <FolderPlusIcon class="h-4 w-4" />
         Clone Your First Repository
       </button>
     </div>
@@ -44,11 +40,7 @@
           <h3>No Terminal Sessions</h3>
           <p>Create your first terminal to get started</p>
           <button @click="createNewTerminal" class="btn btn-primary">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-              <line x1="8" y1="21" x2="16" y2="21"></line>
-              <line x1="12" y1="17" x2="12" y2="21"></line>
-            </svg>
+            <ComputerDesktopIcon class="h-4 w-4" />
             Create Terminal
           </button>
         </div>
@@ -61,10 +53,7 @@
           class="fab fab-primary"
           title="New terminal"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-          </svg>
+          <PlusIcon class="h-5 w-5" />
         </button>
 
         <!-- Quick Command FAB -->
@@ -73,10 +62,7 @@
           class="fab fab-secondary"
           title="Quick command (Ctrl+K)"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 12l2 2 4-4"></path>
-            <circle cx="12" cy="12" r="10"></circle>
-          </svg>
+          <CheckCircleIcon class="h-5 w-5" />
         </button>
       </div>
     </template>
@@ -101,6 +87,7 @@ import PaneTreeNode from './PaneTreeNode.vue'
 import QuickCommandOverlay from '../QuickCommandOverlay.vue'
 import type { SplitDirection, PaneNode } from '@/types/pane-tree'
 import { getAllTerminalNodes, findActiveTerminalNode } from '@/utils/pane-tree'
+import { FolderPlusIcon, ComputerDesktopIcon, PlusIcon, CheckCircleIcon } from '@heroicons/vue/24/outline'
 
 const workspaceStore = useWorkspaceStore()
 const terminalStore = useTerminalTreeStore()

@@ -16,10 +16,7 @@
             class="close-tab"
             title="Close file"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
+            <XMarkIcon class="h-3 w-3" />
           </button>
         </div>
       </div>
@@ -31,11 +28,7 @@
           class="action-btn"
           title="Save all files"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"></path>
-            <polyline points="17,21 17,13 7,13 7,21"></polyline>
-            <polyline points="7,3 7,8 15,8"></polyline>
-          </svg>
+          <ArrowDownTrayIcon class="h-4 w-4" />
           Save All ({{ unsavedFiles.length }})
         </button>
         
@@ -45,19 +38,12 @@
           class="action-btn primary"
           title="Save current file"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"></path>
-            <polyline points="17,21 17,13 7,13 7,21"></polyline>
-            <polyline points="7,3 7,8 15,8"></polyline>
-          </svg>
+          <ArrowDownTrayIcon class="h-4 w-4" />
           Save
         </button>
         
         <button @click="closeEditor" class="action-btn" title="Close editor">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
+          <XMarkIcon class="h-4 w-4" />
         </button>
       </div>
     </div>
@@ -113,6 +99,7 @@ import type { EditorInstance } from '@/types/editor'
 import type { EditorState } from '@/stores/file'
 import { useTheme } from '@/composables/useTheme'
 import { transformToLegacyTheme, legacyToEditorTheme } from '@/utils/themeCompat'
+import { XMarkIcon, ArrowDownTrayIcon } from '@heroicons/vue/24/outline'
 
 // Props
 const props = defineProps<{

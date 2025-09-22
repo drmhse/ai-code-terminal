@@ -23,21 +23,14 @@
         :disabled="node.isLoading"
       >
         <div v-if="node.isLoading" class="loading-spinner"></div>
-        <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="9,18 15,12 9,6"></polyline>
-        </svg>
+        <ChevronRightIcon v-else class="h-3 w-3" />
       </button>
       <div v-else class="toggle-spacer"></div>
 
       <!-- File/Directory Icon -->
       <div class="node-icon">
-        <svg v-if="node.type === 'directory'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-        </svg>
-        <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-          <polyline points="14,2 14,8 20,8"></polyline>
-        </svg>
+        <FolderIcon v-if="node.type === 'directory'" class="h-3.5 w-3.5" />
+        <DocumentIcon v-else class="h-3.5 w-3.5" />
       </div>
 
       <!-- File/Directory Name -->
@@ -69,6 +62,7 @@ import { computed } from 'vue'
 import type { FileItem } from '@/stores/file'
 import { useFileStore } from '@/stores/file'
 import { useFileOperations } from '@/composables/useFileOperations'
+import { ChevronRightIcon, FolderIcon, DocumentIcon } from '@heroicons/vue/24/outline'
 
 const props = defineProps<{
   node: FileItem
