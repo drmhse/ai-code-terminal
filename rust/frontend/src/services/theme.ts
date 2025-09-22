@@ -1,6 +1,7 @@
 import type { Theme, ThemePreference } from '@/types/theme'
 import { themes, getThemeById, getSystemPreferredTheme, getDefaultTheme } from '@/data/themes'
 import { apiService } from './api'
+import { applyThemeToCSS, applyThemeComponentStyles } from '@/utils/themeCSSMapper'
 import { transformToLegacyTheme, applyLegacyTheme } from '@/utils/themeCompat'
 
 interface ThemeApiService {
@@ -187,13 +188,39 @@ class ThemeService {
   }
 
   /**
-   * Apply theme colors using legacy compatibility layer
-   * This ensures CSS variables match exactly what the original ../app system expected
+   * Apply comprehensive theme CSS variables using modern design token system
+   * Maps all theme properties to CSS custom properties
    */
   private applyCSSVariables(theme: Theme): void {
-    // Transform current theme to legacy format and apply
-    const legacyTheme = transformToLegacyTheme(theme)
-    applyLegacyTheme(legacyTheme)
+    if (!this.cssRoot) {
+      console.error('CSS root element not available for theme application')
+      return
+    }
+
+    try {
+      // Apply comprehensive CSS custom properties
+      applyThemeToCSS(theme, this.cssRoot)
+
+      // Apply theme-specific component styles
+      applyThemeComponentStyles(theme, this.cssRoot)
+
+      // Keep legacy compatibility for existing components during transition
+      const legacyTheme = transformToLegacyTheme(theme)
+      applyLegacyTheme(legacyTheme)
+
+      console.log(`✅ Applied comprehensive theme CSS: ${theme.name}`)
+    } catch (error) {
+      console.error('Failed to apply theme CSS variables:', error)
+
+      // Fallback to legacy approach
+      try {
+        const legacyTheme = transformToLegacyTheme(theme)
+        applyLegacyTheme(legacyTheme)
+        console.log(`⚠️ Fallback to legacy theme CSS: ${theme.name}`)
+      } catch (fallbackError) {
+        console.error('Failed to apply fallback theme CSS:', fallbackError)
+      }
+    }
   }
 
   /**

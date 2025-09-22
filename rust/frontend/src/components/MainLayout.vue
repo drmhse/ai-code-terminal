@@ -64,10 +64,10 @@ const closeBackgroundTasks = () => {
   grid-template-rows: auto 1fr auto;
   height: 100%;
   width: 100%;
-  background: var(--bg-primary);
+  background: var(--color-bg-primary);
   overflow: hidden;
-  font-family: var(--font-family);
-  color: var(--text-primary);
+  font-family: var(--font-family-sans);
+  color: var(--color-text-primary);
 }
 
 .main-area {
@@ -87,10 +87,10 @@ const closeBackgroundTasks = () => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--bg-primary);
+  background: var(--color-bg-primary);
   min-height: 0;
   flex: 1;
-  transition: flex 0.3s ease;
+  transition: flex var(--transition-smooth);
 }
 
 .terminal-area.with-editor {
@@ -101,7 +101,7 @@ const closeBackgroundTasks = () => {
   flex: 0.4; /* 40% of space for editor */
   min-width: 400px;
   max-width: 60%;
-  border-left: 1px solid var(--border-color);
+  border-left: 1px solid var(--color-border-primary);
 }
 
 /* Mobile: stack vertically, sidebar becomes overlay */
@@ -124,7 +124,7 @@ const closeBackgroundTasks = () => {
     min-width: auto;
     max-width: none;
     border-left: none;
-    border-top: 1px solid var(--border-color);
+    border-top: 1px solid var(--color-border-primary);
   }
 }
 </style>

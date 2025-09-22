@@ -111,12 +111,13 @@ const toggleBackgroundTasks = () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
-  height: 40px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
+  padding: 0 var(--space-4);
+  height: var(--space-10); /* 40px */
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-primary);
   position: relative;
-  z-index: 100;
+  z-index: var(--z-sticky);
+  font-family: var(--font-family-sans);
 }
 
 .nav-left,
@@ -124,7 +125,7 @@ const toggleBackgroundTasks = () => {
 .nav-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .nav-center {
@@ -135,71 +136,87 @@ const toggleBackgroundTasks = () => {
 .mobile-menu-btn {
   background: none;
   border: none;
-  color: var(--text-muted);
+  color: var(--color-text-tertiary);
   cursor: pointer;
-  padding: 6px;
-  border-radius: 4px;
+  padding: var(--space-2);
+  border-radius: var(--button-border-radius);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s ease;
+  transition: var(--transition-colors);
+  height: var(--button-height-sm);
+  width: var(--button-height-sm);
 }
 
 .mobile-menu-btn:hover {
-  background: var(--button-hover);
-  color: var(--text-primary);
+  background: var(--color-interactive-tertiary-hover);
+  color: var(--color-text-primary);
 }
 
 .app-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.025em;
 }
 
 .workspace-info {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--text-secondary);
-  background: var(--bg-tertiary);
-  padding: 4px 8px;
-  border-radius: 4px;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-tertiary);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--button-border-radius);
+  border: 1px solid var(--color-border-secondary);
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: var(--transition-colors);
 }
 
 .nav-btn {
   background: none;
   border: none;
-  color: var(--text-muted);
+  color: var(--color-text-tertiary);
   cursor: pointer;
-  padding: 6px 8px;
-  border-radius: 4px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--button-border-radius);
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  transition: all 0.15s ease;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  transition: var(--transition-colors);
+  height: var(--button-height-sm);
+  min-width: var(--button-height-sm);
 }
 
 .nav-btn:hover {
-  background: var(--button-hover);
-  color: var(--text-primary);
+  background: var(--color-interactive-tertiary-hover);
+  color: var(--color-text-primary);
 }
 
 .nav-btn.active {
-  background: var(--primary);
-  color: white;
+  background: var(--color-interactive-primary);
+  color: var(--color-text-inverse);
+  box-shadow: var(--shadow-sm);
+}
+
+.nav-btn:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 1px;
 }
 
 .btn-text {
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
 }
 
 .user-menu {
@@ -208,23 +225,34 @@ const toggleBackgroundTasks = () => {
 }
 
 .user-avatar {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  border: 1px solid var(--border-color);
+  width: var(--space-6);
+  height: var(--space-6);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border-secondary);
+  transition: var(--transition-colors);
+}
+
+.user-avatar:hover {
+  border-color: var(--color-border-hover);
 }
 
 .user-avatar-placeholder {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: var(--primary);
-  color: white;
+  width: var(--space-6);
+  height: var(--space-6);
+  border-radius: var(--radius-full);
+  background: var(--color-interactive-primary);
+  color: var(--color-text-inverse);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  transition: var(--transition-colors);
+  cursor: pointer;
+}
+
+.user-avatar-placeholder:hover {
+  background: var(--color-interactive-primary-hover);
 }
 
 @media (max-width: 768px) {
