@@ -111,6 +111,21 @@ pub struct GitHubRepositoryOwner {
     pub html_url: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitHubUser {
+    pub id: u64,
+    pub login: String,
+    pub name: Option<String>,
+    pub email: Option<String>,
+    pub avatar_url: String,
+    pub html_url: String,
+    pub company: Option<String>,
+    pub location: Option<String>,
+    pub public_repos: u32,
+    pub followers: u32,
+    pub following: u32,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct RepositoryListOptions {
     pub page: Option<u32>,

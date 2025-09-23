@@ -3,6 +3,7 @@ import type { Theme, ThemePreference } from '@/types/theme'
 import { themeService } from '@/services/theme'
 import { apiService } from '@/services/api'
 import { transformToLegacyTheme } from '@/utils/themeCompat'
+import { logger } from '@/utils/logger'
 
 // SINGLETON STATE - shared across all component instances
 const currentTheme = ref<Theme | null>(null)
@@ -110,16 +111,16 @@ export function useTheme() {
 
   // Initialize theme system
   const initialize = async (isAuthenticated: boolean = false): Promise<void> => {
-    console.log('🎨 Theme initialize() called, isInitialized:', isInitialized.value, 'hasPromise:', !!initializationPromise, 'isAuthenticated:', isAuthenticated)
+    logger.log('🎨 Theme initialize() called, isInitialized:', isInitialized.value, 'hasPromise:', !!initializationPromise, 'isAuthenticated:', isAuthenticated)
 
     if (isInitialized.value) {
-      console.log('🎨 Theme already initialized, skipping')
+      logger.log('🎨 Theme already initialized, skipping')
       return
     }
 
     // If already initializing, wait for that promise
     if (initializationPromise) {
-      console.log('🎨 Theme initialization already in progress, waiting...')
+      logger.log('🎨 Theme initialization already in progress, waiting...')
       return initializationPromise
     }
 
@@ -131,45 +132,45 @@ export function useTheme() {
       try {
         if (isAuthenticated) {
           // Load saved theme preferences from backend (single API call)
-          console.log('🎨 Making API call to get current theme...')
+          logger.log('🎨 Making API call to get current theme...')
           const savedPreferences = await apiService.getCurrentTheme()
-          console.log('🎨 API response received:', savedPreferences)
+          logger.log('🎨 API response received:', savedPreferences)
 
           if (savedPreferences?.themeId) {
             // Apply saved preferences directly without additional API calls
-            console.log(`🎨 Applying saved theme: ${savedPreferences.themeId}`)
+            logger.log(`🎨 Applying saved theme: ${savedPreferences.themeId}`)
             themeService.setThemePreferences(savedPreferences)
             await themeService.switchToTheme(savedPreferences.themeId, false) // false = don't persist to backend
             if (savedPreferences.autoSwitch !== undefined) {
               themeService.setAutoSwitchLocal(savedPreferences.autoSwitch) // local only, no API call
             }
-            console.log(`✅ Applied saved theme: ${savedPreferences.themeId}`)
+            logger.log(`✅ Applied saved theme: ${savedPreferences.themeId}`)
           } else {
             // No saved preferences, initialize with defaults (no API call)
-            console.log('🎨 No saved theme preferences found, using defaults')
+            logger.log('🎨 No saved theme preferences found, using defaults')
             await themeService.initializeWithDefaults()
-            console.log('✅ Initialized with default theme')
+            logger.log('✅ Initialized with default theme')
           }
         } else {
           // User not authenticated, use defaults without API calls
-          console.log('🎨 User not authenticated, initializing with defaults')
+          logger.log('🎨 User not authenticated, initializing with defaults')
           await themeService.initializeWithDefaults()
-          console.log('✅ Initialized with default theme (no auth)')
+          logger.log('✅ Initialized with default theme (no auth)')
         }
 
         currentTheme.value = themeService.getCurrentTheme()
         isInitialized.value = true
       } catch (err) {
-        console.warn('Failed to load theme preferences from backend, using defaults:', err)
+        logger.warn('Failed to load theme preferences from backend, using defaults:', err)
         // Fall back to local initialization without API calls
         try {
           await themeService.initializeWithDefaults()
           currentTheme.value = themeService.getCurrentTheme()
           isInitialized.value = true
-          console.log('Fallback to default theme successful')
+          logger.log('Fallback to default theme successful')
         } catch (fallbackErr) {
           error.value = fallbackErr instanceof Error ? fallbackErr.message : 'Failed to initialize theme system'
-          console.error('Theme initialization completely failed:', fallbackErr)
+          logger.error('Theme initialization completely failed:', fallbackErr)
           isInitialized.value = true // Prevent infinite retry
         }
       } finally {

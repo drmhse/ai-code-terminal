@@ -46,40 +46,6 @@
     @dragleave="handlePaneDragLeave"
     @drop="handlePaneDrop"
   >
-    <!-- Terminal Pane Header -->
-    <div class="pane-header">
-      <div class="pane-info">
-        <span class="pane-title">{{ node.name || `Terminal ${node.id}` }}</span>
-        <span class="pane-cwd">{{ getActiveTab()?.cwd || workspacePath }}</span>
-      </div>
-      <div class="pane-actions" v-show="isActive">
-        <!-- Horizontal Split Button -->
-        <button
-          @click="$emit('split', { paneId: node.id, direction: 'horizontal' })"
-          class="action-btn"
-          title="Split horizontally"
-        >
-          <Bars3Icon class="h-3 w-3" />
-        </button>
-        <!-- Vertical Split Button -->
-        <button
-          @click="$emit('split', { paneId: node.id, direction: 'vertical' })"
-          class="action-btn"
-          title="Split vertically"
-        >
-          <EllipsisVerticalIcon class="h-3 w-3" />
-        </button>
-        <!-- Close Pane Button (only show if there are multiple terminal nodes) -->
-        <button
-          v-if="showCloseButton"
-          @click="handleClosePane"
-          class="close-btn"
-          title="Close pane"
-        >
-          <XMarkIcon class="h-3 w-3" />
-        </button>
-      </div>
-    </div>
 
     <!-- Enhanced Tabs Bar -->
     <div v-if="node.tabs && node.tabs.length > 0" class="pane-tabs" :class="{ 'single-tab': node.tabs.length === 1, 'multi-tab': node.tabs.length > 1 }">
@@ -139,6 +105,51 @@
           </svg>
         </button>
 
+        <!-- Split Pane Dropdown -->
+        <div class="split-dropdown">
+          <button
+            @click="toggleSplitDropdown"
+            class="split-dropdown-trigger"
+            title="Split pane"
+            :class="{ active: showSplitDropdown }"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+            </svg>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="chevron">
+              <polyline points="6,9 12,15 18,9"></polyline>
+            </svg>
+          </button>
+
+          <div v-if="showSplitDropdown" class="split-dropdown-menu">
+            <button
+              @click="handleSplitPane('vertical')"
+              class="split-option"
+              title="Split right"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="8" height="18"></rect>
+                <rect x="13" y="3" width="8" height="18"></rect>
+              </svg>
+              Split Right
+            </button>
+            <button
+              @click="handleSplitPane('horizontal')"
+              class="split-option"
+              title="Split bottom"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="8"></rect>
+                <rect x="3" y="13" width="18" height="8"></rect>
+              </svg>
+              Split Bottom
+            </button>
+          </div>
+        </div>
+
         <!-- Add New Tab Button -->
         <button
           @click="createNewTab"
@@ -149,6 +160,16 @@
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
+        </button>
+
+        <!-- Close Pane Button (only show if there are multiple terminal nodes) -->
+        <button
+          v-if="showCloseButton"
+          @click="handleClosePane"
+          class="close-btn"
+          title="Close pane"
+        >
+          <XMarkIcon class="h-3 w-3" />
         </button>
       </div>
     </div>
@@ -181,7 +202,7 @@ import type { TerminalTheme } from '@/types/terminal'
 import { useTerminalTreeStore } from '@/stores/terminal-tree'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { calculateFlexProperties, getFlexDirection } from '@/utils/pane-tree'
-import { Bars3Icon, EllipsisVerticalIcon, XMarkIcon, ChevronLeftIcon } from '@heroicons/vue/24/outline'
+import { XMarkIcon, ChevronLeftIcon } from '@heroicons/vue/24/outline'
 import Splitter from './Splitter.vue'
 
 interface Props {
@@ -253,6 +274,7 @@ const scrollPosition = ref(0)
 const showTabOverflow = ref(false)
 const maxScrollPosition = ref(0)
 const isDragOverPane = ref(false)
+const showSplitDropdown = ref(false)
 
 const sortedTabs = computed(() => {
   if (!props.node.tabs) return []
@@ -698,6 +720,24 @@ const handleClosePane = () => {
   terminalStore.closePane(props.node.id)
 }
 
+// Split dropdown functionality
+const toggleSplitDropdown = () => {
+  showSplitDropdown.value = !showSplitDropdown.value
+}
+
+const handleSplitPane = (direction: 'horizontal' | 'vertical') => {
+  emit('split', { paneId: props.node.id, direction })
+  showSplitDropdown.value = false
+}
+
+// Close dropdown when clicking outside
+const handleClickOutside = (event: Event) => {
+  const dropdown = document.querySelector('.split-dropdown')
+  if (dropdown && !dropdown.contains(event.target as Node)) {
+    showSplitDropdown.value = false
+  }
+}
+
 // Watch for tab changes and initialize new terminals
 const knownTabIds = ref<Set<string>>(new Set())
 
@@ -767,6 +807,7 @@ onMounted(() => {
 
       updateTabOverflow()
       window.addEventListener('resize', updateTabOverflow)
+      document.addEventListener('click', handleClickOutside)
     })
   }
 })
@@ -781,6 +822,7 @@ onUnmounted(() => {
     }
 
     window.removeEventListener('resize', updateTabOverflow)
+    document.removeEventListener('click', handleClickOutside)
   }
 })
 </script>
@@ -790,7 +832,7 @@ onUnmounted(() => {
 .pane-container {
   min-height: 0;
   min-width: 0;
-  gap: 4px;
+  gap: 0; /* Remove gap for seamless pane appearance */
   width: 100%;
   height: 100%;
 }
@@ -842,73 +884,13 @@ onUnmounted(() => {
   z-index: 1;
 }
 
-/* Pane Header */
-.pane-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 12px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
-  border-radius: 8px 8px 0 0;
-  min-height: 28px;
-  position: relative;
-}
 
-.pane-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  flex: 1;
-}
-
-.pane-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.pane-title::before {
-  content: '●';
-  color: var(--success);
-  font-size: 10px;
-  animation: pulse 2s infinite;
-}
-
-.terminal-pane-wrapper.active .pane-title::before {
-  color: var(--primary);
-  animation: none;
-}
-
-.pane-cwd {
-  font-size: 11px;
-  color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  background: rgba(255, 255, 255, 0.05);
-  padding: 4px 8px;
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  max-width: 200px;
-}
-
-.pane-actions {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.action-btn, .close-btn {
+.action-btn, .close-btn, .split-dropdown-trigger, .tab-new {
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   color: var(--text-muted);
   cursor: pointer;
-  padding: 6px;
+  padding: 8px;
   border-radius: 6px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
@@ -916,9 +898,12 @@ onUnmounted(() => {
   justify-content: center;
   position: relative;
   overflow: hidden;
+  flex-shrink: 0;
+  min-width: 32px;
+  height: 32px;
 }
 
-.action-btn:hover {
+.action-btn:hover, .split-dropdown-trigger:hover, .tab-new:hover {
   background: var(--button-hover);
   color: var(--text-primary);
   border-color: var(--primary);
@@ -930,7 +915,7 @@ onUnmounted(() => {
   background: var(--error);
   border-color: var(--error);
   color: white;
-  transform: scale(1.05);
+  transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(241, 76, 76, 0.3);
 }
 
@@ -946,6 +931,7 @@ onUnmounted(() => {
   flex-direction: column;
   width: 100%;
   height: 100%;
+  padding: 4px;
 }
 
 .xterm-container {
@@ -968,6 +954,7 @@ onUnmounted(() => {
 .pane-tabs {
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
+  border-radius: 8px 8px 0 0;
   min-height: 32px;
   position: relative;
 }
@@ -978,6 +965,7 @@ onUnmounted(() => {
   height: 100%;
   position: relative;
   padding: 0 8px;
+  gap: 8px;
 }
 
 .tabs-scroll-container {
@@ -1091,29 +1079,99 @@ onUnmounted(() => {
   color: var(--text-primary);
 }
 
-.tab-new {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 8px 10px;
-  border-radius: 6px;
-  margin-left: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  flex-shrink: 0;
+
+/* Split Dropdown Styles */
+.split-dropdown {
   position: relative;
-  overflow: hidden;
+  z-index: 100;
 }
 
-.tab-new:hover {
-  background: var(--button-hover);
-  color: var(--text-primary);
+.split-dropdown-trigger {
+  gap: 4px;
+  min-width: 36px;
+}
+
+
+.split-dropdown-trigger.active {
+  background: var(--primary);
+  color: white;
   border-color: var(--primary);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 123, 204, 0.3);
+}
+
+.split-dropdown-trigger .chevron {
+  transition: transform 0.2s ease;
+  margin-left: 2px;
+}
+
+.split-dropdown-trigger.active .chevron {
+  transform: rotate(180deg);
+}
+
+.split-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  min-width: 140px;
+  z-index: 1000;
+  overflow: hidden;
+  animation: dropdownFadeIn 0.15s ease-out;
+}
+
+.split-option {
+  width: 100%;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.split-option:last-child {
+  border-bottom: none;
+}
+
+.split-option:hover {
+  background: var(--button-hover);
+  color: var(--primary);
+}
+
+.split-option:active {
+  background: rgba(0, 123, 204, 0.1);
+  transform: scale(0.98);
+}
+
+.split-option svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.split-option:hover svg {
+  opacity: 1;
+  color: var(--primary);
+}
+
+@keyframes dropdownFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* Tab navigation arrows */

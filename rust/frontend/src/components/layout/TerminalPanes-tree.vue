@@ -46,17 +46,8 @@
         </div>
       </div>
 
-      <!-- Floating Action Button for Quick Actions -->
+      <!-- Quick Command FAB -->
       <div class="floating-actions">
-        <button
-          @click="createNewTerminal"
-          class="fab fab-primary"
-          title="New terminal"
-        >
-          <PlusIcon class="h-5 w-5" />
-        </button>
-
-        <!-- Quick Command FAB -->
         <button
           @click="uiStore.openQuickCommandOverlay"
           class="fab fab-secondary"
@@ -211,7 +202,8 @@ watch(layoutSignature, (newSignature, oldSignature) => {
       workspaceStore.selectedWorkspace.id,
       treeStructure,
       'hierarchical',
-      false
+      false,
+      true // silent mode - don't show UI alerts for auto-saves
     )
   }
 })
@@ -327,7 +319,7 @@ onUnmounted(() => {
 /* Terminal Tree Container */
 .terminal-tree-container {
   flex: 1;
-  padding: 4px;
+  padding: 0; /* Remove padding for seamless edge-to-edge panes */
   overflow: hidden;
   min-height: 0;
   width: 100%;

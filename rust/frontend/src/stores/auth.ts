@@ -4,6 +4,7 @@ import type { User } from '@/types'
 import { socketService } from '@/services/socket'
 import { apiService } from '@/services/api'
 import { ConnectionState } from '@/types/socket'
+import { logger } from '@/utils/logger'
 
 export interface AppStats {
   system: {
@@ -57,7 +58,7 @@ export const useAuthStore = defineStore('auth', () => {
       try {
         user.value = JSON.parse(storedUser)
       } catch (error) {
-        console.error('Failed to parse stored user:', error)
+        logger.error('Failed to parse stored user:', error)
         logout()
       }
     }
@@ -77,13 +78,13 @@ export const useAuthStore = defineStore('auth', () => {
 
     // Prevent concurrent API calls
     if (isFetchingUser.value) {
-      console.log('⚠️ Already fetching user, skipping duplicate call')
+      logger.log('⚠️ Already fetching user, skipping duplicate call')
       return user.value
     }
 
     // Skip if user data is already fresh and valid
     if (user.value && !loading.value) {
-      console.log('✅ User data already available, skipping API call')
+      logger.log('✅ User data already available, skipping API call')
       return user.value
     }
 
@@ -91,12 +92,12 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true
     
     try {
-      console.log('🔍 Fetching current user data...')
+      logger.log('🔍 Fetching current user data...')
       const userData = await apiService.getCurrentUser()
       user.value = userData
       username.value = userData.login || null
       localStorage.setItem('user', JSON.stringify(userData))
-      console.log('✅ User data fetched successfully')
+      logger.log('✅ User data fetched successfully')
       return userData
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to fetch user'
@@ -112,15 +113,15 @@ export const useAuthStore = defineStore('auth', () => {
     
     // Skip if already connected or connecting
     if (socketService.isConnected) {
-      console.log('✅ WebSocket already connected')
+      logger.log('✅ WebSocket already connected')
       return
     }
 
     try {
       await socketService.connect()
-      console.log('WebSocket connection established')
+      logger.log('WebSocket connection established')
     } catch (error) {
-      console.error('Failed to connect WebSocket:', error)
+      logger.error('Failed to connect WebSocket:', error)
       // Don't throw here - allow the app to continue even if WebSocket fails
       // The app will retry connection later
     }
@@ -171,7 +172,7 @@ export const useAuthStore = defineStore('auth', () => {
         if (!user.value) {
           await fetchCurrentUser()
         } else {
-          console.log('✅ User data already available from localStorage')
+          logger.log('✅ User data already available from localStorage')
         }
         
         await connectWebSocket()
@@ -182,7 +183,7 @@ export const useAuthStore = defineStore('auth', () => {
           await initializeApp()
         }
       } catch (error) {
-        console.error('Auth validation failed on reload:', error)
+        logger.error('Auth validation failed on reload:', error)
         // Token is invalid, clear it
         logout()
       }
@@ -210,7 +211,7 @@ export const useAuthStore = defineStore('auth', () => {
   const tryInitializeApp = async () => {
     // Check if we're already authenticated
     if (isAuthenticated.value && !loading.value) {
-      console.log('✅ Already authenticated, skipping initialization')
+      logger.log('✅ Already authenticated, skipping initialization')
       return user.value
     }
     
@@ -237,7 +238,7 @@ export const useAuthStore = defineStore('auth', () => {
       
       return user.value
     } catch (err) {
-      console.error('Authentication initialization failed:', err)
+      logger.error('Authentication initialization failed:', err)
       // Token is invalid, clear it
       logout()
       error.value = err instanceof Error ? err.message : 'Authentication failed'
@@ -255,7 +256,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     // Prevent multiple initializations
     if (isAppInitialized.value || isInitializing.value) {
-      console.log('⚠️ App already initialized or initializing, skipping...')
+      logger.log('⚠️ App already initialized or initializing, skipping...')
       return
     }
 
@@ -272,10 +273,10 @@ export const useAuthStore = defineStore('auth', () => {
       // Note: This will be called from App.vue for logged-in users
 
       isAppInitialized.value = true
-      console.log('✅ Auth store app initialization complete')
+      logger.log('✅ Auth store app initialization complete')
 
     } catch (err) {
-      console.error('Failed to initialize app:', err)
+      logger.error('Failed to initialize app:', err)
       throw err
     } finally {
       isInitializing.value = false
@@ -321,16 +322,16 @@ export const useAuthStore = defineStore('auth', () => {
       })
 
       socketService.subscribe('websocket:auth_error', (error) => {
-        console.warn('WebSocket authentication error received:', error)
+        logger.warn('WebSocket authentication error received:', error)
 
         if (error.code === 'JWT_EXPIRED' || error.code === 'JWT_INVALID') {
-          console.log('JWT token is invalid, logging out')
+          logger.log('JWT token is invalid, logging out')
           logout()
         }
       })
 
       socketService.subscribe('websocket:reconnection_failed', (event) => {
-        console.warn('WebSocket reconnection failed, redirecting to login:', event)
+        logger.warn('WebSocket reconnection failed, redirecting to login:', event)
         logout()
         // Navigate to login using window.location to avoid router dependency
         if (typeof window !== 'undefined') {
@@ -341,7 +342,7 @@ export const useAuthStore = defineStore('auth', () => {
       // Handle WebSocket connection errors
       socketService.connectionState$.subscribe((state) => {
         if (state === ConnectionState.ERROR) {
-          console.warn('WebSocket connection failed, checking authentication')
+          logger.warn('WebSocket connection failed, checking authentication')
           // Don't immediately logout, let the user retry
         }
       })
@@ -351,7 +352,7 @@ export const useAuthStore = defineStore('auth', () => {
   // Keep loadStats for backward compatibility but make it a no-op
   const loadStats = async () => {
     // This function is kept for compatibility but stats now come via WebSocket
-    console.debug('loadStats called - stats now streamed via WebSocket')
+    logger.debug('loadStats called - stats now streamed via WebSocket')
   }
 
   return {

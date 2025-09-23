@@ -4,13 +4,7 @@
     @mousedown="handleMouseDown"
     @touchstart="handleTouchStart"
   >
-    <div class="splitter-handle">
-      <div class="splitter-grip">
-        <div class="grip-dot"></div>
-        <div class="grip-dot"></div>
-        <div class="grip-dot"></div>
-      </div>
-    </div>
+    <div class="splitter-line"></div>
   </div>
 </template>
 
@@ -100,6 +94,7 @@ const handleTouchStart = (event: TouchEvent) => {
 </script>
 
 <style scoped>
+/* Seamless splitter design like VS Code/Zed */
 .splitter {
   position: relative;
   flex-shrink: 0;
@@ -107,94 +102,103 @@ const handleTouchStart = (event: TouchEvent) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.2s ease;
+  transition: all 0.15s ease;
+  z-index: 10;
 }
 
+/* Horizontal splitter (between vertically stacked panes) */
 .splitter-horizontal {
   width: 100%;
-  height: 8px;
+  height: 6px; /* Larger hit area but minimal visual space */
   cursor: row-resize;
-  margin: 2px 0;
+  margin: 0; /* Remove margins for seamless appearance */
 }
 
+/* Vertical splitter (between horizontally arranged panes) */
 .splitter-vertical {
   height: 100%;
-  width: 8px;
+  width: 6px; /* Larger hit area but minimal visual space */
   cursor: col-resize;
-  margin: 0 2px;
+  margin: 0; /* Remove margins for seamless appearance */
 }
 
-.splitter:hover {
-  background-color: var(--border-hover, rgba(255, 255, 255, 0.1));
-}
-
-.splitter:active,
-.splitter:hover .splitter-handle {
-  background-color: var(--primary, #007bcc);
-}
-
-.splitter-handle {
-  position: relative;
-  background-color: var(--border-color, rgba(255, 255, 255, 0.2));
-  border-radius: 4px;
+/* The actual visible line - invisible by default */
+.splitter-line {
+  position: absolute;
+  background: transparent;
   transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  opacity: 0;
+  z-index: 1;
 }
 
-.splitter-horizontal .splitter-handle {
-  width: 60px;
-  height: 4px;
+/* Horizontal line styling */
+.splitter-horizontal .splitter-line {
+  width: 100%;
+  height: 1px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
-.splitter-vertical .splitter-handle {
-  width: 4px;
-  height: 60px;
+/* Vertical line styling */
+.splitter-vertical .splitter-line {
+  height: 100%;
+  width: 1px;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
-.splitter-grip {
-  display: flex;
-  gap: 3px;
+/* Show subtle line on hover */
+.splitter:hover .splitter-line {
+  background: var(--border-color, rgba(255, 255, 255, 0.3));
+  opacity: 1;
 }
 
-.splitter-horizontal .splitter-grip {
-  flex-direction: row;
+/* Show more prominent line when dragging */
+.splitter:active .splitter-line {
+  background: var(--primary, #007bcc);
+  opacity: 1;
+  box-shadow: 0 0 4px var(--primary, #007bcc);
 }
 
-.splitter-vertical .splitter-grip {
-  flex-direction: column;
+/* Hover area expansion for easier interaction */
+.splitter::before {
+  content: '';
+  position: absolute;
+  background: transparent;
+  z-index: -1;
 }
 
-.grip-dot {
-  width: 4px;
-  height: 4px;
-  background-color: var(--text-muted, rgba(255, 255, 255, 0.4));
-  border-radius: 50%;
-  transition: background-color 0.2s ease;
+/* Expand horizontal splitter hover area */
+.splitter-horizontal::before {
+  width: 100%;
+  height: 12px; /* 6px extra on each side for easier targeting */
+  top: 50%;
+  transform: translateY(-50%);
 }
 
-.splitter:hover .grip-dot,
-.splitter:active .grip-dot {
-  background-color: var(--text-primary, #ffffff);
+/* Expand vertical splitter hover area */
+.splitter-vertical::before {
+  height: 100%;
+  width: 12px; /* 6px extra on each side for easier targeting */
+  left: 50%;
+  transform: translateX(-50%);
 }
 
-/* Ensure splitter doesn't interfere with content */
-.splitter * {
-  pointer-events: none;
+/* Subtle background highlight on hover for visual feedback */
+.splitter:hover::before {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.02));
 }
 
+.splitter:active::before {
+  background: var(--primary-alpha, rgba(0, 123, 204, 0.1));
+}
+
+/* Ensure proper pointer events */
 .splitter {
   pointer-events: auto;
 }
 
-/* Visual feedback during resize */
-.splitter:active {
-  background-color: var(--primary-alpha, rgba(0, 123, 204, 0.1));
-}
-
-.splitter:active .splitter-handle {
-  transform: scale(1.1);
-  box-shadow: 0 0 8px var(--primary-alpha, rgba(0, 123, 204, 0.3));
+.splitter * {
+  pointer-events: none;
 }
 </style>

@@ -92,6 +92,7 @@ import MobileInterface from '@/components/mobile/MobileInterface.vue'
 import ContextMenu from '@/components/ui/ContextMenu.vue'
 import ResourceAlerts from '@/components/ui/ResourceAlerts.vue'
 import { apiService } from '@/services/api'
+import { logger } from '@/utils/logger'
 
 // Stores
 const authStore = useAuthStore()
@@ -167,42 +168,42 @@ const handleConfirmDelete = async () => {
 }
 
 onMounted(async () => {
-  console.log('🚀 TRACE: Dashboard.vue onMounted() called')
-  console.log('🚀 TRACE: isGlobalAppInitialized.value =', isGlobalAppInitialized.value)
-  console.log('🚀 TRACE: Dashboard mounted, initializing application...')
+  logger.log('🚀 TRACE: Dashboard.vue onMounted() called')
+  logger.log('🚀 TRACE: isGlobalAppInitialized.value =', isGlobalAppInitialized.value)
+  logger.log('🚀 TRACE: Dashboard mounted, initializing application...')
 
   // Always ensure workspaces are loaded when dashboard mounts
   if (authStore.isAuthenticated) {
-    console.log('🚀 TRACE: Loading workspaces for authenticated user')
+    logger.log('🚀 TRACE: Loading workspaces for authenticated user')
     try {
       await workspaceStore.fetchWorkspaces()
-      console.log('✅ TRACE: Workspaces loaded successfully')
+      logger.log('✅ TRACE: Workspaces loaded successfully')
 
       // If there's a selected workspace, fetch its layouts
       if (workspaceStore.selectedWorkspace) {
         await layoutStore.fetchLayouts(workspaceStore.selectedWorkspace.id)
-        console.log('✅ TRACE: Layouts loaded for selected workspace')
+        logger.log('✅ TRACE: Layouts loaded for selected workspace')
       }
     } catch (wsError) {
-      console.error('❌ TRACE: Failed to load workspaces on dashboard mount:', wsError)
+      logger.error('❌ TRACE: Failed to load workspaces on dashboard mount:', wsError)
     }
   }
 
   // Skip initialization if global app is already initialized
   if (isGlobalAppInitialized.value) {
-    console.log('⚠️ TRACE: Global app already initialized, skipping Dashboard initialization')
+    logger.log('⚠️ TRACE: Global app already initialized, skipping Dashboard initialization')
     return
   }
 
-  console.log('🚀 TRACE: Calling tryInitializeApp()...')
+  logger.log('🚀 TRACE: Calling tryInitializeApp()...')
   // Initialize the application using the core composable
   // Theme system is automatically initialized by useTheme composable
   await tryInitializeApp()
-  console.log('🚀 TRACE: tryInitializeApp() completed')
+  logger.log('🚀 TRACE: tryInitializeApp() completed')
 })
 
 onBeforeUnmount(() => {
-  console.log('🧹 Dashboard unmounting, cleaning up...')
+  logger.log('🧹 Dashboard unmounting, cleaning up...')
   cleanup()
 
   // Reset global initialization state if needed

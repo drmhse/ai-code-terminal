@@ -5,6 +5,7 @@ import { useTerminalTreeStore } from '@/stores/terminal-tree'
 import { useFileStore } from '@/stores/file'
 import { useUIStore } from '@/stores/ui'
 import { socketService } from '@/services/socket'
+import { logger } from '@/utils/logger'
 
 /**
  * Core application initialization and management composable
@@ -23,7 +24,7 @@ export function useAppCore() {
   // Core application initialization (migrated from mounted() method)
   const initializeApp = async () => {
     if (initializing.value) {
-      console.log('⚠️ Application already initializing, skipping...')
+      logger.log('⚠️ Application already initializing, skipping...')
       return false
     }
     
@@ -31,7 +32,7 @@ export function useAppCore() {
     initializationError.value = null
 
     try {
-      console.log('🚀 Initializing AI Code Terminal...')
+      logger.log('🚀 Initializing AI Code Terminal...')
 
       // 1. Check mobile state and set up viewport listeners
       uiStore.checkMobile()
@@ -58,32 +59,31 @@ export function useAppCore() {
       if (existingToken) {
         try {
           await authStore.tryInitializeApp()
-          console.log('✅ Authentication successful')
+          logger.log('✅ Authentication successful')
         } catch (err) {
-          console.warn('⚠️ Authentication failed, user needs to log in')
+          logger.warn('⚠️ Authentication failed, user needs to log in')
           initializationError.value = err instanceof Error ? err.message : 'Authentication failed'
           return false
         }
       } else {
-        console.log('ℹ️ No authentication token found, user needs to log in')
+        logger.log('ℹ️ No authentication token found, user needs to log in')
         return false
       }
 
       // 4. Theme system is automatically initialized by useTheme composable
-      console.log('✅ Theme system initialized')
+      logger.log('✅ Theme system initialized')
 
       // 5. Load workspaces and repositories
-      console.log('🔄 Loading workspaces for user:', authStore.user)
+      logger.log('🔄 Loading workspaces for user:', authStore.user)
       try {
         await workspaceStore.fetchWorkspaces()
-        console.log('✅ Workspaces loaded successfully:', workspaceStore.workspaces.length, 'workspaces found')
-        console.log('Workspaces data:', workspaceStore.workspaces)
+        logger.log('✅ Workspaces loaded successfully:', workspaceStore.workspaces.length, 'workspaces found')
+        logger.log('Workspaces data:', workspaceStore.workspaces)
       } catch (wsError) {
-        console.error('❌ Failed to load workspaces:', wsError)
+        logger.error('❌ Failed to load workspaces:', wsError)
         // Don't fail initialization if workspace loading fails - this allows manual debugging
-        console.error('Workspace error details:', {
+        logger.error('Workspace error details:', {
           error: wsError,
-          ownerId,
           user: authStore.user,
           hasToken: !!localStorage.getItem('jwt_token')
         })
@@ -91,45 +91,45 @@ export function useAppCore() {
 
       // 6. Initialize terminal system
       terminalTreeStore.initialize()
-      console.log('✅ Terminal system initialized')
+      logger.log('✅ Terminal system initialized')
 
       // 7. Set up keyboard event handlers
       setupGlobalKeyboardHandlers()
-      console.log('✅ Keyboard handlers set up')
+      logger.log('✅ Keyboard handlers set up')
 
       // 8. Initialize WebSocket connection if not already connected
       if (!socketService.isConnected) {
         try {
           await authStore.connectWebSocket()
-          console.log('✅ WebSocket connected')
+          logger.log('✅ WebSocket connected')
         } catch (wsError) {
-          console.warn('⚠️ WebSocket connection failed, but continuing initialization:', wsError)
+          logger.warn('⚠️ WebSocket connection failed, but continuing initialization:', wsError)
           // Don't fail initialization if WebSocket fails
         }
       } else {
-        console.log('✅ WebSocket already connected')
+        logger.log('✅ WebSocket already connected')
       }
 
       // 9. Restore sessions for current workspace if available
       if (socketService.isConnected && workspaceStore.currentWorkspace) {
         try {
-          console.log('🔄 Attempting to restore sessions for current workspace:', workspaceStore.currentWorkspace.id)
+          logger.log('🔄 Attempting to restore sessions for current workspace:', workspaceStore.currentWorkspace.id)
           // This will trigger session discovery and restoration in the workspace switch logic
           await workspaceStore.switchWorkspace(workspaceStore.currentWorkspace)
-          console.log('✅ Session restoration completed')
+          logger.log('✅ Session restoration completed')
         } catch (sessionError) {
-          console.warn('⚠️ Session restoration failed, but continuing initialization:', sessionError)
+          logger.warn('⚠️ Session restoration failed, but continuing initialization:', sessionError)
           // Don't fail initialization if session restoration fails
         }
       } else {
-        console.log('ℹ️ Skipping session restoration: WebSocket not connected or no current workspace')
+        logger.log('ℹ️ Skipping session restoration: WebSocket not connected or no current workspace')
       }
 
-      console.log('🎉 Application initialization complete')
+      logger.log('🎉 Application initialization complete')
       return true
 
     } catch (err) {
-      console.error('❌ Application initialization failed:', err)
+      logger.error('❌ Application initialization failed:', err)
       initializationError.value = err instanceof Error ? err.message : 'Initialization failed'
       return false
     } finally {
@@ -180,7 +180,7 @@ export function useAppCore() {
       const success = await initializeApp()
       return success
     } catch (err) {
-      console.error('Failed to initialize app:', err)
+      logger.error('Failed to initialize app:', err)
       initializationError.value = err instanceof Error ? err.message : 'Failed to initialize app'
       return false
     }
@@ -191,7 +191,7 @@ export function useAppCore() {
     try {
       await authStore.loadStats()
     } catch (err) {
-      console.error('Failed to load stats:', err)
+      logger.error('Failed to load stats:', err)
       // Don't throw here as stats are not critical
     }
   }
@@ -203,7 +203,7 @@ export function useAppCore() {
       // Redirect to login page or reload
       window.location.reload()
     } catch (err) {
-      console.error('Logout failed:', err)
+      logger.error('Logout failed:', err)
       // Force logout even if API call fails
       authStore.logout()
       window.location.reload()

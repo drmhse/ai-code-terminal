@@ -5,6 +5,7 @@ import { socketService } from '@/services/socket'
 import { useLayoutStore } from '@/stores/layout'
 import { useUIStore } from '@/stores/ui'
 import { apiService } from '@/services/api'
+import { logger } from '@/utils/logger'
 
 export interface Repository {
   id: number | string
@@ -101,14 +102,14 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const selectedWorkspace = computed(() => currentWorkspace.value) // Alias for compatibility
 
   const fetchWorkspaces = async () => {
-    console.log('🚀 fetchWorkspaces called')
+    logger.log('🚀 fetchWorkspaces called')
     loading.value = true
     error.value = null
 
     try {
-      console.log('🔄 Making API call to getWorkspaces...')
+      logger.log('🔄 Making API call to getWorkspaces...')
       const data = await apiService.getWorkspaces()
-      console.log('✅ API call successful, received:', data)
+      logger.log('✅ API call successful, received:', data)
       workspaces.value = data
       
       // Set current workspace if none selected and workspaces exist
@@ -122,36 +123,36 @@ export const useWorkspaceStore = defineStore('workspace', () => {
             const savedWorkspace = data.find(ws => ws.id === userPreferences.current_workspace_id)
             if (savedWorkspace) {
               targetWorkspace = savedWorkspace
-              console.log('✅ Restored workspace from user preferences:', targetWorkspace.name)
+              logger.log('✅ Restored workspace from user preferences:', targetWorkspace.name)
             } else {
-              console.warn('⚠️ Saved workspace not found, using first workspace as fallback')
+              logger.warn('⚠️ Saved workspace not found, using first workspace as fallback')
               // Clear invalid stored workspace preference
               await apiService.setCurrentWorkspace(null)
             }
           } else {
-            console.log('ℹ️ No saved workspace preference, using first workspace')
+            logger.log('ℹ️ No saved workspace preference, using first workspace')
           }
         } catch (preferencesError) {
-          console.warn('⚠️ Failed to load user preferences, using first workspace:', preferencesError)
+          logger.warn('⚠️ Failed to load user preferences, using first workspace:', preferencesError)
         }
 
         currentWorkspace.value = targetWorkspace
-        console.log('✅ Set current workspace to:', targetWorkspace.name)
+        logger.log('✅ Set current workspace to:', targetWorkspace.name)
 
         // CRITICAL: Properly initialize terminal context for workspace
         try {
           await switchTerminalToWorkspace(targetWorkspace.id)
           await fetchLayoutsForWorkspace(targetWorkspace.id)
-          console.log('✅ Initialized terminal context for workspace')
+          logger.log('✅ Initialized terminal context for workspace')
         } catch (terminalError) {
-          console.warn('⚠️ Failed to initialize terminal context for workspace:', terminalError)
+          logger.warn('⚠️ Failed to initialize terminal context for workspace:', terminalError)
           // Don't throw - workspace loading should continue even if terminal initialization fails
         }
       }
     } catch (err) {
       error.value = 'Failed to fetch workspaces'
-      console.error('❌ Failed to fetch workspaces:', err)
-      console.error('Error details:', {
+      logger.error('❌ Failed to fetch workspaces:', err)
+      logger.error('Error details:', {
         error: err,
         hasToken: !!localStorage.getItem('jwt_token'),
         apiUrl: import.meta.env.VITE_API_BASE_URL
@@ -177,7 +178,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       return newWorkspace
     } catch (err) {
       error.value = 'Failed to create workspace'
-      console.error('Failed to create workspace:', err)
+      logger.error('Failed to create workspace:', err)
       throw err
     } finally {
       loading.value = false
@@ -207,7 +208,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       return newWorkspace
     } catch (err) {
       error.value = 'Failed to create empty workspace'
-      console.error('Failed to create empty workspace:', err)
+      logger.error('Failed to create empty workspace:', err)
       throw err
     } finally {
       loading.value = false
@@ -232,10 +233,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         const userPreferences = await apiService.getUserPreferences()
         if (userPreferences?.current_workspace_id === id) {
           await apiService.setCurrentWorkspace(null)
-          console.log('🧹 Removed deleted workspace from user preferences')
+          logger.log('🧹 Removed deleted workspace from user preferences')
         }
       } catch (preferencesError) {
-        console.warn('⚠️ Failed to clean up workspace preference:', preferencesError)
+        logger.warn('⚠️ Failed to clean up workspace preference:', preferencesError)
       }
 
       // Switch to another workspace if current one was deleted
@@ -247,7 +248,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       }
     } catch (err) {
       error.value = 'Failed to delete workspace'
-      console.error('Failed to delete workspace:', err)
+      logger.error('Failed to delete workspace:', err)
       throw err
     } finally {
       loading.value = false
@@ -271,7 +272,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
     // If already in this workspace, do nothing
     if (currentWorkspace.value?.id === targetWorkspaceId) {
-      console.log('Already in workspace', workspace.name)
+      logger.log('Already in workspace', workspace.name)
       return
     }
 
@@ -297,7 +298,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       isWorkspaceSwitching = true
       const previousWorkspaceId = currentWorkspace.value?.id
 
-      console.log(`Switching from workspace ${previousWorkspaceId} to ${workspace.id}`)
+      logger.log(`Switching from workspace ${previousWorkspaceId} to ${workspace.id}`)
 
       // Update current workspace immediately for UI responsiveness
       currentWorkspace.value = workspace
@@ -305,9 +306,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       // Save workspace preference to backend for multi-device persistence
       try {
         await apiService.setCurrentWorkspace(workspace.id)
-        console.log('💾 Saved workspace preference to backend:', workspace.name)
+        logger.log('💾 Saved workspace preference to backend:', workspace.name)
       } catch (preferencesError) {
-        console.warn('⚠️ Failed to save workspace preference:', preferencesError)
+        logger.warn('⚠️ Failed to save workspace preference:', preferencesError)
         // Don't throw - workspace switching should continue even if preference saving fails
       }
 
@@ -332,7 +333,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       await ensureWorkspaceHasTerminal(workspace.id)
 
     } catch (error) {
-      console.error('Error during workspace switch:', error)
+      logger.error('Error during workspace switch:', error)
     } finally {
       isWorkspaceSwitching = false
       pendingWorkspaceSwitch = null
@@ -342,7 +343,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
 const fetchSessions = async (workspaceId: string) => {
   if (!workspaceId) {
-    console.warn('No workspace ID provided for fetchSessions')
+    logger.warn('No workspace ID provided for fetchSessions')
     return
   }
   
@@ -354,7 +355,7 @@ const fetchSessions = async (workspaceId: string) => {
     sessions.value = data
   } catch (err) {
     error.value = 'Failed to fetch sessions'
-    console.error('Failed to fetch sessions:', err)
+    logger.error('Failed to fetch sessions:', err)
   } finally {
     loading.value = false
   }
@@ -362,7 +363,7 @@ const fetchSessions = async (workspaceId: string) => {
 
 const fetchLayoutsForWorkspace = async (workspaceId: string) => {
   if (!workspaceId) {
-    console.warn('No workspace ID provided for fetchLayoutsForWorkspace')
+    logger.warn('No workspace ID provided for fetchLayoutsForWorkspace')
     return
   }
 
@@ -370,14 +371,14 @@ const fetchLayoutsForWorkspace = async (workspaceId: string) => {
     const layoutStore = useLayoutStore()
     await layoutStore.fetchLayouts(workspaceId)
   } catch (err) {
-    console.error('Failed to fetch layouts for workspace:', err)
+    logger.error('Failed to fetch layouts for workspace:', err)
     // Don't throw here - layouts are not critical for workspace functionality
   }
 }
 
 const reloadFilesForWorkspace = async (workspaceId: string) => {
   if (!workspaceId) {
-    console.warn('No workspace ID provided for reloadFilesForWorkspace')
+    logger.warn('No workspace ID provided for reloadFilesForWorkspace')
     return
   }
 
@@ -389,16 +390,16 @@ const reloadFilesForWorkspace = async (workspaceId: string) => {
     // Clear file cache and reload files with new workspace context
     fileStore.clearCache()
     await fileStore.refreshFiles('.', false, workspaceId)
-    console.log(`Files reloaded for workspace ${workspaceId}`)
+    logger.log(`Files reloaded for workspace ${workspaceId}`)
   } catch (err) {
-    console.error('Failed to reload files for workspace:', err)
+    logger.error('Failed to reload files for workspace:', err)
     // Don't throw here - file reloading failure shouldn't break workspace switching
   }
 }
 
 const switchTerminalToWorkspace = async (workspaceId: string) => {
   if (!workspaceId) {
-    console.warn('No workspace ID provided for switchTerminalToWorkspace')
+    logger.warn('No workspace ID provided for switchTerminalToWorkspace')
     return
   }
 
@@ -409,16 +410,16 @@ const switchTerminalToWorkspace = async (workspaceId: string) => {
 
     // Switch terminal store to workspace context
     terminalTreeStore.switchToWorkspace(workspaceId)
-    console.log(`Terminal store switched to workspace ${workspaceId}`)
+    logger.log(`Terminal store switched to workspace ${workspaceId}`)
   } catch (err) {
-    console.error('Failed to switch terminal to workspace:', err)
+    logger.error('Failed to switch terminal to workspace:', err)
     // Don't throw here - terminal switching failure shouldn't break workspace switching
   }
 }
 
 const ensureWorkspaceHasTerminal = async (workspaceId: string) => {
   if (!workspaceId) {
-    console.warn('No workspace ID provided for ensureWorkspaceHasTerminal')
+    logger.warn('No workspace ID provided for ensureWorkspaceHasTerminal')
     return
   }
 
@@ -429,34 +430,34 @@ const ensureWorkspaceHasTerminal = async (workspaceId: string) => {
 
     // Check if workspace already has restored frontend terminals
     if (terminalTreeStore.hasPanes) {
-      console.log(`✅ Workspace ${workspaceId} already has restored frontend terminals`)
+      logger.log(`✅ Workspace ${workspaceId} already has restored frontend terminals`)
       return
     }
 
     // First check for existing backend sessions
-    console.log(`🔍 Checking for existing backend sessions in workspace ${workspaceId}`)
+    logger.log(`🔍 Checking for existing backend sessions in workspace ${workspaceId}`)
     const existingSessions = await discoverExistingSessions(workspaceId)
 
     if (existingSessions && existingSessions.length > 0) {
-      console.log(`✅ Found ${existingSessions.length} existing backend sessions, reconnecting...`)
+      logger.log(`✅ Found ${existingSessions.length} existing backend sessions, reconnecting...`)
       await reconnectToSessions(existingSessions, workspaceId)
       return
     }
 
     // Production-quality logging and user feedback
-    console.warn(`🔧 Backend session persistence unavailable for workspace ${workspaceId}`)
-    console.info('ℹ️ Creating fresh terminal session - this is normal for new workspaces')
+    logger.warn(`🔧 Backend session persistence unavailable for workspace ${workspaceId}`)
+    logger.info('ℹ️ Creating fresh terminal session - this is normal for new workspaces')
 
     // Check if this is a known workspace with expected sessions
     const workspaceTerminalCount = terminalTreeStore.allTerminalNodes.length
     if (workspaceTerminalCount > 0) {
-      console.warn(`⚠️ Expected ${workspaceTerminalCount} terminal sessions but backend has none`)
-      console.warn('📋 User workflows will be interrupted - consider implementing session persistence')
+      logger.warn(`⚠️ Expected ${workspaceTerminalCount} terminal sessions but backend has none`)
+      logger.warn('📋 User workflows will be interrupted - consider implementing session persistence')
     }
 
     await terminalTreeStore.createTerminal(workspaceId)
   } catch (err) {
-    console.error('Failed to ensure workspace has terminal:', err)
+    logger.error('Failed to ensure workspace has terminal:', err)
     // Don't throw here - terminal creation failure shouldn't break workspace switching
   }
 }
@@ -470,13 +471,13 @@ const discoverExistingSessions = (workspaceId: string): Promise<import('@/servic
       const subscription = socketService.workspaceSessions$.subscribe((data) => {
         if (resolved || data.workspaceId !== workspaceId) return
 
-        console.log(`📨 Received session data for workspace ${data.workspaceId}:`, data.sessions)
+        logger.log(`📨 Received session data for workspace ${data.workspaceId}:`, data.sessions)
 
         subscription.unsubscribe()
         resolved = true
 
         if (!data.sessions || data.sessions.length === 0) {
-          console.warn(`🔍 No backend sessions found for workspace ${workspaceId}`)
+          logger.warn(`🔍 No backend sessions found for workspace ${workspaceId}`)
           resolve([])
           return
         }
@@ -491,15 +492,15 @@ const discoverExistingSessions = (workspaceId: string): Promise<import('@/servic
         })
 
         if (recoverableSessions.length === 0) {
-          console.warn(`⚠️ Found ${data.sessions.length} sessions but none are recoverable`)
-          console.log('Session statuses:', data.sessions.map(s => ({ id: s.id, status: s.status, can_recover: s.can_recover })))
+          logger.warn(`⚠️ Found ${data.sessions.length} sessions but none are recoverable`)
+          logger.log('Session statuses:', data.sessions.map(s => ({ id: s.id, status: s.status, can_recover: s.can_recover })))
         }
 
         resolve(recoverableSessions)
       })
 
       // Request sessions for workspace
-      console.log(`📤 Requesting sessions for workspace ${workspaceId}`)
+      logger.log(`📤 Requesting sessions for workspace ${workspaceId}`)
       socketService.getWorkspaceSessions(workspaceId)
 
       // Longer timeout for production stability
@@ -507,12 +508,12 @@ const discoverExistingSessions = (workspaceId: string): Promise<import('@/servic
         if (resolved) return
         resolved = true
         subscription.unsubscribe()
-        console.warn(`⏰ Backend session discovery timeout for workspace ${workspaceId}`)
+        logger.warn(`⏰ Backend session discovery timeout for workspace ${workspaceId}`)
         resolve(null)
       }, 10000) // Increased to 10 seconds
 
     } catch (error) {
-      console.error('Error discovering sessions:', error)
+      logger.error('Error discovering sessions:', error)
       reject(error)
     }
   })
@@ -520,34 +521,34 @@ const discoverExistingSessions = (workspaceId: string): Promise<import('@/servic
 
 const reconnectToSessions = async (sessions: import('@/services/socket').WorkspaceSession[], workspaceId: string) => {
   try {
-    console.log(`🔄 Reconnecting to ${sessions.length} sessions for workspace ${workspaceId}`)
+    logger.log(`🔄 Reconnecting to ${sessions.length} sessions for workspace ${workspaceId}`)
 
     let successCount = 0
     for (const session of sessions) {
       if (session.recovery_token && session.can_recover) {
         try {
-          console.log(`🔗 Attempting to recover session ${session.id} with token ${session.recovery_token}`)
+          logger.log(`🔗 Attempting to recover session ${session.id} with token ${session.recovery_token}`)
           await recoverSession(session.recovery_token, session.id)
           successCount++
         } catch (error) {
-          console.warn(`Failed to recover session ${session.id}:`, error)
+          logger.warn(`Failed to recover session ${session.id}:`, error)
         }
       } else {
-        console.warn(`Session ${session.id} cannot be recovered - no token or not recoverable`)
+        logger.warn(`Session ${session.id} cannot be recovered - no token or not recoverable`)
       }
     }
 
     // Only create new terminal if no sessions were successfully recovered
     if (successCount === 0) {
-      console.log('⚠️ No sessions were recovered, creating new terminal')
+      logger.log('⚠️ No sessions were recovered, creating new terminal')
       const terminalModule = await import('@/stores/terminal-tree')
       const terminalTreeStore = terminalModule.useTerminalTreeStore()
       await terminalTreeStore.createTerminal(workspaceId)
     } else {
-      console.log(`✅ Successfully recovered ${successCount} out of ${sessions.length} sessions`)
+      logger.log(`✅ Successfully recovered ${successCount} out of ${sessions.length} sessions`)
     }
   } catch (error) {
-    console.error('Error reconnecting to sessions:', error)
+    logger.error('Error reconnecting to sessions:', error)
     // Fallback: create new terminal
     const terminalModule = await import('@/stores/terminal-tree')
     const terminalTreeStore = terminalModule.useTerminalTreeStore()
@@ -560,12 +561,12 @@ const recoverSession = (recoveryToken: string, sessionId: string): Promise<void>
     try {
       // Set up listener for recovery response
       const subscription = socketService.sessionRecovered$.subscribe((data) => {
-        console.log(`📨 Session recovery response:`, data)
+        logger.log(`📨 Session recovery response:`, data)
 
         if (data.sessionId === sessionId) {
           subscription.unsubscribe()
           if (data.success) {
-            console.log(`✅ Successfully recovered session ${sessionId}`)
+            logger.log(`✅ Successfully recovered session ${sessionId}`)
             resolve()
           } else {
             reject(new Error(`Failed to recover session ${sessionId}`))
@@ -574,7 +575,7 @@ const recoverSession = (recoveryToken: string, sessionId: string): Promise<void>
       })
 
       // Request session recovery
-      console.log(`📤 Requesting recovery for session ${sessionId}`)
+      logger.log(`📤 Requesting recovery for session ${sessionId}`)
       socketService.recoverSession(recoveryToken)
 
       // Set timeout
@@ -584,7 +585,7 @@ const recoverSession = (recoveryToken: string, sessionId: string): Promise<void>
       }, 10000)
 
     } catch (error) {
-      console.error('Error recovering session:', error)
+      logger.error('Error recovering session:', error)
       reject(error)
     }
   })
@@ -636,7 +637,7 @@ const recoverSession = (recoveryToken: string, sessionId: string): Promise<void>
       repositoryHasMore.value = data.hasMore
     } catch (err) {
       repositoryError.value = 'Failed to load repositories'
-      console.error('Failed to load repositories:', err)
+      logger.error('Failed to load repositories:', err)
     } finally {
       repositoriesLoading.value = false
       repositoryLoadingMore.value = false
@@ -730,7 +731,7 @@ const recoverSession = (recoveryToken: string, sessionId: string): Promise<void>
       // Close modal and clear state
       uiStore.closeDeleteModal()
     } catch (err) {
-      console.error('Failed to delete workspace:', err)
+      logger.error('Failed to delete workspace:', err)
     } finally {
       deletingWorkspace.value = false
     }

@@ -17,7 +17,7 @@ use act_vfs::SandboxedFileSystem;
 use crate::config::Config;
 use crate::metrics::RealSystemMonitor;
 use act_persistence::SqlxMetricsRepository;
-use crate::services::{ServerGitHubAuthService, ServerJwtService, GitHubService, GitHubRepositoryServiceAdapter};
+use crate::services::{ServerGitHubAuthService, ServerJwtService, GitHubService};
 use act_process::TokioProcessRunner;
 
 
@@ -79,9 +79,7 @@ impl AppState {
         
         // Create GitHub service for repository operations
         let github_service = Arc::new(GitHubService::new(Arc::new(config.clone())).map_err(|e| CoreError::External(e.to_string()))?);
-        let github_repository_service: Arc<dyn GitHubRepositoryService> = Arc::new(
-            GitHubRepositoryServiceAdapter::new(github_service)
-        );
+        let github_repository_service: Arc<dyn GitHubRepositoryService> = github_service.clone();
         
         // Create process runner
         let process_runner: Arc<dyn ProcessRunner> = Arc::new(TokioProcessRunner::new());

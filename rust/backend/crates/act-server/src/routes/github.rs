@@ -1,4 +1,4 @@
-use crate::{AppState, models::ApiResponse, error::ServerError};
+use crate::{AppState, models::ApiResponse, error::ServerError, utils::extract_bearer_token};
 use axum::{
     extract::{Query, State, Path},
     http::HeaderMap,
@@ -209,16 +209,3 @@ pub async fn clone_repository(
     }
 }
 
-fn extract_bearer_token(headers: &HeaderMap) -> Result<String, ServerError> {
-    let auth_header = headers.get("authorization")
-        .ok_or_else(|| ServerError(act_core::CoreError::Auth("Missing authorization header".to_string())))?;
-    
-    let auth_str = auth_header.to_str()
-        .map_err(|_| ServerError(act_core::CoreError::Validation("Invalid authorization header".to_string())))?;
-    
-    if !auth_str.starts_with("Bearer ") {
-        return Err(ServerError(act_core::CoreError::Validation("Authorization header must start with 'Bearer '".to_string())));
-    }
-    
-    Ok(auth_str[7..].to_string())
-}

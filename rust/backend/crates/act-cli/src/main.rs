@@ -1,6 +1,5 @@
 use act_core::{
-    error::CoreError,
-    repository::{Workspace, WorkspaceRepository, CreateWorkspaceRequest, UpdateWorkspaceRequest, WorkspaceId},
+    repository::{WorkspaceRepository, CreateWorkspaceRequest},
 };
 use act_persistence::workspace_repository::SqlWorkspaceRepository;
 use clap::{Parser, Subcommand};

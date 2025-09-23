@@ -73,15 +73,51 @@
       </button>
 
       <!-- User Menu -->
-      <div v-if="authStore.user" class="user-menu">
-        <img
-          v-if="authStore.user.avatar_url"
-          :src="authStore.user.avatar_url"
-          :alt="authStore.user.login"
-          class="user-avatar"
-        />
-        <div v-else class="user-avatar-placeholder">
-          {{ (authStore.user.login || 'U')[0].toUpperCase() }}
+      <div v-if="authStore.user" class="user-menu" @click.stop>
+        <button
+          @click="toggleUserDropdown"
+          class="user-button"
+          :class="{ active: showUserDropdown }"
+        >
+          <img
+            v-if="authStore.user.avatar_url"
+            :src="authStore.user.avatar_url"
+            :alt="authStore.user.login"
+            class="user-avatar"
+          />
+          <div v-else class="user-avatar-placeholder">
+            {{ (authStore.user.login || 'U')[0].toUpperCase() }}
+          </div>
+        </button>
+
+        <!-- User Dropdown -->
+        <div v-if="showUserDropdown" class="user-dropdown">
+          <div class="user-dropdown-header">
+            <img
+              v-if="authStore.user.avatar_url"
+              :src="authStore.user.avatar_url"
+              :alt="authStore.user.login"
+              class="user-avatar-large"
+            />
+            <div v-else class="user-avatar-placeholder-large">
+              {{ (authStore.user.login || 'U')[0].toUpperCase() }}
+            </div>
+            <div class="user-info">
+              <div class="user-login">{{ authStore.user.login }}</div>
+              <div class="user-email">{{ authStore.user.email || 'No email' }}</div>
+            </div>
+          </div>
+
+          <div class="user-dropdown-divider"></div>
+
+          <button @click="handleLogout" class="user-dropdown-item danger">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16,17 21,12 16,7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            <span>Logout</span>
+          </button>
         </div>
       </div>
     </div>
@@ -89,6 +125,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useUIStore } from '@/stores/ui'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useAuthStore } from '@/stores/auth'
@@ -97,6 +134,9 @@ const uiStore = useUIStore()
 const workspaceStore = useWorkspaceStore()
 const authStore = useAuthStore()
 
+// User dropdown state
+const showUserDropdown = ref(false)
+
 const toggleSidebar = () => {
   uiStore.toggleSidebar()
 }
@@ -104,6 +144,35 @@ const toggleSidebar = () => {
 const toggleBackgroundTasks = () => {
   uiStore.setShowBackgroundTasks(!uiStore.showBackgroundTasks)
 }
+
+const toggleUserDropdown = () => {
+  showUserDropdown.value = !showUserDropdown.value
+}
+
+const closeUserDropdown = () => {
+  showUserDropdown.value = false
+}
+
+const handleLogout = () => {
+  authStore.logout()
+  closeUserDropdown()
+}
+
+// Close dropdown when clicking outside
+const handleClickOutside = (event: Event) => {
+  const target = event.target as Element
+  if (!target.closest('.user-menu')) {
+    closeUserDropdown()
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
 </script>
 
 <style scoped>
@@ -220,8 +289,32 @@ const toggleBackgroundTasks = () => {
 }
 
 .user-menu {
+  position: relative;
   display: flex;
   align-items: center;
+}
+
+.user-button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  border-radius: var(--radius-full);
+  transition: var(--transition-colors);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-button:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 1px;
+}
+
+.user-button.active .user-avatar,
+.user-button.active .user-avatar-placeholder {
+  border-color: var(--color-interactive-primary);
+  box-shadow: 0 0 0 2px var(--color-interactive-primary-hover);
 }
 
 .user-avatar {
@@ -232,7 +325,7 @@ const toggleBackgroundTasks = () => {
   transition: var(--transition-colors);
 }
 
-.user-avatar:hover {
+.user-button:hover .user-avatar {
   border-color: var(--color-border-hover);
 }
 
@@ -248,11 +341,144 @@ const toggleBackgroundTasks = () => {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   transition: var(--transition-colors);
-  cursor: pointer;
+  border: 1px solid var(--color-border-secondary);
 }
 
-.user-avatar-placeholder:hover {
+.user-button:hover .user-avatar-placeholder {
   background: var(--color-interactive-primary-hover);
+  border-color: var(--color-border-hover);
+}
+
+/* User Dropdown */
+.user-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  padding: var(--space-2) 0;
+  min-width: 200px;
+  z-index: 2000;
+  animation: dropdownIn 0.15s ease-out;
+}
+
+.user-dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-1);
+}
+
+.user-avatar-large {
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border-secondary);
+  flex-shrink: 0;
+}
+
+.user-avatar-placeholder-large {
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: var(--radius-full);
+  background: var(--color-interactive-primary);
+  color: var(--color-text-inverse);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  border: 1px solid var(--color-border-secondary);
+  flex-shrink: 0;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1;
+  min-width: 0;
+}
+
+.user-login {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-email {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-dropdown-divider {
+  height: 1px;
+  background: var(--color-border-primary);
+  margin: var(--space-1) 0;
+}
+
+.user-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-4);
+  border: none;
+  background: none;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  text-align: left;
+  transition: var(--transition-colors);
+}
+
+.user-dropdown-item:hover {
+  background: var(--color-interactive-tertiary-hover);
+}
+
+.user-dropdown-item:active {
+  background: var(--color-bg-tertiary);
+}
+
+.user-dropdown-item.danger {
+  color: var(--color-semantic-danger);
+}
+
+.user-dropdown-item.danger:hover {
+  background: var(--color-semantic-danger);
+  color: var(--color-text-inverse);
+}
+
+.user-dropdown-item svg {
+  flex-shrink: 0;
+  color: currentColor;
+}
+
+.user-dropdown-item span {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@keyframes dropdownIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 @media (max-width: 768px) {

@@ -1,8 +1,8 @@
 <template>
   <div class="file-tree-node">
-    <div 
+    <div
       class="node-content"
-      :class="{ 
+      :class="{
         'is-file': node.type === 'file',
         'is-directory': node.type === 'directory',
         'is-expanded': isExpanded,
@@ -15,8 +15,8 @@
       @contextmenu="(event) => handleFileContextMenu(event, node)"
     >
       <!-- Directory Toggle Arrow or Loading Spinner -->
-      <button 
-        v-if="node.type === 'directory'" 
+      <button
+        v-if="node.type === 'directory'"
         class="toggle-btn"
         :class="{ expanded: isExpanded }"
         @click.stop="toggleExpanded"
@@ -28,9 +28,9 @@
       <div v-else class="toggle-spacer"></div>
 
       <!-- File/Directory Icon -->
-      <div class="node-icon">
-        <FolderIcon v-if="node.type === 'directory'" class="h-3.5 w-3.5" />
-        <DocumentIcon v-else class="h-3.5 w-3.5" />
+      <div class="node-icon" :class="getFileTypeClass(node)">
+        <FolderIcon v-if="node.type === 'directory'" class="h-2 w-2" />
+        <DocumentIcon v-else class="h-2 w-2" />
       </div>
 
       <!-- File/Directory Name -->
@@ -114,19 +114,85 @@ const handleDoubleClick = async () => {
 
 const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return '0 B'
-  
+
   const k = 1024
   const sizes = ['B', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  
+
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
 
-// File extension utility (kept for future use)
-// const getFileExtension = (filename: string): string => {
-//   const parts = filename.split('.')
-//   return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : ''
-// }
+const getFileExtension = (filename: string): string => {
+  const parts = filename.split('.')
+  return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : ''
+}
+
+const getFileTypeClass = (node: FileItem): string => {
+  if (node.type === 'directory') {
+    return 'icon-directory'
+  }
+
+  const ext = getFileExtension(node.name)
+
+  // Map file extensions to icon types
+  const typeMap: Record<string, string> = {
+    // JavaScript/TypeScript
+    'js': 'icon-javascript',
+    'ts': 'icon-typescript',
+    'jsx': 'icon-react',
+    'tsx': 'icon-react',
+    'mjs': 'icon-javascript',
+
+    // Vue
+    'vue': 'icon-vue',
+
+    // Styles
+    'css': 'icon-css',
+    'scss': 'icon-sass',
+    'sass': 'icon-sass',
+    'less': 'icon-less',
+
+    // Data/Config
+    'json': 'icon-json',
+    'yaml': 'icon-yaml',
+    'yml': 'icon-yaml',
+    'toml': 'icon-config',
+    'xml': 'icon-xml',
+
+    // Documentation
+    'md': 'icon-markdown',
+    'markdown': 'icon-markdown',
+    'txt': 'icon-text',
+    'rst': 'icon-text',
+
+    // Images
+    'png': 'icon-image',
+    'jpg': 'icon-image',
+    'jpeg': 'icon-image',
+    'gif': 'icon-image',
+    'svg': 'icon-image',
+    'webp': 'icon-image',
+
+    // Other languages
+    'py': 'icon-python',
+    'rs': 'icon-rust',
+    'go': 'icon-go',
+    'java': 'icon-java',
+    'php': 'icon-php',
+    'rb': 'icon-ruby',
+    'sh': 'icon-shell',
+    'bash': 'icon-shell',
+    'zsh': 'icon-shell',
+
+    // Build/Config files
+    'dockerfile': 'icon-docker',
+    'gitignore': 'icon-git',
+    'env': 'icon-config',
+    'lock': 'icon-lock'
+  }
+
+  return typeMap[ext] || 'icon-file'
+}
 </script>
 
 <style scoped>
@@ -207,17 +273,20 @@ const formatFileSize = (bytes: number): string => {
 }
 
 .node-icon {
-  color: var(--text-secondary);
+  color: var(--text-primary);
   flex-shrink: 0;
-}
-
-.node-content.is-directory .node-icon {
-  color: var(--accent-blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  min-height: 16px;
+  opacity: 1;
+  transition: opacity 0.15s ease;
 }
 
 .node-content:hover .node-icon,
 .node-content.is-selected .node-icon {
-  color: inherit;
+  opacity: 1;
 }
 
 .node-name {
@@ -242,45 +311,51 @@ const formatFileSize = (bytes: number): string => {
   margin-left: 20px;
 }
 
-/* File type specific styling */
-.node-content.is-file .node-icon {
-  color: var(--text-secondary);
-}
-
-/* Ensure icons inherit colors in interactive states */
-.node-content:hover .node-icon,
-.node-content.is-selected .node-icon {
-  color: inherit;
-}
-
-/* TypeScript/JavaScript files */
-.node-name[data-ext="ts"],
-.node-name[data-ext="js"],
-.node-name[data-ext="tsx"],
-.node-name[data-ext="jsx"] {
+/* File type specific styling respecting theme */
+.icon-directory {
   color: var(--accent-blue);
 }
 
-/* Vue files */
-.node-name[data-ext="vue"] {
+.icon-javascript,
+.icon-typescript,
+.icon-react {
+  color: var(--accent-blue);
+}
+
+.icon-vue {
   color: var(--accent-green);
 }
 
-/* CSS files */
-.node-name[data-ext="css"],
-.node-name[data-ext="scss"],
-.node-name[data-ext="sass"] {
+.icon-css,
+.icon-sass,
+.icon-less {
   color: var(--accent-purple);
 }
 
-/* JSON files */
-.node-name[data-ext="json"] {
+.icon-json,
+.icon-yaml,
+.icon-config {
   color: var(--accent-yellow);
 }
 
-/* Markdown files */
-.node-name[data-ext="md"],
-.node-name[data-ext="markdown"] {
+.icon-xml,
+.icon-markdown {
   color: var(--accent-orange);
+}
+
+.icon-text,
+.icon-image,
+.icon-python,
+.icon-rust,
+.icon-go,
+.icon-java,
+.icon-php,
+.icon-ruby,
+.icon-shell,
+.icon-docker,
+.icon-git,
+.icon-lock,
+.icon-file {
+  color: var(--text-secondary);
 }
 </style>

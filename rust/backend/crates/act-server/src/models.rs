@@ -44,20 +44,6 @@ pub struct TerminalSize {
 
 // Settings model has been removed - replaced by user-scoped user_settings table
 
-// Workspace model
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct Workspace {
-    pub id: String,
-    pub name: String,
-    pub github_repo: String,
-    pub github_url: String,
-    pub local_path: String,
-    pub is_active: bool,
-    pub last_sync_at: Option<DateTime<Utc>>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub user_id: String,
-}
 
 // Terminal layout model
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -143,12 +129,6 @@ pub struct CsrfToken {
 }
 
 // DTOs for API requests/responses
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CreateWorkspaceRequest {
-    pub name: String,
-    pub github_repo: String,
-    pub github_url: String,
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CreateSessionRequest {

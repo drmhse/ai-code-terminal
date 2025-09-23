@@ -63,6 +63,44 @@ export const useLayoutStore = defineStore('layout', () => {
     }
   }
 
+  const createLayoutInternal = async (layoutData: {
+    name: string
+    layout_type: string
+    tree_structure: string
+    workspace_id: string
+    is_default?: boolean
+  }, silent = false) => {
+    try {
+      loading.value = true
+      error.value = null
+
+      const newLayout = await apiService.createLayout(layoutData)
+      layouts.value.push(newLayout)
+
+      if (!silent) {
+        uiStore.addResourceAlert({
+          type: 'info',
+          title: 'Layout Created',
+          message: `Layout "${layoutData.name}" has been created successfully.`
+        })
+      }
+
+      return newLayout
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to create layout'
+      if (!silent) {
+        uiStore.addResourceAlert({
+          type: 'error',
+          title: 'Failed to Create Layout',
+          message: error.value
+        })
+      }
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
   const createLayout = async (layoutData: {
     name: string
     layout_type: string
@@ -70,27 +108,57 @@ export const useLayoutStore = defineStore('layout', () => {
     workspace_id: string
     is_default?: boolean
   }) => {
+    return createLayoutInternal(layoutData, false)
+  }
+
+  const updateLayoutInternal = async (id: string, updates: {
+    name?: string
+    tree_structure?: string
+    is_default?: boolean
+  }, silent = false) => {
     try {
       loading.value = true
       error.value = null
-      
-      const newLayout = await apiService.createLayout(layoutData)
-      layouts.value.push(newLayout)
-      
-      uiStore.addResourceAlert({
-        type: 'info',
-        title: 'Layout Created',
-        message: `Layout "${layoutData.name}" has been created successfully.`
-      })
-      
-      return newLayout
+
+      const updatedLayout = await apiService.updateLayout(id, updates)
+      const index = layouts.value.findIndex(l => l.id === id)
+
+      if (index !== -1) {
+        // If setting as default, unset other defaults for the same workspace
+        if (updates.is_default) {
+          const workspaceId = layouts.value[index].workspace_id
+          layouts.value.forEach(layout => {
+            if (layout.workspace_id === workspaceId && layout.id !== id) {
+              layout.is_default = false
+            }
+          })
+        }
+
+        layouts.value[index] = updatedLayout
+      }
+
+      if (currentLayout.value?.id === id) {
+        currentLayout.value = updatedLayout
+      }
+
+      if (!silent) {
+        uiStore.addResourceAlert({
+          type: 'info',
+          title: 'Layout Updated',
+          message: `Layout "${updatedLayout.name}" has been updated successfully.`
+        })
+      }
+
+      return updatedLayout
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to create layout'
-      uiStore.addResourceAlert({
-        type: 'error',
-        title: 'Failed to Create Layout',
-        message: error.value
-      })
+      error.value = err instanceof Error ? err.message : 'Failed to update layout'
+      if (!silent) {
+        uiStore.addResourceAlert({
+          type: 'error',
+          title: 'Failed to Update Layout',
+          message: error.value
+        })
+      }
       throw err
     } finally {
       loading.value = false
@@ -102,49 +170,7 @@ export const useLayoutStore = defineStore('layout', () => {
     tree_structure?: string
     is_default?: boolean
   }) => {
-    try {
-      loading.value = true
-      error.value = null
-      
-      const updatedLayout = await apiService.updateLayout(id, updates)
-      const index = layouts.value.findIndex(l => l.id === id)
-      
-      if (index !== -1) {
-        // If setting as default, unset other defaults for the same workspace
-        if (updates.is_default) {
-          const workspaceId = layouts.value[index].workspace_id
-          layouts.value.forEach(layout => {
-            if (layout.workspace_id === workspaceId && layout.id !== id) {
-              layout.is_default = false
-            }
-          })
-        }
-        
-        layouts.value[index] = updatedLayout
-      }
-      
-      if (currentLayout.value?.id === id) {
-        currentLayout.value = updatedLayout
-      }
-      
-      uiStore.addResourceAlert({
-        type: 'info',
-        title: 'Layout Updated',
-        message: `Layout "${updatedLayout.name}" has been updated successfully.`
-      })
-      
-      return updatedLayout
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to update layout'
-      uiStore.addResourceAlert({
-        type: 'error',
-        title: 'Failed to Update Layout',
-        message: error.value
-      })
-      throw err
-    } finally {
-      loading.value = false
-    }
+    return updateLayoutInternal(id, updates, false)
   }
 
   const deleteLayout = async (id: string) => {
@@ -247,24 +273,24 @@ export const useLayoutStore = defineStore('layout', () => {
     currentLayout.value = layout
   }
 
-  const saveCurrentLayout = async (name: string, workspaceId: string, treeStructure: string, layoutType = 'hierarchical', isDefault = false) => {
+  const saveCurrentLayout = async (name: string, workspaceId: string, treeStructure: string, layoutType = 'hierarchical', isDefault = false, silent = false) => {
     try {
       if (currentLayout.value) {
         // Update existing layout
-        await updateLayout(currentLayout.value.id, {
+        await updateLayoutInternal(currentLayout.value.id, {
           name,
           tree_structure: treeStructure,
           is_default: isDefault
-        })
+        }, silent)
       } else {
         // Create new layout
-        const newLayout = await createLayout({
+        const newLayout = await createLayoutInternal({
           name,
           layout_type: layoutType,
           tree_structure: treeStructure,
           workspace_id: workspaceId,
           is_default: isDefault
-        })
+        }, silent)
         setCurrentLayout(newLayout)
       }
     } catch (err) {
@@ -273,13 +299,13 @@ export const useLayoutStore = defineStore('layout', () => {
     }
   }
 
-  const debouncedSaveLayout = (name: string, workspaceId: string, treeStructure: string, layoutType = 'hierarchical', isDefault = false) => {
+  const debouncedSaveLayout = (name: string, workspaceId: string, treeStructure: string, layoutType = 'hierarchical', isDefault = false, silent = false) => {
     if (saveTimeout.value) {
       clearTimeout(saveTimeout.value)
     }
 
     saveTimeout.value = window.setTimeout(() => {
-      saveCurrentLayout(name, workspaceId, treeStructure, layoutType, isDefault)
+      saveCurrentLayout(name, workspaceId, treeStructure, layoutType, isDefault, silent)
     }, 1000) // 1 second debounce
   }
 

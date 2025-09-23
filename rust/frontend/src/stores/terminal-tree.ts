@@ -4,6 +4,7 @@ import type { TerminalSession } from '@/types'
 import { socketService } from '@/services/socket'
 import { apiService } from '@/services/api'
 import type { Subscription } from '@/utils/reactive'
+import { logger } from '@/utils/logger'
 import type {
   PaneLayout,
   PaneNode,
@@ -98,7 +99,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
     sessions.value.clear()
 
     if (clearedCount > 0) {
-      console.log(`🧹 Cleared ${clearedCount} existing tabs for workspace switch`)
+      logger.log(`🧹 Cleared ${clearedCount} existing tabs for workspace switch`)
     }
   }
 
@@ -155,7 +156,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
   const initializeSocketSubscriptions = () => {
     socketSubscriptions.push(
       socketService.subscribe('terminal:output', (event) => {
-        console.log(`📥 Terminal output received for session ${event.sessionId}:`, JSON.stringify(event.output))
+        logger.log(`📥 Terminal output received for session ${event.sessionId}:`, JSON.stringify(event.output))
         appendOutput(event.sessionId, event.output)
 
         outputHandlers.forEach(handler => {
@@ -168,7 +169,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
       }),
 
       socketService.subscribe('terminal:created', (event) => {
-        console.log(`✅ Terminal created event received:`, event)
+        logger.log(`✅ Terminal created event received:`, event)
 
         // Update PID for the session across all terminal nodes
         if (layout.value) {
@@ -177,7 +178,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
             const tab = terminal.tabs?.find(t => t.sessionId === event.sessionId)
             if (tab) {
               tab.pid = event.pid
-              console.log(`✅ Updated PID for session ${event.sessionId} in terminal ${terminal.id}`)
+              logger.log(`✅ Updated PID for session ${event.sessionId} in terminal ${terminal.id}`)
               break
             }
           }
@@ -229,7 +230,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
     layout.value = createInitialLayout(workspaceId, initialTab)
     currentWorkspaceId.value = workspaceId
     invalidateTerminalCache() // Cache invalidation on layout change
-    console.log(`✅ Initialized layout for workspace ${workspaceId}`)
+    logger.log(`✅ Initialized layout for workspace ${workspaceId}`)
   }
 
   const setActivePane = (paneId: string) => {
@@ -237,7 +238,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
 
     layout.value = setActiveNode(layout.value, paneId)
     invalidateTerminalCache() // Cache invalidation on layout change
-    console.log(`🎯 Set active pane: ${paneId}`)
+    logger.log(`🎯 Set active pane: ${paneId}`)
   }
 
   // Split functionality - the core new feature
@@ -263,7 +264,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
         setActivePane(result.newPaneId)
       }
 
-      console.log(`✅ Split pane ${targetPaneId} ${direction}, created ${result.newPaneId}`)
+      logger.log(`✅ Split pane ${targetPaneId} ${direction}, created ${result.newPaneId}`)
 
       return result.newPaneId
     } else {
@@ -378,7 +379,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
         node.activeTabId = null
         // Remove pane when no tabs left (VS Code/Zed behavior)
         layout.value = removeNode(layout.value, paneId)
-        console.log(`✅ Removed empty pane ${paneId}`)
+        logger.log(`✅ Removed empty pane ${paneId}`)
         return // Exit early since pane structure changed
       }
     }
@@ -413,7 +414,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
     if (node.activeTabId && node.tabs) {
       const activeTab = node.tabs.find(t => t.id === node.activeTabId)
       if (activeTab) {
-        console.log(`Sending terminal data: ${JSON.stringify(data)} for session ${activeTab.sessionId}`)
+        logger.log(`Sending terminal data: ${JSON.stringify(data)} for session ${activeTab.sessionId}`)
         socketService.sendTerminalData(activeTab.sessionId, data)
       }
     }
@@ -452,7 +453,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
         workspace_id: workspaceId
       })
 
-      console.log(`💾 Saved layout structure for workspace ${workspaceId}:`, response.id)
+      logger.log(`💾 Saved layout structure for workspace ${workspaceId}:`, response.id)
       return response
     } catch (error) {
       console.warn('Failed to save layout:', error)
@@ -485,10 +486,10 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
     // CRITICAL: Prevent duplicate workspace switches (race condition fix)
     if (isWorkspaceSwitching) {
       if (pendingWorkspaceSwitch === workspaceId) {
-        console.log(`⏭️ Workspace switch to ${workspaceId} already in progress, ignoring duplicate`)
+        logger.log(`⏭️ Workspace switch to ${workspaceId} already in progress, ignoring duplicate`)
         return
       } else {
-        console.log(`⏸️ Different workspace switch (${workspaceId}) requested while switching to ${pendingWorkspaceSwitch}, queuing...`)
+        logger.log(`⏸️ Different workspace switch (${workspaceId}) requested while switching to ${pendingWorkspaceSwitch}, queuing...`)
         pendingWorkspaceSwitch = workspaceId
         return
       }
@@ -496,7 +497,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
 
     // Early return if already on this workspace
     if (currentWorkspaceId.value === workspaceId && layout.value) {
-      console.log(`✅ Already on workspace ${workspaceId}, skipping switch`)
+      logger.log(`✅ Already on workspace ${workspaceId}, skipping switch`)
       return
     }
 
@@ -504,7 +505,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
     pendingWorkspaceSwitch = workspaceId
 
     try {
-      console.log(`🔄 Switching to workspace ${workspaceId} (no cache, always fresh)...`)
+      logger.log(`🔄 Switching to workspace ${workspaceId} (no cache, always fresh)...`)
 
       // CLEAN SLATE: Clear existing tabs and sessions first
       clearAllTabsAndSessions()
@@ -528,7 +529,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
         layout.value = null
       }
 
-      console.log(`✅ Switched to workspace ${workspaceId} (fresh from backend)`)
+      logger.log(`✅ Switched to workspace ${workspaceId} (fresh from backend)`)
     } finally {
       isWorkspaceSwitching = false
 
@@ -536,7 +537,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
       if (pendingWorkspaceSwitch && pendingWorkspaceSwitch !== workspaceId) {
         const nextWorkspaceId = pendingWorkspaceSwitch
         pendingWorkspaceSwitch = null
-        console.log(`🔄 Processing queued workspace switch to ${nextWorkspaceId}`)
+        logger.log(`🔄 Processing queued workspace switch to ${nextWorkspaceId}`)
         await switchToWorkspace(nextWorkspaceId, autoRestoreSessions)
       } else {
         pendingWorkspaceSwitch = null
@@ -547,7 +548,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
   // Create layout from saved structure + current backend sessions (OPTIMIZED)
   const createLayoutFromBackendSessions = async (workspaceId: string) => {
     try {
-      console.log(`🔍 Fetching current sessions for workspace ${workspaceId}...`)
+      logger.log(`🔍 Fetching current sessions for workspace ${workspaceId}...`)
 
       const [sessions, layouts] = await Promise.all([
         apiService.getSessions(workspaceId),
@@ -564,7 +565,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
       if (defaultLayout) {
         try {
           layoutStructure = JSON.parse(defaultLayout.tree_structure)
-          console.log(`📖 Loaded layout structure from backend for workspace ${workspaceId}`)
+          logger.log(`📖 Loaded layout structure from backend for workspace ${workspaceId}`)
         } catch (error) {
           console.warn('Failed to parse layout structure:', error)
           layoutStructure = null
@@ -588,7 +589,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
         case 'restore_with_default_terminal':
           layout.value = layoutStructure
           createTabInPane(strategy.targetPaneId!, workspaceId, 'Terminal', undefined, true)
-          console.log(`✅ Created default terminal in restored layout`)
+          logger.log(`✅ Created default terminal in restored layout`)
           break
 
         case 'fresh_empty':
@@ -654,18 +655,18 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
     const newSessions = sessions.filter(session => {
       const existingTab = findTabBySessionId(session.id)
       if (existingTab) {
-        console.log(`⏭️ Session ${session.id} already has a tab (${existingTab.tabId}), skipping`)
+        logger.log(`⏭️ Session ${session.id} already has a tab (${existingTab.tabId}), skipping`)
         return false
       }
       return true
     })
 
     if (newSessions.length === 0) {
-      console.log(`✅ All sessions already populated, no new tabs needed`)
+      logger.log(`✅ All sessions already populated, no new tabs needed`)
       return
     }
 
-    console.log(`🔄 Populating ${newSessions.length}/${sessions.length} new sessions (${sessions.length - newSessions.length} already exist)`)
+    logger.log(`🔄 Populating ${newSessions.length}/${sessions.length} new sessions (${sessions.length - newSessions.length} already exist)`)
 
     // PERFORMANCE: No artificial delays, process sessions in parallel
     const connectPromises = newSessions.map(async (session) => {
@@ -691,7 +692,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
 
     const results = await Promise.allSettled(connectPromises)
     const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length
-    console.log(`✅ Populated layout with ${successful}/${newSessions.length} new sessions`)
+    logger.log(`✅ Populated layout with ${successful}/${newSessions.length} new sessions`)
 
     // FIX: Ensure at least one tab is active after session reconnection
     if (successful > 0 && layout.value) {
@@ -700,7 +701,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
       ) as PromiseFulfilledResult<{success: boolean, tabId: string, paneId: string}>
 
       if (firstSuccessfulResult?.value.tabId && firstSuccessfulResult?.value.paneId) {
-        console.log(`🎯 Activating first reconnected tab ${firstSuccessfulResult.value.tabId} in pane ${firstSuccessfulResult.value.paneId}`)
+        logger.log(`🎯 Activating first reconnected tab ${firstSuccessfulResult.value.tabId} in pane ${firstSuccessfulResult.value.paneId}`)
         setActiveTabInPane(firstSuccessfulResult.value.paneId, firstSuccessfulResult.value.tabId)
         setActivePane(firstSuccessfulResult.value.paneId)
       }
@@ -789,7 +790,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
       child.size = Math.max(5, Math.min(95, newSizes[index])) // Clamp between 5% and 95%
     })
 
-    console.log(`🔄 Resized panes in container ${parentContainerId}:`, newSizes)
+    logger.log(`🔄 Resized panes in container ${parentContainerId}:`, newSizes)
   }
 
   // Tab moving between panes functionality
@@ -866,12 +867,12 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
     // Set target pane as active
     setActivePane(targetPaneId)
 
-    console.log(`🔄 Moved tab ${tabId} from pane ${sourcePaneId} to pane ${targetPaneId} at index ${insertIndex}`)
+    logger.log(`🔄 Moved tab ${tabId} from pane ${sourcePaneId} to pane ${targetPaneId} at index ${insertIndex}`)
 
     // Remove source pane if it's now empty (VS Code/Zed behavior)
     if (sourceNode.tabs.length === 0) {
       layout.value = removeNode(layout.value, sourcePaneId)
-      console.log(`✅ Removed empty source pane ${sourcePaneId}`)
+      logger.log(`✅ Removed empty source pane ${sourcePaneId}`)
     }
 
     return true
@@ -911,7 +912,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
     // Use the removeNode utility function for clean removal
     try {
       layout.value = removeNode(layout.value, paneId)
-      console.log(`🗑️ Closed pane ${paneId}`)
+      logger.log(`🗑️ Closed pane ${paneId}`)
     } catch (error) {
       console.error(`Failed to close pane ${paneId}:`, error)
     }
@@ -920,11 +921,11 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
   // Method to restore layout (used by session reconnection)
   const restoreLayout = (savedLayout: PaneLayout) => {
     layout.value = savedLayout
-    console.log(`✅ Restored layout with ${getAllTerminalNodes(savedLayout.root).length} terminal nodes`)
+    logger.log(`✅ Restored layout with ${getAllTerminalNodes(savedLayout.root).length} terminal nodes`)
   }
 
   const initialize = () => {
-    console.log('Terminal tree store initialized')
+    logger.log('Terminal tree store initialized')
     initializeSocketSubscriptions()
   }
 

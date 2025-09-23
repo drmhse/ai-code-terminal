@@ -30,7 +30,7 @@ pub use models::{
 pub use auth::{
     AuthenticatedUser, AuthToken, JwtClaims, AuthConfig,
     GitHubAuthService, JwtService, AuthRepository,
-    GitHubRepository, GitHubRepositoryOwner, GitHubRepositoryService, RepositoryListOptions
+    GitHubRepository, GitHubRepositoryOwner, GitHubUser, GitHubRepositoryService, RepositoryListOptions
 };
 pub use theme::{ThemePreference, ThemeRepository};
 pub use user_preferences::{UserPreferences, UserPreferencesRepository};

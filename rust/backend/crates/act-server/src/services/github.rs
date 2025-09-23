@@ -15,42 +15,9 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::{error, info, warn};
 use uuid::Uuid;
+use act_core::{GitHubRepository, GitHubRepositoryOwner, GitHubUser, GitHubRepositoryService, RepositoryListOptions, Result as CoreResult};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GitHubUser {
-    pub id: u64,
-    pub login: String,
-    pub name: Option<String>,
-    pub email: Option<String>,
-    pub avatar_url: String,
-    pub html_url: String,
-    pub company: Option<String>,
-    pub location: Option<String>,
-    pub public_repos: u32,
-    pub followers: u32,
-    pub following: u32,
-}
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GitHubRepository {
-    pub id: u64,
-    pub name: String,
-    pub full_name: String,
-    pub owner: GitHubUser,
-    pub description: Option<String>,
-    pub html_url: String,
-    pub clone_url: String,
-    pub ssh_url: String,
-    pub private: bool,
-    pub fork: bool,
-    pub language: Option<String>,
-    pub stargazers_count: u32,
-    pub forks_count: u32,
-    pub updated_at: String,
-    pub pushed_at: Option<String>,
-    pub size: u32,
-    pub default_branch: String,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenResult {
@@ -465,18 +432,11 @@ impl GitHubService {
             id: repo.id,
             name: repo.name,
             full_name: repo.full_name,
-            owner: GitHubUser {
+            owner: GitHubRepositoryOwner {
                 id: repo.owner.id,
                 login: repo.owner.login,
-                name: None,
-                email: None,
                 avatar_url: repo.owner.avatar_url,
                 html_url: repo.owner.html_url,
-                company: None,
-                location: None,
-                public_repos: 0,
-                followers: 0,
-                following: 0,
             },
             description: repo.description,
             html_url: repo.html_url,
@@ -535,24 +495,25 @@ impl GitHubService {
             default_branch: String,
         }
 
+        #[derive(Deserialize)]
+        struct GitHubUserResponse {
+            id: u64,
+            login: String,
+            avatar_url: String,
+            html_url: String,
+        }
+
         let repo_data: GitHubRepoResponse = response.json().await?;
 
         Ok(GitHubRepository {
             id: repo_data.id,
             name: repo_data.name,
             full_name: repo_data.full_name,
-            owner: GitHubUser {
+            owner: GitHubRepositoryOwner {
                 id: repo_data.owner.id,
                 login: repo_data.owner.login,
-                name: repo_data.owner.name,
-                email: repo_data.owner.email,
                 avatar_url: repo_data.owner.avatar_url,
                 html_url: repo_data.owner.html_url,
-                company: repo_data.owner.company,
-                location: repo_data.owner.location,
-                public_repos: repo_data.owner.public_repos,
-                followers: repo_data.owner.followers,
-                following: repo_data.owner.following,
             },
             description: repo_data.description,
             html_url: repo_data.html_url,
@@ -616,5 +577,36 @@ impl GitHubService {
             user: user_info.clone(),
             user_id: user_info.id.to_string(),
         })
+    }
+}
+
+// Implement the GitHubRepositoryService trait directly, eliminating the adapter layer
+#[async_trait::async_trait]
+impl GitHubRepositoryService for GitHubService {
+    async fn list_repositories(
+        &self,
+        access_token: &str,
+        options: RepositoryListOptions
+    ) -> CoreResult<Vec<GitHubRepository>> {
+        self.get_user_repositories(
+            access_token,
+            options.page,
+            options.per_page,
+            options.sort.as_deref(),
+            options.type_filter.as_deref(),
+        )
+        .await
+        .map_err(|e| act_core::CoreError::External(e.to_string()))
+    }
+
+    async fn get_repository(
+        &self,
+        access_token: &str,
+        owner: &str,
+        repo: &str
+    ) -> CoreResult<GitHubRepository> {
+        self.get_repository_info(access_token, owner, repo)
+            .await
+            .map_err(|e| act_core::CoreError::External(e.to_string()))
     }
 }

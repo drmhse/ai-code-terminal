@@ -1,4 +1,4 @@
-use crate::{AppState, models::ApiResponse, error::ServerError, middleware::{csrf::CsrfProtection, auth::AuthenticatedUser}};
+use crate::{AppState, models::ApiResponse, error::ServerError, middleware::{csrf::CsrfProtection, auth::AuthenticatedUser}, utils::extract_bearer_token};
 use act_core::CoreError;
 use axum::{
     extract::{Query, State},
@@ -188,16 +188,3 @@ pub async fn validate_auth(
     }
 }
 
-fn extract_bearer_token(headers: &HeaderMap) -> Result<String, ServerError> {
-    let auth_header = headers.get("authorization")
-        .ok_or_else(|| ServerError(CoreError::Auth("Missing authorization header".to_string())))?;
-    
-    let auth_str = auth_header.to_str()
-        .map_err(|_| ServerError(CoreError::Validation("Invalid authorization header".to_string())))?;
-    
-    if !auth_str.starts_with("Bearer ") {
-        return Err(ServerError(CoreError::Validation("Authorization header must start with 'Bearer '".to_string())));
-    }
-    
-    Ok(auth_str[7..].to_string())
-}
