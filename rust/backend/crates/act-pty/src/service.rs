@@ -98,6 +98,9 @@ impl PtyService for TokioPtyService {
         let (output_tx, output_rx) = mpsc::unbounded_channel::<PtyEvent>();
         let (input_tx, mut input_rx) = mpsc::unbounded_channel::<Vec<u8>>();
 
+        // Create batching channel for output throttling
+        let (batch_tx, mut batch_rx) = mpsc::unbounded_channel::<Vec<u8>>();
+
         let reader = master.try_clone_reader()
             .map_err(|e| CoreError::Pty(format!("Failed to clone reader: {}", e)))?;
         let writer = master.take_writer()
@@ -167,8 +170,8 @@ impl PtyService for TokioPtyService {
                                 reader = new_reader;
                                 if n > 0 {
                                     let data = new_buffer[..n].to_vec();
-                                    if let Err(err) = read_output_tx.send(PtyEvent::Output(data)) {
-                                        error!("Failed to send PTY output for session {}: {}", read_session_id, err);
+                                    if let Err(err) = batch_tx.send(data) {
+                                        error!("Failed to send PTY output to batch for session {}: {}", read_session_id, err);
                                         break;
                                     }
                                 } else {
@@ -190,6 +193,48 @@ impl PtyService for TokioPtyService {
                 }
             }
             debug!("PTY I/O and process wait task ended for session {}", read_session_id);
+        });
+
+        // Output batching task - collects output for 16ms before sending
+        let batch_output_tx = output_tx.clone();
+        let batch_session_id = config.session_id.clone();
+        tokio::spawn(async move {
+            let mut batch_buffer = Vec::new();
+            let mut interval = tokio::time::interval(tokio::time::Duration::from_millis(16));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
+            loop {
+                tokio::select! {
+                    // Collect incoming data
+                    data_opt = batch_rx.recv() => {
+                        match data_opt {
+                            Some(data) => {
+                                batch_buffer.extend(data);
+                                // If buffer gets large, send immediately to prevent memory issues
+                                if batch_buffer.len() > 8192 {
+                                    if !batch_buffer.is_empty() {
+                                        if let Err(_) = batch_output_tx.send(PtyEvent::Output(batch_buffer.clone())) {
+                                            break;
+                                        }
+                                        batch_buffer.clear();
+                                    }
+                                }
+                            }
+                            None => break, // Channel closed
+                        }
+                    }
+                    // Send batched data every 16ms
+                    _ = interval.tick() => {
+                        if !batch_buffer.is_empty() {
+                            if let Err(_) = batch_output_tx.send(PtyEvent::Output(batch_buffer.clone())) {
+                                break;
+                            }
+                            batch_buffer.clear();
+                        }
+                    }
+                }
+            }
+            debug!("PTY output batching task ended for session {}", batch_session_id);
         });
 
         let writer = Arc::new(Mutex::new(writer));

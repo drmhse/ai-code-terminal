@@ -1,0 +1,351 @@
+{
+  "build_system": {
+    "name": "Book Builder",
+    "version": "1.0.0",
+    "node_version": ">=20.0.0",
+    "build_tool": "custom"
+  },
+  "paths": {
+    "source": "./content",
+    "output": "./build",
+    "assets": "./assets",
+    "tools": "./tools",
+    "config": "./config",
+    "temp": "./.tmp",
+    "cache": "./.cache"
+  },
+  "markdown": {
+    "processor": "markdown-it",
+    "extensions": [
+      "markdown-it-anchor",
+      "markdown-it-table-of-contents",
+      "markdown-it-footnote",
+      "markdown-it-deflist",
+      "markdown-it-abbr",
+      "markdown-it-mark",
+      "markdown-it-ins",
+      "markdown-it-sub",
+      "markdown-it-sup",
+      "markdown-it-container"
+    ],
+    "options": {
+      "html": true,
+      "xhtmlOut": true,
+      "breaks": false,
+      "langPrefix": "language-",
+      "linkify": true,
+      "typographer": true
+    }
+  },
+  "syntax_highlighting": {
+    "engine": "prism",
+    "theme": "github-dark",
+    "languages": [
+      "rust",
+      "typescript",
+      "javascript",
+      "vue",
+      "html",
+      "css",
+      "scss",
+      "sql",
+      "toml",
+      "json",
+      "yaml",
+      "bash",
+      "shell",
+      "dockerfile",
+      "xml",
+      "markdown"
+    ],
+    "plugins": [
+      "line-numbers",
+      "show-language",
+      "copy-to-clipboard",
+      "diff-highlight"
+    ]
+  },
+  "html_output": {
+    "template": "modern-book",
+    "minify": true,
+    "responsive": true,
+    "features": {
+      "search": true,
+      "navigation": true,
+      "toc": true,
+      "breadcrumbs": true,
+      "page_navigation": true,
+      "print_styles": true,
+      "dark_mode": true
+    },
+    "meta": {
+      "viewport": "width=device-width, initial-scale=1.0",
+      "charset": "UTF-8",
+      "robots": "index, follow"
+    }
+  },
+  "pdf_output": {
+    "engine": "puppeteer",
+    "format": "A4",
+    "margins": {
+      "top": "1in",
+      "bottom": "1in",
+      "left": "1in",
+      "right": "1in"
+    },
+    "fonts": {
+      "body": "Source Sans Pro",
+      "code": "Source Code Pro",
+      "heading": "Source Sans Pro"
+    },
+    "options": {
+      "displayHeaderFooter": true,
+      "headerTemplate": "<div style=\"font-size:10px; text-align:center; width:100%;\"><span class=\"title\"></span></div>",
+      "footerTemplate": "<div style=\"font-size:10px; text-align:center; width:100%;\"><span class=\"pageNumber\"></span> / <span class=\"totalPages\"></span></div>",
+      "printBackground": true,
+      "preferCSSPageSize": true
+    }
+  },
+  "epub_output": {
+    "version": "3.0",
+    "identifier": "ai-coding-terminal-book",
+    "language": "en",
+    "options": {
+      "cover": "./assets/images/cover.png",
+      "tocTitle": "Table of Contents",
+      "appendChapterTitles": true,
+      "customOpfTemplatePath": "./tools/templates/content.opf",
+      "customNcxTocTemplatePath": "./tools/templates/toc.ncx",
+      "customHtmlTocTemplatePath": "./tools/templates/toc.xhtml"
+    }
+  },
+  "assets": {
+    "images": {
+      "optimization": true,
+      "formats": ["webp", "png", "jpg"],
+      "quality": {
+        "webp": 85,
+        "jpg": 85,
+        "png": "auto"
+      },
+      "responsive": {
+        "breakpoints": [480, 768, 1024, 1440],
+        "sizes": "100vw"
+      }
+    },
+    "diagrams": {
+      "mermaid": {
+        "theme": "dark",
+        "config": {
+          "theme": "dark",
+          "themeVariables": {
+            "primaryColor": "#ff6b6b",
+            "primaryTextColor": "#ffffff",
+            "primaryBorderColor": "#ffffff"
+          }
+        }
+      },
+      "plantuml": {
+        "server": "http://www.plantuml.com/plantuml",
+        "format": "svg"
+      }
+    },
+    "code": {
+      "validation": true,
+      "compilation_check": true,
+      "format": true,
+      "extract": true
+    }
+  },
+  "validation": {
+    "links": {
+      "internal": true,
+      "external": true,
+      "timeout": 10000,
+      "retry": 3
+    },
+    "html": {
+      "w3c": true,
+      "accessibility": true,
+      "lighthouse": true
+    },
+    "spelling": {
+      "dictionary": "en-US",
+      "custom_words": "./config/custom-dictionary.txt",
+      "ignore_code": true
+    },
+    "code": {
+      "rust": {
+        "clippy": true,
+        "fmt": true,
+        "compile": true
+      },
+      "typescript": {
+        "tsc": true,
+        "eslint": true,
+        "prettier": true
+      }
+    }
+  },
+  "optimization": {
+    "parallel_processing": true,
+    "max_workers": 4,
+    "caching": true,
+    "incremental_builds": true,
+    "compression": {
+      "html": "gzip",
+      "css": "minify",
+      "js": "minify"
+    }
+  },
+  "development": {
+    "watch": {
+      "enabled": true,
+      "debounce": 300,
+      "ignored": [
+        "node_modules",
+        ".git",
+        "build",
+        ".tmp",
+        ".cache"
+      ]
+    },
+    "dev_server": {
+      "port": 3000,
+      "host": "localhost",
+      "open": true,
+      "live_reload": true,
+      "hot_reload": true
+    },
+    "preview": {
+      "port": 3001,
+      "host": "localhost",
+      "spa": false
+    }
+  },
+  "deployment": {
+    "environments": {
+      "staging": {
+        "url": "https://staging-book.act-terminal.io",
+        "s3_bucket": "act-book-staging",
+        "cloudfront_distribution": "E1234567890123"
+      },
+      "production": {
+        "url": "https://book.act-terminal.io",
+        "s3_bucket": "act-book-production",
+        "cloudfront_distribution": "E0987654321098"
+      }
+    },
+    "cdn": {
+      "provider": "cloudfront",
+      "cache_control": "public, max-age=31536000",
+      "compress": true
+    }
+  },
+  "analytics": {
+    "google_analytics": {
+      "tracking_id": "G-XXXXXXXXXX",
+      "anonymize_ip": true
+    },
+    "plausible": {
+      "domain": "book.act-terminal.io",
+      "api_host": "https://plausible.io"
+    }
+  },
+  "performance": {
+    "code_splitting": true,
+    "lazy_loading": true,
+    "preload": {
+      "critical_css": true,
+      "fonts": true,
+      "navigation": true
+    },
+    "bundling": {
+      "vendor_chunk": true,
+      "common_chunk": true,
+      "manifest": true
+    }
+  },
+  "ci_cd": {
+    "github_actions": {
+      "build_on": ["push", "pull_request"],
+      "deploy_on": ["push"],
+      "branches": {
+        "main": "production",
+        "develop": "staging"
+      }
+    },
+    "quality_gates": {
+      "tests": true,
+      "linting": true,
+      "type_checking": true,
+      "link_validation": true,
+      "accessibility": true,
+      "performance": true
+    }
+  },
+  "monitoring": {
+    "build_metrics": true,
+    "performance_budget": {
+      "html_size": "100kb",
+      "css_size": "50kb",
+      "js_size": "200kb",
+      "image_size": "500kb",
+      "font_size": "100kb"
+    },
+    "lighthouse": {
+      "performance": 90,
+      "accessibility": 100,
+      "best_practices": 90,
+      "seo": 100
+    }
+  },
+  "internationalization": {
+    "default_locale": "en",
+    "supported_locales": ["en"],
+    "fallback_locale": "en",
+    "translation_files": "./locales",
+    "date_format": "YYYY-MM-DD",
+    "number_format": "en-US"
+  },
+  "plugins": {
+    "custom": [
+      "./tools/plugins/code-validator.js",
+      "./tools/plugins/cross-reference.js",
+      "./tools/plugins/exercise-generator.js",
+      "./tools/plugins/diagram-processor.js"
+    ],
+    "third_party": [
+      "markdown-it-mermaid",
+      "markdown-it-plantuml",
+      "markdown-it-katex"
+    ]
+  },
+  "logging": {
+    "level": "info",
+    "format": "json",
+    "outputs": ["console", "file"],
+    "file": "./logs/build.log",
+    "rotation": {
+      "max_files": 10,
+      "max_size": "10MB"
+    }
+  },
+  "error_handling": {
+    "continue_on_warning": true,
+    "fail_on_error": true,
+    "error_reporting": {
+      "console": true,
+      "file": "./logs/errors.log",
+      "webhook": null
+    }
+  },
+  "cleanup": {
+    "temp_files": true,
+    "cache_on_success": true,
+    "old_builds": {
+      "keep": 5,
+      "strategy": "timestamp"
+    }
+  }
+}

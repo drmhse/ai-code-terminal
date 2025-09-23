@@ -41,6 +41,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
 
   let socketSubscriptions: Subscription[] = []
   const outputHandlers: ((sessionId: string, output: string) => void)[] = []
+  let isInitialized = false
 
   // PERFORMANCE: Cached terminal node lookup with automatic invalidation
   const getCachedTerminalNodes = (): PaneNode[] => {
@@ -588,8 +589,15 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
 
         case 'restore_with_default_terminal':
           layout.value = layoutStructure
-          createTabInPane(strategy.targetPaneId!, workspaceId, 'Terminal', undefined, true)
-          logger.log(`✅ Created default terminal in restored layout`)
+          // Create a terminal in ALL empty panes from the saved layout
+          if (strategy.targetPaneIds && strategy.targetPaneIds.length > 0) {
+            for (const paneId of strategy.targetPaneIds) {
+              createTabInPane(paneId, workspaceId, 'Terminal', undefined, true)
+            }
+            // Set the first pane as active
+            setActivePane(strategy.targetPaneIds[0])
+            logger.log(`✅ Created default terminals in ${strategy.targetPaneIds.length} restored panes`)
+          }
           break
 
         case 'fresh_empty':
@@ -631,7 +639,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
       // Check if layout has terminals and create default tab (single tree traversal)
       const terminalNodes = getAllTerminalNodes(layoutStructure.root)
       return terminalNodes.length > 0
-        ? { type: 'restore_with_default_terminal', targetPaneId: terminalNodes[0].id }
+        ? { type: 'restore_with_default_terminal', targetPaneIds: terminalNodes.map(node => node.id) }
         : { type: 'fresh_empty' }
     }
 
@@ -925,8 +933,13 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
   }
 
   const initialize = () => {
+    if (isInitialized) {
+      logger.log('Terminal tree store already initialized, skipping')
+      return
+    }
     logger.log('Terminal tree store initialized')
     initializeSocketSubscriptions()
+    isInitialized = true
   }
 
   const cleanup = () => {
@@ -936,6 +949,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
     layout.value = null
     currentWorkspaceId.value = null
     invalidateTerminalCache() // Cache cleanup
+    isInitialized = false
   }
 
   return {

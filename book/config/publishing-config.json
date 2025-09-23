@@ -1,0 +1,320 @@
+{
+  "publishing": {
+    "platforms": {
+      "web": {
+        "enabled": true,
+        "free": true,
+        "hosting": {
+          "provider": "github_pages",
+          "domain": "book.act-terminal.io",
+          "ssl": true,
+          "cdn": true
+        },
+        "features": {
+          "search": true,
+          "comments": false,
+          "analytics": true,
+          "feedback": true
+        }
+      },
+      "pdf": {
+        "enabled": true,
+        "commercial": true,
+        "price": 39.00,
+        "currency": "USD",
+        "distribution": [
+          "gumroad",
+          "leanpub",
+          "direct_download"
+        ]
+      },
+      "epub": {
+        "enabled": true,
+        "commercial": true,
+        "price": 29.00,
+        "currency": "USD",
+        "distribution": [
+          "amazon_kindle",
+          "apple_books",
+          "google_play_books",
+          "kobo"
+        ]
+      },
+      "print": {
+        "enabled": false,
+        "print_on_demand": true,
+        "price": 59.00,
+        "currency": "USD",
+        "distribution": [
+          "amazon_kdp",
+          "ingram_spark"
+        ]
+      }
+    },
+    "bundle_offers": {
+      "digital_complete": {
+        "includes": ["pdf", "epub", "web_premium"],
+        "price": 49.00,
+        "discount": "30%"
+      },
+      "everything": {
+        "includes": ["pdf", "epub", "print", "web_premium"],
+        "price": 89.00,
+        "discount": "25%"
+      }
+    }
+  },
+  "distribution": {
+    "channels": {
+      "direct": {
+        "website": "https://book.act-terminal.io",
+        "payment_processor": "stripe",
+        "download_delivery": "secure_links",
+        "license_management": true
+      },
+      "third_party": {
+        "gumroad": {
+          "commission": "5%",
+          "features": ["analytics", "coupons", "affiliates"]
+        },
+        "leanpub": {
+          "commission": "10%",
+          "features": ["progressive_publishing", "reader_feedback"]
+        },
+        "amazon_kdp": {
+          "commission": "30%",
+          "exclusive": false,
+          "price_matching": true
+        }
+      }
+    },
+    "regions": {
+      "north_america": ["USD"],
+      "europe": ["EUR", "GBP"],
+      "asia_pacific": ["USD", "JPY"],
+      "rest_of_world": ["USD"]
+    }
+  },
+  "marketing": {
+    "landing_page": {
+      "url": "https://act-terminal.io/book",
+      "features": [
+        "preview_chapters",
+        "table_of_contents",
+        "author_bio",
+        "testimonials",
+        "pricing_table",
+        "faq",
+        "sample_code"
+      ]
+    },
+    "content_marketing": {
+      "blog_posts": true,
+      "guest_articles": true,
+      "conference_talks": true,
+      "webinars": true,
+      "podcasts": true
+    },
+    "social_media": {
+      "twitter": "@act_terminal",
+      "linkedin": "act-terminal",
+      "github": "act-terminal/book",
+      "youtube": "act-terminal-channel"
+    },
+    "email_marketing": {
+      "newsletter": true,
+      "launch_sequence": true,
+      "reader_updates": true,
+      "course_integration": true
+    }
+  },
+  "legal": {
+    "copyright": {
+      "year": "2025",
+      "holder": "ACT Contributors",
+      "notice": "© 2025 ACT Contributors. All rights reserved."
+    },
+    "license": {
+      "code_examples": "MIT",
+      "book_content": "All Rights Reserved",
+      "open_source_portions": "MIT"
+    },
+    "terms_of_service": {
+      "url": "https://act-terminal.io/terms",
+      "last_updated": "2025-01-01"
+    },
+    "privacy_policy": {
+      "url": "https://act-terminal.io/privacy",
+      "last_updated": "2025-01-01",
+      "gdpr_compliant": true,
+      "ccpa_compliant": true
+    }
+  },
+  "reader_support": {
+    "channels": {
+      "email": "book-support@act-terminal.io",
+      "github_issues": "act-terminal/book/issues",
+      "discussion_forum": "act-terminal/book/discussions",
+      "discord": "act-terminal-community"
+    },
+    "resources": {
+      "errata": "https://book.act-terminal.io/errata",
+      "updates": "https://book.act-terminal.io/updates",
+      "code_repository": "https://github.com/act-terminal/book-examples",
+      "video_supplements": "https://youtube.com/act-terminal"
+    },
+    "sla": {
+      "response_time": "48 hours",
+      "resolution_time": "1 week",
+      "update_frequency": "quarterly"
+    }
+  },
+  "analytics": {
+    "tracking": {
+      "sales_metrics": true,
+      "reader_engagement": true,
+      "chapter_popularity": true,
+      "completion_rates": true,
+      "feedback_analysis": true
+    },
+    "tools": {
+      "google_analytics": "G-XXXXXXXXXX",
+      "mixpanel": "project_token_here",
+      "amplitude": "api_key_here",
+      "hotjar": "site_id_here"
+    },
+    "reporting": {
+      "frequency": "monthly",
+      "stakeholders": ["author", "marketing", "support"],
+      "kpis": [
+        "total_sales",
+        "conversion_rate",
+        "reader_satisfaction",
+        "chapter_completion",
+        "support_tickets"
+      ]
+    }
+  },
+  "quality_assurance": {
+    "review_process": {
+      "technical_review": true,
+      "editorial_review": true,
+      "code_testing": true,
+      "accessibility_audit": true,
+      "beta_readers": 25
+    },
+    "feedback_collection": {
+      "reader_surveys": true,
+      "github_feedback": true,
+      "email_feedback": true,
+      "rating_systems": true
+    },
+    "updates": {
+      "schedule": "quarterly",
+      "version_control": true,
+      "change_log": true,
+      "reader_notification": true
+    }
+  },
+  "partnerships": {
+    "educational": {
+      "universities": ["MIT", "Stanford", "CMU"],
+      "online_platforms": ["Coursera", "Udemy", "Pluralsight"],
+      "coding_bootcamps": ["Lambda School", "App Academy"],
+      "discount": "30%"
+    },
+    "corporate": {
+      "bulk_licensing": true,
+      "training_programs": true,
+      "white_label": false,
+      "enterprise_support": true
+    },
+    "affiliate": {
+      "program": true,
+      "commission": "20%",
+      "materials": ["banners", "email_templates", "landing_pages"],
+      "tracking": "impact_radius"
+    }
+  },
+  "internationalization": {
+    "translation": {
+      "planned_languages": ["Spanish", "German", "French", "Japanese"],
+      "priority": ["Spanish", "German"],
+      "budget_per_language": 15000,
+      "timeline": "6 months per language"
+    },
+    "localization": {
+      "currencies": true,
+      "payment_methods": true,
+      "cultural_adaptation": true,
+      "local_partnerships": true
+    }
+  },
+  "financial": {
+    "revenue_model": {
+      "one_time_purchase": true,
+      "subscription": false,
+      "freemium": true,
+      "corporate_licensing": true
+    },
+    "pricing_strategy": {
+      "penetration": true,
+      "value_based": true,
+      "competitive": true,
+      "geographic": true
+    },
+    "projections": {
+      "year_1": {
+        "units": 2500,
+        "revenue": 75000,
+        "markets": ["english"]
+      },
+      "year_2": {
+        "units": 5000,
+        "revenue": 175000,
+        "markets": ["english", "spanish"]
+      },
+      "year_3": {
+        "units": 8000,
+        "revenue": 300000,
+        "markets": ["english", "spanish", "german"]
+      }
+    }
+  },
+  "competitive_analysis": {
+    "direct_competitors": [
+      "Programming Rust (O'Reilly)",
+      "Vue.js: Up and Running (O'Reilly)",
+      "Zero to Production in Rust"
+    ],
+    "indirect_competitors": [
+      "Full-Stack Vue.js courses",
+      "Rust web development tutorials",
+      "AI integration guides"
+    ],
+    "differentiators": [
+      "Real production application",
+      "AI integration focus",
+      "Complete stack coverage",
+      "Modern technologies",
+      "Hands-on approach"
+    ]
+  },
+  "success_metrics": {
+    "sales": {
+      "target_units_year_1": 2500,
+      "target_revenue_year_1": 75000,
+      "target_conversion_rate": "3%"
+    },
+    "engagement": {
+      "average_completion_rate": "60%",
+      "reader_satisfaction": "4.5/5",
+      "recommendation_rate": "80%"
+    },
+    "impact": {
+      "github_stars": "5000+",
+      "community_discussions": "1000+ posts",
+      "job_placement_rate": "70%"
+    }
+  }
+}

@@ -1,0 +1,218 @@
+{
+  "title": "Full-Stack Development with Rust, Vue.js, and AI: From Terminal to Production",
+  "subtitle": "A Modern Guide to Building AI-Enhanced Applications",
+  "author": "ACT Contributors",
+  "version": "1.0.0",
+  "isbn": "",
+  "publication_date": "2025",
+  "language": "en",
+  "description": "A comprehensive technical book teaching modern full-stack development through building a real-world terminal application that integrates AI capabilities. Covers Rust backend development, Vue.js frontend, AI integration, and production deployment.",
+  "keywords": [
+    "Rust",
+    "Vue.js",
+    "Full-Stack Development",
+    "Terminal Emulation",
+    "AI Integration",
+    "Web Development",
+    "Modern Architecture",
+    "Production Deployment"
+  ],
+  "categories": [
+    "Software Development",
+    "Web Development",
+    "Systems Programming",
+    "AI/Machine Learning"
+  ],
+  "target_audience": {
+    "primary": [
+      "Full-stack developers",
+      "Backend developers interested in Rust",
+      "Frontend developers using Vue.js",
+      "Developers interested in AI integration"
+    ],
+    "secondary": [
+      "Computer science students",
+      "Software architects",
+      "DevOps engineers",
+      "Technical leads"
+    ]
+  },
+  "prerequisites": {
+    "required": [
+      "Basic programming experience",
+      "Understanding of web development concepts",
+      "Familiarity with command-line interfaces",
+      "Basic knowledge of version control (Git)"
+    ],
+    "recommended": [
+      "Prior experience with any systems programming language",
+      "Understanding of database concepts",
+      "Experience with modern JavaScript frameworks",
+      "Basic understanding of containerization"
+    ]
+  },
+  "technical_requirements": {
+    "system": [
+      "macOS, Linux, or Windows with WSL2",
+      "8GB+ RAM recommended",
+      "10GB+ free disk space"
+    ],
+    "software": [
+      "Rust 1.75+ with Cargo",
+      "Node.js 20+ with npm/yarn",
+      "Modern web browser",
+      "Terminal with Unicode support",
+      "Code editor (VS Code recommended)",
+      "Docker (for deployment chapters)"
+    ]
+  },
+  "structure": {
+    "parts": 8,
+    "chapters": 33,
+    "appendices": 3,
+    "estimated_pages": 800,
+    "estimated_reading_time": "40-60 hours"
+  },
+  "learning_objectives": [
+    "Master modern Rust web development with Axum and SQLx",
+    "Build sophisticated Vue.js 3 applications with TypeScript",
+    "Integrate AI agents for development workflow automation",
+    "Implement real-time communication with WebSockets",
+    "Design scalable system architectures",
+    "Deploy production-ready applications with Docker",
+    "Apply security best practices throughout the stack",
+    "Optimize performance for large-scale applications"
+  ],
+  "project_context": {
+    "base_project": "ai-coding-terminal",
+    "repository": "https://github.com/your-org/ai-coding-terminal",
+    "live_demo": "https://demo.act-terminal.io",
+    "documentation": "https://docs.act-terminal.io"
+  },
+  "technology_stack": {
+    "backend": {
+      "language": "Rust",
+      "framework": "Axum 0.7",
+      "database": "SQLx with SQLite/PostgreSQL",
+      "realtime": "socketioxide",
+      "terminal": "portable-pty",
+      "auth": "JWT + OAuth2"
+    },
+    "frontend": {
+      "language": "TypeScript",
+      "framework": "Vue.js 3.5+",
+      "state": "Pinia",
+      "build": "Vite",
+      "terminal": "xterm.js",
+      "editor": "CodeMirror 6"
+    },
+    "deployment": {
+      "containerization": "Docker",
+      "ci_cd": "GitHub Actions",
+      "cloud": "AWS/GCP/Azure",
+      "monitoring": "Prometheus + Grafana"
+    }
+  },
+  "output_formats": {
+    "web": {
+      "format": "HTML5",
+      "responsive": true,
+      "search": true,
+      "navigation": true,
+      "syntax_highlighting": true
+    },
+    "print": {
+      "format": "PDF",
+      "page_size": "US Letter",
+      "margins": "1 inch",
+      "fonts": "Source Sans Pro, Source Code Pro"
+    },
+    "ebook": {
+      "format": "EPUB",
+      "version": "3.0",
+      "reflowable": true,
+      "accessibility": true
+    }
+  },
+  "build_settings": {
+    "source_directory": "content",
+    "output_directory": "build",
+    "asset_directory": "assets",
+    "tools_directory": "tools",
+    "temp_directory": ".tmp"
+  },
+  "content_settings": {
+    "markdown_flavor": "GFM",
+    "code_highlighting": {
+      "languages": [
+        "rust",
+        "typescript",
+        "javascript",
+        "vue",
+        "html",
+        "css",
+        "sql",
+        "toml",
+        "json",
+        "yaml",
+        "bash",
+        "docker"
+      ],
+      "theme": "github-dark"
+    },
+    "image_formats": [
+      "PNG",
+      "JPG",
+      "SVG",
+      "WebP"
+    ],
+    "diagram_tools": [
+      "Mermaid",
+      "PlantUML",
+      "Draw.io"
+    ]
+  },
+  "validation": {
+    "link_checking": true,
+    "code_compilation": true,
+    "spell_checking": true,
+    "accessibility": true,
+    "w3c_validation": true
+  },
+  "publication": {
+    "copyright": "2025 ACT Contributors",
+    "license": "MIT",
+    "distribution": [
+      "Web (free)",
+      "PDF (commercial)",
+      "EPUB (commercial)"
+    ],
+    "pricing": {
+      "web": "Free",
+      "pdf": "$39",
+      "epub": "$29",
+      "bundle": "$49"
+    }
+  },
+  "marketing": {
+    "taglines": [
+      "Master modern full-stack development with real-world AI integration",
+      "From terminal to production: Build sophisticated web applications",
+      "Rust + Vue.js + AI: The complete developer's guide"
+    ],
+    "selling_points": [
+      "Based on actual production application",
+      "Comprehensive coverage from basics to advanced topics",
+      "Real-world examples with working code",
+      "AI integration throughout development workflow",
+      "Production deployment and scaling strategies"
+    ]
+  },
+  "maintenance": {
+    "update_schedule": "Quarterly",
+    "version_control": "Semantic versioning",
+    "errata_handling": "GitHub Issues",
+    "community_feedback": "GitHub Discussions",
+    "translation_support": true
+  }
+}
