@@ -106,7 +106,7 @@
         </button>
 
         <!-- Split Pane Dropdown -->
-        <div class="split-dropdown">
+        <div ref="splitDropdownRef" class="split-dropdown">
           <button
             @click="toggleSplitDropdown"
             class="split-dropdown-trigger"
@@ -275,6 +275,7 @@ const showTabOverflow = ref(false)
 const maxScrollPosition = ref(0)
 const isDragOverPane = ref(false)
 const showSplitDropdown = ref(false)
+const splitDropdownRef = ref<HTMLDivElement>()
 
 const sortedTabs = computed(() => {
   if (!props.node.tabs) return []
@@ -732,8 +733,7 @@ const handleSplitPane = (direction: 'horizontal' | 'vertical') => {
 
 // Close dropdown when clicking outside
 const handleClickOutside = (event: Event) => {
-  const dropdown = document.querySelector('.split-dropdown')
-  if (dropdown && !dropdown.contains(event.target as Node)) {
+  if (splitDropdownRef.value && !splitDropdownRef.value.contains(event.target as Node)) {
     showSplitDropdown.value = false
   }
 }
