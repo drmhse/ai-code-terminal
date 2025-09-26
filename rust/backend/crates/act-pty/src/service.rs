@@ -109,6 +109,7 @@ impl PtyService for TokioPtyService {
         let pty_session = PtySession::new(
             config.session_id.clone(),
             config.workspace_id.clone(),
+            config.pane_id.clone(),
             child,
             master,
             input_tx.clone(),
@@ -274,6 +275,7 @@ impl PtyService for TokioPtyService {
         let session_info = SessionInfo {
             session_id: config.session_id.clone(),
             workspace_id: config.workspace_id.clone(),
+            pane_id: config.pane_id.clone(),
             pid,
             status: SessionStatus::Active,
             size: config.size.clone(),
@@ -335,6 +337,7 @@ impl PtyService for TokioPtyService {
             session_infos.push(SessionInfo {
                 session_id: session_id.clone(),
                 workspace_id: session.workspace_id.clone(),
+                pane_id: session.pane_id.clone(),
                 pid: session.pid,
                 status: SessionStatus::Active,
                 size: session.size.clone(),
@@ -351,6 +354,7 @@ impl PtyService for TokioPtyService {
             Ok(SessionInfo {
                 session_id: session_id.clone(),
                 workspace_id: session.workspace_id.clone(),
+                pane_id: session.pane_id.clone(),
                 pid: session.pid,
                 status: SessionStatus::Active,
                 size: session.size.clone(),
@@ -364,5 +368,17 @@ impl PtyService for TokioPtyService {
     async fn is_session_active(&self, session_id: &SessionId) -> Result<bool> {
         let sessions = self.sessions.lock().await;
         Ok(sessions.contains_key(session_id))
+    }
+
+    async fn update_session_pane_id(&self, session_id: &SessionId, pane_id: Option<String>) -> Result<()> {
+        let sessions = self.sessions.lock().await;
+        if let Some(session_arc) = sessions.get(session_id) {
+            let mut session = session_arc.lock().await;
+            session.pane_id = pane_id.clone();
+            info!("Updated pane_id for session {} to {:?}", session_id, pane_id);
+            Ok(())
+        } else {
+            Err(CoreError::NotFound(format!("PTY session {} not found", session_id)))
+        }
     }
 }

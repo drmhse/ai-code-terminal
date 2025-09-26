@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { Workspace, Session } from '@/types'
 import { socketService } from '@/services/socket'
 import { useLayoutStore } from '@/stores/layout'
@@ -63,6 +63,12 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const sessions = ref<Session[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
+
+  // Watch for direct currentWorkspace changes (to catch bypassed switchWorkspace calls)
+  watch(currentWorkspace, (newWorkspace, oldWorkspace) => {
+    console.log('🔍 currentWorkspace changed directly from:', oldWorkspace?.name || 'null', 'to:', newWorkspace?.name || 'null')
+    console.trace('🔍 Call stack for direct currentWorkspace change')
+  }, { immediate: false })
   
   // Enhanced repository management
   const repositories = ref<Repository[]>([])
@@ -119,8 +125,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         // Try to restore previously selected workspace from user preferences
         try {
           const userPreferences = await apiService.getUserPreferences()
-          if (userPreferences?.current_workspace_id) {
-            const savedWorkspace = data.find(ws => ws.id === userPreferences.current_workspace_id)
+          if (userPreferences?.currentWorkspaceId) {
+            const savedWorkspace = data.find(ws => ws.id === userPreferences.currentWorkspaceId)
             if (savedWorkspace) {
               targetWorkspace = savedWorkspace
               logger.log('✅ Restored workspace from user preferences:', targetWorkspace.name)
@@ -231,7 +237,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       // Clean up user preferences if the deleted workspace was saved there
       try {
         const userPreferences = await apiService.getUserPreferences()
-        if (userPreferences?.current_workspace_id === id) {
+        if (userPreferences?.currentWorkspaceId === id) {
           await apiService.setCurrentWorkspace(null)
           logger.log('🧹 Removed deleted workspace from user preferences')
         }
@@ -256,6 +262,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   }
 
   const switchWorkspace = async (workspace: Workspace) => {
+    console.log('🚀 workspaceStore.switchWorkspace called with:', workspace.name)
     const targetWorkspaceId = workspace.id
 
     // Clear any pending timeout
@@ -266,12 +273,14 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
     // If already switching, queue this switch
     if (isWorkspaceSwitching) {
+      console.log('⏸️ Already switching, queuing workspace switch to:', workspace.name)
       pendingWorkspaceSwitch = targetWorkspaceId
       return
     }
 
     // If already in this workspace, do nothing
     if (currentWorkspace.value?.id === targetWorkspaceId) {
+      console.log('✅ Already in workspace, doing nothing:', workspace.name)
       logger.log('Already in workspace', workspace.name)
       return
     }
@@ -292,49 +301,113 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   }
 
   const performWorkspaceSwitch = async (workspace: Workspace) => {
-    if (isWorkspaceSwitching) return
+    console.log('🚀 performWorkspaceSwitch called with:', workspace.name)
+    if (isWorkspaceSwitching) {
+      console.log('⏸️ performWorkspaceSwitch early return - already switching')
+      return
+    }
 
     try {
+      console.log('🔄 performWorkspaceSwitch starting switch process')
       isWorkspaceSwitching = true
       const previousWorkspaceId = currentWorkspace.value?.id
 
+      console.log(`🔄 Switching from workspace ${previousWorkspaceId} to ${workspace.id}`)
       logger.log(`Switching from workspace ${previousWorkspaceId} to ${workspace.id}`)
 
       // Update current workspace immediately for UI responsiveness
+      console.log('🔄 Updating currentWorkspace.value to:', workspace.name)
       currentWorkspace.value = workspace
 
       // Save workspace preference to backend for multi-device persistence
+      console.log('🔄 Saving workspace preference to backend')
       try {
         await apiService.setCurrentWorkspace(workspace.id)
+        console.log('✅ Saved workspace preference to backend:', workspace.name)
         logger.log('💾 Saved workspace preference to backend:', workspace.name)
       } catch (preferencesError) {
+        console.log('⚠️ Failed to save workspace preference:', preferencesError)
         logger.warn('⚠️ Failed to save workspace preference:', preferencesError)
         // Don't throw - workspace switching should continue even if preference saving fails
       }
 
+      // Save current layout before switching (if we have an active workspace)
+      console.log('🔄 About to save current layout. previousWorkspaceId:', previousWorkspaceId)
+      if (previousWorkspaceId) {
+        console.log('🔄 Saving current layout for previous workspace:', previousWorkspaceId)
+        try {
+          const terminalModule = await import('@/stores/terminal-tree')
+          const terminalTreeStore = terminalModule.useTerminalTreeStore()
+          const layoutStore = useLayoutStore()
+
+          console.log('🔍 Terminal store layout exists:', !!terminalTreeStore.layout)
+          if (terminalTreeStore.layout) {
+            console.log('🔄 Stripping session data from layout')
+            const structureOnly = terminalTreeStore.stripSessionDataFromLayout(terminalTreeStore.layout)
+            const treeStructure = JSON.stringify(structureOnly)
+
+            console.log('🔄 Calling debouncedSaveLayout')
+            await layoutStore.debouncedSaveLayout(
+              `Auto-saved on workspace switch`,
+              previousWorkspaceId,
+              treeStructure,
+              'hierarchical',
+              false,
+              true // silent mode
+            )
+            console.log(`✅ Saved layout for previous workspace ${previousWorkspaceId}`)
+            logger.log(`💾 Saved layout for previous workspace ${previousWorkspaceId}`)
+          } else {
+            console.log('ℹ️ No layout to save for previous workspace')
+          }
+        } catch (saveError) {
+          console.log('⚠️ Failed to save previous workspace layout:', saveError)
+          logger.warn('Failed to save previous workspace layout:', saveError)
+          // Don't throw - layout saving failure shouldn't break workspace switching
+        }
+      } else {
+        console.log('ℹ️ No previous workspace to save layout for')
+      }
+
+      // Fetch layouts for the new workspace first (needed for terminal layout restoration)
+      console.log(`🔄 Fetching layouts for workspace ${workspace.id}`)
+      await fetchLayoutsForWorkspace(workspace.id)
+      console.log(`✅ Layouts fetched for workspace ${workspace.id}`)
+
       // Switch terminal store to new workspace context with proper cleanup
+      console.log(`🔄 About to switch terminal to workspace`)
       await switchTerminalToWorkspace(workspace.id)
+      console.log(`✅ Terminal switched to workspace`)
 
       // Notify WebSocket server about workspace switch
+      console.log(`🔄 Notifying WebSocket server about workspace switch`)
       if (socketService.isConnected) {
         socketService.switchWorkspace(workspace.id)
+        console.log(`✅ WebSocket notified about workspace switch`)
+      } else {
+        console.log(`⚠️ WebSocket not connected, skipping notification`)
       }
 
       // Fetch sessions for the new workspace (don't clear existing ones)
+      console.log(`🔄 Fetching sessions for workspace`)
       await fetchSessions(workspace.id)
-
-      // Fetch layouts for the new workspace
-      await fetchLayoutsForWorkspace(workspace.id)
+      console.log(`✅ Sessions fetched`)
 
       // Reload files for the new workspace context
+      console.log(`🔄 Reloading files for workspace`)
       await reloadFilesForWorkspace(workspace.id)
+      console.log(`✅ Files reloaded`)
 
       // Ensure the workspace has at least one terminal
+      console.log('🔄 Ensuring workspace has terminal')
       await ensureWorkspaceHasTerminal(workspace.id)
 
+      console.log('✅ performWorkspaceSwitch completed successfully for:', workspace.name)
     } catch (error) {
+      console.log('❌ Error during workspace switch:', error)
       logger.error('Error during workspace switch:', error)
     } finally {
+      console.log('🔧 performWorkspaceSwitch cleanup - resetting flags')
       isWorkspaceSwitching = false
       pendingWorkspaceSwitch = null
       workspaceSwitchTimeout = null
@@ -369,7 +442,18 @@ const fetchLayoutsForWorkspace = async (workspaceId: string) => {
 
   try {
     const layoutStore = useLayoutStore()
+    logger.log(`🔄 fetchLayoutsForWorkspace: Calling layoutStore.fetchLayouts(${workspaceId})`)
     await layoutStore.fetchLayouts(workspaceId)
+
+    // Clear currentLayout when switching workspaces to prevent cross-workspace auto-save issues
+    layoutStore.setCurrentLayout(null)
+    logger.log(`🔄 Cleared currentLayout for workspace switch`)
+
+    logger.log(`✅ fetchLayoutsForWorkspace: Successfully fetched layouts for workspace ${workspaceId}`)
+    logger.log(`🔍 Layout store now has ${layoutStore.layouts.length} total layouts`)
+
+    const workspaceLayouts = layoutStore.workspaceLayouts(workspaceId)
+    logger.log(`🔍 Layouts for workspace ${workspaceId}:`, workspaceLayouts)
   } catch (err) {
     logger.error('Failed to fetch layouts for workspace:', err)
     // Don't throw here - layouts are not critical for workspace functionality
@@ -408,9 +492,10 @@ const switchTerminalToWorkspace = async (workspaceId: string) => {
     const terminalModule = await import('@/stores/terminal-tree')
     const terminalTreeStore = terminalModule.useTerminalTreeStore()
 
+    logger.log(`🔄 switchTerminalToWorkspace: Calling switchToWorkspace(${workspaceId})`)
     // Switch terminal store to workspace context
     terminalTreeStore.switchToWorkspace(workspaceId)
-    logger.log(`Terminal store switched to workspace ${workspaceId}`)
+    logger.log(`✅ Terminal store switched to workspace ${workspaceId}`)
   } catch (err) {
     logger.error('Failed to switch terminal to workspace:', err)
     // Don't throw here - terminal switching failure shouldn't break workspace switching

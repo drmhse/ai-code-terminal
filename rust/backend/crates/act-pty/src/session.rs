@@ -9,6 +9,7 @@ use tokio::sync::Mutex;
 pub struct PtySession {
     pub session_id: SessionId,
     pub workspace_id: WorkspaceId,
+    pub pane_id: Option<String>,
     // **FIX:** Wrap child in Arc<Mutex<>> to allow shared, mutable access for waiting.
     pub child: Arc<Mutex<Box<dyn Child + Send>>>,
     pub master: Box<dyn MasterPty + Send>,
@@ -22,6 +23,7 @@ impl PtySession {
     pub fn new(
         session_id: SessionId,
         workspace_id: WorkspaceId,
+        pane_id: Option<String>,
         child: Box<dyn Child + Send>,
         master: Box<dyn MasterPty + Send>,
         input_tx: mpsc::UnboundedSender<Vec<u8>>,
@@ -31,6 +33,7 @@ impl PtySession {
         Self {
             session_id,
             workspace_id,
+            pane_id,
             child: Arc::new(Mutex::new(child)), // **FIX:** Wrap in Arc<Mutex<>>
             master,
             input_tx,

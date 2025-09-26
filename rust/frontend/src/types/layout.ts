@@ -74,3 +74,72 @@ export function getRecommendedLayout(viewportWidth: number, tabCount: number): L
 export function validateLayout(layout: unknown): layout is LayoutType {
   return typeof layout === 'string' && layout in LAYOUT_CONFIGS
 }
+
+// =============================================================================
+// Main Application Layout Preferences (Draggable Splitters)
+// =============================================================================
+
+// Layout preferences for main app layout (sidebar/editor widths)
+export interface LayoutPreferences {
+  sidebarWidth: number        // 200-400px constraint range
+  editorWidth: number         // 300-800px constraint range
+  version: string             // For future migrations/compatibility
+}
+
+// User preferences matching backend structure
+export interface UserPreferences {
+  currentWorkspaceId?: string | null
+  layoutPreferences: LayoutPreferences
+}
+
+// Layout constraints for validation and clamping
+export const LAYOUT_CONSTRAINTS = {
+  sidebar: {
+    min: 200,
+    max: 400,
+    default: 250
+  },
+  editor: {
+    min: 300,
+    max: 800,
+    default: 400
+  }
+} as const
+
+// Default layout preferences
+export const DEFAULT_LAYOUT_PREFERENCES: LayoutPreferences = {
+  sidebarWidth: LAYOUT_CONSTRAINTS.sidebar.default,
+  editorWidth: LAYOUT_CONSTRAINTS.editor.default,
+  version: '1.0'
+}
+
+// Responsive constraints based on viewport width
+export function getResponsiveConstraints() {
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1920
+
+  // Mobile: severely restrict sizes
+  if (vw <= 768) {
+    return {
+      sidebar: { min: 200, max: 250, default: 220 },
+      editor: { min: 300, max: 400, default: 350 }
+    }
+  }
+
+  // Tablet: moderately restrict sizes
+  if (vw <= 1024) {
+    return {
+      sidebar: { min: 200, max: 350, default: 250 },
+      editor: { min: 300, max: 600, default: 400 }
+    }
+  }
+
+  // Desktop: full constraints
+  return LAYOUT_CONSTRAINTS
+}
+
+// Utility function to clamp values within constraints (supports responsive)
+export function clampWidth(value: number, type: 'sidebar' | 'editor', useResponsive = true): number {
+  const constraints = useResponsive ? getResponsiveConstraints() : LAYOUT_CONSTRAINTS
+  const typeConstraints = constraints[type]
+  return Math.max(typeConstraints.min, Math.min(typeConstraints.max, value))
+}

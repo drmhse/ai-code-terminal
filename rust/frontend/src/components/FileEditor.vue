@@ -129,7 +129,7 @@ const editorError = computed(() => fileStore.editorError)
 // Language mapping is now handled in the codemirror-editor utility
 
 // Watch for active file changes
-watch(activeFile, async (newFile, oldFile) => {
+watch(activeFile, async (newFile) => {
   if (newFile) {
     // Always update the editor when there's an active file
     // This ensures content displays even when switching between tabs
@@ -315,32 +315,13 @@ onUnmounted(() => {
 <style scoped>
 .file-editor {
   background: var(--bg-primary);
-  border-left: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  z-index: 1000;
-}
-
-/* Floating panel mode (default) */
-.file-editor:not(.docked-mode) {
-  position: fixed;
-  top: 0;
-  right: -100%;
-  width: 60%;
-  height: 100vh;
-  transition: right 0.3s ease;
-}
-
-.file-editor:not(.docked-mode).editor-visible {
-  right: 0;
-}
-
-/* Docked mode */
-.file-editor.docked-mode {
-  position: relative;
   width: 100%;
   height: 100%;
-  border-left: none; /* Will be handled by parent */
+  position: relative;
+  overflow: hidden;
+  /* Remove z-index as it's no longer floating */
 }
 
 .editor-header {
@@ -592,52 +573,37 @@ onUnmounted(() => {
   border-right: 1px solid var(--border-color);
 }
 
-/* Responsive design */
-@media (max-width: 1200px) {
-  .file-editor {
-    width: 70%;
-  }
-}
-
+/* Mobile responsive adjustments */
 @media (max-width: 768px) {
-  .file-editor {
-    width: 100%;
-    right: -100%;
-  }
-  
-  .file-editor.editor-visible {
-    right: 0;
-  }
-  
   .editor-header {
     flex-direction: column;
     gap: 8px;
     min-height: auto;
   }
-  
+
   .editor-tabs {
     width: 100%;
   }
-  
+
   .tab {
     min-width: 80px;
     max-width: 120px;
   }
-  
+
   .tab-name {
     font-size: 11px;
   }
-  
+
   .editor-actions {
     width: 100%;
     justify-content: flex-end;
   }
-  
+
   .action-btn {
     font-size: 11px;
     padding: 4px 8px;
   }
-  
+
   .editor-info {
     flex-direction: column;
     align-items: flex-start;

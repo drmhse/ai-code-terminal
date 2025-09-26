@@ -26,6 +26,7 @@ pub struct PtySize {
 pub struct SessionConfig {
     pub session_id: SessionId,
     pub workspace_id: WorkspaceId,
+    pub pane_id: Option<String>,
     pub size: PtySize,
     pub shell: Option<String>,
     pub working_dir: Option<String>,
@@ -36,6 +37,7 @@ pub struct SessionConfig {
 pub struct SessionInfo {
     pub session_id: SessionId,
     pub workspace_id: WorkspaceId,
+    pub pane_id: Option<String>,
     pub pid: Option<u32>,
     pub status: SessionStatus,
     pub size: PtySize,
@@ -68,4 +70,6 @@ pub trait PtyService: Send + Sync {
     async fn list_sessions(&self) -> Result<Vec<SessionInfo>>;
 
     async fn is_session_active(&self, session_id: &SessionId) -> Result<bool>;
+
+    async fn update_session_pane_id(&self, session_id: &SessionId, pane_id: Option<String>) -> Result<()>;
 }

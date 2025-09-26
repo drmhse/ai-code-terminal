@@ -316,7 +316,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
 
     // Create terminal session via WebSocket (if auto-connect enabled)
     if (autoConnect && socketService.isConnected) {
-      socketService.createTerminal(workspaceId, sessionId)
+      socketService.createTerminal(workspaceId, sessionId, paneId)
     }
 
     return newTab
@@ -484,6 +484,8 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
 
   // Workspace management - always fresh from backend (no caching)
   const switchToWorkspace = async (workspaceId: string, autoRestoreSessions: boolean = true) => {
+    logger.log(`🚀 switchToWorkspace called with workspaceId: ${workspaceId}, autoRestoreSessions: ${autoRestoreSessions}`)
+
     // CRITICAL: Prevent duplicate workspace switches (race condition fix)
     if (isWorkspaceSwitching) {
       if (pendingWorkspaceSwitch === workspaceId) {
@@ -516,17 +518,68 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
       currentWorkspaceId.value = workspaceId
       invalidateTerminalCache()
 
-      // Always create layout fresh from current backend state
-      if (autoRestoreSessions && socketService.isConnected) {
+      // Try to restore saved layout structure first
+      let layoutRestored = false
+      try {
+        const layoutModule = await import('@/stores/layout')
+        const layoutStore = layoutModule.useLayoutStore()
+
+        // Get layouts for this workspace
+        const workspaceLayouts = layoutStore.workspaceLayouts(workspaceId)
+        console.log(`🔍 Found ${workspaceLayouts.length} layouts for workspace ${workspaceId}:`, workspaceLayouts)
+
+        const savedLayout = workspaceLayouts.find(l => l.layout_type === 'hierarchical')
+        console.log(`🔍 Found hierarchical layout:`, savedLayout)
+
+        if (savedLayout && savedLayout.tree_structure) {
+          console.log(`🔄 Restoring saved layout structure for workspace ${workspaceId}`)
+          console.log(`🔍 Layout tree_structure:`, savedLayout.tree_structure)
+
+          const parsedLayout = JSON.parse(savedLayout.tree_structure)
+          console.log(`🔍 Parsed layout:`, parsedLayout)
+
+          restoreLayout(parsedLayout)
+          layoutRestored = true
+          console.log(`✅ Restored layout structure with ${getAllTerminalNodes(parsedLayout.root).length} terminal nodes`)
+        } else {
+          console.log(`ℹ️ No saved layout structure found for workspace ${workspaceId}`)
+        }
+      } catch (error) {
+        console.warn(`Failed to restore saved layout for workspace ${workspaceId}:`, error)
+      }
+
+      // POPULATE SESSIONS: Always populate sessions after successful layout restoration
+      if (layoutRestored && autoRestoreSessions && socketService.isConnected) {
+        try {
+          console.log(`🔄 Populating restored layout with backend sessions for workspace ${workspaceId}`)
+
+          // Get current sessions for this workspace
+          const sessions = await apiService.getSessions(workspaceId)
+          const activeSessions = sessions.filter(session =>
+            session.status === 'active' || session.status === 'disconnected'
+          )
+
+          console.log(`🔍 Found ${activeSessions.length} active sessions to populate into restored layout`)
+
+          if (activeSessions.length > 0) {
+            await populateLayoutWithSessions(activeSessions, workspaceId)
+          }
+        } catch (error) {
+          console.warn(`Failed to populate restored layout with sessions for workspace ${workspaceId}:`, error)
+        }
+      }
+
+      // Fallback: create layout from backend sessions if no saved structure
+      if (!layoutRestored && autoRestoreSessions && socketService.isConnected) {
         try {
           await createLayoutFromBackendSessions(workspaceId)
         } catch (error) {
           console.warn(`Failed to create layout from backend sessions for workspace ${workspaceId}:`, error)
-          // Fallback: create empty layout if backend fails
+          // Final fallback: create empty layout if backend fails
           layout.value = null
         }
-      } else {
-        // No session restoration - leave layout null for now
+      } else if (!layoutRestored) {
+        // No session restoration and no saved layout - leave layout null for now
         layout.value = null
       }
 
@@ -657,8 +710,6 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
       return
     }
 
-    const targetPaneId = terminalNodes[0].id
-
     // CRITICAL DEDUPLICATION: Filter out sessions that already have tabs
     const newSessions = sessions.filter(session => {
       const existingTab = findTabBySessionId(session.id)
@@ -674,11 +725,36 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
       return
     }
 
+    console.log(`🔄 Distributing ${newSessions.length} sessions across ${terminalNodes.length} terminal panes`)
     logger.log(`🔄 Populating ${newSessions.length}/${sessions.length} new sessions (${sessions.length - newSessions.length} already exist)`)
 
-    // PERFORMANCE: No artificial delays, process sessions in parallel
-    const connectPromises = newSessions.map(async (session) => {
+    // INTELLIGENT SESSION PLACEMENT: Restore to original panes when possible
+    const connectPromises = newSessions.map(async (session, index) => {
       try {
+        let targetPaneId: string
+        let placementReason: string
+
+        // 1. INTELLIGENT PLACEMENT: Try to restore to original pane
+        if (session.pane_id) {
+          const originalPane = terminalNodes.find(node => node.id === session.pane_id)
+          if (originalPane) {
+            targetPaneId = session.pane_id
+            placementReason = '🎯 restored to original pane'
+          } else {
+            // Original pane missing, use round-robin fallback
+            const fallbackIndex = index % terminalNodes.length
+            targetPaneId = terminalNodes[fallbackIndex].id
+            placementReason = `🔄 original pane missing, fallback to pane ${fallbackIndex + 1}`
+          }
+        } else {
+          // 2. LEGACY FALLBACK: No pane association, use round-robin
+          const roundRobinIndex = index % terminalNodes.length
+          targetPaneId = terminalNodes[roundRobinIndex].id
+          placementReason = `🔄 legacy session, round-robin to pane ${roundRobinIndex + 1}`
+        }
+
+        console.log(`📍 Session ${session.id} → ${targetPaneId} (${placementReason})`)
+
         const tab = createTabInPane(
           targetPaneId,
           workspaceId,
@@ -688,7 +764,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
         )
 
         if (tab && socketService.isConnected) {
-          socketService.createTerminal(workspaceId, session.id)
+          socketService.createTerminal(workspaceId, session.id, targetPaneId)
           return { success: true, sessionId: session.id, tabId: tab.id, paneId: targetPaneId }
         }
         return { success: false, sessionId: session.id, error: 'Failed to create tab' }
@@ -700,7 +776,42 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
 
     const results = await Promise.allSettled(connectPromises)
     const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length
+
+    // Log distribution summary
+    const successfulResults = results
+      .filter(r => r.status === 'fulfilled' && r.value.success)
+      .map(r => (r as PromiseFulfilledResult<any>).value)
+
+    const paneDistribution = successfulResults.reduce((acc, result) => {
+      acc[result.paneId] = (acc[result.paneId] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+
+    console.log(`✅ Session distribution complete: ${successful}/${newSessions.length} sessions distributed`)
+    console.log(`📊 Pane distribution:`, Object.entries(paneDistribution).map(([paneId, count]) => `${paneId}: ${count} sessions`))
+
     logger.log(`✅ Populated layout with ${successful}/${newSessions.length} new sessions`)
+
+    // AUTO-CREATE SESSIONS: Create new sessions for any empty panes
+    const emptyPanes = terminalNodes.filter(node => !paneDistribution[node.id])
+    if (emptyPanes.length > 0) {
+      console.log(`🔧 Creating new sessions for ${emptyPanes.length} empty panes`)
+
+      const createPromises = emptyPanes.map(async (pane) => {
+        try {
+          console.log(`🆕 Creating new session for empty pane ${pane.id}`)
+          const newTab = createTabInPane(pane.id, workspaceId, 'Terminal', undefined, true)
+          return { success: !!newTab, paneId: pane.id }
+        } catch (error) {
+          console.error(`Failed to create session for pane ${pane.id}:`, error)
+          return { success: false, paneId: pane.id, error }
+        }
+      })
+
+      const createResults = await Promise.allSettled(createPromises)
+      const newSessionsCreated = createResults.filter(r => r.status === 'fulfilled' && r.value.success).length
+      console.log(`✅ Created ${newSessionsCreated}/${emptyPanes.length} new sessions for empty panes`)
+    }
 
     // FIX: Ensure at least one tab is active after session reconnection
     if (successful > 0 && layout.value) {
@@ -876,6 +987,12 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
     setActivePane(targetPaneId)
 
     logger.log(`🔄 Moved tab ${tabId} from pane ${sourcePaneId} to pane ${targetPaneId} at index ${insertIndex}`)
+
+    // UPDATE BACKEND: Update session-pane association after successful move
+    if (tab.sessionId && socketService.isConnected) {
+      console.log(`🔄 Updating session ${tab.sessionId} pane association to ${targetPaneId}`)
+      socketService.updateSessionPaneAssociation(tab.sessionId, targetPaneId)
+    }
 
     // Remove source pane if it's now empty (VS Code/Zed behavior)
     if (sourceNode.tabs.length === 0) {

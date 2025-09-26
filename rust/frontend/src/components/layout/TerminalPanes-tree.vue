@@ -29,7 +29,6 @@
           @split="handleSplit"
           @data="handleTerminalData"
           @resize="handleTerminalResize"
-          @move-tab-to-pane="handleMoveTabToPane"
           @close-pane="handleClosePane"
         />
       </div>
@@ -146,23 +145,6 @@ const handleTerminalResize = (payload: { paneId: string, cols: number, rows: num
 
 const handleTerminalFocus = (paneId: string) => {
   terminalStore.setActivePane(paneId)
-}
-
-const handleMoveTabToPane = (payload: { sourcePaneId: string, targetPaneId: string, tabId: string, targetIndex: number }) => {
-  console.log('🔄 Moving tab between panes:', payload)
-
-  const success = terminalStore.moveTabBetweenPanes(
-    payload.sourcePaneId,
-    payload.targetPaneId,
-    payload.tabId,
-    payload.targetIndex
-  )
-
-  if (success) {
-    console.log('✅ Tab moved successfully')
-  } else {
-    console.error('❌ Failed to move tab')
-  }
 }
 
 const handleClosePane = (paneId: string) => {

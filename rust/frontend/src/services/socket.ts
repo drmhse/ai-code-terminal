@@ -271,8 +271,8 @@ class SocketService {
     this.connectionState$.next(ConnectionState.DISCONNECTED)
   }
 
-  createTerminal(workspaceId: string, sessionId: string): void {
-    this.socket?.emit('terminal:create', { workspaceId, sessionId })
+  createTerminal(workspaceId: string, sessionId: string, paneId: string): void {
+    this.socket?.emit('terminal:create', { workspaceId, sessionId, paneId })
   }
 
 
@@ -299,6 +299,10 @@ class SocketService {
 
   recoverSession(recoveryToken: string): void {
     this.socket?.emit('session:recover', { recoveryToken })
+  }
+
+  updateSessionPaneAssociation(sessionId: string, paneId: string): void {
+    this.socket?.emit('session:update-pane', { sessionId, paneId })
   }
 
   subscribeToStats(interval: number = 5): void {

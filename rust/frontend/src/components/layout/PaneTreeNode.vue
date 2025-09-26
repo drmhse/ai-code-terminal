@@ -17,7 +17,6 @@
         @split="$emit('split', $event)"
         @data="$emit('data', $event)"
         @resize="$emit('resize', $event)"
-        @move-tab-to-pane="$emit('move-tab-to-pane', $event)"
         @close-pane="$emit('close-pane', $event)"
         :style="{ flex: childFlexValues[index]?.flex || '1 1 0%' }"
       />
@@ -219,7 +218,6 @@ interface Emits {
   (e: 'split', payload: { paneId: string, direction: 'horizontal' | 'vertical' }): void
   (e: 'data', payload: { paneId: string, data: string }): void
   (e: 'resize', payload: { paneId: string, cols: number, rows: number }): void
-  (e: 'move-tab-to-pane', payload: { sourcePaneId: string, targetPaneId: string, tabId: string, targetIndex: number }): void
   (e: 'close-pane', paneId: string): void
 }
 
@@ -410,14 +408,23 @@ const initializeTerminals = async () => {
   const terminalContent = document.querySelector(`[data-pane-id="${props.node.id}"] .terminal-content`) as HTMLElement
   if (terminalContent && !resizeObserver.value) {
     resizeObserver.value = new ResizeObserver(() => {
-      // Debounced fit
+      // Debounced fit with multiple attempts for robustness
       setTimeout(() => {
         if (!isDisposed.value) {
-          fit()
+          console.log(`🔄 ResizeObserver triggered for pane ${props.node.id}`)
+
+          // Fit all terminals in this pane, not just the active one
+          const allTabs = props.node.tabs || []
+          allTabs.forEach(tab => {
+            if (terminalInstances.value.has(tab.id)) {
+              fitWithRetry(tab.id)
+            }
+          })
         }
-      }, 100)
+      }, 50)
     })
     resizeObserver.value.observe(terminalContent)
+    console.log(`👁️ ResizeObserver set up for pane ${props.node.id}`)
   }
 
   console.log(`✅ Terminals initialized for pane ${props.node.id}`)
@@ -446,10 +453,7 @@ const fit = () => {
   if (!isDisposed.value) {
     const activeTab = getActiveTab()
     if (activeTab) {
-      const fitAddon = fitAddons.value.get(activeTab.id)
-      if (fitAddon) {
-        fitAddon.fit()
-      }
+      fitWithRetry(activeTab.id)
     }
   }
 }
@@ -584,50 +588,101 @@ const handleTabsScroll = () => {
   }
 }
 
-// Drag and drop (simplified for now)
+// Drag and drop with improved error handling and state management
 const handleDragStart = (event: DragEvent, tab: TerminalTab) => {
+  console.log(`🚀 Starting drag for tab ${tab.id}`)
   draggedTab.value = tab
   if (event.dataTransfer) {
     event.dataTransfer.setData('text/plain', tab.id)
+    event.dataTransfer.effectAllowed = 'move'
   }
 }
 
 const handleDragOver = (event: DragEvent, tab: TerminalTab) => {
   event.preventDefault()
-  if (draggedTab.value && draggedTab.value.id !== tab.id) {
+  event.stopPropagation()
+
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move'
+  }
+
+  // Get dragged tab ID from dataTransfer to check if we should show drag over state
+  const draggedTabId = event.dataTransfer?.getData('text/plain')
+  if (draggedTabId && draggedTabId !== tab.id) {
     dragOverTab.value = tab
   }
 }
 
-const handleDragLeave = () => {
-  dragOverTab.value = null
+const handleDragLeave = (event: DragEvent) => {
+  // Only clear visual feedback, never clear the dragged tab state
+  // The dragged tab state should only be cleared on dragend or successful drop
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  const x = event.clientX
+  const y = event.clientY
+
+  if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+    dragOverTab.value = null
+  }
 }
 
-const handleDrop = (event: DragEvent, targetTab: TerminalTab) => {
+const handleDrop = async (event: DragEvent, targetTab: TerminalTab) => {
   event.preventDefault()
+  event.stopPropagation()
 
-  if (draggedTab.value && draggedTab.value.id !== targetTab.id) {
-    // Find source pane for the dragged tab
-    const sourcePane = allTerminalNodes.value.find(node =>
-      node.tabs?.some(tab => tab.id === draggedTab.value!.id)
-    )
+  console.log(`🎯 Drop triggered for tab ${targetTab.id}`)
 
-    if (sourcePane && sourcePane.id !== props.node.id) {
+  // Get dragged tab ID from dataTransfer
+  const draggedTabId = event.dataTransfer?.getData('text/plain')
+  if (!draggedTabId || draggedTabId === targetTab.id) {
+    console.log('❌ Invalid drop: no dragged tab or same tab')
+    return
+  }
+
+  console.log(`📋 Got dragged tab ID from dataTransfer: ${draggedTabId}`)
+
+  try {
+    // Find source pane and dragged tab using the ID from dataTransfer
+    let draggedTabObj: TerminalTab | null = null
+    const sourcePane = allTerminalNodes.value.find(node => {
+      const tab = node.tabs?.find(tab => tab.id === draggedTabId)
+      if (tab) {
+        draggedTabObj = tab
+        return true
+      }
+      return false
+    })
+
+    if (!sourcePane || !draggedTabObj) {
+      console.error('❌ Source pane or dragged tab not found')
+      return
+    }
+
+    if (sourcePane.id !== props.node.id) {
       // Moving tab between different panes
       const targetIndex = props.node.tabs?.findIndex(tab => tab.id === targetTab.id) || 0
-      terminalStore.moveTabBetweenPanes(sourcePane.id, props.node.id, draggedTab.value.id, targetIndex)
-      emit('move-tab-to-pane', {
-        sourcePaneId: sourcePane.id,
-        targetPaneId: props.node.id,
-        tabId: draggedTab.value.id,
-        targetIndex
-      })
-    } else if (sourcePane && sourcePane.id === props.node.id) {
+      console.log(`🔄 Moving tab ${draggedTabId} from pane ${sourcePane.id} to pane ${props.node.id} at index ${targetIndex}`)
+
+      const success = terminalStore.moveTabBetweenPanes(sourcePane.id, props.node.id, draggedTabId, targetIndex)
+
+      if (success) {
+        console.log('✅ Tab moved between panes successfully')
+
+        // Force resize the moved tab in its new container
+        setTimeout(() => {
+          console.log(`🔧 Triggering post-move resize for tab ${draggedTabId}`)
+          forceResizeTab(draggedTabId)
+        }, 100)
+      } else {
+        console.error('❌ Failed to move tab between panes')
+      }
+    } else {
       // Reordering tabs within the same pane
-      const draggedIndex = props.node.tabs?.findIndex(tab => tab.id === draggedTab.value!.id) || 0
+      const draggedIndex = props.node.tabs?.findIndex(tab => tab.id === draggedTabId) || 0
       const targetIndex = props.node.tabs?.findIndex(tab => tab.id === targetTab.id) || 0
 
       if (draggedIndex !== targetIndex && props.node.tabs) {
+        console.log(`🔄 Reordering tab within pane ${props.node.id}: ${draggedIndex} → ${targetIndex}`)
+
         const tabs = [...props.node.tabs]
         const [draggedTabObj] = tabs.splice(draggedIndex, 1)
         tabs.splice(targetIndex, 0, draggedTabObj)
@@ -638,51 +693,130 @@ const handleDrop = (event: DragEvent, targetTab: TerminalTab) => {
         })
 
         props.node.tabs = tabs
+        console.log('✅ Tab reordered within pane successfully')
       }
     }
+  } catch (error) {
+    console.error('❌ Error during drop handling:', error)
+  } finally {
+    // Clear visual state
+    dragOverTab.value = null
   }
-
-  draggedTab.value = null
-  dragOverTab.value = null
 }
 
 const handleDragEnd = () => {
-  draggedTab.value = null
+  console.log('🏁 Drag ended, cleaning up visual state')
+
+  // Clear visual feedback immediately
   dragOverTab.value = null
+  isDragOverPane.value = false
+
+  // Don't clear draggedTab.value immediately to allow drop events to complete
+  // Use a timeout to cleanup stale drag state as a fallback
+  setTimeout(() => {
+    if (draggedTab.value) {
+      console.log('🧹 Cleaning up stale drag state')
+      draggedTab.value = null
+    }
+  }, 100)
 }
 
-// Pane drag and drop
+// Pane drag and drop with improved validation
 const handlePaneDragOver = (event: DragEvent) => {
   event.preventDefault()
-  isDragOverPane.value = true
-}
+  event.stopPropagation()
 
-const handlePaneDragLeave = () => {
-  isDragOverPane.value = false
-}
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move'
+  }
 
-const handlePaneDrop = (event: DragEvent) => {
-  event.preventDefault()
-  isDragOverPane.value = false
-
-  if (draggedTab.value) {
-    // Find source pane for the dragged tab
+  // Get dragged tab ID from dataTransfer to check if we should show drop target
+  const draggedTabId = event.dataTransfer?.getData('text/plain')
+  if (draggedTabId) {
     const sourcePane = allTerminalNodes.value.find(node =>
-      node.tabs?.some(tab => tab.id === draggedTab.value!.id)
+      node.tabs?.some(tab => tab.id === draggedTabId)
     )
 
     if (sourcePane && sourcePane.id !== props.node.id) {
-      // Moving tab to a different pane (at the end)
-      terminalStore.moveTabBetweenPanes(sourcePane.id, props.node.id, draggedTab.value.id)
-      emit('move-tab-to-pane', {
-        sourcePaneId: sourcePane.id,
-        targetPaneId: props.node.id,
-        tabId: draggedTab.value.id,
-        targetIndex: props.node.tabs?.length || 0
-      })
+      isDragOverPane.value = true
+    }
+  }
+}
+
+const handlePaneDragLeave = (event: DragEvent) => {
+  // Only clear visual drop target state, never clear the dragged tab
+  // Be more conservative about clearing to avoid race conditions
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  const x = event.clientX
+  const y = event.clientY
+
+  // Add some margin to prevent flickering when dragging near edges
+  const margin = 10
+  if (x < rect.left - margin || x > rect.right + margin ||
+      y < rect.top - margin || y > rect.bottom + margin) {
+    isDragOverPane.value = false
+  }
+}
+
+const handlePaneDrop = async (event: DragEvent) => {
+  event.preventDefault()
+  event.stopPropagation()
+
+  console.log(`🎯 Pane drop triggered for pane ${props.node.id}`)
+
+  isDragOverPane.value = false
+
+  // Get the dragged tab ID from dataTransfer instead of local state
+  const draggedTabId = event.dataTransfer?.getData('text/plain')
+  if (!draggedTabId) {
+    console.log('❌ No dragged tab ID in dataTransfer')
+    return
+  }
+
+  console.log(`📋 Got dragged tab ID from dataTransfer: ${draggedTabId}`)
+
+  try {
+    // Find source pane and dragged tab using the ID from dataTransfer
+    let draggedTabObj: TerminalTab | null = null
+    const sourcePane = allTerminalNodes.value.find(node => {
+      const tab = node.tabs?.find(tab => tab.id === draggedTabId)
+      if (tab) {
+        draggedTabObj = tab
+        return true
+      }
+      return false
+    })
+
+    if (!sourcePane || !draggedTabObj) {
+      console.error('❌ Source pane or dragged tab not found for pane drop')
+      return
     }
 
-    draggedTab.value = null
+    if (sourcePane.id !== props.node.id) {
+      // Moving tab to a different pane (at the end)
+      const targetIndex = props.node.tabs?.length || 0
+      console.log(`🔄 Moving tab ${draggedTabId} from pane ${sourcePane.id} to end of pane ${props.node.id} at index ${targetIndex}`)
+
+      const success = terminalStore.moveTabBetweenPanes(sourcePane.id, props.node.id, draggedTabId, targetIndex)
+
+      if (success) {
+        console.log('✅ Tab moved to pane successfully')
+
+        // Force resize the moved tab in its new container
+        setTimeout(() => {
+          console.log(`🔧 Triggering post-move resize for tab ${draggedTabId}`)
+          forceResizeTab(draggedTabId)
+        }, 100)
+      } else {
+        console.error('❌ Failed to move tab to pane')
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error during pane drop handling:', error)
+  } finally {
+    // Clear visual state
+    dragOverTab.value = null
+    isDragOverPane.value = false
   }
 }
 
@@ -760,6 +894,10 @@ watch(() => props.node.tabs, async (newTabs) => {
         terminal.write(tab.buffer)
       }
     }
+
+    // Force resize for newly added tabs (especially important for moved tabs)
+    console.log(`🔄 Triggering resize for newly added tab ${tab.id}`)
+    forceResizeTab(tab.id)
   }
 
   // Update known tabs
@@ -778,8 +916,49 @@ watch(() => props.theme, (newTheme) => {
   }
 }, { deep: true })
 
+// Force resize for newly added tabs (especially moved tabs)
+const forceResizeTab = (tabId: string) => {
+  const terminal = terminalInstances.value.get(tabId)
+  const fitAddon = fitAddons.value.get(tabId)
+
+  if (terminal && fitAddon) {
+    try {
+      console.log(`🔧 Force resizing terminal for tab ${tabId}`)
+
+      // Multiple resize attempts with different timings to handle various scenarios
+      setTimeout(() => fitAddon.fit(), 50)   // Quick resize
+      setTimeout(() => fitAddon.fit(), 150)  // DOM settled
+      setTimeout(() => fitAddon.fit(), 300)  // Final resize after animations
+
+      console.log(`✅ Terminal resize scheduled for tab ${tabId}`)
+    } catch (error) {
+      console.error(`❌ Error scheduling resize for tab ${tabId}:`, error)
+    }
+  } else {
+    console.warn(`⚠️ Terminal or FitAddon not found for tab ${tabId} resize`)
+  }
+}
+
+// Enhanced fit function with retry logic
+const fitWithRetry = (tabId?: string) => {
+  const targetTab = tabId ? { id: tabId } : getActiveTab()
+  if (!targetTab) return
+
+  const fitAddon = fitAddons.value.get(targetTab.id)
+  const terminal = terminalInstances.value.get(targetTab.id)
+
+  if (fitAddon && terminal && !isDisposed.value) {
+    try {
+      fitAddon.fit()
+      console.log(`📏 Terminal fitted for tab ${targetTab.id}`)
+    } catch (error) {
+      console.warn(`⚠️ Fit retry failed for tab ${targetTab.id}:`, error)
+    }
+  }
+}
+
 // Expose methods for parent component
-defineExpose({ write, fit, focus, dispose })
+defineExpose({ write, fit, focus, dispose, forceResizeTab, fitWithRetry })
 
 onMounted(() => {
   if (props.node.type === 'terminal') {

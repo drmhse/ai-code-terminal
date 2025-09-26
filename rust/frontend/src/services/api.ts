@@ -6,10 +6,8 @@ import type { ThemePreference } from '@/types/theme'
 import type { AppStats } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 
-// User preferences types
-interface UserPreferences {
-  current_workspace_id?: string | null
-}
+// User preferences types (imported to match backend structure)
+import type { UserPreferences, LayoutPreferences } from '@/types/layout'
 
 interface DirectoryListing {
   path: string
@@ -687,21 +685,50 @@ details?: Record<string, unknown>
   // User preferences endpoints
   async getUserPreferences(): Promise<UserPreferences | null> {
     try {
-      const response: AxiosResponse<ApiResponse<UserPreferences | null>> = await this.client.get('/api/v1/user/preferences')
-      return response.data.data
+      const response: AxiosResponse<ApiResponse<any>> = await this.client.get('/api/v1/user/preferences')
+      const data = response.data.data
+
+      if (!data) return null
+
+      // Convert snake_case from backend to camelCase for frontend
+      const layoutPrefs = data.layout_preferences || {}
+      return {
+        currentWorkspaceId: data.current_workspace_id || null,
+        layoutPreferences: {
+          sidebarWidth: layoutPrefs.sidebar_width || 250,
+          editorWidth: layoutPrefs.editor_width || 400,
+          version: layoutPrefs.version || '1.0'
+        }
+      }
     } catch {
       return null
     }
   }
 
   async updateUserPreferences(preferences: UserPreferences): Promise<void> {
-    await this.client.patch('/api/v1/user/preferences', preferences)
+    // Convert camelCase to snake_case for backend compatibility
+    const backendPreferences = {
+      current_workspace_id: preferences.currentWorkspaceId,
+      layout_preferences: {
+        sidebar_width: preferences.layoutPreferences.sidebarWidth,
+        editor_width: preferences.layoutPreferences.editorWidth,
+        version: preferences.layoutPreferences.version
+      }
+    }
+    await this.client.patch('/api/v1/user/preferences', backendPreferences)
   }
 
-  // Convenience method for updating current workspace
+  // Convenience method for updating current workspace (preserves layout preferences)
   async setCurrentWorkspace(workspaceId: string | null): Promise<void> {
+    // Get current preferences to preserve layout settings
+    const currentPrefs = await this.getUserPreferences()
     const preferences: UserPreferences = {
-      current_workspace_id: workspaceId
+      currentWorkspaceId: workspaceId,
+      layoutPreferences: currentPrefs?.layoutPreferences || {
+        sidebarWidth: 250,
+        editorWidth: 400,
+        version: '1.0'
+      }
     }
     await this.updateUserPreferences(preferences)
   }

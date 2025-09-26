@@ -73,7 +73,7 @@ pub async fn create_session(
     };
 
     let _was_created = state.domain_services.session_service
-        .get_or_create_pty_session(&auth_user.user_id, &session_id, &request.workspace_id, workspace_path)
+        .get_or_create_pty_session(&auth_user.user_id, &session_id, &request.workspace_id, workspace_path, None)
         .await?;
 
     // Create a Session response (this would typically come from a database in a real app)

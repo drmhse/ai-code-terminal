@@ -25,6 +25,8 @@ pub struct TerminalCreateRequest {
     pub workspace_id: String,
     #[serde(rename = "sessionId")]
     pub session_id: Option<String>,
+    #[serde(rename = "paneId")]
+    pub pane_id: Option<String>,
     pub shell: Option<String>,
     pub cwd: Option<String>,
 }
@@ -55,6 +57,14 @@ pub struct TerminalResizeRequest {
 pub struct SessionListRequest {
     #[serde(rename = "workspaceId")]
     pub workspace_id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SessionUpdatePaneRequest {
+    #[serde(rename = "sessionId")]
+    pub session_id: String,
+    #[serde(rename = "paneId")]
+    pub pane_id: String,
 }
 
 
@@ -261,7 +271,7 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                 let state = state.clone();
                 let _connection_id = socket.id.to_string();
                 async move {
-                    info!("🚀 MULTI-DEVICE: Terminal create request: workspace_id={}, session_id={:?}", data.workspace_id, data.session_id);
+                    info!("🚀 MULTI-DEVICE: Terminal create request: workspace_id={}, session_id={:?}, pane_id={:?}", data.workspace_id, data.session_id, data.pane_id);
 
                     // Check authentication
                     let user_id = match get_authenticated_user_id(&socket) {
@@ -290,8 +300,8 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                         }
                     };
 
-                    // CORE MULTI-DEVICE LOGIC: Get or create PTY session
-                    match state.domain_services.session_service.get_or_create_pty_session(&user_id, &session_id, &data.workspace_id, workspace_path).await {
+                    // CORE MULTI-DEVICE LOGIC: Get or create PTY session with pane association
+                    match state.domain_services.session_service.get_or_create_pty_session(&user_id, &session_id, &data.workspace_id, workspace_path, data.pane_id.clone()).await {
                         Ok(is_new_session) => {
                             if is_new_session {
                                 info!("🆕 MULTI-DEVICE: Created NEW PTY session {} for user {}", session_id, user_id);
@@ -523,6 +533,44 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                             error!("Failed to terminate session: {}", err);
                             socket.emit("terminal-error", ErrorEvent {
                                 error: format!("Failed to terminate session: {}", err),
+                            }).ok();
+                        }
+                    }
+                }
+            }
+        });
+
+        // Session pane association update handler
+        socket.on("session:update-pane", {
+            let state = state.clone();
+            move |socket: SocketRef, Data::<SessionUpdatePaneRequest>(data)| {
+                let state = state.clone();
+                async move {
+                    // Check authentication
+                    let user_id = match get_authenticated_user_id(&socket) {
+                        Ok(user_id) => user_id,
+                        Err(err) => {
+                            error!("Session pane update request from unauthenticated socket: {}", err);
+                            socket.emit("terminal:error", ErrorEvent {
+                                error: format!("Authentication required: {}", err),
+                            }).ok();
+                            return;
+                        }
+                    };
+
+                    match state.domain_services.session_service.update_session_pane_association(&user_id, &data.session_id, data.pane_id.clone()).await {
+                        Ok(_) => {
+                            info!("Updated pane association for session {} to pane {}", data.session_id, data.pane_id);
+                            socket.emit("session:pane-updated", serde_json::json!({
+                                "sessionId": data.session_id,
+                                "paneId": data.pane_id,
+                                "success": true
+                            })).ok();
+                        }
+                        Err(err) => {
+                            error!("Failed to update session pane association: {}", err);
+                            socket.emit("terminal:error", ErrorEvent {
+                                error: format!("Failed to update session pane association: {}", err),
                             }).ok();
                         }
                     }

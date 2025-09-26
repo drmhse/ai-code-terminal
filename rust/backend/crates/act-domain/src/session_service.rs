@@ -5,7 +5,7 @@ use act_core::{
     Result, CoreError,
     pty::{PtyService, SessionConfig, SessionInfo, PtySize, PtyEvent, SessionId},
 };
-use tracing::{info, error, debug};
+use tracing::{info, error, debug, warn};
 
 // Type aliases for clarity
 pub type UserId = String;
@@ -141,6 +141,7 @@ impl SessionService {
         session_id: &str,
         workspace_id: &str,
         workspace_path: Option<String>,
+        pane_id: Option<String>,
     ) -> Result<bool> {
         let mut live_state = self.live_state.write().await;
 
@@ -163,6 +164,7 @@ impl SessionService {
         let config = SessionConfig {
             session_id: session_id.to_string(),
             workspace_id: workspace_id.to_string(),
+            pane_id: pane_id,
             size: PtySize {
                 cols: 80,
                 rows: 24,
@@ -494,5 +496,37 @@ impl SessionService {
         }
 
         Ok(cleaned_count)
+    }
+
+    /// Update the pane association for an existing session
+    pub async fn update_session_pane_association(
+        &self,
+        user_id: &str,
+        session_id: &str,
+        new_pane_id: String,
+    ) -> Result<()> {
+        // Check if session exists for this user
+        if !self.has_pty_session(user_id, session_id).await? {
+            return Err(CoreError::NotFound(format!("Session {} not found for user {}", session_id, user_id)));
+        }
+
+        let mut live_state = self.live_state.write().await;
+
+        if let Some(user_state) = live_state.get_mut(user_id) {
+            if let Some(session_info) = user_state.pty_sessions.get_mut(session_id) {
+                session_info.pane_id = Some(new_pane_id.clone());
+                info!("Updated pane association for session {} to pane {}", session_id, new_pane_id);
+
+                // Also update the PTY service to keep it synchronized
+                drop(live_state); // Release the lock before calling PTY service
+                if let Err(e) = self.pty_service.update_session_pane_id(&session_id.to_string(), Some(new_pane_id)).await {
+                    warn!("Failed to update pane_id in PTY service for session {}: {}", session_id, e);
+                }
+
+                return Ok(());
+            }
+        }
+
+        Err(CoreError::NotFound(format!("Session {} not found for user {}", session_id, user_id)))
     }
 }

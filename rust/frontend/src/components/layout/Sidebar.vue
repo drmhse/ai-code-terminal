@@ -145,6 +145,8 @@ const searchTerm = ref('')
 const workspaceSwitching = ref(false)
 
 const selectWorkspace = async (workspace: Workspace) => {
+  console.log('🚀 Sidebar selectWorkspace called with:', workspace.name)
+
   // Prevent rapid workspace switching
   if (workspaceSwitching.value) {
     console.log('Workspace switch already in progress, ignoring click')
@@ -153,11 +155,13 @@ const selectWorkspace = async (workspace: Workspace) => {
 
   // If already selected, do nothing
   if (workspaceStore.selectedWorkspace?.id === workspace.id) {
+    console.log('Workspace already selected, doing nothing')
     return
   }
 
   try {
     workspaceSwitching.value = true
+    console.log('🔄 Calling workspaceStore.switchWorkspace')
     await workspaceStore.switchWorkspace(workspace)
     await refreshFiles()
     await layoutStore.fetchLayouts(workspace.id)
