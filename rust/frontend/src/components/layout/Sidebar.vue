@@ -195,7 +195,7 @@ const openDeleteModal = (workspace: Workspace) => {
   flex: none;
   width: 100%;
   min-width: 200px;
-  max-width: 280px;
+  /* Removed max-width - sidebar should always fill its allocated grid space */
   background: var(--sidebar-background);
   border-right: 1px solid var(--sidebar-border);
   display: flex;

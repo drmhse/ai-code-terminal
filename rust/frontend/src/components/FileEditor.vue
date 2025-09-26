@@ -1,18 +1,18 @@
 <template>
   <div class="file-editor" :class="{ 'editor-visible': showEditor, 'docked-mode': docked }">
-    <!-- Editor Header -->
+    <!-- Consolidated Editor Header - Single Row -->
     <div class="editor-header">
       <div class="editor-tabs">
-        <div 
-          v-for="tab in fileTabs" 
+        <div
+          v-for="tab in fileTabs"
           :key="tab.id"
           :class="['tab', { 'active': tab.is_active, 'modified': tab.is_modified }]"
           @click="setActiveTab(tab.id)"
         >
           <span class="tab-name">{{ tab.name }}</span>
           <span v-if="tab.is_modified" class="modified-indicator">●</span>
-          <button 
-            @click.stop="closeFile(tab.id)" 
+          <button
+            @click.stop="closeFile(tab.id)"
             class="close-tab"
             title="Close file"
           >
@@ -20,30 +20,36 @@
           </button>
         </div>
       </div>
-      
+
+      <!-- Consolidated File Info - Language and Status -->
+      <div v-if="activeFile" class="editor-meta">
+        <span class="language">{{ activeFile.language }}</span>
+        <span v-if="activeFile.is_modified" class="modified">Modified</span>
+      </div>
+
       <div class="editor-actions">
-        <button 
+        <button
           v-if="unsavedFiles.length > 0"
-          @click="saveAllFiles" 
+          @click="saveAllFiles"
           class="action-btn"
           title="Save all files"
         >
           <ArrowDownTrayIcon class="h-4 w-4" />
           Save All ({{ unsavedFiles.length }})
         </button>
-        
-        <button 
+
+        <button
           v-if="activeFile?.is_modified"
-          @click="saveActiveFile" 
+          @click="saveActiveFile"
           class="action-btn primary"
           title="Save current file"
         >
           <ArrowDownTrayIcon class="h-4 w-4" />
           Save
         </button>
-        
-        <button @click="closeEditor" class="action-btn" title="Close editor">
-          <XMarkIcon class="h-4 w-4" />
+
+        <button @click="closeEditor" class="close-btn" title="Close editor">
+          <XMarkIcon class="h-3 w-3" />
         </button>
       </div>
     </div>
@@ -66,13 +72,7 @@
       </div>
       
       <div v-else-if="activeFile" class="editor-container">
-        <div class="editor-info">
-          <span class="file-path">{{ activeFile.path }}</span>
-          <span class="language">{{ activeFile.language }}</span>
-          <span v-if="activeFile.is_modified" class="modified">Modified</span>
-        </div>
-        
-        <!-- CodeMirror Editor -->
+        <!-- CodeMirror Editor - No redundant info bar -->
         <div ref="editorContainer" class="code-editor"></div>
       </div>
       
@@ -326,102 +326,126 @@ onUnmounted(() => {
 
 .editor-header {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  padding: 8px 16px;
+  padding: 0 12px 0 0;
   background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
-  min-height: 48px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  min-height: 42px;
+  gap: 12px;
+  position: relative;
 }
 
 .editor-tabs {
   display: flex;
-  gap: 2px;
+  gap: 1px;
   flex: 1;
   overflow-x: auto;
-  scrollbar-width: thin;
+  scrollbar-width: none;
+  align-items: flex-end;
+  padding: 4px 0 0 12px;
 }
 
 .editor-tabs::-webkit-scrollbar {
-  height: 4px;
-}
-
-.editor-tabs::-webkit-scrollbar-track {
-  background: var(--bg-tertiary);
-}
-
-.editor-tabs::-webkit-scrollbar-thumb {
-  background: var(--text-muted);
-  border-radius: 2px;
+  display: none;
 }
 
 .tab {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  background: var(--bg-tertiary);
-  border: 1px solid transparent;
-  border-radius: 4px 4px 0 0;
+  gap: 6px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
   cursor: pointer;
-  transition: all 0.15s ease;
-  min-width: 120px;
-  max-width: 200px;
+  transition: all 0.12s ease;
+  max-width: 240px; /* Only constrain extreme cases */
+  position: relative;
+  color: var(--text-muted);
+  font-size: 12px;
+  flex-shrink: 0; /* Prevent tabs from shrinking below content size */
+  height: 30px;
 }
 
 .tab:hover {
-  background: var(--button-hover);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
 }
 
 .tab.active {
   background: var(--bg-primary);
-  border-color: var(--border-color);
-  border-bottom-color: var(--bg-primary);
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--primary);
+  z-index: 2;
 }
 
-.tab.modified {
-  border-left: 3px solid var(--warning);
+.tab.modified::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 8px;
+  background: var(--warning);
+  border-radius: 1px;
 }
 
 .tab-name {
   font-size: 12px;
-  color: var(--text-primary);
+  color: inherit;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  flex: 1;
+  font-weight: 400;
+  /* Let content determine width naturally */
 }
 
 .modified-indicator {
   color: var(--warning);
-  font-size: 10px;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  font-size: 8px;
+  opacity: 0.8;
 }
 
 .close-tab {
   background: none;
   border: none;
-  color: var(--text-muted);
+  color: inherit;
   cursor: pointer;
-  padding: 2px;
+  padding: 1px;
   border-radius: 2px;
-  transition: all 0.15s ease;
+  transition: opacity 0.12s ease;
   flex-shrink: 0;
+  opacity: 0.6;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .close-tab:hover {
-  background: var(--error);
-  color: white;
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Consolidated file metadata in header */
+.editor-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  justify-content: center;
+  font-size: 12px;
+  height: 100%;
 }
 
 .editor-actions {
   display: flex;
   gap: 8px;
+  align-items: center;
+  height: 100%;
 }
 
 .action-btn {
@@ -451,6 +475,31 @@ onUnmounted(() => {
 
 .action-btn.primary:hover {
   background: var(--primary-dark);
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  min-width: 32px;
+  height: 32px;
+}
+
+.close-btn:hover {
+  background: var(--error, #f14c4c);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(241, 76, 76, 0.4);
 }
 
 .editor-content {
@@ -506,46 +555,38 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  margin-top: -1px; /* Pull content up to eliminate any gap */
 }
 
-.editor-info {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 8px 16px;
+/* Updated styles for language and modified indicators in header */
+.editor-meta .language {
   background: var(--bg-tertiary);
-  border-bottom: 1px solid var(--border-color);
-  font-size: 12px;
-}
-
-.file-path {
-  color: var(--text-secondary);
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.language {
-  background: var(--bg-secondary);
   color: var(--text-primary);
-  padding: 2px 8px;
+  padding: 3px 8px;
   border-radius: 12px;
   font-size: 11px;
   text-transform: uppercase;
+  font-weight: 500;
 }
 
-.modified {
+.editor-meta .modified {
   color: var(--warning);
   font-weight: 500;
+  font-size: 11px;
 }
 
 .code-editor {
   flex: 1;
   overflow: hidden;
+  border-top: none; /* Ensure no top border creates separation */
 }
 
 .code-editor :deep(.cm-editor) {
   height: 100%;
   font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, Consolas, monospace;
   font-size: 14px;
+  border: none; /* Remove any default CodeMirror borders */
+  margin: 0; /* Remove any default margins */
 }
 
 .code-editor :deep(.cm-scroller) {
@@ -553,7 +594,7 @@ onUnmounted(() => {
 }
 
 .code-editor :deep(.cm-content) {
-  padding: 16px;
+  padding: 0 16px 16px 16px; /* Remove top padding for seamless tab connection */
 }
 
 .code-editor :deep(.cm-activeLine) {
@@ -586,8 +627,8 @@ onUnmounted(() => {
   }
 
   .tab {
-    min-width: 80px;
-    max-width: 120px;
+    max-width: 120px; /* Tighter constraint on mobile */
+    padding: 4px 8px;
   }
 
   .tab-name {
@@ -604,10 +645,10 @@ onUnmounted(() => {
     padding: 4px 8px;
   }
 
-  .editor-info {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
+  /* Compact meta section on mobile */
+  .editor-meta {
+    gap: 8px;
+    font-size: 11px;
   }
 }
 </style>
