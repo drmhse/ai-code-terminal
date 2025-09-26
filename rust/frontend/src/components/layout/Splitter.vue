@@ -109,7 +109,7 @@ const handleTouchStart = (event: TouchEvent) => {
 /* Horizontal splitter (between vertically stacked panes) */
 .splitter-horizontal {
   width: 100%;
-  height: 6px; /* Larger hit area but minimal visual space */
+  height: 4px; /* Minimal hit area for seamless border feel */
   cursor: row-resize;
   margin: 0; /* Remove margins for seamless appearance */
 }
@@ -117,17 +117,17 @@ const handleTouchStart = (event: TouchEvent) => {
 /* Vertical splitter (between horizontally arranged panes) */
 .splitter-vertical {
   height: 100%;
-  width: 6px; /* Larger hit area but minimal visual space */
+  width: 4px; /* Minimal hit area for seamless border feel */
   cursor: col-resize;
   margin: 0; /* Remove margins for seamless appearance */
 }
 
-/* The actual visible line - invisible by default */
+/* The actual visible line - primary visual separator between panes */
 .splitter-line {
   position: absolute;
-  background: transparent;
+  background: var(--border-color, rgba(255, 255, 255, 0.2));
   transition: all 0.2s ease;
-  opacity: 0;
+  opacity: 1;
   z-index: 1;
 }
 
@@ -147,13 +147,14 @@ const handleTouchStart = (event: TouchEvent) => {
   transform: translateX(-50%);
 }
 
-/* Show subtle line on hover */
+/* Enhance line on hover - more prominent since it's the only separator */
 .splitter:hover .splitter-line {
-  background: var(--border-color, rgba(255, 255, 255, 0.3));
+  background: var(--text-muted, rgba(255, 255, 255, 0.5));
   opacity: 1;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.1);
 }
 
-/* Show more prominent line when dragging */
+/* Show prominent line when dragging */
 .splitter:active .splitter-line {
   background: var(--primary, #007bcc);
   opacity: 1;
@@ -171,7 +172,7 @@ const handleTouchStart = (event: TouchEvent) => {
 /* Expand horizontal splitter hover area */
 .splitter-horizontal::before {
   width: 100%;
-  height: 12px; /* 6px extra on each side for easier targeting */
+  height: 8px; /* 4px extra on each side for easier targeting */
   top: 50%;
   transform: translateY(-50%);
 }
@@ -179,7 +180,7 @@ const handleTouchStart = (event: TouchEvent) => {
 /* Expand vertical splitter hover area */
 .splitter-vertical::before {
   height: 100%;
-  width: 12px; /* 6px extra on each side for easier targeting */
+  width: 8px; /* 4px extra on each side for easier targeting */
   left: 50%;
   transform: translateX(-50%);
 }

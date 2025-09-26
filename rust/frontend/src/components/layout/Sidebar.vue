@@ -298,8 +298,10 @@ const openDeleteModal = (workspace: Workspace) => {
 }
 
 .workspace-item.selected {
-  background: var(--sidebar-item-active);
-  color: var(--sidebar-item-active-text);
+  background: transparent;
+  color: var(--primary);
+  border-left: 2px solid var(--primary);
+  border-radius: 0 6px 6px 0;
 }
 
 .workspace-content {
@@ -312,6 +314,10 @@ const openDeleteModal = (workspace: Workspace) => {
   min-width: 0;
 }
 
+.workspace-item.selected .workspace-content {
+  padding-left: 10px; /* Adjust padding to account for left border */
+}
+
 .workspace-content.switching {
   opacity: 0.6;
   pointer-events: none;
@@ -322,9 +328,12 @@ const openDeleteModal = (workspace: Workspace) => {
   color: var(--text-secondary);
 }
 
-.workspace-item:hover .icon,
-.workspace-item.selected .icon {
+.workspace-item:hover .icon {
   color: inherit;
+}
+
+.workspace-item.selected .icon {
+  color: var(--primary);
 }
 
 .details {
@@ -341,9 +350,13 @@ const openDeleteModal = (workspace: Workspace) => {
   text-overflow: ellipsis;
 }
 
-.workspace-item:hover .workspace-name,
-.workspace-item.selected .workspace-name {
+.workspace-item:hover .workspace-name {
   color: inherit;
+}
+
+.workspace-item.selected .workspace-name {
+  color: var(--primary);
+  font-weight: 600;
 }
 
 .workspace-path {
@@ -355,10 +368,14 @@ const openDeleteModal = (workspace: Workspace) => {
   margin-top: 2px;
 }
 
-.workspace-item:hover .workspace-path,
-.workspace-item.selected .workspace-path {
+.workspace-item:hover .workspace-path {
   color: inherit;
   opacity: 0.8;
+}
+
+.workspace-item.selected .workspace-path {
+  color: var(--primary);
+  opacity: 0.7;
 }
 
 .delete-btn {

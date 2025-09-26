@@ -835,6 +835,8 @@ onUnmounted(() => {
   gap: 0; /* Remove gap for seamless pane appearance */
   width: 100%;
   height: 100%;
+  position: relative;
+  background: var(--bg-primary, #1a1a1a); /* Subtle container background */
 }
 
 .pane-container.direction-horizontal {
@@ -845,7 +847,7 @@ onUnmounted(() => {
   flex-direction: row;
 }
 
-/* Terminal Pane Wrapper Styles */
+/* Terminal Pane Wrapper Styles - Borderless Design */
 .terminal-pane-wrapper {
   display: flex;
   flex-direction: column;
@@ -855,39 +857,35 @@ onUnmounted(() => {
   min-width: 0;
   width: 100%;
   height: 100%;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
   position: relative;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.15s ease-in-out;
 }
 
 .terminal-pane-wrapper:hover {
-  border-color: var(--text-muted);
+  background: var(--bg-hover, rgba(255, 255, 255, 0.02));
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .terminal-pane-wrapper.active {
-  border: 1px solid var(--primary);
-  box-shadow: 0 0 0 1px rgba(0, 123, 204, 0.1);
+  background: var(--terminal-bg-active, var(--terminal-bg));
+  box-shadow: 0 0 0 2px rgba(0, 123, 204, 0.1);
 }
 
 .terminal-pane-wrapper.active::before {
   content: '';
   position: absolute;
-  top: -1px;
-  left: -1px;
-  right: -1px;
+  top: 0;
+  left: 0;
+  right: 0;
   height: 2px;
   background: var(--primary);
-  border-radius: 8px 8px 0 0;
   z-index: 1;
 }
 
 
 .action-btn, .close-btn, .split-dropdown-trigger, .tab-new {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  background: transparent;
+  border: none;
   color: var(--text-muted);
   cursor: pointer;
   padding: 8px;
@@ -904,28 +902,25 @@ onUnmounted(() => {
 }
 
 .action-btn:hover, .split-dropdown-trigger:hover, .tab-new:hover {
-  background: var(--button-hover);
+  background: var(--button-hover, rgba(255, 255, 255, 0.1));
   color: var(--text-primary);
-  border-color: var(--primary);
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .close-btn:hover {
-  background: var(--error);
-  border-color: var(--error);
+  background: var(--error, #f14c4c);
   color: white;
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(241, 76, 76, 0.3);
+  box-shadow: 0 2px 8px rgba(241, 76, 76, 0.4);
 }
 
-/* Terminal Content */
+/* Terminal Content - Borderless Design */
 .terminal-content {
   flex: 1;
   overflow: hidden;
   position: relative;
   background: var(--terminal-bg);
-  border-radius: 0 0 8px 8px;
   min-height: 200px;
   display: flex;
   flex-direction: column;
@@ -939,7 +934,6 @@ onUnmounted(() => {
   height: 100%;
   flex: 1;
   background: var(--terminal-bg);
-  border-radius: 0 0 8px 8px;
   position: relative;
   min-height: 0;
   box-sizing: border-box;
@@ -950,11 +944,10 @@ onUnmounted(() => {
   display: block;
 }
 
-/* Tabs (simplified version of existing styles) */
+/* Tabs - Borderless Design */
 .pane-tabs {
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
-  border-radius: 8px 8px 0 0;
   min-height: 32px;
   position: relative;
 }
@@ -1093,10 +1086,9 @@ onUnmounted(() => {
 
 
 .split-dropdown-trigger.active {
-  background: var(--primary);
+  background: var(--primary, #007bcc);
   color: white;
-  border-color: var(--primary);
-  box-shadow: 0 2px 8px rgba(0, 123, 204, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 123, 204, 0.4);
 }
 
 .split-dropdown-trigger .chevron {
@@ -1113,9 +1105,8 @@ onUnmounted(() => {
   top: calc(100% + 4px);
   right: 0;
   background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1);
   min-width: 140px;
   z-index: 1000;
   overflow: hidden;
@@ -1136,15 +1127,22 @@ onUnmounted(() => {
   font-weight: 500;
   transition: all 0.15s ease;
   text-align: left;
-  border-bottom: 1px solid var(--border-color);
+  position: relative;
 }
 
-.split-option:last-child {
-  border-bottom: none;
+.split-option:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 16px;
+  right: 16px;
+  height: 1px;
+  background: var(--border-color, rgba(255, 255, 255, 0.08));
+  opacity: 0.5;
 }
 
 .split-option:hover {
-  background: var(--button-hover);
+  background: var(--button-hover, rgba(255, 255, 255, 0.08));
   color: var(--primary);
 }
 
@@ -1174,10 +1172,10 @@ onUnmounted(() => {
   }
 }
 
-/* Tab navigation arrows */
+/* Tab navigation arrows - Borderless */
 .tab-nav-arrow {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  background: transparent;
+  border: none;
   color: var(--text-secondary);
   cursor: pointer;
   padding: 8px;
@@ -1192,14 +1190,14 @@ onUnmounted(() => {
 }
 
 .tab-nav-arrow:hover:not(:disabled) {
-  background: var(--button-hover);
+  background: var(--button-hover, rgba(255, 255, 255, 0.1));
   color: var(--text-primary);
-  border-color: var(--primary);
   transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .tab-nav-arrow:disabled {
-  opacity: 0.4;
+  opacity: 0.3;
   cursor: not-allowed;
   transform: none;
 }
@@ -1217,9 +1215,9 @@ onUnmounted(() => {
 }
 
 .terminal-pane-wrapper.drop-target {
-  border: 2px dashed var(--primary);
-  background: rgba(0, 123, 204, 0.05);
-  transform: scale(1.02);
+  background: rgba(0, 123, 204, 0.1);
+  box-shadow: 0 0 0 2px var(--primary), 0 0 20px rgba(0, 123, 204, 0.15);
+  transform: scale(1.01);
   transition: all 0.2s ease;
 }
 
