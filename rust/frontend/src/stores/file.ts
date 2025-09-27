@@ -85,6 +85,7 @@ export const useFileStore = defineStore('file', () => {
   // Legacy preview state - kept for backward compatibility
   const previewFile = ref<FileItem | null>(null)
   const previewError = ref<string | null>(null)
+  const previewData = ref<string | null>(null)
   const showDiscardModal = ref(false)
   const discardAction = ref<'exitEdit' | 'closeModal'>('exitEdit')
   const changesSummary = ref('')
@@ -837,6 +838,7 @@ const clearPreviewError = () => {
     fileSearchTerm: readonly(fileSearchTerm),
     selectedFileIndex: readonly(selectedFileIndex),
     previewFile: readonly(previewFile),
+    previewData: readonly(previewData),
     showDiscardModal: readonly(showDiscardModal),
     discardAction: readonly(discardAction),
     changesSummary: readonly(changesSummary),

@@ -176,7 +176,8 @@ watch(layoutSignature, (newSignature, oldSignature) => {
     console.log('🔄 Layout structure changed, auto-saving to backend')
 
     // Save layout structure (WITHOUT session data) to backend database
-    const structureOnly = terminalStore.stripSessionDataFromLayout(terminalStore.layout)
+    const layoutClone = JSON.parse(JSON.stringify(terminalStore.layout))
+    const structureOnly = terminalStore.stripSessionDataFromLayout(layoutClone)
     const treeStructure = JSON.stringify(structureOnly)
 
     layoutStore.debouncedSaveLayout(

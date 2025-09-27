@@ -19,11 +19,11 @@ export interface Repository {
   fork: boolean
   archived?: boolean
   disabled?: boolean
-  updated_at: string
+  updated_at?: string
   language?: string | null
-  stargazers_count: number
-  forks_count: number
-  size: number
+  stargazers_count?: number
+  forks_count?: number
+  size?: number
   default_branch?: string
   pushed_at?: string
   owner?: {
@@ -46,6 +46,8 @@ export interface CloneProgress {
   progress: number
   stage: string
   message: string
+  startTime?: Date
+  estimatedDuration?: number // in seconds
 }
 
 export const useWorkspaceStore = defineStore('workspace', () => {
@@ -343,7 +345,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
           console.log('🔍 Terminal store layout exists:', !!terminalTreeStore.layout)
           if (terminalTreeStore.layout) {
             console.log('🔄 Stripping session data from layout')
-            const structureOnly = terminalTreeStore.stripSessionDataFromLayout(terminalTreeStore.layout)
+            const layoutClone = JSON.parse(JSON.stringify(terminalTreeStore.layout))
+            const structureOnly = terminalTreeStore.stripSessionDataFromLayout(layoutClone)
             const treeStructure = JSON.stringify(structureOnly)
 
             console.log('🔄 Calling debouncedSaveLayout')

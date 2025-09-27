@@ -3,7 +3,7 @@
     class="repository-card"
     :class="{
       'is-cloning': isCloning,
-      'is-archived': repository.archived,
+      'is-archived': repository.archived === true,
       'is-disabled': repository.disabled
     }"
     @click="handleClick"
@@ -38,7 +38,7 @@
             size="small"
           />
           <StatusBadge
-            v-if="repository.archived"
+            v-if="repository.archived === true"
             text="Archived"
             variant="archived"
             size="small"
@@ -52,7 +52,7 @@
           <span class="progress-text">Cloning...</span>
         </div>
         <button
-          v-else-if="!repository.archived && !repository.disabled"
+          v-else-if="repository.archived !== true && !repository.disabled"
           @click.stop="handleClone"
           class="clone-btn"
           :disabled="disabled"
@@ -126,15 +126,32 @@ export interface Repository {
   name: string
   full_name?: string
   description?: string
+  html_url?: string
+  clone_url?: string
+  ssh_url?: string
   private: boolean
   fork: boolean
-  archived: boolean
+  archived?: boolean
   disabled?: boolean
-  language?: string
+  updated_at?: string
+  language?: string | null
   stargazers_count?: number
   forks_count?: number
-  size: number
-  updated_at: string
+  size?: number
+  default_branch?: string
+  pushed_at?: string
+  owner?: {
+    id: number
+    login: string
+    name?: string | null
+    email?: string | null
+    avatar_url: string
+    html_url: string
+    company?: string | null
+    location?: string | null
+    public_repos: number
+    followers: number
+  }
 }
 
 interface Props {
@@ -154,7 +171,7 @@ const emit = defineEmits<{
 }>()
 
 const handleClick = () => {
-  if (!props.repository.archived && !props.repository.disabled) {
+  if (props.repository.archived !== true && !props.repository.disabled) {
     emit('click', props.repository)
   }
 }

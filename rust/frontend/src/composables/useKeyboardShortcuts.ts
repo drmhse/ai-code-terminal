@@ -197,8 +197,8 @@ export function useKeyboardShortcuts() {
       uiStore.closeDeleteModal()
     } else if (fileStore.showDiscardModal) {
       fileStore.closeDiscardModal()
-    } else if (fileStore.showContextMenu) {
-      fileStore.closeContextMenu()
+    } else if (uiStore.showContextMenu) {
+      uiStore.closeContextMenu()
     } else if (uiStore.isMobile) {
       // Close mobile interfaces
       if (uiStore.showMobileActionsMenu) {

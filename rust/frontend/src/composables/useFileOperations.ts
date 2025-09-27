@@ -310,24 +310,24 @@ export function useFileOperations() {
 
   // Context menu actions
   const copyFilePath = () => {
-    if (!fileStore.contextMenuFile) return
-    
-    copyToClipboard(fileStore.contextMenuFile.path)
-    fileStore.closeContextMenu()
+    if (!uiStore.contextMenuFile) return
+
+    copyToClipboard(uiStore.contextMenuFile.path)
+    uiStore.closeContextMenu()
   }
 
   const copyFileName = () => {
-    if (!fileStore.contextMenuFile) return
-    
-    copyToClipboard(fileStore.contextMenuFile.name)
-    fileStore.closeContextMenu()
+    if (!uiStore.contextMenuFile) return
+
+    copyToClipboard(uiStore.contextMenuFile.name)
+    uiStore.closeContextMenu()
   }
 
   const previewContextFile = async () => {
-    if (!fileStore.contextMenuFile) return
-    
-    await showFilePreview(fileStore.contextMenuFile as FileItem)
-    fileStore.closeContextMenu()
+    if (!uiStore.contextMenuFile) return
+
+    await showFilePreview(uiStore.contextMenuFile as FileItem)
+    uiStore.closeContextMenu()
   }
 
   // Utility function to copy text to clipboard
@@ -463,7 +463,7 @@ export function useFileOperations() {
   const loadingFiles = computed(() => fileStore.loadingFiles)
   const fileError = computed(() => fileStore.fileError)
   const previewFile = computed(() => fileStore.previewFile)
-  const showContextMenu = computed(() => fileStore.showContextMenu)
+  const showContextMenu = computed(() => uiStore.showContextMenu)
   const fileSearchTerm = computed(() => fileStore.fileSearchTerm)
 
   return {

@@ -152,8 +152,8 @@ const cloneProgressData = computed<CloneProgressData | null>(() => {
     progress: cloneProgress.value.progress || 0,
     stage: cloneProgress.value.stage || 'Initializing',
     message: cloneProgress.value.message,
-    startTime: cloneProgress.value.startTime,
-    estimatedDuration: cloneProgress.value.estimatedDuration
+    startTime: cloneProgress.value.startTime || undefined,
+    estimatedDuration: cloneProgress.value.estimatedDuration || undefined
   }
 })
 

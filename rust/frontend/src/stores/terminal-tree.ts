@@ -472,7 +472,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
       }
       return {
         ...node,
-        children: node.children?.map(stripNode)
+        children: node.children?.map(stripNode) as PaneNode[]
       }
     }
 

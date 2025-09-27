@@ -6,6 +6,11 @@ export interface TerminalPane {
   cwd?: string
   terminal?: Terminal
   element?: HTMLElement
+  tabs?: Array<{
+    id: string
+    name: string
+    isActive: boolean
+  }>
 }
 
 export interface TerminalSession {
