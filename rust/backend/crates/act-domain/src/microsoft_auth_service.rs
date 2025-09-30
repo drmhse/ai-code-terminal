@@ -147,6 +147,11 @@ impl MicrosoftAuthService {
         }
     }
 
+    /// Get access to the repository for OAuth state management
+    pub fn repository(&self) -> &Arc<dyn MicrosoftAuthRepository> {
+        &self.repository
+    }
+
     /// Generate authorization URL for OAuth flow
     pub async fn get_authorization_url(&self) -> Result<AuthorizationUrl, MicrosoftAuthError> {
         debug!("Generating Microsoft OAuth authorization URL");
@@ -364,6 +369,51 @@ impl MicrosoftAuthService {
     }
 
     async fn refresh_token_internal(&self, auth_data: &MicrosoftAuthData) -> Result<(), MicrosoftAuthError> {
+        const LOCK_TIMEOUT_SECONDS: i64 = 30;
+
+        // Try to acquire lock for this user's token refresh
+        let lock_acquired = self.repository.acquire_token_refresh_lock(&auth_data.user_id, LOCK_TIMEOUT_SECONDS).await?;
+
+        if !lock_acquired {
+            // Another process is already refreshing this token
+            // Wait a bit and check if token was refreshed by the other process
+            debug!("Token refresh for user {} is already in progress, waiting...", auth_data.user_id);
+            tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
+            // Check if token was refreshed
+            let updated_auth = self.repository.get_auth_data(&auth_data.user_id).await?
+                .ok_or(MicrosoftAuthError::NotAuthenticated)?;
+
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64;
+
+            // If token was refreshed successfully by another process, we're done
+            if updated_auth.token_expires_at > now + Self::REFRESH_BUFFER_SECONDS {
+                debug!("Token was refreshed by another process for user: {}", auth_data.user_id);
+                return Ok(());
+            }
+
+            // If still not refreshed, try to acquire lock again
+            let lock_acquired = self.repository.acquire_token_refresh_lock(&auth_data.user_id, LOCK_TIMEOUT_SECONDS).await?;
+            if !lock_acquired {
+                return Err(MicrosoftAuthError::OAuth("Unable to acquire token refresh lock".to_string()));
+            }
+        }
+
+        // We have the lock, perform the refresh
+        let refresh_result = self.perform_token_refresh(auth_data).await;
+
+        // Always release the lock, even if refresh failed
+        if let Err(e) = self.repository.release_token_refresh_lock(&auth_data.user_id).await {
+            error!("Failed to release token refresh lock for user {}: {}", auth_data.user_id, e);
+        }
+
+        refresh_result
+    }
+
+    async fn perform_token_refresh(&self, auth_data: &MicrosoftAuthData) -> Result<(), MicrosoftAuthError> {
         let refresh_token = self.encryption.decrypt_token(
             &String::from_utf8_lossy(&auth_data.refresh_token_encrypted),
             &auth_data.user_id,

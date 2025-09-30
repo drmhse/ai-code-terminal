@@ -3,7 +3,10 @@ use crate::{
     models::ApiResponse,
     middleware::auth::AuthenticatedUser
 };
-use act_domain::{MicrosoftAuthError, CreateTaskRequest as DomainCreateTaskRequest, CreateListRequest, TaskBody, TaskImportance};
+use act_domain::{
+    MicrosoftAuthError, CreateTaskRequest as DomainCreateTaskRequest, CreateListRequest, TaskBody, TaskImportance,
+    microsoft_auth_types::OAuthState,
+};
 use axum::{
     extract::{State, Path},
     response::Result,
@@ -77,42 +80,8 @@ pub async fn get_auth_status(
     }
 }
 
-use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::Mutex;
-
-// In-memory cache for PKCE verifiers with expiration
-lazy_static::lazy_static! {
-    static ref PKCE_CACHE: Arc<Mutex<HashMap<String, PkceEntry>>> = Arc::new(Mutex::new(HashMap::new()));
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct PkceEntry {
-    code_verifier: String,
-    user_id: String,
-    created_at: u64, // Unix timestamp
-}
-
-impl PkceEntry {
-    fn new(code_verifier: String, user_id: String) -> Self {
-        Self {
-            code_verifier,
-            user_id,
-            created_at: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
-        }
-    }
-
-    fn is_expired(&self) -> bool {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        now.saturating_sub(self.created_at) > 600 // 10 minutes
-    }
-}
+// Note: PKCE state is now managed via database (see OAuthState in domain layer)
+// Previously used in-memory cache has been removed for persistence and horizontal scalability
 
 /// Start Microsoft OAuth flow - redirect to Microsoft authorization
 pub async fn start_oauth_flow(
@@ -123,13 +92,25 @@ pub async fn start_oauth_flow(
         Ok(auth_response) => {
             info!("Generated Microsoft OAuth URL for user: {}", auth_user.user_id);
 
-            // Store code_verifier in cache keyed by state (CSRF token)
+            // Store OAuth state in database for persistence across restarts
+            let oauth_state = OAuthState::new(
+                auth_response.state.clone(),
+                auth_user.user_id.clone(),
+                auth_response.code_verifier,
+            );
+
+            if let Err(e) = state.domain_services.microsoft_auth_service.repository()
+                .store_oauth_state(&oauth_state).await
             {
-                let mut cache = PKCE_CACHE.lock().await;
-                // Clean expired entries
-                cache.retain(|_, entry| !entry.is_expired());
-                cache.insert(auth_response.state.clone(), PkceEntry::new(auth_response.code_verifier, auth_user.user_id.clone()));
+                error!("Failed to store OAuth state for user {}: {}", auth_user.user_id, e);
+                return Ok(Json(ApiResponse::error("Failed to initiate OAuth flow")));
             }
+
+            // Clean up expired states asynchronously
+            let repo = state.domain_services.microsoft_auth_service.repository().clone();
+            tokio::spawn(async move {
+                let _ = repo.cleanup_expired_oauth_states().await;
+            });
 
             let response = AuthUrlResponse {
                 auth_url: auth_response.url,
@@ -174,27 +155,43 @@ pub async fn handle_oauth_callback(
         }
     };
 
-    // Retrieve code_verifier from cache using state (CSRF token)
-    let code_verifier = {
-        let mut cache = PKCE_CACHE.lock().await;
-        match cache.remove(&state_param) {
-            Some(entry) => {
-                // Validate that the entry belongs to the current user
-                if entry.user_id != auth_user.user_id {
-                    error!("PKCE verifier user mismatch for state {}: expected {}, got {}",
-                           state_param, auth_user.user_id, entry.user_id);
-                    return Ok(Json(ApiResponse::error("Invalid state parameter")));
-                }
-                if entry.is_expired() {
-                    error!("PKCE verifier expired for state {} and user: {}", state_param, auth_user.user_id);
-                    return Ok(Json(ApiResponse::error("Expired state parameter")));
-                }
-                entry.code_verifier
+    // Retrieve code_verifier from database using state (CSRF token)
+    let code_verifier = match state.domain_services.microsoft_auth_service.repository()
+        .get_oauth_state(&state_param).await
+    {
+        Ok(Some(oauth_state)) => {
+            // Validate that the entry belongs to the current user
+            if oauth_state.user_id != auth_user.user_id {
+                error!("OAuth state user mismatch for state {}: expected {}, got {}",
+                       state_param, auth_user.user_id, oauth_state.user_id);
+                return Ok(Json(ApiResponse::error("Invalid state parameter")));
             }
-            None => {
-                error!("PKCE verifier not found for state {} and user: {}", state_param, auth_user.user_id);
-                return Ok(Json(ApiResponse::error("Invalid or expired state parameter")));
+
+            // Check expiration
+            if oauth_state.is_expired() {
+                error!("OAuth state expired for state {} and user: {}", state_param, auth_user.user_id);
+                // Clean up expired state
+                let _ = state.domain_services.microsoft_auth_service.repository()
+                    .remove_oauth_state(&state_param).await;
+                return Ok(Json(ApiResponse::error("Expired state parameter")));
             }
+
+            // Remove the state after retrieval (one-time use)
+            if let Err(e) = state.domain_services.microsoft_auth_service.repository()
+                .remove_oauth_state(&state_param).await
+            {
+                warn!("Failed to remove OAuth state after retrieval: {}", e);
+            }
+
+            oauth_state.code_verifier
+        }
+        Ok(None) => {
+            error!("OAuth state not found for state {} and user: {}", state_param, auth_user.user_id);
+            return Ok(Json(ApiResponse::error("Invalid or expired state parameter")));
+        }
+        Err(e) => {
+            error!("Failed to retrieve OAuth state for user {}: {}", auth_user.user_id, e);
+            return Ok(Json(ApiResponse::error("Failed to retrieve OAuth state")));
         }
     };
 

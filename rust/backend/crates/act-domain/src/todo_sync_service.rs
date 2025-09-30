@@ -65,13 +65,25 @@ struct CachedListMapping {
     cached_at: u64,
 }
 
-/// Service for managing Microsoft To Do list synchronization with workspaces
+/// Service for managing workspace-to-Microsoft-list mappings
 ///
-/// This service provides intelligent list management:
-/// - Creates dedicated lists for each workspace/repository
-/// - Maintains cache for fast list lookups
-/// - Handles list sync status and conflicts
-/// - Provides workspace-aware task operations
+/// # Responsibility
+/// This service manages the **mapping layer** between local workspaces and Microsoft To Do lists.
+/// It does NOT handle task data synchronization - that's TaskSyncService's responsibility.
+///
+/// # Key Functions
+/// - Creates dedicated Microsoft lists for each workspace
+/// - Maintains workspace ↔ list_id mappings in database
+/// - Provides fast in-memory cache (TTL: 5min) for list lookups
+/// - Generates meaningful list names from workspace metadata
+///
+/// # Architecture Note
+/// This service is intentionally separate from TaskSyncService:
+/// - **TodoSyncService**: Manages "which list belongs to which workspace"
+/// - **TaskSyncService**: Manages "keeping task data synchronized"
+///
+/// This separation follows Single Responsibility Principle and makes the codebase
+/// easier to test, debug, and maintain.
 pub struct TodoSyncService {
     microsoft_auth_service: Arc<MicrosoftAuthService>,
     workspace_service: Arc<WorkspaceService>,
@@ -156,6 +168,30 @@ impl TodoSyncService {
         // The cache will be updated next time ensure_project_list is called
 
         Ok(list_id)
+    }
+
+    /// Get the full TaskList object for a workspace
+    ///
+    /// This method retrieves the list from Microsoft Graph API, providing
+    /// complete list metadata including display name, ownership, etc.
+    pub async fn get_workspace_list(&self, user_id: &str, workspace_id: &str) -> Result<Option<crate::TaskList>, TodoSyncError> {
+        // Get the list ID from cache/database
+        let list_id = match self.get_workspace_list_id(workspace_id).await? {
+            Some(id) => id,
+            None => return Ok(None),
+        };
+
+        // Get access token
+        let access_token = self.microsoft_auth_service.get_access_token(user_id).await?;
+
+        // Fetch the list from Graph API
+        let lists = self.graph_client.get_task_lists(&access_token).await?;
+
+        // Find the matching list
+        let task_list = lists.into_iter()
+            .find(|list| list.id == list_id);
+
+        Ok(task_list)
     }
 
     /// Sync all workspace lists for a user

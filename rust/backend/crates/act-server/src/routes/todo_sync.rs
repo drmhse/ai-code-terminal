@@ -13,7 +13,7 @@ use crate::{
     error::ServerError,
     AppState,
 };
-use act_domain::{TodoSyncStatus, WorkspaceSyncStatus, CacheStats};
+use act_domain::{TodoSyncStatus, WorkspaceSyncStatus, CacheStats, TaskList};
 use act_core::CoreError;
 
 #[derive(Debug, Serialize)]
@@ -182,10 +182,41 @@ pub async fn refresh_cache(
     Ok(Json(ApiResponse::success(())))
 }
 
+/// Get the Microsoft To-Do list for a specific workspace
+///
+/// This endpoint implements server-side list selection logic, moving the complex
+/// matching logic from the frontend to the backend for better maintainability.
+pub async fn get_workspace_list(
+    Path(workspace_id): Path<String>,
+    State(app_state): State<AppState>,
+    user: AuthenticatedUser,
+) -> Result<Json<ApiResponse<Option<TaskList>>>, ServerError> {
+    debug!("Getting list for workspace {} for user: {}", workspace_id, user.user_id);
+
+    let list = app_state
+        .domain_services
+        .todo_sync_service
+        .get_workspace_list(&user.user_id, &workspace_id)
+        .await
+        .map_err(|e| {
+            error!("Failed to get workspace list: {}", e);
+            ServerError(CoreError::Internal(format!("Failed to get workspace list: {}", e)))
+        })?;
+
+    if let Some(ref list) = list {
+        info!("Found list '{}' for workspace {}", list.display_name, workspace_id);
+    } else {
+        info!("No list found for workspace {}", workspace_id);
+    }
+
+    Ok(Json(ApiResponse::success(list)))
+}
+
 pub fn routes() -> Router<AppState> {
     Router::new()
-        .route("/sync/status", get(get_sync_status))
-        .route("/sync/workspace/:workspace_id", post(sync_workspace))
-        .route("/sync/all", post(sync_all_workspaces))
-        .route("/sync/cache/refresh", post(refresh_cache))
+        .route("/status", get(get_sync_status))
+        .route("/workspace/:workspace_id", post(sync_workspace))
+        .route("/workspace/:workspace_id/list", get(get_workspace_list))
+        .route("/all", post(sync_all_workspaces))
+        .route("/cache/refresh", post(refresh_cache))
 }

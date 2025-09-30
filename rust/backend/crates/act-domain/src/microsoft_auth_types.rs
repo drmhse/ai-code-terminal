@@ -94,8 +94,10 @@ pub struct TaskSyncMetadata {
     pub workspace_id: String,
     pub microsoft_list_id: String,
     pub last_sync_timestamp: i64,
+    pub last_successful_sync: Option<i64>,
     pub sync_version: String,
     pub sync_errors: i32,
+    pub max_sync_errors: i32,
     pub last_sync_error: Option<String>,
     pub next_sync_attempt: Option<i64>,
     pub sync_interval_seconds: i32,
@@ -113,6 +115,34 @@ pub struct TaskSyncStats {
     pub conflicts: usize,
     pub last_sync: Option<i64>,
     pub next_sync: Option<i64>,
+}
+
+/// OAuth state data for PKCE flow
+#[derive(Debug, Clone)]
+pub struct OAuthState {
+    pub state: String,
+    pub user_id: String,
+    pub code_verifier: String,
+    pub created_at: i64,
+    pub expires_at: i64,
+}
+
+impl OAuthState {
+    pub fn new(state: String, user_id: String, code_verifier: String) -> Self {
+        let created_at = chrono::Utc::now().timestamp();
+        let expires_at = created_at + 600; // 10 minutes
+        Self {
+            state,
+            user_id,
+            code_verifier,
+            created_at,
+            expires_at,
+        }
+    }
+
+    pub fn is_expired(&self) -> bool {
+        chrono::Utc::now().timestamp() >= self.expires_at
+    }
 }
 
 /// Repository trait for Microsoft authentication and To Do integration
@@ -162,6 +192,30 @@ pub trait MicrosoftAuthRepository: Send + Sync {
 
     /// Remove workspace mapping (when workspace is deleted)
     async fn remove_workspace_mapping(&self, workspace_id: &str) -> Result<(), MicrosoftAuthRepositoryError>;
+
+    // OAuth state management methods
+
+    /// Store OAuth state for PKCE flow
+    async fn store_oauth_state(&self, oauth_state: &OAuthState) -> Result<(), MicrosoftAuthRepositoryError>;
+
+    /// Get OAuth state by state parameter
+    async fn get_oauth_state(&self, state: &str) -> Result<Option<OAuthState>, MicrosoftAuthRepositoryError>;
+
+    /// Remove OAuth state after use
+    async fn remove_oauth_state(&self, state: &str) -> Result<(), MicrosoftAuthRepositoryError>;
+
+    /// Cleanup expired OAuth states
+    async fn cleanup_expired_oauth_states(&self) -> Result<usize, MicrosoftAuthRepositoryError>;
+
+    // Token refresh locking methods
+
+    /// Acquire a lock for refreshing a user's token
+    /// Returns true if lock was acquired, false if another process holds the lock
+    /// Lock automatically expires after timeout_seconds
+    async fn acquire_token_refresh_lock(&self, user_id: &str, timeout_seconds: i64) -> Result<bool, MicrosoftAuthRepositoryError>;
+
+    /// Release the token refresh lock for a user
+    async fn release_token_refresh_lock(&self, user_id: &str) -> Result<(), MicrosoftAuthRepositoryError>;
 
     // Task synchronization methods
 

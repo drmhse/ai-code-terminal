@@ -35,8 +35,24 @@
       <div class="empty-icon">
         <ClipboardDocumentListIcon />
       </div>
-      <h3 class="empty-title">Select a list to get started</h3>
-      <p class="empty-text">Choose a list from the sidebar or create a new one</p>
+      <h3 class="empty-title">
+        {{ workspaceStore.currentWorkspace ? `No list for "${workspaceStore.currentWorkspace.name}"` : 'Select a list to get started' }}
+      </h3>
+      <p class="empty-text">
+        {{ workspaceStore.currentWorkspace
+          ? `Create a list to organize tasks for this workspace`
+          : 'Choose a list from the sidebar or create a new one' }}
+      </p>
+      <button
+        v-if="workspaceStore.currentWorkspace && todoStore.hasValidAuth"
+        @click="handleCreateListForWorkspace"
+        :disabled="creatingList"
+        class="btn-primary"
+      >
+        <PlusCircleIcon v-if="!creatingList" class="btn-icon" />
+        <div v-else class="spinner-sm"></div>
+        {{ creatingList ? 'Creating...' : `Create list for ${workspaceStore.currentWorkspace.name}` }}
+      </button>
     </div>
 
     <!-- Right Sidebar: Task Details -->
@@ -60,7 +76,7 @@ import { useWorkspaceStore } from '@/stores/workspace'
 import TaskListSidebar from './TaskListSidebar.vue'
 import TasksList from './TasksList.vue'
 import TaskDetailPanel from './TaskDetailPanel.vue'
-import { ClipboardDocumentListIcon } from '@heroicons/vue/24/outline'
+import { ClipboardDocumentListIcon, PlusCircleIcon } from '@heroicons/vue/24/outline'
 import type { TodoTask, TaskList, CreateTaskRequest } from '@/services/microsoft-auth'
 import { logger } from '@/utils/logger'
 
@@ -71,6 +87,7 @@ const workspaceStore = useWorkspaceStore()
 // Local state
 const selectedListId = ref<string | null>(null)
 const selectedTaskId = ref<string | null>(null)
+const creatingList = ref(false)
 const groupBy = ref<'none' | 'status' | 'priority' | 'dueDate'>('status')
 const sortBy = ref<'default' | 'title' | 'created' | 'updated' | 'dueDate'>('default')
 const filters = ref<{
@@ -153,8 +170,7 @@ const handleTaskDelete = async (taskId: string) => {
 
     if (!confirm(`Delete task "${task.title}"?`)) return
 
-    await todoStore.createTask(task.title, task.body?.content, undefined)
-    await todoStore.loadSelectedListTasks()
+    await todoStore.deleteTask(taskId)
 
     if (selectedTaskId.value === taskId) {
       selectedTaskId.value = null
@@ -191,49 +207,39 @@ const handleUpdateFilters = (newFilters: typeof filters.value) => {
   filters.value = newFilters
 }
 
+const handleCreateListForWorkspace = async () => {
+  if (!workspaceStore.currentWorkspace) return
+
+  creatingList.value = true
+  try {
+    const newList = await todoStore.createListForWorkspace(
+      workspaceStore.currentWorkspace.id,
+      workspaceStore.currentWorkspace.name
+    )
+
+    // The list is auto-selected by createListForWorkspace
+    selectedListId.value = newList.id
+
+    logger.log(`✅ Successfully created list for workspace: ${workspaceStore.currentWorkspace.name}`)
+  } catch (error) {
+    logger.error('Failed to create list for workspace:', error)
+  } finally {
+    creatingList.value = false
+  }
+}
+
 // Lifecycle
 onMounted(async () => {
-  // Wait for lists to be loaded (TodoTasksSidesheet handles auth check)
-  if (todoStore.hasValidAuth) {
-    // If lists aren't loaded yet, load them
-    if (lists.value.length === 0 && !listsLoading.value) {
-      await todoStore.loadTaskLists()
-    }
-
-    // Auto-select default list or first list
-    if (todoStore.defaultList && !selectedListId.value) {
-      await handleSelectList(todoStore.defaultList.id)
-    } else if (lists.value.length > 0 && !selectedListId.value) {
-      await handleSelectList(lists.value[0].id)
-    }
+  // Load lists if not already loaded
+  if (todoStore.hasValidAuth && lists.value.length === 0 && !listsLoading.value) {
+    await todoStore.loadTaskLists()
   }
 })
 
-// Watch for lists becoming available
-watch(() => lists.value.length, async (newLength, oldLength) => {
-  // When lists first load and we don't have a selection
-  if (newLength > 0 && oldLength === 0 && !selectedListId.value && todoStore.hasValidAuth) {
-    if (todoStore.defaultList) {
-      await handleSelectList(todoStore.defaultList.id)
-    } else {
-      await handleSelectList(lists.value[0].id)
-    }
-  }
-})
-
-// Watch workspace changes
-watch(() => workspaceStore.currentWorkspace, async (newWorkspace) => {
-  if (newWorkspace && todoStore.hasValidAuth) {
-    await todoStore.handleWorkspaceChange({
-      id: newWorkspace.id,
-      name: newWorkspace.name
-    })
-
-    if (todoStore.selectedList) {
-      selectedListId.value = todoStore.selectedList.id
-    }
-  }
-})
+// Sync local selectedListId with global todo store
+watch(() => todoStore.selectedList, (newList) => {
+  selectedListId.value = newList?.id || null
+}, { immediate: true })
 </script>
 
 <style scoped>
@@ -292,8 +298,53 @@ watch(() => workspaceStore.currentWorkspace, async (newWorkspace) => {
 .empty-text {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
-  margin: 0;
+  margin: 0 0 var(--space-6) 0;
   max-width: 400px;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: white;
+  background: var(--color-interactive-primary);
+  border: none;
+  border-radius: var(--radius-base);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-interactive-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(56, 139, 255, 0.3);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.spinner-sm {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* Transitions */

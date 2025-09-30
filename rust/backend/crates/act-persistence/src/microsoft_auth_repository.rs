@@ -5,7 +5,7 @@ use tracing::{debug, error, info};
 use super::error::PersistenceError;
 use act_domain::{
     MicrosoftAuthRepository, MicrosoftAuthData, WorkspaceTodoMapping, MicrosoftAuthRepositoryError,
-    microsoft_auth_types::{MicrosoftTask, TaskSyncMetadata, TaskSyncStatus, TaskStatus, TaskImportance}
+    microsoft_auth_types::{MicrosoftTask, TaskSyncMetadata, TaskSyncStatus, TaskStatus, TaskImportance, OAuthState}
 };
 
 macro_rules! handle_db_error {
@@ -503,9 +503,9 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
             sqlx::query(
                 r#"
                 SELECT
-                    workspace_id, microsoft_list_id, last_sync_timestamp, sync_version,
-                    sync_errors, last_sync_error, next_sync_attempt, sync_interval_seconds,
-                    is_sync_enabled, created_at, updated_at
+                    workspace_id, microsoft_list_id, last_sync_timestamp, last_successful_sync,
+                    sync_version, sync_errors, max_sync_errors, last_sync_error, next_sync_attempt,
+                    sync_interval_seconds, is_sync_enabled, created_at, updated_at
                 FROM task_sync_metadata
                 WHERE workspace_id = ?1
                 "#
@@ -520,8 +520,10 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
                     workspace_id: row.get("workspace_id"),
                     microsoft_list_id: row.get("microsoft_list_id"),
                     last_sync_timestamp: row.get("last_sync_timestamp"),
+                    last_successful_sync: row.get("last_successful_sync"),
                     sync_version: row.get("sync_version"),
                     sync_errors: row.get("sync_errors"),
+                    max_sync_errors: row.get("max_sync_errors"),
                     last_sync_error: row.get("last_sync_error"),
                     next_sync_attempt: row.get("next_sync_attempt"),
                     sync_interval_seconds: row.get("sync_interval_seconds"),
@@ -548,18 +550,20 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
             sqlx::query(
                 r#"
                 INSERT OR REPLACE INTO task_sync_metadata (
-                    workspace_id, microsoft_list_id, last_sync_timestamp, sync_version,
-                    sync_errors, last_sync_error, next_sync_attempt, sync_interval_seconds,
-                    is_sync_enabled, created_at, updated_at
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9,
-                    COALESCE((SELECT created_at FROM task_sync_metadata WHERE workspace_id = ?1), ?10), ?11)
+                    workspace_id, microsoft_list_id, last_sync_timestamp, last_successful_sync,
+                    sync_version, sync_errors, max_sync_errors, last_sync_error, next_sync_attempt,
+                    sync_interval_seconds, is_sync_enabled, created_at, updated_at
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11,
+                    COALESCE((SELECT created_at FROM task_sync_metadata WHERE workspace_id = ?1), ?12), ?13)
                 "#
             )
             .bind(&metadata.workspace_id)
             .bind(&metadata.microsoft_list_id)
             .bind(metadata.last_sync_timestamp)
+            .bind(metadata.last_successful_sync)
             .bind(&metadata.sync_version)
             .bind(metadata.sync_errors)
+            .bind(metadata.max_sync_errors)
             .bind(&metadata.last_sync_error)
             .bind(metadata.next_sync_attempt)
             .bind(metadata.sync_interval_seconds)
@@ -580,9 +584,9 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
             sqlx::query(
                 r#"
                 SELECT
-                    workspace_id, microsoft_list_id, last_sync_timestamp, sync_version,
-                    sync_errors, last_sync_error, next_sync_attempt, sync_interval_seconds,
-                    is_sync_enabled, created_at, updated_at
+                    workspace_id, microsoft_list_id, last_sync_timestamp, last_successful_sync,
+                    sync_version, sync_errors, max_sync_errors, last_sync_error, next_sync_attempt,
+                    sync_interval_seconds, is_sync_enabled, created_at, updated_at
                 FROM task_sync_metadata
                 WHERE is_sync_enabled = TRUE
                     AND (next_sync_attempt IS NULL OR next_sync_attempt <= ?1)
@@ -598,8 +602,10 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
                 workspace_id: row.get("workspace_id"),
                 microsoft_list_id: row.get("microsoft_list_id"),
                 last_sync_timestamp: row.get("last_sync_timestamp"),
+                last_successful_sync: row.get("last_successful_sync"),
                 sync_version: row.get("sync_version"),
                 sync_errors: row.get("sync_errors"),
+                max_sync_errors: row.get("max_sync_errors"),
                 last_sync_error: row.get("last_sync_error"),
                 next_sync_attempt: row.get("next_sync_attempt"),
                 sync_interval_seconds: row.get("sync_interval_seconds"),
@@ -623,6 +629,146 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
         ).rows_affected();
 
         info!("Deleted {} tasks for workspace: {}", rows_affected, workspace_id);
+        Ok(())
+    }
+
+    // OAuth state management methods
+
+    async fn store_oauth_state(&self, oauth_state: &OAuthState) -> Result<(), MicrosoftAuthRepositoryError> {
+        debug!("Storing OAuth state for user: {}", oauth_state.user_id);
+
+        handle_db_error!(
+            sqlx::query(
+                r#"
+                INSERT INTO oauth_states (state, user_id, code_verifier, created_at, expires_at)
+                VALUES (?1, ?2, ?3, ?4, ?5)
+                ON CONFLICT(state) DO UPDATE SET
+                    user_id = excluded.user_id,
+                    code_verifier = excluded.code_verifier,
+                    created_at = excluded.created_at,
+                    expires_at = excluded.expires_at
+                "#
+            )
+            .bind(&oauth_state.state)
+            .bind(&oauth_state.user_id)
+            .bind(&oauth_state.code_verifier)
+            .bind(oauth_state.created_at)
+            .bind(oauth_state.expires_at)
+            .execute(&self.pool)
+        );
+
+        debug!("OAuth state stored successfully");
+        Ok(())
+    }
+
+    async fn get_oauth_state(&self, state: &str) -> Result<Option<OAuthState>, MicrosoftAuthRepositoryError> {
+        debug!("Retrieving OAuth state: {}", state);
+
+        let row = handle_db_error!(
+            sqlx::query(
+                r#"
+                SELECT state, user_id, code_verifier, created_at, expires_at
+                FROM oauth_states
+                WHERE state = ?1
+                "#
+            )
+            .bind(state)
+            .fetch_optional(&self.pool)
+        );
+
+        match row {
+            Some(row) => {
+                let oauth_state = OAuthState {
+                    state: row.get("state"),
+                    user_id: row.get("user_id"),
+                    code_verifier: row.get("code_verifier"),
+                    created_at: row.get("created_at"),
+                    expires_at: row.get("expires_at"),
+                };
+                debug!("OAuth state found for state: {}", state);
+                Ok(Some(oauth_state))
+            }
+            None => {
+                debug!("No OAuth state found for state: {}", state);
+                Ok(None)
+            }
+        }
+    }
+
+    async fn remove_oauth_state(&self, state: &str) -> Result<(), MicrosoftAuthRepositoryError> {
+        debug!("Removing OAuth state: {}", state);
+
+        handle_db_error!(
+            sqlx::query("DELETE FROM oauth_states WHERE state = ?1")
+                .bind(state)
+                .execute(&self.pool)
+        );
+
+        debug!("OAuth state removed successfully");
+        Ok(())
+    }
+
+    async fn cleanup_expired_oauth_states(&self) -> Result<usize, MicrosoftAuthRepositoryError> {
+        let now = chrono::Utc::now().timestamp();
+        debug!("Cleaning up expired OAuth states (before: {})", now);
+
+        let result = handle_db_error!(
+            sqlx::query("DELETE FROM oauth_states WHERE expires_at < ?1")
+                .bind(now)
+                .execute(&self.pool)
+        );
+
+        let removed = result.rows_affected() as usize;
+        info!("Cleaned up {} expired OAuth states", removed);
+        Ok(removed)
+    }
+
+    async fn acquire_token_refresh_lock(&self, user_id: &str, timeout_seconds: i64) -> Result<bool, MicrosoftAuthRepositoryError> {
+        let now = chrono::Utc::now().timestamp();
+        let expires_at = now + timeout_seconds;
+
+        debug!("Attempting to acquire token refresh lock for user: {} (timeout: {}s)", user_id, timeout_seconds);
+
+        // First, clean up any expired locks
+        let _ = handle_db_error!(
+            sqlx::query("DELETE FROM token_refresh_locks WHERE expires_at < ?1")
+                .bind(now)
+                .execute(&self.pool)
+        );
+
+        // Try to insert a new lock using INSERT OR IGNORE (SQLite specific)
+        let result = handle_db_error!(
+            sqlx::query(
+                "INSERT OR IGNORE INTO token_refresh_locks (user_id, acquired_at, expires_at)
+                 VALUES (?1, ?2, ?3)"
+            )
+            .bind(user_id)
+            .bind(now)
+            .bind(expires_at)
+            .execute(&self.pool)
+        );
+
+        let lock_acquired = result.rows_affected() > 0;
+
+        if lock_acquired {
+            debug!("Successfully acquired token refresh lock for user: {}", user_id);
+        } else {
+            debug!("Failed to acquire token refresh lock for user: {} (lock already held)", user_id);
+        }
+
+        Ok(lock_acquired)
+    }
+
+    async fn release_token_refresh_lock(&self, user_id: &str) -> Result<(), MicrosoftAuthRepositoryError> {
+        debug!("Releasing token refresh lock for user: {}", user_id);
+
+        handle_db_error!(
+            sqlx::query("DELETE FROM token_refresh_locks WHERE user_id = ?1")
+                .bind(user_id)
+                .execute(&self.pool)
+        );
+
+        debug!("Token refresh lock released for user: {}", user_id);
         Ok(())
     }
 

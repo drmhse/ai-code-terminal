@@ -34,7 +34,6 @@ pub fn api_routes() -> Router<AppState> {
         .nest("/themes", themes::routes())
         .nest("/user/preferences", user_preferences::routes())
         .nest("/microsoft", microsoft_auth_routes())
-        .nest("/todo", todo_sync::routes())
 }
 
 fn auth_routes() -> Router<AppState> {
@@ -70,6 +69,8 @@ fn microsoft_auth_routes() -> Router<AppState> {
         .route("/lists/:list_id/tasks", axum::routing::post(microsoft_auth::create_task_in_list))
         .route("/lists/:list_id/tasks/:task_id", axum::routing::put(microsoft_auth::update_task))
         .route("/lists/:list_id/tasks/:task_id", axum::routing::delete(microsoft_auth::delete_task))
+        // Sync operations (nested from todo_sync module)
+        .nest("/sync", todo_sync::routes())
         // Utilities
         .route("/health", axum::routing::get(microsoft_auth::health_check))
 }

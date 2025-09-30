@@ -7,12 +7,6 @@ import { useUIStore } from '@/stores/ui'
 import { apiService } from '@/services/api'
 import { logger } from '@/utils/logger'
 
-// Dynamic import for todo store to avoid circular dependencies
-let useTodoStore: (() => {
-  hasValidAuth: boolean
-  selectListForWorkspace: (workspaceId: string, workspaceName?: string) => Promise<void>
-}) | null = null
-
 export interface Repository {
   id: number | string
   name: string
@@ -411,11 +405,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       console.log('🔄 Ensuring workspace has terminal')
       await ensureWorkspaceHasTerminal(workspace.id)
 
-      // Auto-switch todo lists when changing workspaces (Phase 1: Smart List Management)
-      console.log('🔄 Auto-switching todo lists for workspace')
-      await autoSwitchTodoList(workspace)
-      console.log('✅ Todo list auto-switch completed')
-
       console.log('✅ performWorkspaceSwitch completed successfully for:', workspace.name)
     } catch (error) {
       console.log('❌ Error during workspace switch:', error)
@@ -427,35 +416,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       workspaceSwitchTimeout = null
     }
   }
-
-// Auto-switch todo lists for workspace (Phase 1: Smart List Management)
-const autoSwitchTodoList = async (workspace: Workspace) => {
-  try {
-    // Lazy load todo store to avoid circular dependencies
-    if (!useTodoStore) {
-      const todoModule = await import('@/stores/todo')
-      useTodoStore = todoModule.useTodoStore
-    }
-
-    const todoStore = useTodoStore()
-
-    // Only proceed if Microsoft To Do is authenticated
-    if (!todoStore.hasValidAuth) {
-      logger.log('ℹ️ Microsoft To Do not authenticated, skipping auto-switch')
-      return
-    }
-
-    logger.log(`🔄 Auto-switching to todo list for workspace: ${workspace.name}`)
-
-    // Try to select a list for this workspace based on name matching
-    await todoStore.selectListForWorkspace(workspace.id, workspace.name)
-
-    logger.log(`✅ Todo list auto-switched for workspace: ${workspace.name}`)
-  } catch (error) {
-    logger.warn('⚠️ Failed to auto-switch todo lists:', error)
-    // Don't throw here - todo switching failure shouldn't break workspace switching
-  }
-}
 
 const fetchSessions = async (workspaceId: string) => {
   if (!workspaceId) {

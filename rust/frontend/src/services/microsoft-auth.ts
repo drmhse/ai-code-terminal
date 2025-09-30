@@ -28,6 +28,7 @@ export interface CreateTaskRequest {
   body_content?: string
   importance?: 'low' | 'normal' | 'high'
   code_context?: CodeContext
+  status?: 'notStarted' | 'inProgress' | 'completed' | 'waitingOnOthers' | 'deferred'
 }
 
 export interface CacheStats {
@@ -182,6 +183,18 @@ class MicrosoftAuthService {
 
   async refreshCache(): Promise<void> {
     await this.client.post('/api/v1/microsoft/sync/cache/refresh')
+  }
+
+  async getWorkspaceList(workspaceId: string): Promise<TaskList | null> {
+    const response: AxiosResponse<ApiResponse<TaskList | null>> = await this.client.get(`/api/v1/microsoft/sync/workspace/${workspaceId}/list`)
+    return response.data.data
+  }
+
+  async createList(displayName: string): Promise<TaskList> {
+    const response: AxiosResponse<ApiResponse<TaskList>> = await this.client.post('/api/v1/microsoft/lists', {
+      displayName: displayName
+    })
+    return response.data.data
   }
 
   async healthCheck(): Promise<{ status: string; authenticated: boolean }> {

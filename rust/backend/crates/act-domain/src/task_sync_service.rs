@@ -89,13 +89,27 @@ pub struct TaskSyncResult {
     pub next_sync_at: i64,
 }
 
-/// Background task synchronization service
+/// Background task data synchronization service
 ///
-/// This service handles:
-/// - Periodic synchronization of tasks from Microsoft To Do
-/// - Conflict resolution and bidirectional sync
-/// - Rate limiting and retry logic
-/// - Real-time updates via WebSocket
+/// # Responsibility
+/// This service handles **bidirectional synchronization** of task data between
+/// local database and Microsoft To Do. It does NOT manage workspace-list mappings -
+/// that's TodoSyncService's responsibility.
+///
+/// # Key Functions
+/// - Periodic background sync on configurable intervals (default: 5min)
+/// - Conflict resolution using last-modified timestamps
+/// - Rate limiting (100 req/min respecting Microsoft Graph API limits)
+/// - Exponential backoff on errors with configurable retry logic
+/// - Sync state tracking per workspace
+///
+/// # Architecture Note
+/// This service is intentionally separate from TodoSyncService:
+/// - **TodoSyncService**: Manages "which list belongs to which workspace"
+/// - **TaskSyncService**: Manages "keeping task data synchronized"
+///
+/// Dependencies flow correctly: TaskSyncService depends on TodoSyncService
+/// to resolve workspace_id → microsoft_list_id before syncing task data.
 pub struct TaskSyncService {
     config: TaskSyncConfig,
     microsoft_auth: Arc<MicrosoftAuthService>,
@@ -282,8 +296,10 @@ impl TaskSyncService {
                 workspace_id: workspace_id.to_string(),
                 microsoft_list_id: list_id.to_string(),
                 last_sync_timestamp: 0,
+                last_successful_sync: None,
                 sync_version: "1.0".to_string(),
                 sync_errors: 0,
+                max_sync_errors: 10,
                 last_sync_error: None,
                 next_sync_attempt: None,
                 sync_interval_seconds: self.config.default_sync_interval as i32,
@@ -356,22 +372,44 @@ impl TaskSyncService {
         // Update sync metadata
         let now = chrono::Utc::now().timestamp();
         metadata.last_sync_timestamp = now;
-        metadata.sync_errors = if result.errors.is_empty() { 0 } else { metadata.sync_errors + 1 };
-        metadata.last_sync_error = if result.errors.is_empty() { None } else {
-            Some(result.errors.first().unwrap().clone())
-        };
+
+        if result.errors.is_empty() {
+            // Successful sync - reset error counter and update last successful sync
+            metadata.sync_errors = 0;
+            metadata.last_sync_error = None;
+            metadata.last_successful_sync = Some(now);
+
+            // Reset sync interval if it was backed off due to previous errors
+            if metadata.sync_interval_seconds != self.config.default_sync_interval as i32 {
+                metadata.sync_interval_seconds = self.config.default_sync_interval as i32;
+                info!("Reset sync interval to default for workspace {} after successful sync", workspace_id);
+            }
+        } else {
+            // Sync had errors - increment counter
+            metadata.sync_errors += 1;
+            metadata.last_sync_error = Some(result.errors.first().unwrap().clone());
+
+            // Check if we've hit max errors threshold
+            if metadata.sync_errors >= metadata.max_sync_errors {
+                metadata.is_sync_enabled = false;
+                error!(
+                    "Disabled sync for workspace {} after {} consecutive errors. Last error: {}",
+                    workspace_id, metadata.sync_errors,
+                    metadata.last_sync_error.as_ref().unwrap()
+                );
+            } else if result.errors.len() > 3 {
+                // Too many errors in this sync, back off
+                metadata.sync_interval_seconds = (metadata.sync_interval_seconds as f64 * 1.5) as i32;
+                warn!(
+                    "Backing off sync for workspace {} (error {}/{}) - new interval: {}s",
+                    workspace_id, metadata.sync_errors, metadata.max_sync_errors,
+                    metadata.sync_interval_seconds
+                );
+            }
+        }
+
         metadata.next_sync_attempt = Some(now + metadata.sync_interval_seconds as i64);
         result.next_sync_at = metadata.next_sync_attempt.unwrap();
-
-        if result.errors.len() > 3 {
-            // Too many errors, back off
-            metadata.sync_interval_seconds = (metadata.sync_interval_seconds as f64 * 1.5) as i32;
-            warn!("Backing off sync for workspace {} due to errors", workspace_id);
-        } else if result.errors.is_empty() && metadata.sync_errors > 0 {
-            // Successful sync after errors, reset interval
-            metadata.sync_interval_seconds = self.config.default_sync_interval as i32;
-            metadata.sync_errors = 0;
-        }
 
         self.repository.upsert_task_sync_metadata(&metadata).await?;
 
@@ -514,8 +552,10 @@ impl TaskSyncService {
                 workspace_id: workspace_id.to_string(),
                 microsoft_list_id: String::new(), // Will be filled when first synced
                 last_sync_timestamp: 0,
+                last_successful_sync: None,
                 sync_version: "1.0".to_string(),
                 sync_errors: 0,
+                max_sync_errors: 10,
                 last_sync_error: None,
                 next_sync_attempt: None,
                 sync_interval_seconds: self.config.default_sync_interval as i32,

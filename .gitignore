@@ -40,6 +40,9 @@ logs
 *.log
 _*.md
 
+# Debug scripts (generated/temporary)
+rust/debug_ms_todo.py
+
 # OS generated files
 .DS_Store
 .DS_Store?
