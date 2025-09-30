@@ -56,7 +56,7 @@
           @click="scrollTabsLeft"
           :disabled="scrollPosition <= 0"
         >
-          <ChevronLeftIcon class="h-3 w-3" />
+          <ChevronLeftIcon class="icon-sm" />
         </button>
 
         <!-- Tabs Scrollable Container -->
@@ -86,7 +86,7 @@
                 class="tab-close"
                 title="Close tab"
               >
-                <XMarkIcon class="h-3 w-3" />
+                <XMarkIcon class="icon-sm" />
               </button>
             </div>
           </div>
@@ -168,7 +168,7 @@
           class="close-btn"
           title="Close pane"
         >
-          <XMarkIcon class="h-3 w-3" />
+          <XMarkIcon class="icon-sm" />
         </button>
       </div>
     </div>
@@ -202,7 +202,7 @@ import { useTerminalTreeStore } from '@/stores/terminal-tree'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { calculateFlexProperties, getFlexDirection } from '@/utils/pane-tree'
 import { XMarkIcon, ChevronLeftIcon } from '@heroicons/vue/24/outline'
-import Splitter from './Splitter.vue'
+import Splitter from './LayoutSplitter.vue'
 
 interface Props {
   node: PaneNode
@@ -692,7 +692,8 @@ const handleDrop = async (event: DragEvent, targetTab: TerminalTab) => {
           tab.order = index
         })
 
-        props.node.tabs = tabs
+        // Update node tabs through store instead of direct mutation
+        terminalStore.updatePaneTabs(props.node.id, tabs)
         console.log('✅ Tab reordered within pane successfully')
       }
     }

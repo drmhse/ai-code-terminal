@@ -21,7 +21,7 @@
         <h2>AI Code Terminal</h2>
         <p>Please log in to continue</p>
         <a :href="getGitHubAuthUrl()" class="github-login-button">
-          <ArrowRightOnRectangleIcon class="h-4 w-4" />
+          <ArrowRightOnRectangleIcon class="icon-base" />
           Login with GitHub
         </a>
       </div>
@@ -33,9 +33,11 @@
 
       <!-- Modals and Overlays -->
       <ThemeModal v-if="uiStore.showThemeModal" />
+      <SettingsModal v-if="uiStore.showSettingsModal" />
       <RepositoriesModal v-if="uiStore.showRepositoriesModal" />
       <DeleteWorkspaceModal v-if="uiStore.showDeleteModal" />
       <DiscardChangesModal v-if="fileStore.showDiscardModal" />
+      <TodoTasksSidesheet />
       <CreateItemModal
         v-if="uiStore.showCreateItemModal"
         :is-open="uiStore.showCreateItemModal"
@@ -68,7 +70,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { onMounted, onBeforeUnmount } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useFileStore } from '@/stores/file'
@@ -83,9 +85,11 @@ import MainLayout from '@/components/MainLayout.vue'
 
 // Import modal components (to be created)
 import ThemeModal from '@/components/modals/ThemeModal.vue'
+import SettingsModal from '@/components/modals/SettingsModal.vue'
 import RepositoriesModal from '@/components/modals/RepositoriesModal.vue'
 import DeleteWorkspaceModal from '@/components/modals/DeleteWorkspaceModal.vue'
 import DiscardChangesModal from '@/components/modals/DiscardChangesModal.vue'
+import TodoTasksSidesheet from '@/components/modals/TodoTasksSidesheet.vue'
 import CreateItemModal from '@/components/CreateItemModal.vue'
 import ConfirmDeleteModal from '@/components/ConfirmDeleteModal.vue'
 import MobileInterface from '@/components/mobile/MobileInterface.vue'

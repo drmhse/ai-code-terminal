@@ -1,10 +1,21 @@
 import { defineStore } from 'pinia'
 import { ref, computed, readonly } from 'vue'
-import type { TerminalSession } from '@/types'
+import type { TerminalSession, Session } from '@/types'
 import { socketService } from '@/services/socket'
 import { apiService } from '@/services/api'
 import type { Subscription } from '@/utils/reactive'
 import { logger } from '@/utils/logger'
+
+// Convert Session to TerminalSession
+const sessionToTerminalSession = (session: Session): TerminalSession & { pane_id?: string; session_name?: string; created_at?: string } => ({
+  id: session.id,
+  pid: session.pid || 0,
+  cwd: session.cwd || '',
+  size: session.size || { cols: 80, rows: 24 },
+  pane_id: session.pane_id,
+  session_name: session.session_name,
+  created_at: session.created_at
+})
 import type {
   PaneLayout,
   PaneNode,
@@ -19,9 +30,7 @@ import {
   setActiveNode,
   splitNode,
   generateTabId,
-  validatePaneTree,
-  removeNode,
-  moveTabBetweenPanes
+  removeNode
 } from '@/utils/pane-tree'
 
 export const useTerminalTreeStore = defineStore('terminal-tree', () => {
@@ -562,7 +571,8 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
           console.log(`🔍 Found ${activeSessions.length} active sessions to populate into restored layout`)
 
           if (activeSessions.length > 0) {
-            await populateLayoutWithSessions(activeSessions, workspaceId)
+            const terminalSessions = activeSessions.map(sessionToTerminalSession)
+            await populateLayoutWithSessions(terminalSessions, workspaceId)
           }
         } catch (error) {
           console.warn(`Failed to populate restored layout with sessions for workspace ${workspaceId}:`, error)
@@ -613,6 +623,8 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
         session.status === 'active' || session.status === 'disconnected'
       )
 
+      const terminalSessions = activeSessions.map(sessionToTerminalSession)
+
       // Parse layout structure once
       let layoutStructure = null
       const defaultLayout = layouts.find(l => l.is_default) || layouts[0]
@@ -627,17 +639,17 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
       }
 
       // SINGLE DECISION POINT: Determine optimal strategy upfront
-      const strategy = determineLayoutStrategy(activeSessions, layoutStructure)
+      const strategy = determineLayoutStrategy(terminalSessions, layoutStructure)
 
       switch (strategy.type) {
         case 'fresh_with_sessions':
           initializeLayout(workspaceId)
-          await populateLayoutWithSessions(activeSessions, workspaceId)
+          await populateLayoutWithSessions(terminalSessions, workspaceId)
           break
 
         case 'restore_and_populate':
           layout.value = layoutStructure
-          await populateLayoutWithSessions(activeSessions, workspaceId)
+          await populateLayoutWithSessions(terminalSessions, workspaceId)
           break
 
         case 'restore_with_default_terminal':
@@ -668,7 +680,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
   }
 
   // PERFORMANCE OPTIMIZATION: Single analysis pass to determine strategy
-  const determineLayoutStrategy = (activeSessions: any[], layoutStructure: any) => {
+  const determineLayoutStrategy = (activeSessions: TerminalSession[], layoutStructure: PaneLayout | null) => {
     const hasSessions = activeSessions.length > 0
     const hasLayout = !!layoutStructure
 
@@ -700,7 +712,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
   }
 
   // Populate layout structure with current sessions (OPTIMIZED + DEDUPLICATION)
-  const populateLayoutWithSessions = async (sessions: any[], workspaceId: string) => {
+  const populateLayoutWithSessions = async (sessions: (TerminalSession & { pane_id?: string; session_name?: string; created_at?: string })[], workspaceId: string) => {
     if (!layout.value || sessions.length === 0) return
 
     // PERFORMANCE: Use cached terminal nodes lookup
@@ -778,9 +790,16 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
     const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length
 
     // Log distribution summary
+    interface SessionResult {
+      success: boolean
+      sessionId: string
+      tabId?: string
+      paneId: string
+      error?: unknown
+    }
     const successfulResults = results
       .filter(r => r.status === 'fulfilled' && r.value.success)
-      .map(r => (r as PromiseFulfilledResult<any>).value)
+      .map(r => (r as PromiseFulfilledResult<SessionResult>).value)
 
     const paneDistribution = successfulResults.reduce((acc, result) => {
       acc[result.paneId] = (acc[result.paneId] || 0) + 1
@@ -828,7 +847,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
   }
 
   // Helper function to check if session is recent (shared with component)
-  const isRecentSession = (session: any): boolean => {
+  const isRecentSession = (session: Session): boolean => {
     const sessionTime = new Date(session.created_at).getTime()
     const now = Date.now()
     const twoHoursInMs = 2 * 60 * 60 * 1000 // 2 hours
@@ -1003,6 +1022,22 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
     return true
   }
 
+  // Update pane tabs without moving between panes
+  const updatePaneTabs = (paneId: string, tabs: TerminalTab[]) => {
+    if (!layout.value) return
+
+    const result = findNode(layout.value.root, paneId)
+    if (!result || result.node.type !== 'terminal') {
+      console.error(`Cannot update tabs in non-terminal pane: ${paneId}`)
+      return
+    }
+
+    const node = result.node
+    node.tabs = tabs
+
+    logger.log(`🔄 Updated tabs in pane ${paneId}`)
+  }
+
   // Pane closing functionality (VS Code/Zed style)
   const closePane = (paneId: string) => {
     if (!layout.value) return
@@ -1100,6 +1135,7 @@ export const useTerminalTreeStore = defineStore('terminal-tree', () => {
     setActiveTabInPane,
     closeTabInPane,
     moveTabBetweenPanes,
+    updatePaneTabs,
 
     // Terminal operations
     sendInput,

@@ -21,11 +21,12 @@
 </template>
 
 <script setup lang="ts">
+import type { Component } from 'vue'
 interface Props {
   text: string
   variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info' | 'private' | 'fork' | 'archived'
   size?: 'small' | 'medium'
-  icon?: any
+  icon?: Component
   iconSvg?: string
 }
 
@@ -75,58 +76,58 @@ withDefaults(defineProps<Props>(), {
 
 /* Color variants */
 .status-badge.primary {
-  background: rgba(var(--primary-rgb, 59, 130, 246), 0.1);
-  color: var(--primary);
-  border-color: rgba(var(--primary-rgb, 59, 130, 246), 0.2);
+  background: var(--color-interactive-primary);
+  color: var(--color-text-inverse);
+  border-color: var(--color-interactive-primary);
 }
 
 .status-badge.secondary {
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  border-color: var(--border-color);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  border-color: var(--color-border-primary);
 }
 
 .status-badge.success {
-  background: rgba(34, 197, 94, 0.1);
-  color: rgb(34, 197, 94);
-  border-color: rgba(34, 197, 94, 0.2);
+  background: var(--color-semantic-success-bg);
+  color: var(--color-semantic-success);
+  border-color: var(--color-semantic-success-border);
 }
 
 .status-badge.warning {
-  background: rgba(245, 158, 11, 0.1);
-  color: rgb(245, 158, 11);
-  border-color: rgba(245, 158, 11, 0.2);
+  background: var(--color-semantic-warning-bg);
+  color: var(--color-semantic-warning);
+  border-color: var(--color-semantic-warning-border);
 }
 
 .status-badge.error {
-  background: rgba(var(--error-rgb, 239, 68, 68), 0.1);
-  color: var(--error);
-  border-color: rgba(var(--error-rgb, 239, 68, 68), 0.2);
+  background: var(--color-semantic-error-bg);
+  color: var(--color-semantic-error);
+  border-color: var(--color-semantic-error-border);
 }
 
 .status-badge.info {
-  background: rgba(59, 130, 246, 0.1);
-  color: rgb(59, 130, 246);
-  border-color: rgba(59, 130, 246, 0.2);
+  background: var(--color-semantic-info-bg);
+  color: var(--color-semantic-info);
+  border-color: var(--color-semantic-info-border);
 }
 
 /* Repository-specific variants */
 .status-badge.private {
-  background: rgba(245, 158, 11, 0.1);
-  color: rgb(245, 158, 11);
-  border-color: rgba(245, 158, 11, 0.2);
+  background: var(--color-semantic-warning-bg);
+  color: var(--color-semantic-warning);
+  border-color: var(--color-semantic-warning-border);
 }
 
 .status-badge.fork {
-  background: rgba(59, 130, 246, 0.1);
-  color: rgb(59, 130, 246);
-  border-color: rgba(59, 130, 246, 0.2);
+  background: var(--color-semantic-info-bg);
+  color: var(--color-semantic-info);
+  border-color: var(--color-semantic-info-border);
 }
 
 .status-badge.archived {
-  background: rgba(107, 114, 128, 0.1);
-  color: rgb(107, 114, 128);
-  border-color: rgba(107, 114, 128, 0.2);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-tertiary);
+  border-color: var(--color-border-secondary);
 }
 
 /* High contrast mode support */

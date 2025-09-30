@@ -986,21 +986,21 @@ onMounted(async () => {
 }
 
 .badge.private {
-  background: rgba(245, 158, 11, 0.1);
-  color: rgb(245, 158, 11);
-  border: 1px solid rgba(245, 158, 11, 0.2);
+  background: var(--color-semantic-warning-bg);
+  color: var(--color-semantic-warning);
+  border: 1px solid var(--color-semantic-warning-border);
 }
 
 .badge.fork {
-  background: rgba(59, 130, 246, 0.1);
-  color: rgb(59, 130, 246);
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: var(--color-semantic-info-bg);
+  color: var(--color-semantic-info);
+  border: 1px solid var(--color-semantic-info-border);
 }
 
 .badge.archived {
-  background: rgba(107, 114, 128, 0.1);
-  color: rgb(107, 114, 128);
-  border: 1px solid rgba(107, 114, 128, 0.2);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-tertiary);
+  border: 1px solid var(--color-border-secondary);
 }
 
 .repository-actions {

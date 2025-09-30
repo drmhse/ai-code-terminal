@@ -1,71 +1,77 @@
 <template>
   <div class="status-bar" v-show="!isMobile || !statsOpen">
-    <div class="status-left">
-      <!-- Connection Status -->
-      <div class="status-item connection-status" :class="connectionStatusClass">
-        <div class="status-indicator"></div>
-        <span class="status-text">{{ connectionStatusText }}</span>
-      </div>
+    <div class="status-section status-left">
+      <!-- Connection Status Badge -->
+      <button class="status-badge" :class="connectionBadgeClass" :title="connectionStatusText">
+        <div class="status-badge-indicator"></div>
+        <span class="status-badge-text">{{ connectionStatusText }}</span>
+      </button>
 
-      <!-- Active Sessions Count -->
-      <div class="status-item">
+      <div class="status-divider"></div>
+
+      <!-- Active Sessions -->
+      <div class="status-item" :title="`${displaySessionCount} active ${displaySessionCount === 1 ? 'session' : 'sessions'}`">
         <CommandLineIcon class="status-icon" />
-        <span>{{ displaySessionCount }} session{{ displaySessionCount > 1 ? 's' : '' }}</span>
+        <span class="status-label">{{ displaySessionCount }}</span>
       </div>
 
-      <!-- Current Layout -->
-      <div v-if="terminalTreeStore.panes.length > 0" class="status-item">
+      <!-- Layout Indicator -->
+      <div v-if="terminalTreeStore.panes.length > 0" class="status-item" :title="layoutDisplayName">
         <Squares2X2Icon class="status-icon" />
-        <span>{{ layoutDisplayName }}</span>
+        <span class="status-label">{{ layoutDisplayName }}</span>
       </div>
     </div>
 
-    <div class="status-center">
-      <!-- Current Working Directory -->
-      <div v-if="workspaceStore.selectedWorkspace" class="status-item workspace-info">
-        <FolderIcon class="status-icon" />
+    <div class="status-section status-center">
+      <!-- Current Workspace -->
+      <div v-if="workspaceStore.selectedWorkspace" class="status-item workspace-item" :title="workspaceStore.selectedWorkspace.path">
+        <FolderOpenIcon class="status-icon" />
         <span class="workspace-path">{{ workspaceStore.selectedWorkspace.path }}</span>
       </div>
     </div>
 
-    <div class="status-right">
-      <!-- Background Tasks Indicator -->
-      <div v-if="hasBackgroundTasks" class="status-item background-tasks" @click="toggleBackgroundTasks">
-        <CogIcon class="status-icon animate-spin" />
-        <span>{{ backgroundTasksCount }} task{{ backgroundTasksCount > 1 ? 's' : '' }}</span>
-      </div>
+    <div class="status-section status-right">
+      <!-- Background Tasks -->
+      <button
+        v-if="hasBackgroundTasks"
+        class="status-item status-item-interactive"
+        @click="toggleBackgroundTasks"
+        :title="`${backgroundTasksCount} background ${backgroundTasksCount === 1 ? 'task' : 'tasks'} running`">
+        <ArrowPathIcon class="status-icon status-icon-spin" />
+        <span class="status-label">{{ backgroundTasksCount }}</span>
+      </button>
 
-      <!-- Memory Usage -->
-      <div class="status-item memory-usage"
-           :title="`Memory: ${systemInfo.memoryUsage} (${systemInfo.memoryUsagePercent})`">
+      <div v-if="hasBackgroundTasks" class="status-divider"></div>
+
+      <!-- System Resources -->
+      <div class="status-item status-item-metric" :title="`Memory: ${systemInfo.memoryUsage} / ${systemInfo.memoryUsagePercent}`">
         <CpuChipIcon class="status-icon" />
-        <span>{{ systemInfo.memoryUsage }}</span>
+        <span class="status-value">{{ systemInfo.memoryUsage }}</span>
       </div>
 
-      <!-- CPU Usage -->
-      <div class="status-item"
-           :title="`CPU: ${systemInfo.cpuUsage}`">
+      <div class="status-item status-item-metric" :title="`CPU: ${systemInfo.cpuUsage}`">
         <BoltIcon class="status-icon" />
-        <span>{{ systemInfo.cpuUsage }}</span>
+        <span class="status-value">{{ systemInfo.cpuUsage }}</span>
       </div>
 
-      <!-- Disk Usage -->
-      <div class="status-item"
-           :title="`Disk: ${systemInfo.diskUsage} (${systemInfo.diskUsagePercent})`">
+      <div class="status-item status-item-metric" :title="`Disk: ${systemInfo.diskUsage} / ${systemInfo.diskUsagePercent}`">
         <CircleStackIcon class="status-icon" />
-        <span>{{ systemInfo.diskUsage }}</span>
+        <span class="status-value">{{ systemInfo.diskUsage }}</span>
       </div>
 
-      <!-- System Info -->
-      <div class="status-item"
-           :title="`Uptime: ${systemInfo.uptime} • Processes: ${systemInfo.processes}`">
+      <div class="status-divider"></div>
+
+      <!-- System Uptime -->
+      <div class="status-item" :title="`Uptime: ${systemInfo.uptime} • Processes: ${systemInfo.processes}`">
         <ClockIcon class="status-icon" />
-        <span>{{ systemInfo.uptime }}</span>
+        <span class="status-label">{{ systemInfo.uptime }}</span>
       </div>
 
-      <!-- Version Info -->
-      <div class="status-item version-info">
-        <span class="version-text">v{{ appVersion }}</span>
+      <div class="status-divider"></div>
+
+      <!-- Version -->
+      <div class="status-item status-item-version" :title="`Version ${appVersion}`">
+        <span class="status-version">v{{ appVersion }}</span>
       </div>
     </div>
   </div>
@@ -85,8 +91,8 @@ import type { StatsDataEvent } from '@/types/socket'
 import {
   CommandLineIcon,
   Squares2X2Icon,
-  FolderIcon,
-  CogIcon,
+  FolderOpenIcon,
+  ArrowPathIcon,
   CpuChipIcon,
   BoltIcon,
   CircleStackIcon,
@@ -131,13 +137,13 @@ const isMobile = computed(() => {
 })
 
 // Connection status
-const connectionStatusClass = computed(() => {
+const connectionBadgeClass = computed(() => {
   if (socketService.isConnected && authStore.isAuthenticated) {
-    return 'connected'
+    return 'status-badge-connected'
   } else if (authStore.isAuthenticated) {
-    return 'connecting'
+    return 'status-badge-connecting'
   } else {
-    return 'disconnected'
+    return 'status-badge-disconnected'
   }
 })
 
@@ -157,9 +163,7 @@ const layoutDisplayName = computed(() => {
 })
 
 // Active sessions count from real backend data
-const activeSessions = computed(() => {
-  return statsData.value?.active_sessions || 0
-})
+// This computed property is intentionally defined for future use
 
 // Display session count - uses backend data when available, falls back to UI panes
 const displaySessionCount = computed(() => {
@@ -247,26 +251,32 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* ========================================
+   ATLASSIAN-INSPIRED STATUS BAR
+   Modern, clean design with theme support
+   ======================================== */
+
 .status-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 24px;
-  padding: 0 12px;
-  background: var(--bg-tertiary);
-  border-top: 1px solid var(--border-color);
-  font-size: 11px;
-  color: var(--text-muted);
+  height: 26px;
+  padding: 0 var(--space-3);
+  background: var(--color-bg-secondary);
+  border-top: 1px solid var(--color-border-primary);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
   flex-shrink: 0;
-  min-height: 28px;
+  font-family: var(--font-family-sans);
+  user-select: none;
 }
 
-.status-left,
-.status-center,
-.status-right {
+/* ===== SECTIONS ===== */
+.status-section {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-2);
+  height: 100%;
 }
 
 .status-left {
@@ -277,6 +287,7 @@ onBeforeUnmount(() => {
 .status-center {
   flex: 2;
   justify-content: center;
+  max-width: 400px;
 }
 
 .status-right {
@@ -284,148 +295,261 @@ onBeforeUnmount(() => {
   justify-content: flex-end;
 }
 
+/* ===== DIVIDER ===== */
+.status-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--color-border-secondary);
+  opacity: 0.5;
+}
+
+/* ===== BASE ITEM STYLES ===== */
 .status-item {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 6px;
-  border-radius: 3px;
-  transition: all 0.15s ease;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  height: 20px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-base);
   white-space: nowrap;
+  font-weight: var(--font-weight-medium);
 }
 
-.status-item .status-icon {
+.status-icon {
   width: 14px;
   height: 14px;
   flex-shrink: 0;
-  opacity: 0.7;
-  color: var(--text-muted);
+  color: var(--color-text-tertiary);
+  transition: color var(--transition-base);
 }
 
-.connection-status {
-  padding-left: 4px;
+.status-label,
+.status-value {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  transition: color var(--transition-base);
 }
 
-.status-indicator {
+/* ===== CONNECTION BADGE ===== */
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  height: 20px;
+  border-radius: var(--radius-base);
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: default;
+  transition: all var(--transition-base);
+  font-weight: var(--font-weight-medium);
+}
+
+.status-badge-indicator {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  margin-right: 2px;
+  transition: all var(--transition-base);
 }
 
-.connection-status.connected .status-indicator {
-  background-color: var(--success);
-  box-shadow: 0 0 4px rgba(34, 197, 94, 0.4);
+.status-badge-text {
+  font-size: var(--font-size-xs);
+  transition: color var(--transition-base);
 }
 
-.connection-status.connecting .status-indicator {
-  background-color: var(--warning);
-  animation: pulse 2s ease-in-out infinite;
+/* Connection states */
+.status-badge-connected {
+  background: var(--color-semantic-success-bg);
+  border-color: var(--color-semantic-success-border);
 }
 
-.connection-status.disconnected .status-indicator {
-  background-color: var(--error);
+.status-badge-connected .status-badge-indicator {
+  background-color: var(--color-semantic-success);
+  box-shadow: 0 0 6px var(--color-semantic-success);
 }
 
-.workspace-info {
-  max-width: 300px;
+.status-badge-connected .status-badge-text {
+  color: var(--color-semantic-success);
+}
+
+.status-badge-connecting {
+  background: var(--color-semantic-warning-bg);
+  border-color: var(--color-semantic-warning-border);
+}
+
+.status-badge-connecting .status-badge-indicator {
+  background-color: var(--color-semantic-warning);
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.status-badge-connecting .status-badge-text {
+  color: var(--color-semantic-warning);
+}
+
+.status-badge-disconnected {
+  background: var(--color-semantic-error-bg);
+  border-color: var(--color-semantic-error-border);
+}
+
+.status-badge-disconnected .status-badge-indicator {
+  background-color: var(--color-semantic-error);
+}
+
+.status-badge-disconnected .status-badge-text {
+  color: var(--color-semantic-error);
+}
+
+/* ===== WORKSPACE ITEM ===== */
+.workspace-item {
+  max-width: 400px;
+  padding: 0 var(--space-3);
+}
+
+.workspace-item .status-icon {
+  color: var(--color-interactive-primary);
 }
 
 .workspace-path {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
 }
 
-.background-tasks {
+/* ===== INTERACTIVE ITEMS ===== */
+.status-item-interactive {
   cursor: pointer;
+  background: transparent;
+  border: 1px solid transparent;
 }
 
-.background-tasks:hover {
-  background: var(--button-hover);
-  color: var(--text-primary);
+.status-item-interactive:hover {
+  background: var(--color-interactive-tertiary-hover);
+  border-color: var(--color-border-hover);
 }
 
-.memory-usage {
-  font-family: monospace;
-  color: var(--info);
+.status-item-interactive:hover .status-icon {
+  color: var(--color-interactive-primary);
 }
 
-.version-info {
-  opacity: 0.6;
+.status-item-interactive:hover .status-label {
+  color: var(--color-text-primary);
 }
 
-.version-text {
-  font-family: monospace;
+.status-item-interactive:active {
+  background: var(--color-interactive-tertiary);
+  transform: scale(0.98);
+}
+
+/* ===== METRIC ITEMS ===== */
+.status-item-metric {
+  font-family: var(--font-family-mono);
+}
+
+.status-item-metric .status-value {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ===== VERSION ===== */
+.status-item-version {
+  padding: 0 var(--space-2);
+}
+
+.status-version {
+  font-family: var(--font-family-mono);
   font-size: 10px;
+  color: var(--color-text-tertiary);
+  opacity: 0.7;
+}
+
+/* ===== ANIMATIONS ===== */
+.status-icon-spin {
+  animation: spin 1.5s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes pulse {
   0%, 100% {
     opacity: 1;
+    transform: scale(1);
   }
   50% {
-    opacity: 0.5;
+    opacity: 0.7;
+    transform: scale(0.95);
+  }
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 1024px) {
+  .status-right .status-item-metric:nth-child(n+3) {
+    display: none;
   }
 }
 
 @media (max-width: 768px) {
   .status-bar {
-    padding: 6px 16px;
-    font-size: 11px;
-    border-radius: 12px 12px 0 0;
-  }
-
-  .status-left,
-  .status-right {
-    gap: 12px;
+    height: 30px;
+    padding: 0 var(--space-4);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   }
 
   .status-center {
     display: none;
   }
 
-  .status-right .status-item:nth-child(n+3) {
+  .status-right .status-item:not(.status-item-interactive) {
     display: none;
   }
 
+  .status-right .status-item-version {
+    display: flex;
+  }
+
   .status-item {
-    padding: 4px 8px;
-    background: var(--bg-tertiary);
-    border-radius: 6px;
-    border: 1px solid var(--border-color);
+    padding: 0 var(--space-3);
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-md);
   }
 }
 
 @media (max-width: 480px) {
   .status-bar {
-    padding: 4px 12px;
-    font-size: 10px;
-    gap: 8px;
+    height: 28px;
+    padding: 0 var(--space-3);
+    gap: var(--space-2);
   }
 
-  .status-left,
-  .status-right {
-    gap: 8px;
+  .status-section {
+    gap: var(--space-1);
   }
 
-  .status-right .status-item:nth-child(n+2) {
+  .status-badge-text,
+  .status-label,
+  .status-value {
     display: none;
   }
 
-  .status-left .status-item:nth-child(n+2) {
+  .status-divider {
     display: none;
   }
 
-  .status-item span {
+  .status-item-version {
     display: none;
   }
 
-  .status-item svg {
-    display: block;
-  }
-
-  .connection-status .status-text {
+  .status-left .status-item:nth-child(n+3) {
     display: none;
   }
 }

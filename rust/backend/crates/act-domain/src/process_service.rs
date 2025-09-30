@@ -217,7 +217,7 @@ impl ProcessService {
         user_id: &str,
         session_id: &str,
     ) -> Result<Vec<UserProcess>> {
-        self.process_repository.list_for_session(user_id, &session_id.to_string()).await
+        self.process_repository.list_for_session(user_id, session_id).await
     }
 
     pub async fn stop_process(

@@ -16,7 +16,7 @@
             class="close-tab"
             title="Close file"
           >
-            <XMarkIcon class="h-3 w-3" />
+            <XMarkIcon class="icon-sm" />
           </button>
         </div>
       </div>
@@ -34,7 +34,7 @@
           class="action-btn"
           title="Save all files"
         >
-          <ArrowDownTrayIcon class="h-4 w-4" />
+          <ArrowDownTrayIcon class="icon-base" />
           Save All ({{ unsavedFiles.length }})
         </button>
 
@@ -44,12 +44,12 @@
           class="action-btn primary"
           title="Save current file"
         >
-          <ArrowDownTrayIcon class="h-4 w-4" />
+          <ArrowDownTrayIcon class="icon-base" />
           Save
         </button>
 
         <button @click="closeEditor" class="close-btn" title="Close editor">
-          <XMarkIcon class="h-3 w-3" />
+          <XMarkIcon class="icon-sm" />
         </button>
       </div>
     </div>

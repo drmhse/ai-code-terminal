@@ -430,7 +430,7 @@ export class ClaudeCLIBridge {
   /**
    * Process user input and return formatted command with metadata
    */
-  static processUserInput(input: string, context?: any): {
+  static processUserInput(input: string, context?: Record<string, unknown>): {
     command: string
     detection: CommandDetectionResult
     warnings: string[]

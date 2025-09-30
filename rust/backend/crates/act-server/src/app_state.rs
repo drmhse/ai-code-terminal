@@ -7,7 +7,11 @@ use act_core::{
     repository::ProcessRunner,
     Result, CoreError,
 };
-use act_domain::{DomainServices, GitService, git_service::LocalGitService, ProcessRecoveryConfig};
+use act_domain::{
+    DomainServices, GitService, git_service::LocalGitService, ProcessRecoveryConfig,
+    MicrosoftOAuthConfig, EncryptionService, MicrosoftGraphClient,
+    TokenEncryption, GraphClient
+};
 use act_core::{EventPublisher, SecurityAuditLogger};
 use act_core::events::InMemoryEventPublisher;
 use act_core::security::{ProcessSecurityValidator, InMemorySecurityAuditLogger};
@@ -89,7 +93,32 @@ impl AppState {
         let security_validator = Arc::new(ProcessSecurityValidator::new(act_core::security::ProcessSecurityConfig::default()).unwrap());
         let security_audit_logger: Arc<dyn SecurityAuditLogger> = Arc::new(InMemorySecurityAuditLogger::new());
         let process_recovery_config = ProcessRecoveryConfig::default();
-        
+
+        // Create Microsoft auth service dependencies
+        let encryption_key = config.microsoft.encryption_key.clone()
+            .ok_or_else(|| CoreError::Configuration("Microsoft encryption key not configured".to_string()))?;
+        let encryption_service: Arc<dyn TokenEncryption> = Arc::new(
+            EncryptionService::new(&encryption_key)
+                .map_err(|e| CoreError::Configuration(format!("Failed to create encryption service: {}", e)))?
+        );
+
+        let graph_client: Arc<dyn GraphClient> = Arc::new(
+            MicrosoftGraphClient::new()
+                .map_err(|e| CoreError::Configuration(format!("Failed to create Graph client: {}", e)))?
+        );
+
+        let microsoft_oauth_config = MicrosoftOAuthConfig {
+            client_id: config.microsoft.client_id.clone()
+                .ok_or_else(|| CoreError::Configuration("Microsoft client ID not configured".to_string()))?,
+            client_secret: config.microsoft.client_secret.clone()
+                .ok_or_else(|| CoreError::Configuration("Microsoft client secret not configured".to_string()))?,
+            redirect_uri: config.microsoft.redirect_uri.clone()
+                .ok_or_else(|| CoreError::Configuration("Microsoft redirect URI not configured".to_string()))?,
+            tenant_id: config.microsoft.tenant_id.clone(), // Optional field
+        };
+
+        let microsoft_auth_repository = repositories.microsoft_auth_repo();
+
         let domain_services = Arc::new(DomainServices::new(
             repositories.workspace_repo(),
             repositories.layout_repo(),
@@ -111,6 +140,11 @@ impl AppState {
             security_audit_logger,
             process_recovery_config,
             workspace_root.to_string_lossy().to_string(),
+            // Microsoft auth service dependencies
+            microsoft_auth_repository,
+            encryption_service,
+            graph_client,
+            microsoft_oauth_config,
         ));
         
         Ok(Self {

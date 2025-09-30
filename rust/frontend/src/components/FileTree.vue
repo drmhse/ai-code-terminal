@@ -8,14 +8,14 @@
     
     <!-- Error State -->
     <div v-else-if="fileStore.fileError" class="error-state">
-      <ExclamationCircleIcon class="h-4 w-4" />
+      <ExclamationCircleIcon class="icon-base" />
       <span>{{ fileStore.fileError }}</span>
       <button @click="() => refreshFiles()" class="retry-btn">Retry</button>
     </div>
     
     <!-- Empty State -->
     <div v-else-if="!fileStore.hasFiles" class="empty-state">
-      <FolderIcon class="h-4 w-4" />
+      <FolderIcon class="icon-base" />
       <span>No files found</span>
     </div>
     

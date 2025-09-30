@@ -3,17 +3,12 @@ import { ref, computed, readonly } from 'vue'
 import { apiService } from '@/services/api'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUIStore } from '@/stores/ui'
+import type { FileItem as FileType } from '@/types'
 
-export interface FileItem {
-  name: string
-  type: 'file' | 'directory'
-  size?: number
-  modified?: string
+// Extended FileItem interface for tree structure support
+export interface FileItem extends FileType {
   permissions?: string
-  isHidden: boolean
-  extension?: string
-  path: string
-  language?: string | undefined
+  modified?: string
   // Tree structure support (VS Code-like)
   children?: FileItem[] | undefined
   isExpanded?: boolean
@@ -172,6 +167,26 @@ const clearPreviewError = () => {
     previewError.value = null
   }
 
+  // Helper function to find a file by its path
+  const findFileByPath = (targetPath: string): FileItem | null => {
+    const searchInFiles = (files: FileItem[]): FileItem | null => {
+      for (const file of files) {
+        if (file.path === targetPath) {
+          return file
+        }
+        if (file.children && file.children.length > 0) {
+          const found = searchInFiles(file.children)
+          if (found) {
+            return found
+          }
+        }
+      }
+      return null
+    }
+
+    return searchInFiles(fileTree.value) || searchInFiles(currentFiles.value)
+  }
+
   const refreshFiles = async (path?: string, useCache = true, workspaceId?: string) => {
     const targetPath = path || currentPath.value
     
@@ -202,8 +217,10 @@ const clearPreviewError = () => {
           type: apiFile.is_directory ? 'directory' as const : 'file' as const,
           size: apiFile.size || 0,
           modified: apiFile.modified || apiFile.modified_at,
+          modified_at: apiFile.modified_at || apiFile.modified || '',
           permissions: apiFile.permissions,
           isHidden: apiFile.name.startsWith('.'),
+          is_directory: apiFile.is_directory,
           extension: apiFile.is_directory ? undefined : apiFile.name.split('.').pop()?.toLowerCase(),
           path: apiFile.name, // Use just the filename for relative paths
           language: apiFile.is_directory ? undefined : (getFileLanguage(apiFile.name) || undefined)
@@ -299,8 +316,10 @@ const clearPreviewError = () => {
           type: apiFile.is_directory ? 'directory' as const : 'file' as const,
           size: apiFile.size || 0,
           modified: apiFile.modified || apiFile.modified_at,
+          modified_at: apiFile.modified_at || apiFile.modified || '',
           permissions: apiFile.permissions,
           isHidden: apiFile.name.startsWith('.'),
+          is_directory: apiFile.is_directory,
           extension: apiFile.is_directory ? undefined : apiFile.name.split('.').pop()?.toLowerCase(),
           path: fullPath === '.' ? apiFile.name : `${fullPath}/${apiFile.name}`.replace(/\/+/g, '/'),
           language: apiFile.is_directory ? undefined : (getFileLanguage(apiFile.name) || undefined),
@@ -867,6 +886,7 @@ const clearPreviewError = () => {
     // Actions
     clearFileError,
     clearPreviewError,
+    findFileByPath,
     refreshFiles,
     navigateToPath,
     navigateUp,

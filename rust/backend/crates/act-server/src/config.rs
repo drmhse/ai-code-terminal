@@ -11,6 +11,7 @@ pub struct Config {
     pub auth: AuthConfig,
     pub cors: CorsConfig,
     pub workspace: WorkspaceConfig,
+    pub microsoft: MicrosoftConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,6 +48,15 @@ pub struct WorkspaceConfig {
     pub auto_create: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MicrosoftConfig {
+    pub client_id: Option<String>,
+    pub client_secret: Option<String>,
+    pub redirect_uri: Option<String>,
+    pub encryption_key: Option<String>,
+    pub tenant_id: Option<String>,
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -79,6 +89,13 @@ impl Default for Config {
                     .unwrap_or_else(|_| PathBuf::from("."))
                     .join("workspaces"),
                 auto_create: true,
+            },
+            microsoft: MicrosoftConfig {
+                client_id: None,
+                client_secret: None,
+                redirect_uri: None,
+                encryption_key: None,
+                tenant_id: None,
             },
         }
     }
@@ -142,7 +159,28 @@ impl Config {
         if let Ok(workspace_root) = std::env::var("ACT_WORKSPACE_ROOT_PATH") {
             config.workspace.root_path = PathBuf::from(&workspace_root);
         }
-        
+
+        // Handle Microsoft configuration
+        if let Ok(client_id) = std::env::var("MS_CLIENT_ID") {
+            config.microsoft.client_id = Some(client_id);
+        }
+
+        if let Ok(client_secret) = std::env::var("MS_CLIENT_SECRET") {
+            config.microsoft.client_secret = Some(client_secret);
+        }
+
+        if let Ok(redirect_uri) = std::env::var("MS_REDIRECT_URI") {
+            config.microsoft.redirect_uri = Some(redirect_uri);
+        }
+
+        if let Ok(encryption_key) = std::env::var("MS_ENCRYPTION_KEY") {
+            config.microsoft.encryption_key = Some(encryption_key);
+        }
+
+        if let Ok(tenant_id) = std::env::var("MS_TENANT_ID") {
+            config.microsoft.tenant_id = Some(tenant_id);
+        }
+
         Ok(config)
     }
     

@@ -78,7 +78,7 @@ impl RollingBuffer {
 }
 
 /// In-memory state for a single user's live session data
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct UserLiveState {
     /// Active PTY sessions for this user (sessionId -> SessionInfo)
     pub pty_sessions: HashMap<SessionId, SessionInfo>,
@@ -86,9 +86,7 @@ pub struct UserLiveState {
 
 impl UserLiveState {
     pub fn new() -> Self {
-        Self {
-            pty_sessions: HashMap::new(),
-        }
+        Self::default()
     }
 }
 
@@ -164,7 +162,7 @@ impl SessionService {
         let config = SessionConfig {
             session_id: session_id.to_string(),
             workspace_id: workspace_id.to_string(),
-            pane_id: pane_id,
+            pane_id,
             size: PtySize {
                 cols: 80,
                 rows: 24,
@@ -469,7 +467,7 @@ impl SessionService {
             let mut sessions_to_remove = Vec::new();
 
             // Check each session's status via PTY service
-            for (session_id, _session_info) in &user_state.pty_sessions {
+            for session_id in user_state.pty_sessions.keys() {
                 match self.pty_service.get_session_info(session_id).await {
                     Ok(current_info) => {
                         // If session is terminated, mark for removal

@@ -1,27 +1,27 @@
 <template>
   <div class="repository-list" ref="listRef">
     <!-- Loading State -->
-    <div v-if="loading" class="loading-state">
-      <LoadingSpinner size="large" text="Loading repositories..." />
+    <div v-if="loading" class="empty-state">
+      <LoadingSpinner size="large" />
+      <p class="state-text">Loading repositories...</p>
     </div>
 
     <!-- Error State -->
-    <div v-else-if="error" class="error-state">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10"></circle>
-        <line x1="12" y1="8" x2="12" y2="12"></line>
-        <line x1="12" y1="16" x2="12.01" y2="16"></line>
-      </svg>
-      <p>{{ error }}</p>
-      <button @click="handleRetry" class="retry-btn">Retry</button>
+    <div v-else-if="error" class="empty-state error">
+      <ExclamationCircleIcon class="state-icon error-icon" />
+      <p class="state-title">Failed to load repositories</p>
+      <p class="state-text">{{ error }}</p>
+      <button @click="handleRetry" class="retry-btn">
+        <ArrowPathIcon class="btn-icon" />
+        <span>Try again</span>
+      </button>
     </div>
 
     <!-- Empty State -->
     <div v-else-if="repositories.length === 0" class="empty-state">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-      </svg>
-      <p>{{ emptyMessage }}</p>
+      <FolderIcon class="state-icon" />
+      <p class="state-title">No repositories found</p>
+      <p class="state-text">{{ emptyMessage }}</p>
     </div>
 
     <!-- Repository List -->
@@ -44,7 +44,8 @@
           :disabled="loadingMore"
         >
           <LoadingSpinner v-if="loadingMore" size="small" />
-          <span v-else>Load More</span>
+          <ChevronDownIcon v-else class="btn-icon" />
+          <span v-if="!loadingMore">Load more repositories</span>
         </button>
       </div>
     </div>
@@ -55,6 +56,12 @@
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import RepositoryCard, { type Repository } from './RepositoryCard.vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
+import {
+  FolderIcon,
+  ExclamationCircleIcon,
+  ArrowPathIcon,
+  ChevronDownIcon
+} from '@heroicons/vue/24/outline'
 
 interface Props {
   repositories: Repository[]
@@ -140,141 +147,148 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* ===== CONTAINER ===== */
 .repository-list {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-lg, 16px) var(--space-3xl, 32px) var(--space-2xl, 24px);
+  padding: var(--space-4, 16px);
   min-height: 0;
 }
 
-/* States */
-.loading-state,
-.error-state,
+/* ===== EMPTY STATES ===== */
 .empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: var(--space-4xl, 40px) var(--space-2xl, 24px);
-  color: var(--text-secondary);
-  gap: var(--space-lg, 16px);
+  padding: var(--space-12, 48px) var(--space-6, 24px);
+  gap: var(--space-3, 12px);
   text-align: center;
-  min-height: 300px;
+  min-height: 320px;
 }
 
-.error-state {
-  color: var(--error);
+.state-icon {
+  width: 48px;
+  height: 48px;
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--space-2, 8px);
 }
 
-.error-state p {
+.error-icon {
+  color: var(--color-text-danger);
+}
+
+.state-title {
   margin: 0;
-  font-size: var(--font-size-base, 14px);
-  font-weight: var(--font-weight-medium, 500);
+  font-size: var(--font-size-lg, 16px);
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-text-primary);
 }
 
-.empty-state p {
+.state-text {
   margin: 0;
-  font-size: var(--font-size-base, 14px);
-  font-weight: var(--font-weight-medium, 500);
+  font-size: var(--font-size-sm, 13px);
+  color: var(--color-text-secondary);
+  max-width: 400px;
 }
 
 .retry-btn {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  padding: var(--space-md, 12px) var(--space-xl, 20px);
-  border-radius: var(--radius-lg, 12px);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  padding: var(--space-2, 8px) var(--space-4, 16px);
+  margin-top: var(--space-4, 16px);
+  background: var(--color-interactive-secondary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--radius-base, 8px);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm, 13px);
+  font-weight: var(--font-weight-semibold, 600);
   cursor: pointer;
-  font-size: var(--font-size-base, 14px);
-  font-weight: var(--font-weight-medium, 500);
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.15s ease;
 }
 
 .retry-btn:hover {
-  background: var(--bg-tertiary);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: var(--color-interactive-secondary-hover);
+  border-color: var(--color-border-focus);
 }
 
-/* Repository Grid */
+.retry-btn:active {
+  transform: scale(0.98);
+}
+
+.btn-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* ===== REPOSITORY GRID ===== */
 .repository-grid {
   display: grid;
-  gap: var(--space-lg, 16px);
+  gap: var(--space-3, 12px);
 }
 
+/* ===== LOAD MORE ===== */
 .load-more-container {
   display: flex;
   justify-content: center;
-  padding: var(--space-2xl, 24px) 0;
+  padding: var(--space-4, 16px) 0;
 }
 
 .load-more-btn {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  padding: var(--space-lg, 16px) var(--space-2xl, 24px);
-  border-radius: var(--radius-lg, 12px);
-  cursor: pointer;
-  font-size: var(--font-size-base, 14px);
-  font-weight: var(--font-weight-medium, 500);
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-md, 12px);
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  min-width: 120px;
-  justify-content: center;
+  gap: var(--space-2, 8px);
+  padding: var(--space-3, 12px) var(--space-6, 24px);
+  background: var(--color-interactive-secondary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--radius-base, 8px);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm, 13px);
+  font-weight: var(--font-weight-semibold, 600);
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .load-more-btn:hover:not(:disabled) {
-  background: var(--bg-tertiary);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: var(--color-interactive-secondary-hover);
+  border-color: var(--color-border-focus);
+}
+
+.load-more-btn:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .load-more-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
-  transform: none;
 }
 
-/* Responsive Design */
+/* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
   .repository-list {
-    padding: var(--space-lg, 16px) var(--space-2xl, 24px);
+    padding: var(--space-3, 12px);
   }
 
-  .loading-state,
-  .error-state,
   .empty-state {
-    padding: var(--space-3xl, 32px) var(--space-lg, 16px);
-    min-height: 250px;
+    padding: var(--space-8, 32px) var(--space-4, 16px);
+    min-height: 280px;
+  }
+
+  .state-icon {
+    width: 40px;
+    height: 40px;
   }
 }
 
-@media (max-width: 480px) {
-  .repository-list {
-    padding: var(--space-md, 12px) var(--space-lg, 16px);
-  }
-
-  .loading-state,
-  .error-state,
-  .empty-state {
-    padding: var(--space-2xl, 24px) var(--space-md, 12px);
-    min-height: 200px;
-  }
+/* ===== ACCESSIBILITY ===== */
+.retry-btn:focus-visible,
+.load-more-btn:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
 }
 
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-  .retry-btn,
-  .load-more-btn {
-    border-width: 2px;
-  }
-}
-
-/* Reduced motion support */
+/* ===== REDUCED MOTION ===== */
 @media (prefers-reduced-motion: reduce) {
   .retry-btn,
   .load-more-btn {

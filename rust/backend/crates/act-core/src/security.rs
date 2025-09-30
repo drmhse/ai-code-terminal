@@ -229,12 +229,10 @@ impl ProcessSecurityValidator {
             }
 
             // Check for path traversal if protection is enabled
-            if self.config.enable_path_traversal_protection {
-                if arg.contains("../") || arg.contains("..\\") {
-                    return Err(CoreError::Validation(
-                        format!("Argument {} contains path traversal: {}", i, arg)
-                    ));
-                }
+            if self.config.enable_path_traversal_protection && (arg.contains("../") || arg.contains("..\\")) {
+                return Err(CoreError::Validation(
+                    format!("Argument {} contains path traversal: {}", i, arg)
+                ));
             }
 
             // Check for command injection patterns
@@ -253,12 +251,10 @@ impl ProcessSecurityValidator {
         let path = Path::new(working_dir);
 
         // Check path traversal
-        if self.config.enable_path_traversal_protection {
-            if working_dir.contains("../") || working_dir.contains("..\\") {
-                return Err(CoreError::Validation(
-                    format!("Working directory contains path traversal: {}", working_dir)
-                ));
-            }
+        if self.config.enable_path_traversal_protection && (working_dir.contains("../") || working_dir.contains("..\\")) {
+            return Err(CoreError::Validation(
+                format!("Working directory contains path traversal: {}", working_dir)
+            ));
         }
 
         // Check against blocked directories

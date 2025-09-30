@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed, readonly } from 'vue'
+import type { FileItem } from '@/types'
 
 interface Command {
   command: string
@@ -31,10 +32,16 @@ export const useUIStore = defineStore('ui', () => {
   // Mobile stats interface
   const statsExpanded = ref(false)
   const activeStatsTab = ref<'system' | 'sessions' | 'resources'>('system')
+
+  // Active view management
+  const activeView = ref<'terminal' | 'editor'>('terminal')
   
   // Theme management
   const showThemeModal = ref(false)
-  
+
+  // Settings management
+  const showSettingsModal = ref(false)
+
   // Modal states
   const showDeleteModal = ref(false)
   const showDiscardModal = ref(false)
@@ -43,6 +50,7 @@ export const useUIStore = defineStore('ui', () => {
   const showRepositoriesModal = ref(false)
   const showContextMenu = ref(false)
   const showBackgroundTasks = ref(false)
+  const showTodoTasks = ref(false)
   const showQuickCommandOverlay = ref(false)
   
   // Modal data
@@ -62,7 +70,7 @@ export const useUIStore = defineStore('ui', () => {
   // Context menu data
   const contextMenuX = ref(0)
   const contextMenuY = ref(0)
-  const contextMenuFile = ref<any | null>(null)
+  const contextMenuFile = ref<FileItem | null>(null)
   
   // Mobile actions menu
   const showMobileActionsMenu = ref(false)
@@ -178,6 +186,10 @@ export const useUIStore = defineStore('ui', () => {
   const toggleSidebar = () => {
     sidebarOpen.value = !sidebarOpen.value
   }
+
+  const setActiveView = (view: 'terminal' | 'editor') => {
+    activeView.value = view
+  }
   
   const closeSidebar = () => {
     sidebarOpen.value = false
@@ -220,9 +232,27 @@ export const useUIStore = defineStore('ui', () => {
     showThemeModal.value = !showThemeModal.value
   }
 
+  // Settings modal
+  const openSettingsModal = () => {
+    showSettingsModal.value = true
+  }
+
+  const closeSettingsModal = () => {
+    showSettingsModal.value = false
+  }
+
+  const toggleSettingsModal = () => {
+    showSettingsModal.value = !showSettingsModal.value
+  }
+
   // Background tasks modal
   const setShowBackgroundTasks = (show: boolean) => {
     showBackgroundTasks.value = show
+  }
+
+  // Todo tasks modal
+  const setShowTodoTasks = (show: boolean) => {
+    showTodoTasks.value = show
   }
 
   // Quick command overlay
@@ -297,7 +327,7 @@ export const useUIStore = defineStore('ui', () => {
   }
 
   // Context menu
-  const openContextMenu = (x: number, y: number, file: any) => {
+  const openContextMenu = (x: number, y: number, file: FileItem) => {
     contextMenuX.value = x
     contextMenuY.value = y
     contextMenuFile.value = file
@@ -447,6 +477,7 @@ export const useUIStore = defineStore('ui', () => {
     statsExpanded: readonly(statsExpanded),
     activeStatsTab: readonly(activeStatsTab),
     showThemeModal: readonly(showThemeModal),
+    showSettingsModal: readonly(showSettingsModal),
     showDeleteModal: readonly(showDeleteModal),
     showDiscardModal: readonly(showDiscardModal),
     showCreateItemModal: readonly(showCreateItemModal),
@@ -454,6 +485,7 @@ export const useUIStore = defineStore('ui', () => {
     showRepositoriesModal: readonly(showRepositoriesModal),
     showContextMenu: readonly(showContextMenu),
     showBackgroundTasks: readonly(showBackgroundTasks),
+    showTodoTasks: readonly(showTodoTasks),
     showQuickCommandOverlay: readonly(showQuickCommandOverlay),
     createItemModalData: readonly(createItemModalData),
     confirmDeleteModalData: readonly(confirmDeleteModalData),
@@ -476,6 +508,7 @@ export const useUIStore = defineStore('ui', () => {
     contextualMode: readonly(contextualMode),
     historyPanelOpen: readonly(historyPanelOpen),
     activeTab: readonly(activeTab),
+    activeView: readonly(activeView),
     touchStartTime: readonly(touchStartTime),
     swipeStartY: readonly(swipeStartY),
     essentialActions: readonly(essentialActions),
@@ -496,6 +529,7 @@ export const useUIStore = defineStore('ui', () => {
     toggleSidebar,
     closeSidebar,
     openSidebar,
+    setActiveView,
     toggleStats,
     closeStats,
     toggleMobileActionsMenu,
@@ -504,7 +538,11 @@ export const useUIStore = defineStore('ui', () => {
     openThemeModal,
     closeThemeModal,
     toggleThemeModal,
+    openSettingsModal,
+    closeSettingsModal,
+    toggleSettingsModal,
     setShowBackgroundTasks,
+    setShowTodoTasks,
     openQuickCommandOverlay,
     closeQuickCommandOverlay,
     toggleQuickCommandOverlay,

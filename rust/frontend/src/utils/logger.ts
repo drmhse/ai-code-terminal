@@ -2,6 +2,7 @@
  * Logging utility that only logs when VITE_SHOW_LOGS environment variable is set
  */
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type LogLevel = 'log' | 'warn' | 'error' | 'info' | 'debug'
 
 interface Logger {

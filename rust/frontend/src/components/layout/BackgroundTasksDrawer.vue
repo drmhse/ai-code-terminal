@@ -237,7 +237,6 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useProcessStore } from '@/stores/process'
 import { useWorkspaceStore } from '@/stores/workspace'
-import type { Process } from '@/stores/process'
 
 defineEmits<{
   close: []

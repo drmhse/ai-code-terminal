@@ -9,7 +9,7 @@
       
       <div v-else-if="error" class="error-state">
         <div class="error-icon">
-          <XCircleIcon class="h-12 w-12" />
+          <XCircleIcon class="icon-2xl" />
         </div>
         <h2>Authentication Failed</h2>
         <p>{{ error }}</p>
@@ -20,7 +20,7 @@
       
       <div v-else class="success-state">
         <div class="success-icon">
-          <CheckCircleIcon class="h-12 w-12" />
+          <CheckCircleIcon class="icon-2xl" />
         </div>
         <h2>Authentication Successful</h2>
         <p>Redirecting to dashboard...</p>

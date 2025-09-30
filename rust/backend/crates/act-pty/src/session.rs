@@ -20,6 +20,7 @@ pub struct PtySession {
 }
 
 impl PtySession {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         session_id: SessionId,
         workspace_id: WorkspaceId,

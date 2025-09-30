@@ -28,7 +28,7 @@ impl ThemeRepository for SqlThemeRepository {
         .bind(user_id)
         .fetch_optional(&self.pool)
         .await
-        .map_err(|e| PersistenceError::DatabaseConnection(e))?;
+        .map_err(PersistenceError::DatabaseConnection)?;
 
         match row {
             Some(row) => {
@@ -59,7 +59,7 @@ impl ThemeRepository for SqlThemeRepository {
         .bind(theme_str)
         .execute(&self.pool)
         .await
-        .map_err(|e| PersistenceError::DatabaseConnection(e))?;
+        .map_err(PersistenceError::DatabaseConnection)?;
 
         Ok(())
     }

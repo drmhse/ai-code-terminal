@@ -9,6 +9,15 @@ pub mod process_service;
 pub mod process_recovery_service;
 pub mod theme_service;
 pub mod user_preferences_service;
+pub mod encryption_service;
+pub mod microsoft_graph_client;
+pub mod microsoft_auth_service;
+pub mod microsoft_auth_types;
+pub mod todo_sync_service;
+pub mod task_context_parser;
+pub mod task_attachment_service;
+pub mod task_priority_service;
+pub mod task_sync_service;
 
 pub use workspace_service::{
     WorkspaceService, GitService, WorkspaceSettings, GitStatus, GitCommit, CloneRequest
@@ -34,6 +43,33 @@ pub use process_service::{ProcessService};
 pub use process_recovery_service::{ProcessRecoveryService, ProcessRecoveryConfig};
 pub use theme_service::{ThemeService};
 pub use user_preferences_service::{UserPreferencesService};
+pub use encryption_service::{EncryptionService, TokenEncryption, EncryptionError};
+pub use microsoft_graph_client::{
+    MicrosoftGraphClient, GraphClient, GraphApiError, TaskList, Task, TaskBody,
+    TaskStatus, TaskImportance, TaskDateTime, ChecklistItem, CreateTaskRequest,
+    CreateListRequest, CreateChecklistItemRequest
+};
+pub use microsoft_auth_service::{
+    MicrosoftAuthService, MicrosoftAuthError, MicrosoftOAuthConfig, AuthorizationUrl, MicrosoftTokenResponse, MicrosoftHealthStatus
+};
+pub use microsoft_auth_types::{
+    MicrosoftAuthRepository, MicrosoftAuthData, WorkspaceTodoMapping, MicrosoftAuthRepositoryError
+};
+pub use todo_sync_service::{
+    TodoSyncService, TodoSyncError, TodoSyncConfig, TodoSync, TodoSyncStatus, WorkspaceSyncStatus, CacheStats
+};
+pub use task_context_parser::{
+    TaskContextParser, TaskContext, ParsedTaskNote, TaskContextError
+};
+pub use task_attachment_service::{
+    TaskAttachmentService, TaskAttachment, AttachmentUpload, AttachmentStrategy, AttachmentDecision
+};
+pub use task_priority_service::{
+    TaskPriorityService, PriorityAnalysis, PriorityFlag
+};
+pub use task_sync_service::{
+    TaskSyncService, TaskSync, TaskSyncError, TaskSyncConfig, TaskSyncResult, SyncAction
+};
 
 use std::sync::Arc;
 
@@ -59,6 +95,9 @@ pub struct DomainServices {
     pub process_recovery_service: ProcessRecoveryService,
     pub theme_service: ThemeService,
     pub user_preferences_service: UserPreferencesService,
+    pub microsoft_auth_service: MicrosoftAuthService,
+    pub todo_sync_service: TodoSyncService,
+    pub task_sync_service: TaskSyncService,
 }
 
 impl DomainServices {
@@ -84,6 +123,11 @@ impl DomainServices {
         security_audit_logger: Arc<dyn SecurityAuditLogger>,
         process_recovery_config: ProcessRecoveryConfig,
         workspace_root: String,
+        // Microsoft auth service dependencies
+        microsoft_auth_repository: Arc<dyn MicrosoftAuthRepository>,
+        encryption_service: Arc<dyn TokenEncryption>,
+        graph_client: Arc<dyn GraphClient>,
+        microsoft_oauth_config: MicrosoftOAuthConfig,
     ) -> Self {
         let workspace_service = WorkspaceService::new(
             workspace_repository,
@@ -138,6 +182,29 @@ impl DomainServices {
             user_preferences_repository,
         );
 
+        let microsoft_auth_service = MicrosoftAuthService::new(
+            microsoft_auth_repository.clone(),
+            encryption_service,
+            graph_client.clone(),
+            microsoft_oauth_config,
+        );
+
+        let todo_sync_service = TodoSyncService::new(
+            Arc::new(microsoft_auth_service.clone()),
+            Arc::new(workspace_service.clone()),
+            microsoft_auth_repository.clone(),
+            graph_client.clone(),
+            None, // Use default config
+        );
+
+        let task_sync_service = TaskSyncService::new(
+            TaskSyncConfig::default(),
+            Arc::new(microsoft_auth_service.clone()),
+            graph_client.clone(),
+            microsoft_auth_repository.clone(),
+            Arc::new(workspace_service.clone()),
+        );
+
         Self {
             workspace_service,
             session_service,
@@ -149,6 +216,9 @@ impl DomainServices {
             process_recovery_service,
             theme_service,
             user_preferences_service,
+            microsoft_auth_service,
+            todo_sync_service,
+            task_sync_service,
         }
     }
 }

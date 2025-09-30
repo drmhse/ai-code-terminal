@@ -3,7 +3,7 @@ import { useFileStore } from '@/stores/file'
 import { useEditorStore } from '@/stores/editor'
 import { useUIStore } from '@/stores/ui'
 import { useWorkspaceStore } from '@/stores/workspace'
-import type { FileItem } from '@/stores/file'
+import type { FileItem } from '@/types'
 
 /**
  * File operations composable

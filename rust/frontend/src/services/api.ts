@@ -7,7 +7,7 @@ import type { AppStats } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 
 // User preferences types (imported to match backend structure)
-import type { UserPreferences, LayoutPreferences } from '@/types/layout'
+import type { UserPreferences } from '@/types/layout'
 
 interface DirectoryListing {
   path: string
@@ -454,7 +454,14 @@ details?: Record<string, unknown>
 
   // Auth endpoints
   async getCurrentUser(): Promise<User> {
-    const response: AxiosResponse<ApiResponse<any>> = await this.client.get('/api/v1/auth/me');
+    interface BackendUser {
+      user_id: string
+      username: string
+      name?: string
+      email?: string
+      avatar_url: string
+    }
+    const response: AxiosResponse<ApiResponse<BackendUser>> = await this.client.get('/api/v1/auth/me');
     const backendUser = response.data.data;
     const frontendUser: User = {
       id: backendUser.user_id,
@@ -654,7 +661,13 @@ details?: Record<string, unknown>
   // Theme preference endpoints
   async getCurrentTheme(): Promise<ThemePreference | null> {
     try {
-      const response: AxiosResponse<ApiResponse<any>> = await this.client.get('/api/v1/themes/current')
+      interface BackendThemePreference {
+        theme_id: string
+        auto_switch: boolean
+        system_override: boolean
+        customizations?: Record<string, unknown>
+      }
+      const response: AxiosResponse<ApiResponse<BackendThemePreference>> = await this.client.get('/api/v1/themes/current')
       const backendData = response.data.data
 
       if (!backendData) return null
@@ -663,7 +676,7 @@ details?: Record<string, unknown>
       return {
         themeId: backendData.theme_id,
         autoSwitch: backendData.auto_switch,
-        systemOverride: backendData.system_override,
+        systemOverride: backendData.system_override ? 'dark' : 'light',
         customizations: backendData.customizations
       }
     } catch {
@@ -685,7 +698,16 @@ details?: Record<string, unknown>
   // User preferences endpoints
   async getUserPreferences(): Promise<UserPreferences | null> {
     try {
-      const response: AxiosResponse<ApiResponse<any>> = await this.client.get('/api/v1/user/preferences')
+      interface BackendUserPreferences {
+        layout_preferences?: {
+          sidebar_collapsed?: boolean
+          terminal_area_height?: number
+          show_hidden_files?: boolean
+          [key: string]: unknown
+        }
+        [key: string]: unknown
+      }
+      const response: AxiosResponse<ApiResponse<BackendUserPreferences>> = await this.client.get('/api/v1/user/preferences')
       const data = response.data.data
 
       if (!data) return null
@@ -693,11 +715,11 @@ details?: Record<string, unknown>
       // Convert snake_case from backend to camelCase for frontend
       const layoutPrefs = data.layout_preferences || {}
       return {
-        currentWorkspaceId: data.current_workspace_id || null,
+        currentWorkspaceId: (data.current_workspace_id as string) || null,
         layoutPreferences: {
-          sidebarWidth: layoutPrefs.sidebar_width || 250,
-          editorWidth: layoutPrefs.editor_width || 400,
-          version: layoutPrefs.version || '1.0'
+          sidebarWidth: Number(layoutPrefs.sidebar_width) || 250,
+          editorWidth: Number(layoutPrefs.editor_width) || 400,
+          version: String(layoutPrefs.version || '1.0')
         }
       }
     } catch {

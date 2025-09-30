@@ -19,6 +19,12 @@ const router = createRouter({
       meta: { requiresAuth: false }
     },
     {
+      path: '/auth/tasks',
+      name: 'microsoft-auth-callback',
+      component: () => import('../views/MicrosoftAuthCallback.vue'),
+      meta: { requiresAuth: false }
+    },
+    {
       path: '/dashboard',
       name: 'dashboard',
       component: Dashboard,
@@ -40,7 +46,7 @@ router.beforeEach(async (to) => {
   const authStore = useAuthStore()
   
   // Skip auth check for login and callback pages
-  if (to.name === 'login' || to.name === 'auth-callback') {
+  if (to.name === 'login' || to.name === 'auth-callback' || to.name === 'microsoft-auth-callback') {
     return true
   }
   

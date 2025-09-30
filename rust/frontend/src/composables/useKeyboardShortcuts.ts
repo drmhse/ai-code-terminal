@@ -1,5 +1,4 @@
 import { onMounted, onUnmounted } from 'vue'
-import { useAuthStore } from '@/stores/auth'
 import { useFileStore } from '@/stores/file'
 import { useEditorStore } from '@/stores/editor'
 import { useWorkspaceStore } from '@/stores/workspace'
@@ -12,7 +11,6 @@ import type { FileItem } from '@/stores/file'
  * Handles application-wide keyboard shortcuts and hotkeys
  */
 export function useKeyboardShortcuts() {
-  const authStore = useAuthStore()
   const fileStore = useFileStore()
   const editorStore = useEditorStore()
   const workspaceStore = useWorkspaceStore()

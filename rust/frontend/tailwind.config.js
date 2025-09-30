@@ -7,9 +7,8 @@ export default {
 
   // Important: Don't purge your design system classes
   safelist: [
-    // Preserve HeroIcons classes
-    'h-3', 'h-4', 'h-5', 'h-6', 'h-8',
-    'w-3', 'w-4', 'w-5', 'w-6', 'w-8',
+    // Preserve icon utility classes
+    'icon-xs', 'icon-sm', 'icon-base', 'icon-md', 'icon-lg', 'icon-xl', 'icon-2xl',
   ],
 
   theme: {
@@ -178,12 +177,15 @@ export default {
 
   plugins: [
     // Useful plugins for forms and typography
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     require('@tailwindcss/forms')({
       strategy: 'class', // Use .form-input instead of styling all inputs
     }),
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     require('@tailwindcss/typography'),
 
     // Custom plugin to add component utilities that respect your design tokens
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     function({ addUtilities, theme }) {
       addUtilities({
         // Button utilities that use your design tokens
@@ -241,6 +243,43 @@ export default {
           '&::placeholder': {
             'color': 'var(--color-input-placeholder)',
           }
+        },
+
+        // Icon size utilities that use design tokens
+        '.icon-xs': {
+          'width': 'var(--space-2)',   // 8px - for very small icons
+          'height': 'var(--space-2)',
+          'flex-shrink': '0',
+        },
+        '.icon-sm': {
+          'width': 'var(--space-3)',   // 12px - for small icons
+          'height': 'var(--space-3)',
+          'flex-shrink': '0',
+        },
+        '.icon-base': {
+          'width': 'var(--space-4)',   // 16px - for normal icons
+          'height': 'var(--space-4)',
+          'flex-shrink': '0',
+        },
+        '.icon-md': {
+          'width': 'var(--space-5)',   // 20px - for medium icons
+          'height': 'var(--space-5)',
+          'flex-shrink': '0',
+        },
+        '.icon-lg': {
+          'width': 'var(--space-6)',   // 24px - for large icons
+          'height': 'var(--space-6)',
+          'flex-shrink': '0',
+        },
+        '.icon-xl': {
+          'width': 'var(--space-8)',   // 32px - for extra large icons
+          'height': 'var(--space-8)',
+          'flex-shrink': '0',
+        },
+        '.icon-2xl': {
+          'width': 'var(--space-12)',  // 48px - for hero/banner icons
+          'height': 'var(--space-12)',
+          'flex-shrink': '0',
         }
       })
     }

@@ -1,17 +1,17 @@
 <template>
   <div class="title-bar">
     <button v-if="isMobile" @click="toggleSidebar" class="mobile-toggle">
-      <Bars3Icon class="h-4 w-4" />
+      <Bars3Icon class="icon-base" />
     </button>
     <h1>AI Code Terminal</h1>
     <div class="controls">
       <button @click="uiStore.openThemeModal()" class="theme-button">
-        <SunIcon class="h-4 w-4" />
+        <SunIcon class="icon-base" />
         <span v-if="!isMobile">{{ currentTheme?.name || 'Dark' }}</span>
       </button>
       <div class="user-info">{{ authStore.user?.login || 'Developer' }}</div>
       <button @click="logout" class="logout-button" title="Logout">
-        <ArrowRightOnRectangleIcon class="h-4 w-4" />
+        <ArrowRightOnRectangleIcon class="icon-base" />
       </button>
     </div>
   </div>

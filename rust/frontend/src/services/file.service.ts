@@ -65,7 +65,9 @@ export class FileService {
         path: fileItem.path,
         is_directory: fileItem.is_directory,
         size: fileItem.size || 0,
-        modified_at: fileItem.modified_at || fileItem.modified,
+        modified_at: fileItem.modified_at || fileItem.modified || '',
+        type: (fileItem.is_directory ? 'directory' : 'file') as 'file' | 'directory',
+        isHidden: fileItem.name.startsWith('.'),
         extension: fileItem.extension,
         language: fileItem.language
       })

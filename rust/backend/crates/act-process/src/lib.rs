@@ -481,7 +481,7 @@ match tracker.child.lock().await.try_wait() {
             let mut stdout_chunks: Vec<_> = stdout_buffer
                 .iter()
                 .filter(|chunk| {
-                    query.since_sequence.map_or(true, |seq| chunk.sequence > seq)
+                    query.since_sequence.is_none_or(|seq| chunk.sequence > seq)
                 })
                 .cloned()
                 .collect();
@@ -494,7 +494,7 @@ match tracker.child.lock().await.try_wait() {
             let mut stderr_chunks: Vec<_> = stderr_buffer
                 .iter()
                 .filter(|chunk| {
-                    query.since_sequence.map_or(true, |seq| chunk.sequence > seq)
+                    query.since_sequence.is_none_or(|seq| chunk.sequence > seq)
                 })
                 .cloned()
                 .collect();

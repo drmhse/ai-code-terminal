@@ -75,7 +75,7 @@
           <div>
             <h3 class="text-text-primary font-medium mb-3">Original Approach</h3>
             <a href="#" class="btn-github block">
-              <ArrowRightIcon class="h-4 w-4" />
+              <ArrowRightIcon class="icon-base" />
               GitHub Login (Original)
             </a>
           </div>
@@ -83,7 +83,7 @@
           <div>
             <h3 class="text-text-primary font-medium mb-3">Tailwind Approach</h3>
             <a href="#" class="flex items-center justify-center gap-2 w-full px-6 py-3 bg-interactive-primary hover:bg-interactive-primary-hover text-text-inverse font-medium rounded-base transition-base hover:translate-y-[-1px] hover:shadow-md">
-              <ArrowRightIcon class="h-4 w-4" />
+              <ArrowRightIcon class="icon-base" />
               GitHub Login (Tailwind)
             </a>
           </div>

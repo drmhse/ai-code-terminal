@@ -11,6 +11,7 @@ pub mod metrics_repository;
 pub mod error;
 pub mod theme_repository;
 pub mod user_preferences_repository;
+pub mod microsoft_auth_repository;
 
 pub use workspace_repository::SqlWorkspaceRepository;
 pub use auth_repository::SqlAuthRepository;
@@ -19,10 +20,12 @@ pub use process_repository::SqlProcessRepository;
 pub use metrics_repository::SqlxMetricsRepository;
 pub use theme_repository::SqlThemeRepository;
 pub use user_preferences_repository::SqlUserPreferencesRepository;
+pub use microsoft_auth_repository::SqlMicrosoftAuthRepository;
 pub use error::PersistenceError;
 
 use act_core::repository::{WorkspaceRepository, LayoutRepository, ProcessRepository};
 use act_core::auth::AuthRepository;
+use act_domain::MicrosoftAuthRepository;
 use act_core::theme::ThemeRepository;
 use act_core::user_preferences::UserPreferencesRepository;
 use sqlx::SqlitePool;
@@ -36,6 +39,7 @@ pub fn create_repositories(pool: SqlitePool) -> Repositories {
         process: SqlProcessRepository::new(pool.clone()),
         theme: SqlThemeRepository::new(pool.clone()),
         user_preferences: SqlUserPreferencesRepository::new(pool.clone()),
+        microsoft_auth: SqlMicrosoftAuthRepository::new(pool.clone()),
     }
 }
 
@@ -47,6 +51,7 @@ pub struct Repositories {
     pub process: SqlProcessRepository,
     pub theme: SqlThemeRepository,
     pub user_preferences: SqlUserPreferencesRepository,
+    pub microsoft_auth: SqlMicrosoftAuthRepository,
 }
 
 impl Repositories {
@@ -79,6 +84,11 @@ impl Repositories {
     /// Get user preferences repository as trait object
     pub fn user_preferences_repo(&self) -> Arc<dyn UserPreferencesRepository> {
         Arc::new(self.user_preferences.clone())
+    }
+
+    /// Get Microsoft auth repository as trait object
+    pub fn microsoft_auth_repo(&self) -> Arc<dyn MicrosoftAuthRepository> {
+        Arc::new(self.microsoft_auth.clone())
     }
 }
 

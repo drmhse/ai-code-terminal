@@ -274,7 +274,7 @@ impl ProcessRecoveryService {
         warn!("Handling orphaned process: {} (PID: {})", process.name, pid);
 
         // Log security audit entry
-        self.log_security_audit(&process, SecurityAction::ProcessStart, SecurityResult::Warning).await;
+        self.log_security_audit(process, SecurityAction::ProcessStart, SecurityResult::Warning).await;
 
         if self.config.enable_process_adoption {
             // Try to adopt the orphaned process
@@ -542,7 +542,7 @@ impl ProcessRecoveryService {
         F: FnOnce(&mut ProcessRecoveryStats),
     {
         let mut stats = self.stats.lock().await;
-        update_fn(&mut *stats);
+        update_fn(&mut stats);
     }
 
     async fn update_stats_with_values(&self, new_stats: ProcessRecoveryStats) {

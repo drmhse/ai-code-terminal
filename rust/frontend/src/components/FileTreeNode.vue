@@ -23,14 +23,14 @@
         :disabled="node.isLoading"
       >
         <div v-if="node.isLoading" class="loading-spinner"></div>
-        <ChevronRightIcon v-else class="h-3 w-3" />
+        <ChevronRightIcon v-else class="icon-sm" />
       </button>
       <div v-else class="toggle-spacer"></div>
 
       <!-- File/Directory Icon -->
       <div class="node-icon" :class="getFileTypeClass(node)">
-        <FolderIcon v-if="node.type === 'directory'" class="h-2 w-2" />
-        <DocumentIcon v-else class="h-2 w-2" />
+        <FolderIcon v-if="node.type === 'directory'" class="icon-xs" />
+        <DocumentIcon v-else class="icon-xs" />
       </div>
 
       <!-- File/Directory Name -->

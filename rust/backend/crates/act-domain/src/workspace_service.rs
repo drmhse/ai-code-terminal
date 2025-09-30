@@ -85,6 +85,7 @@ pub trait GitService: Send + Sync {
     async fn get_latest_commit(&self, repo_path: &Path) -> Result<GitCommit>;
 }
 
+#[derive(Clone)]
 pub struct WorkspaceService {
     repository: Arc<dyn WorkspaceRepository>,
     filesystem: Arc<dyn FileSystem>,

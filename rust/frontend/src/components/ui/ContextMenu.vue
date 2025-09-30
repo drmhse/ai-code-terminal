@@ -167,7 +167,7 @@
 import { useFileStore } from '@/stores/file'
 import { useFileOperations } from '@/composables/useFileOperations'
 import { useUIStore } from '@/stores/ui'
-import type { FileItem } from '@/stores/file'
+import type { FileItem } from '@/types'
 
 const fileStore = useFileStore()
 const uiStore = useUIStore()

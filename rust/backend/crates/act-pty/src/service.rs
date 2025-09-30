@@ -68,8 +68,8 @@ impl PtyService for TokioPtyService {
 
         // VS Code approach: Clean, standardized environment
         cmd.env("TERM", "xterm-256color");
-        cmd.env("COLUMNS", &pty_size.cols.to_string());
-        cmd.env("LINES", &pty_size.rows.to_string());
+        cmd.env("COLUMNS", pty_size.cols.to_string());
+        cmd.env("LINES", pty_size.rows.to_string());
 
         // Force simple, clean prompt without complex positioning
         if !cfg!(windows) {
@@ -212,13 +212,11 @@ impl PtyService for TokioPtyService {
                             Some(data) => {
                                 batch_buffer.extend(data);
                                 // If buffer gets large, send immediately to prevent memory issues
-                                if batch_buffer.len() > 8192 {
-                                    if !batch_buffer.is_empty() {
-                                        if let Err(_) = batch_output_tx.send(PtyEvent::Output(batch_buffer.clone())) {
-                                            break;
-                                        }
-                                        batch_buffer.clear();
+                                if batch_buffer.len() > 8192 && !batch_buffer.is_empty() {
+                                    if batch_output_tx.send(PtyEvent::Output(batch_buffer.clone())).is_err() {
+                                        break;
                                     }
+                                    batch_buffer.clear();
                                 }
                             }
                             None => break, // Channel closed
@@ -227,7 +225,7 @@ impl PtyService for TokioPtyService {
                     // Send batched data every 16ms
                     _ = interval.tick() => {
                         if !batch_buffer.is_empty() {
-                            if let Err(_) = batch_output_tx.send(PtyEvent::Output(batch_buffer.clone())) {
+                            if batch_output_tx.send(PtyEvent::Output(batch_buffer.clone())).is_err() {
                                 break;
                             }
                             batch_buffer.clear();

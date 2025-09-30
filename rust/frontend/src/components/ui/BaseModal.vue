@@ -1,54 +1,89 @@
 <template>
-  <div v-if="show" class="modal-overlay" @click="handleOverlayClick">
-    <div class="modal-content" @click.stop>
-      <div v-if="showHeader" class="modal-header">
-        <h3 v-if="title" class="modal-title">{{ title }}</h3>
-        <slot name="header" />
-        <button v-if="showCloseButton" @click="handleClose" class="close-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
-      </div>
+  <Teleport to="body">
+    <Transition name="modal-fade">
+      <div v-if="show" class="modal-overlay" @click="handleOverlayClick">
+        <Transition name="modal-scale">
+          <div v-if="show" class="modal-container" :class="sizeClass" @click.stop>
+            <!-- Header -->
+            <div v-if="showHeader" class="modal-header">
+              <div class="modal-header-content">
+                <slot name="header-icon">
+                  <div v-if="headerIcon" class="header-icon" v-html="headerIcon"></div>
+                </slot>
+                <div class="header-text">
+                  <h2 v-if="title" class="modal-title">{{ title }}</h2>
+                  <slot name="header" />
+                  <p v-if="subtitle" class="modal-subtitle">{{ subtitle }}</p>
+                </div>
+              </div>
+              <button
+                v-if="showCloseButton"
+                class="close-button"
+                @click="handleClose"
+                :aria-label="closeLabel"
+                type="button"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
 
-      <div class="modal-body">
-        <slot />
-      </div>
+            <!-- Tabs/Subtabs (optional) -->
+            <div v-if="$slots.tabs" class="modal-tabs">
+              <slot name="tabs" />
+            </div>
 
-      <div v-if="showFooter" class="modal-footer">
-        <slot name="footer" />
+            <!-- Body -->
+            <div class="modal-body" :class="{ 'has-footer': showFooter && $slots.footer }">
+              <slot />
+            </div>
+
+            <!-- Footer -->
+            <div v-if="showFooter && $slots.footer" class="modal-footer">
+              <slot name="footer" />
+            </div>
+          </div>
+        </Transition>
       </div>
-    </div>
-  </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { computed, watch, onMounted, onUnmounted } from 'vue'
 
 interface Props {
   show: boolean
   title?: string
+  subtitle?: string
+  size?: 'small' | 'medium' | 'large' | 'xlarge'
   showHeader?: boolean
   showFooter?: boolean
   showCloseButton?: boolean
   closeOnOverlay?: boolean
-  maxWidth?: string
-  maxHeight?: string
+  closeLabel?: string
+  headerIcon?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  title: undefined,
+  subtitle: undefined,
+  size: 'medium',
   showHeader: true,
   showFooter: true,
   showCloseButton: true,
   closeOnOverlay: true,
-  maxWidth: '900px',
-  maxHeight: '85vh'
+  closeLabel: 'Close modal',
+  headerIcon: undefined
 })
 
 const emit = defineEmits<{
   close: []
 }>()
+
+const sizeClass = computed(() => `modal-${props.size}`)
 
 const handleClose = () => {
   emit('close')
@@ -60,172 +95,251 @@ const handleOverlayClick = () => {
   }
 }
 
-const handleKeydown = (event: KeyboardEvent) => {
+const handleEscape = (event: KeyboardEvent) => {
   if (event.key === 'Escape' && props.show) {
     handleClose()
   }
 }
 
-onMounted(() => {
-  document.addEventListener('keydown', handleKeydown)
-  if (props.show) {
+watch(() => props.show, (newShow) => {
+  if (newShow) {
     document.body.style.overflow = 'hidden'
+  } else {
+    document.body.style.overflow = ''
   }
 })
 
+onMounted(() => {
+  document.addEventListener('keydown', handleEscape)
+})
+
 onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeydown)
+  document.removeEventListener('keydown', handleEscape)
   document.body.style.overflow = ''
 })
 </script>
 
 <style scoped>
+/* ===== MODAL OVERLAY (Atlassian-style backdrop) ===== */
 .modal-overlay {
   position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--color-bg-overlay);
   backdrop-filter: blur(4px);
-  display: grid;
-  place-items: center;
-  z-index: 1000;
-  animation: fadeIn 0.25s ease-out;
-  padding: var(--space-2xl, 24px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+  padding: var(--space-4);
 }
 
-.modal-content {
-  background: var(--bg-primary);
-  border-radius: var(--radius-xl, 16px);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.05),
-    0 20px 40px rgba(0, 0, 0, 0.3),
-    0 8px 24px rgba(0, 0, 0, 0.2);
-  max-width: v-bind('props.maxWidth');
+/* ===== MODAL CONTAINER (Atlassian card design) ===== */
+.modal-container {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - var(--space-8));
   width: 100%;
-  max-height: v-bind('props.maxHeight');
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  animation: slideInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
 }
 
+/* Modal sizes - Atlassian standard widths */
+.modal-small {
+  max-width: 400px;
+}
+
+.modal-medium {
+  max-width: 560px;
+}
+
+.modal-large {
+  max-width: 720px;
+}
+
+.modal-xlarge {
+  max-width: 960px;
+}
+
+/* ===== MODAL HEADER (Atlassian style) ===== */
 .modal-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: var(--space-2xl, 24px) var(--space-3xl, 32px) var(--space-xl, 20px);
-  border-bottom: 1px solid var(--border-color);
+  padding: var(--space-6);
+  border-bottom: 1px solid var(--color-border-secondary);
+  flex-shrink: 0;
+  gap: var(--space-4);
+}
+
+.modal-header-content {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+}
+
+.header-icon {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+  width: 24px;
+  height: 24px;
+}
+
+.header-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.header-text {
+  flex: 1;
+  min-width: 0;
 }
 
 .modal-title {
   margin: 0;
-  font-size: var(--font-size-2xl, 20px);
-  font-weight: var(--font-weight-semibold, 600);
-  color: var(--text-primary);
-  letter-spacing: -0.025em;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-tight);
 }
 
-.close-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: var(--space-sm, 8px);
-  border-radius: var(--radius-md, 8px);
-  display: grid;
-  place-items: center;
-  transition: all 0.2s ease;
+.modal-subtitle {
+  margin: var(--space-1) 0 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-normal);
+}
+
+.close-button {
+  flex-shrink: 0;
   width: 32px;
   height: 32px;
-}
-
-.close-btn:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  transform: scale(1.05);
-}
-
-.modal-body {
-  overflow: hidden;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-base);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.close-button:hover {
+  background: var(--color-interactive-tertiary-hover);
+  color: var(--color-text-primary);
+}
+
+.close-button:active {
+  transform: scale(0.95);
+}
+
+/* ===== MODAL TABS ===== */
+.modal-tabs {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--color-border-secondary);
+  background: var(--color-bg-secondary);
+}
+
+/* ===== MODAL BODY ===== */
+.modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-6);
   min-height: 0;
 }
 
+.modal-body.has-footer {
+  padding-bottom: var(--space-5);
+}
+
+/* ===== MODAL FOOTER (Atlassian action bar) ===== */
 .modal-footer {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
-  gap: var(--space-md, 12px);
-  padding: var(--space-2xl, 24px) var(--space-3xl, 32px);
-  border-top: 1px solid var(--border-color);
-  background: var(--bg-secondary);
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-6);
+  border-top: 1px solid var(--color-border-secondary);
+  background: var(--color-bg-secondary);
+  flex-shrink: 0;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+/* ===== ANIMATIONS ===== */
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: opacity var(--transition-smooth);
 }
 
-@keyframes slideInUp {
-  from {
-    opacity: 0;
-    transform: translateY(24px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0;
 }
 
-/* Responsive Design */
+.modal-scale-enter-active,
+.modal-scale-leave-active {
+  transition: all var(--transition-smooth);
+}
+
+.modal-scale-enter-from,
+.modal-scale-leave-to {
+  opacity: 0;
+  transform: scale(0.95) translateY(-10px);
+}
+
+/* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
-  .modal-content {
-    margin: var(--space-lg, 16px);
-    max-height: calc(100vh - 32px);
-    border-radius: var(--radius-lg, 12px);
+  .modal-overlay {
+    padding: var(--space-2);
+  }
+
+  .modal-container {
+    max-height: calc(100vh - var(--space-4));
   }
 
   .modal-header {
-    padding: var(--space-xl, 20px) var(--space-2xl, 24px) var(--space-lg, 16px);
+    padding: var(--space-4);
   }
 
-  .modal-title {
-    font-size: var(--font-size-xl, 18px);
+  .modal-body {
+    padding: var(--space-4);
   }
 
   .modal-footer {
-    padding: var(--space-xl, 20px) var(--space-2xl, 24px);
+    padding: var(--space-4);
     flex-direction: column-reverse;
   }
-}
 
-@media (max-width: 480px) {
-  .modal-overlay {
-    padding: var(--space-lg, 16px);
+  .modal-footer > * {
+    width: 100%;
   }
 }
 
-/* Dark mode refinements */
-@media (prefers-color-scheme: dark) {
-  .modal-content {
-    box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.08),
-      0 20px 40px rgba(0, 0, 0, 0.5),
-      0 8px 24px rgba(0, 0, 0, 0.3);
-  }
+/* ===== ACCESSIBILITY ===== */
+.close-button:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
 }
 
-/* Reduced motion support */
+/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  .modal-content,
-  .modal-overlay {
-    animation-duration: 0.01ms !important;
-  }
-
-  .close-btn {
+  .modal-fade-enter-active,
+  .modal-fade-leave-active,
+  .modal-scale-enter-active,
+  .modal-scale-leave-active,
+  .close-button {
     transition: none !important;
   }
 }

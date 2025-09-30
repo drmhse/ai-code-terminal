@@ -125,9 +125,9 @@ impl MetricsRepository for InMemoryMetricsRepository {
         let error_commands = period_events
             .iter()
             .filter(|event| {
-                event.event_type == "command" && 
-                event.properties.get("exit_code").map_or(false, |code| {
-                    code.as_i64().map_or(false, |c| c != 0)
+                event.event_type == "command" &&
+                event.properties.get("exit_code").is_some_and(|code| {
+                    code.as_i64().is_some_and(|c| c != 0)
                 })
             })
             .count() as u64;
@@ -161,7 +161,7 @@ impl MetricsRepository for InMemoryMetricsRepository {
         
         let user_events: Vec<&MetricEvent> = events
             .iter()
-            .filter(|event| event.user_id.as_ref().map_or(false, |uid| uid == user_id))
+            .filter(|event| event.user_id.as_ref().is_some_and(|uid| uid == user_id))
             .collect();
 
         let session_count = user_events

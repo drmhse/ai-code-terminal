@@ -8,7 +8,7 @@
         Once connected, you'll have full terminal access to your repositories.
       </p>
       <button @click="uiStore.openRepositoriesModal" class="btn btn-primary">
-        <FolderPlusIcon class="h-4 w-4" />
+        <FolderPlusIcon class="icon-base" />
         Clone Your First Repository
       </button>
     </div>
@@ -39,7 +39,7 @@
           <h3>No Terminal Sessions</h3>
           <p>Create your first terminal to get started</p>
           <button @click="createNewTerminal" class="btn btn-primary">
-            <ComputerDesktopIcon class="h-4 w-4" />
+            <ComputerDesktopIcon class="icon-base" />
             Create Terminal
           </button>
         </div>
@@ -52,7 +52,7 @@
           class="fab fab-secondary"
           title="Quick command (Ctrl+K)"
         >
-          <CheckCircleIcon class="h-5 w-5" />
+          <CheckCircleIcon class="icon-md" />
         </button>
       </div>
     </template>
@@ -72,12 +72,11 @@ import { useUIStore } from '@/stores/ui'
 import { useTheme } from '@/composables/useTheme'
 import { getCurrentTerminalTheme } from '@/utils/themeConverter'
 import { socketService } from '@/services/socket'
-import { apiService } from '@/services/api'
 import PaneTreeNode from './PaneTreeNode.vue'
 import QuickCommandOverlay from '../QuickCommandOverlay.vue'
 import type { SplitDirection, PaneNode } from '@/types/pane-tree'
-import { getAllTerminalNodes, findActiveTerminalNode } from '@/utils/pane-tree'
-import { FolderPlusIcon, ComputerDesktopIcon, PlusIcon, CheckCircleIcon } from '@heroicons/vue/24/outline'
+import { getAllTerminalNodes } from '@/utils/pane-tree'
+import { FolderPlusIcon, ComputerDesktopIcon, CheckCircleIcon } from '@heroicons/vue/24/outline'
 
 const workspaceStore = useWorkspaceStore()
 const terminalStore = useTerminalTreeStore()
@@ -111,7 +110,7 @@ const canShowCloseButtons = computed(() => {
 
 
 // Workspace change handling - cleanup only (switching handled by workspace store)
-watch(() => workspaceStore.selectedWorkspace, async (newWorkspace, oldWorkspace) => {
+watch(() => workspaceStore.selectedWorkspace, async (newWorkspace) => {
   console.log('🔄 Workspace changed:', newWorkspace?.name || 'none')
 
   if (!newWorkspace) {

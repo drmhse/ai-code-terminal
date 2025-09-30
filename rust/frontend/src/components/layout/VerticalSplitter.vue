@@ -8,7 +8,7 @@
 </template>
 
 <script setup lang="ts">
-import Splitter from './Splitter.vue'
+import Splitter from './LayoutSplitter.vue'
 
 interface Props {
   index?: number
@@ -19,6 +19,8 @@ interface Emits {
 }
 
 // Props with default
+// Props are defined but not used - keeping for API consistency
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const props = withDefaults(defineProps<Props>(), {
   index: 0
 })

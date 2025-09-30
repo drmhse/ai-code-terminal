@@ -28,7 +28,7 @@ impl UserPreferencesRepository for SqlUserPreferencesRepository {
         .bind(user_id)
         .fetch_optional(&self.pool)
         .await
-        .map_err(|e| PersistenceError::DatabaseConnection(e))?;
+        .map_err(PersistenceError::DatabaseConnection)?;
 
         match row {
             Some(row) => {
@@ -75,7 +75,7 @@ impl UserPreferencesRepository for SqlUserPreferencesRepository {
         .bind(layout_preferences_json)
         .execute(&self.pool)
         .await
-        .map_err(|e| PersistenceError::DatabaseConnection(e))?;
+        .map_err(PersistenceError::DatabaseConnection)?;
 
         Ok(())
     }
@@ -83,7 +83,7 @@ impl UserPreferencesRepository for SqlUserPreferencesRepository {
     async fn set_current_workspace(&self, user_id: &str, workspace_id: Option<&str>) -> Result<(), act_core::error::CoreError> {
         // Get existing preferences to preserve layout_preferences when updating workspace
         let mut preferences = self.get_user_preferences(user_id).await?
-            .unwrap_or_else(|| UserPreferences::default());
+            .unwrap_or_else(UserPreferences::default);
 
         // Update only the current_workspace_id field
         preferences.current_workspace_id = workspace_id.map(|s| s.to_string());

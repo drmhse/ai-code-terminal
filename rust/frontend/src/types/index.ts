@@ -27,6 +27,13 @@ export interface Session {
   created_at: string
   active: boolean
   status: string
+  pid?: number
+  cwd?: string
+  size?: {
+    cols: number
+    rows: number
+  }
+  pane_id?: string
 }
 
 export interface TerminalSession {
@@ -47,6 +54,8 @@ export interface FileItem {
   modified_at: string
   extension?: string
   language?: string
+  type: 'file' | 'directory'
+  isHidden: boolean
 }
 
 export interface FileContent {

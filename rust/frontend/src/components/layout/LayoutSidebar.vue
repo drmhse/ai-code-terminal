@@ -125,6 +125,9 @@
 </template>
 
 <script setup lang="ts">
+ 
+ 
+ 
 import { ref } from 'vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useFileStore } from '@/stores/file'
@@ -191,18 +194,19 @@ const openDeleteModal = (workspace: Workspace) => {
 </script>
 
 <style scoped>
+/* ===== ATLASSIAN-INSPIRED SIDEBAR ===== */
 .sidebar {
   flex: none;
   width: 100%;
   min-width: 200px;
-  /* Removed max-width - sidebar should always fill its allocated grid space */
-  background: var(--sidebar-background);
-  border-right: 1px solid var(--sidebar-border);
+  background: var(--color-sidebar-background);
+  border-right: 1px solid var(--color-sidebar-border);
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
+/* ===== SIDEBAR SECTIONS ===== */
 .sidebar-section {
   display: flex;
   flex-direction: column;
@@ -210,48 +214,60 @@ const openDeleteModal = (workspace: Workspace) => {
 }
 
 .sidebar-section:not(:last-child) {
-  border-bottom: 1px solid var(--sidebar-border);
+  border-bottom: 1px solid var(--color-sidebar-border);
 }
 
+/* ===== SECTION HEADERS (Atlassian-style) ===== */
 .section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  background: var(--bg-tertiary);
-  border-bottom: 1px solid var(--sidebar-border);
+  padding: var(--space-3) var(--space-4);
+  background: transparent;
   flex-shrink: 0;
+  height: 44px;
 }
 
 .section-header h2 {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-tertiary);
   margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
+/* ===== ACTION BUTTONS (Atlassian-style icon buttons) ===== */
 .btn {
-  background: none;
-  border: 1px solid var(--border-color);
-  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
   cursor: pointer;
-  border-radius: 4px;
-  font-size: 12px;
-  transition: all 0.15s ease;
+  border-radius: var(--radius-base);
+  font-size: var(--font-size-sm);
+  transition: all var(--transition-base);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn:hover {
-  background: var(--button-hover);
-  color: var(--text-primary);
-  border-color: var(--border-focus);
+  background: var(--color-interactive-tertiary-hover);
+  color: var(--color-text-primary);
+}
+
+.btn:active {
+  transform: scale(0.95);
 }
 
 .btn-small {
-  padding: 6px 8px;
+  padding: var(--space-2);
 }
 
 .btn-icon {
-  padding: 6px;
+  padding: var(--space-2);
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -259,85 +275,103 @@ const openDeleteModal = (workspace: Workspace) => {
 
 .file-actions {
   display: flex;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
+/* ===== WORKSPACES LIST ===== */
 .workspaces-list {
   flex: 1;
   overflow-y: auto;
-  padding: 8px;
+  padding: var(--space-2);
   min-height: 200px;
   max-height: 40vh;
 }
 
+/* ===== EMPTY STATE (Atlassian-style) ===== */
 .empty-state {
-  padding: 24px 16px;
+  padding: var(--space-6) var(--space-4);
   text-align: center;
-  color: var(--sidebar-text-secondary);
-  background: var(--bg-primary);
-  border-radius: 8px;
-  border: 1px dashed var(--sidebar-border);
+  color: var(--color-text-secondary);
+  background: transparent;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--color-border-secondary);
+  margin: var(--space-2);
 }
 
 .empty-state p {
-  margin-bottom: 16px;
-  font-size: 13px;
+  margin-bottom: var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
 }
 
+/* ===== WORKSPACE ITEMS (Atlassian navigation style) ===== */
 .workspace-item {
   display: flex;
   align-items: center;
-  background: var(--bg-primary);
-  border: 1px solid transparent;
-  border-radius: 6px;
-  margin-bottom: 4px;
-  transition: all 0.15s ease;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-base);
+  margin-bottom: var(--space-1);
+  transition: all var(--transition-base);
   position: relative;
+  overflow: hidden;
 }
 
 .workspace-item:hover {
-  background: var(--sidebar-item-hover);
-  border-color: var(--border-color);
-  color: var(--sidebar-item-hover-text);
+  background: var(--color-sidebar-item-hover);
 }
 
 .workspace-item.selected {
-  background: transparent;
-  color: var(--primary);
-  border-left: 2px solid var(--primary);
-  border-radius: 0 6px 6px 0;
+  background: var(--color-interactive-primary);
+  color: var(--color-sidebar-item-active-text);
+}
+
+.workspace-item.selected::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--color-sidebar-item-active-border);
+  opacity: 0;
+  transition: opacity var(--transition-base);
+}
+
+.workspace-item.selected:hover::before {
+  opacity: 1;
 }
 
 .workspace-content {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   cursor: pointer;
   min-width: 0;
-}
-
-.workspace-item.selected .workspace-content {
-  padding-left: 10px; /* Adjust padding to account for left border */
+  border-radius: var(--radius-base);
 }
 
 .workspace-content.switching {
   opacity: 0.6;
   pointer-events: none;
+  cursor: wait;
 }
 
 .icon {
   flex-shrink: 0;
-  color: var(--text-secondary);
+  color: var(--color-text-tertiary);
+  width: 20px;
+  height: 20px;
 }
 
 .workspace-item:hover .icon {
-  color: inherit;
+  color: var(--color-text-secondary);
 }
 
 .workspace-item.selected .icon {
-  color: var(--primary);
+  color: var(--color-sidebar-item-active-text);
 }
 
 .details {
@@ -346,52 +380,56 @@ const openDeleteModal = (workspace: Workspace) => {
 }
 
 .workspace-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-sidebar-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.4;
 }
 
 .workspace-item:hover .workspace-name {
-  color: inherit;
+  color: var(--color-text-primary);
 }
 
 .workspace-item.selected .workspace-name {
-  color: var(--primary);
-  font-weight: 600;
+  color: var(--color-sidebar-item-active-text);
+  font-weight: var(--font-weight-semibold);
 }
 
 .workspace-path {
-  font-size: 11px;
-  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  color: var(--color-sidebar-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   margin-top: 2px;
-}
-
-.workspace-item:hover .workspace-path {
-  color: inherit;
+  line-height: 1.3;
   opacity: 0.8;
 }
 
-.workspace-item.selected .workspace-path {
-  color: var(--primary);
-  opacity: 0.7;
+.workspace-item:hover .workspace-path {
+  opacity: 1;
 }
 
+.workspace-item.selected .workspace-path {
+  color: var(--color-sidebar-item-active-text);
+  opacity: 0.9;
+}
+
+/* ===== DELETE BUTTON (Atlassian-style destructive action) ===== */
 .delete-btn {
-  background: none;
+  background: transparent;
   border: none;
-  color: var(--text-muted);
+  color: var(--color-text-tertiary);
   cursor: pointer;
-  padding: 6px;
-  border-radius: 4px;
-  margin-right: 4px;
+  padding: var(--space-2);
+  border-radius: var(--radius-base);
+  margin-right: var(--space-1);
   opacity: 0;
-  transition: all 0.15s ease;
+  transition: all var(--transition-base);
+  flex-shrink: 0;
 }
 
 .workspace-item:hover .delete-btn {
@@ -399,72 +437,91 @@ const openDeleteModal = (workspace: Workspace) => {
 }
 
 .delete-btn:hover {
-  background: var(--error);
+  background: var(--color-semantic-error);
   color: white;
+  transform: scale(1.05);
 }
 
+.delete-btn:active {
+  transform: scale(0.95);
+}
+
+/* ===== FILE EXPLORER SECTION ===== */
 .file-explorer {
   flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
+/* ===== FILE SEARCH (Atlassian-style search input) ===== */
 .file-search {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--sidebar-border);
+  padding: var(--space-2) var(--space-3);
   position: relative;
   flex-shrink: 0;
+  background: transparent;
 }
 
 .search-input {
   width: 100%;
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-3);
   padding-right: 32px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 12px;
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-base);
+  background: var(--color-input-background);
+  color: var(--color-input-text);
+  font-size: var(--font-size-sm);
   outline: none;
-  transition: all 0.15s ease;
+  transition: all var(--transition-base);
+  font-family: var(--font-family-sans);
+}
+
+.search-input:hover {
+  border-color: var(--color-border-hover);
+  background: var(--color-input-background-focus);
 }
 
 .search-input:focus {
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 2px rgba(0, 123, 204, 0.1);
+  border-color: var(--color-input-border-focus);
+  background: var(--color-input-background-focus);
+  box-shadow: 0 0 0 3px var(--color-semantic-info-bg);
 }
 
 .search-input::placeholder {
-  color: var(--text-muted);
+  color: var(--color-input-placeholder);
 }
 
 .search-clear {
   position: absolute;
-  right: 16px;
+  right: 18px;
   top: 50%;
   transform: translateY(-50%);
-  background: none;
+  background: transparent;
   border: none;
-  color: var(--text-muted);
+  color: var(--color-text-tertiary);
   cursor: pointer;
-  padding: 4px;
-  border-radius: 2px;
+  padding: var(--space-1);
+  border-radius: var(--radius-base);
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all var(--transition-base);
 }
 
 .search-clear:hover {
-  background: var(--button-hover);
-  color: var(--text-primary);
+  background: var(--color-interactive-tertiary-hover);
+  color: var(--color-text-primary);
 }
 
+/* ===== FILE TREE ===== */
 .file-tree {
   flex: 1;
   overflow-y: auto;
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
   min-height: 0;
 }
 
+/* ===== ANIMATIONS ===== */
 .spinning {
   animation: spin 1s linear infinite;
 }
@@ -474,6 +531,7 @@ const openDeleteModal = (workspace: Workspace) => {
   to { transform: rotate(360deg); }
 }
 
+/* ===== MOBILE RESPONSIVE ===== */
 @media (max-width: 768px) {
   .sidebar {
     position: fixed;
@@ -481,13 +539,23 @@ const openDeleteModal = (workspace: Workspace) => {
     left: -100%;
     bottom: 24px;
     width: min(80vw, 320px);
-    z-index: 999;
-    background: var(--sidebar-background);
-    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: var(--z-modal);
+    background: var(--color-sidebar-background);
+    transition: left var(--transition-smooth);
+    box-shadow: var(--shadow-xl);
   }
 
   .sidebar.mobile-open {
     left: 0;
   }
+}
+
+/* ===== FOCUS STATES (Accessibility) ===== */
+.btn:focus-visible,
+.workspace-content:focus-visible,
+.delete-btn:focus-visible,
+.search-input:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
 }
 </style>

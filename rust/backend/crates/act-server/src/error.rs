@@ -24,19 +24,16 @@ impl From<StatusCode> for ServerError {
 /// Convert CoreError to HTTP response
 impl IntoResponse for ServerError {
     fn into_response(self) -> Response {
-        match &self.0 {
-            CoreError::GitHubAuthRequired => {
-                let body = Json(json!({
-                    "error": {
-                        "code": 401,
-                        "message": "GitHub authentication required",
-                        "github_auth_required": true,
-                        "auth_url": "/auth/github"
-                    }
-                }));
-                return (StatusCode::UNAUTHORIZED, body).into_response();
-            },
-            _ => {}
+        if let CoreError::GitHubAuthRequired = &self.0 {
+            let body = Json(json!({
+                "error": {
+                    "code": 401,
+                    "message": "GitHub authentication required",
+                    "github_auth_required": true,
+                    "auth_url": "/auth/github"
+                }
+            }));
+            return (StatusCode::UNAUTHORIZED, body).into_response();
         }
 
         let (status, error_message) = match &self.0 {

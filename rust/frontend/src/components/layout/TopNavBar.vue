@@ -1,83 +1,101 @@
 <template>
   <div class="top-nav">
+    <!-- Left Section: Brand & Navigation -->
     <div class="nav-left">
-      <!-- Mobile Menu Toggle -->
-      <button
-        v-if="uiStore.isMobile"
-        @click="toggleSidebar"
-        class="mobile-menu-btn"
-        title="Toggle sidebar"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="3" y1="6" x2="21" y2="6"></line>
-          <line x1="3" y1="12" x2="21" y2="12"></line>
-          <line x1="3" y1="18" x2="21" y2="18"></line>
-        </svg>
-      </button>
+      <!-- App Home -->
+      <div class="app-brand">
+        <CommandLineIcon class="brand-icon" />
+        <span class="brand-name">ACT</span>
+      </div>
 
-      <div class="app-title">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="4,17 10,11 4,5"></polyline>
-          <line x1="12" y1="19" x2="20" y2="19"></line>
-        </svg>
-        AI Code Terminal
+      <div class="nav-divider"></div>
+
+      <!-- Workspace Breadcrumb -->
+      <div v-if="workspaceStore.selectedWorkspace" class="workspace-breadcrumb">
+        <button @click="openWorkspaceSelector" class="workspace-selector">
+          <FolderOpenIcon class="workspace-icon" />
+          <span class="workspace-name">{{ workspaceStore.selectedWorkspace.name }}</span>
+          <ChevronDownIcon class="chevron-icon" />
+        </button>
+      </div>
+      <div v-else class="workspace-breadcrumb">
+        <button @click="openWorkspaceSelector" class="workspace-selector empty">
+          <FolderIcon class="workspace-icon" />
+          <span class="workspace-name">Select workspace</span>
+          <ChevronDownIcon class="chevron-icon" />
+        </button>
       </div>
     </div>
 
+    <!-- Center Section: Quick Actions -->
     <div class="nav-center">
-      <!-- Current Workspace Info -->
-      <div v-if="workspaceStore.selectedWorkspace" class="workspace-info">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
-          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
-        </svg>
-        {{ workspaceStore.selectedWorkspace.name }}
+      <!-- Search placeholder - future feature -->
+      <div class="search-container">
+        <MagnifyingGlassIcon class="search-icon" />
+        <input
+          type="text"
+          placeholder="Search files, commands..."
+          class="search-input"
+          readonly
+          @click="handleSearchClick"
+        />
+        <kbd class="search-kbd">⌘K</kbd>
       </div>
     </div>
 
+    <!-- Right Section: Actions & User -->
     <div class="nav-right">
-      <!-- Background Tasks Button -->
+      <!-- Background Processes -->
       <button
         v-if="workspaceStore.selectedWorkspace"
         @click="toggleBackgroundTasks"
-        class="nav-btn"
+        class="nav-action-btn"
         :class="{ active: uiStore.showBackgroundTasks }"
-        title="Background Tasks"
+        title="Background Processes"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-          <line x1="9" y1="9" x2="15" y2="9"></line>
-          <line x1="9" y1="13" x2="15" y2="13"></line>
-          <line x1="9" y1="17" x2="13" y2="17"></line>
-        </svg>
-        <span class="btn-text">Tasks</span>
+        <CpuChipIcon />
       </button>
+
+      <!-- Tasks -->
+      <button
+        @click="toggleTodoTasks"
+        class="nav-action-btn"
+        :class="{ active: uiStore.showTodoTasks, 'has-badge': hasTasks }"
+        title="Microsoft Tasks"
+      >
+        <ClipboardDocumentListIcon />
+        <span v-if="hasTasks" class="task-badge">{{ taskCount }}</span>
+      </button>
+
+      <div class="nav-divider"></div>
 
       <!-- Theme Toggle -->
       <button
         @click="uiStore.toggleThemeModal()"
-        class="nav-btn"
+        class="nav-action-btn"
         title="Change theme"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="5"></circle>
-          <line x1="12" y1="1" x2="12" y2="3"></line>
-          <line x1="12" y1="21" x2="12" y2="23"></line>
-          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-          <line x1="1" y1="12" x2="3" y2="12"></line>
-          <line x1="21" y1="12" x2="23" y2="12"></line>
-          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-        </svg>
+        <component :is="themeIcon" />
       </button>
+
+      <!-- Settings -->
+      <button
+        @click="openSettings"
+        class="nav-action-btn"
+        title="Settings"
+      >
+        <Cog6ToothIcon />
+      </button>
+
+      <div class="nav-divider"></div>
 
       <!-- User Menu -->
       <div v-if="authStore.user" class="user-menu" @click.stop>
         <button
           @click="toggleUserDropdown"
-          class="user-button"
+          class="user-avatar-btn"
           :class="{ active: showUserDropdown }"
+          :title="authStore.user.login"
         >
           <img
             v-if="authStore.user.avatar_url"
@@ -91,58 +109,101 @@
         </button>
 
         <!-- User Dropdown -->
-        <div v-if="showUserDropdown" class="user-dropdown">
-          <div class="user-dropdown-header">
-            <img
-              v-if="authStore.user.avatar_url"
-              :src="authStore.user.avatar_url"
-              :alt="authStore.user.login"
-              class="user-avatar-large"
-            />
-            <div v-else class="user-avatar-placeholder-large">
-              {{ (authStore.user.login || 'U')[0].toUpperCase() }}
+        <Transition name="dropdown">
+          <div v-if="showUserDropdown" class="user-dropdown">
+            <div class="dropdown-header">
+              <img
+                v-if="authStore.user.avatar_url"
+                :src="authStore.user.avatar_url"
+                :alt="authStore.user.login"
+                class="dropdown-avatar"
+              />
+              <div v-else class="dropdown-avatar-placeholder">
+                {{ (authStore.user.login || 'U')[0].toUpperCase() }}
+              </div>
+              <div class="dropdown-user-info">
+                <div class="dropdown-name">{{ authStore.user.login }}</div>
+                <div class="dropdown-email">{{ authStore.user.email || 'No email' }}</div>
+              </div>
             </div>
-            <div class="user-info">
-              <div class="user-login">{{ authStore.user.login }}</div>
-              <div class="user-email">{{ authStore.user.email || 'No email' }}</div>
-            </div>
+
+            <div class="dropdown-divider"></div>
+
+            <button @click="openSettings" class="dropdown-item">
+              <Cog6ToothIcon />
+              <span>Settings</span>
+            </button>
+
+            <div class="dropdown-divider"></div>
+
+            <button @click="handleLogout" class="dropdown-item danger">
+              <ArrowRightOnRectangleIcon />
+              <span>Logout</span>
+            </button>
           </div>
-
-          <div class="user-dropdown-divider"></div>
-
-          <button @click="handleLogout" class="user-dropdown-item danger">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-              <polyline points="16,17 21,12 16,7"></polyline>
-              <line x1="21" y1="12" x2="9" y2="12"></line>
-            </svg>
-            <span>Logout</span>
-          </button>
-        </div>
+        </Transition>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useUIStore } from '@/stores/ui'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useAuthStore } from '@/stores/auth'
+import { useTodoStore } from '@/stores/todo'
+import {
+  CommandLineIcon,
+  FolderIcon,
+  FolderOpenIcon,
+  ChevronDownIcon,
+  MagnifyingGlassIcon,
+  CpuChipIcon,
+  ClipboardDocumentListIcon,
+  SunIcon,
+  MoonIcon,
+  Cog6ToothIcon,
+  ArrowRightOnRectangleIcon,
+} from '@heroicons/vue/24/outline'
 
 const uiStore = useUIStore()
 const workspaceStore = useWorkspaceStore()
 const authStore = useAuthStore()
+const todoStore = useTodoStore()
 
-// User dropdown state
+// Dropdown state
 const showUserDropdown = ref(false)
 
-const toggleSidebar = () => {
-  uiStore.toggleSidebar()
+// Computed
+const themeIcon = computed(() => {
+  // You can detect theme here if needed
+  return SunIcon
+})
+
+const hasTasks = computed(() => todoStore.pendingTasks.length > 0)
+const taskCount = computed(() => {
+  const count = todoStore.pendingTasks.length
+  return count > 99 ? '99+' : count.toString()
+})
+
+// Actions
+const openWorkspaceSelector = () => {
+  // TODO: Implement workspace selector modal
+  console.log('Open workspace selector')
+}
+
+const handleSearchClick = () => {
+  // TODO: Implement command palette / search
+  console.log('Open search')
 }
 
 const toggleBackgroundTasks = () => {
   uiStore.setShowBackgroundTasks(!uiStore.showBackgroundTasks)
+}
+
+const toggleTodoTasks = () => {
+  uiStore.setShowTodoTasks(!uiStore.showTodoTasks)
 }
 
 const toggleUserDropdown = () => {
@@ -151,6 +212,11 @@ const toggleUserDropdown = () => {
 
 const closeUserDropdown = () => {
   showUserDropdown.value = false
+}
+
+const openSettings = () => {
+  uiStore.openSettingsModal()
+  closeUserDropdown()
 }
 
 const handleLogout = () => {
@@ -176,322 +242,538 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* ========================================
+   Atlassian-Inspired Navigation
+   ======================================== */
+
 .top-nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  height: 48px;
   padding: 0 var(--space-4);
-  height: var(--space-10); /* 40px */
-  background: var(--color-bg-secondary);
+  background: var(--color-bg-primary);
   border-bottom: 1px solid var(--color-border-primary);
-  position: relative;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  position: sticky;
+  top: 0;
   z-index: var(--z-sticky);
   font-family: var(--font-family-sans);
+  transition: all 0.2s ease;
 }
+
+/* ========================================
+   Layout Sections
+   ======================================== */
 
 .nav-left,
 .nav-center,
 .nav-right {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
+}
+
+.nav-left {
+  flex-shrink: 0;
 }
 
 .nav-center {
   flex: 1;
-  justify-content: center;
+  max-width: 600px;
+  margin: 0 var(--space-6);
 }
 
-.mobile-menu-btn {
-  background: none;
-  border: none;
-  color: var(--color-text-tertiary);
-  cursor: pointer;
-  padding: var(--space-2);
-  border-radius: var(--button-border-radius);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: var(--transition-colors);
-  height: var(--button-height-sm);
-  width: var(--button-height-sm);
+.nav-right {
+  flex-shrink: 0;
+  gap: var(--space-1);
 }
 
-.mobile-menu-btn:hover {
-  background: var(--color-interactive-tertiary-hover);
-  color: var(--color-text-primary);
+/* ========================================
+   Dividers
+   ======================================== */
+
+.nav-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--color-border-primary);
+  margin: 0 var(--space-2);
 }
 
-.app-title {
+/* ========================================
+   Brand
+   ======================================== */
+
+.app-brand {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  padding: 0 var(--space-2);
+  user-select: none;
+}
+
+.brand-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--color-interactive-primary);
+  flex-shrink: 0;
+}
+
+.brand-name {
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
-  letter-spacing: -0.025em;
+  letter-spacing: 0.5px;
 }
 
-.workspace-info {
+/* ========================================
+   Workspace Selector
+   ======================================== */
+
+.workspace-breadcrumb {
+  display: flex;
+  align-items: center;
+}
+
+.workspace-selector {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: var(--font-size-xs);
+  padding: var(--space-1-5) var(--space-3);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
-  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  max-width: 300px;
+}
+
+.workspace-selector:hover {
   background: var(--color-bg-tertiary);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--button-border-radius);
-  border: 1px solid var(--color-border-secondary);
-  max-width: 200px;
+  border-color: var(--color-border-secondary);
+}
+
+.workspace-selector:active {
+  transform: scale(0.98);
+}
+
+.workspace-selector.empty {
+  color: var(--color-text-tertiary);
+}
+
+.workspace-selector.empty:hover {
+  color: var(--color-text-primary);
+}
+
+.workspace-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.workspace-name {
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  transition: var(--transition-colors);
-}
-
-.nav-btn {
-  background: none;
-  border: none;
-  color: var(--color-text-tertiary);
-  cursor: pointer;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--button-border-radius);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  transition: var(--transition-colors);
-  height: var(--button-height-sm);
-  min-width: var(--button-height-sm);
-}
-
-.nav-btn:hover {
-  background: var(--color-interactive-tertiary-hover);
-  color: var(--color-text-primary);
-}
-
-.nav-btn.active {
-  background: var(--color-interactive-primary);
-  color: var(--color-text-inverse);
-  box-shadow: var(--shadow-sm);
-}
-
-.nav-btn:focus-visible {
-  outline: 2px solid var(--color-border-focus);
-  outline-offset: 1px;
-}
-
-.btn-text {
-  font-weight: var(--font-weight-medium);
-  line-height: 1;
-}
-
-.user-menu {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.user-button {
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  border-radius: var(--radius-full);
-  transition: var(--transition-colors);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.user-button:focus-visible {
-  outline: 2px solid var(--color-border-focus);
-  outline-offset: 1px;
-}
-
-.user-button.active .user-avatar,
-.user-button.active .user-avatar-placeholder {
-  border-color: var(--color-interactive-primary);
-  box-shadow: 0 0 0 2px var(--color-interactive-primary-hover);
-}
-
-.user-avatar {
-  width: var(--space-6);
-  height: var(--space-6);
-  border-radius: var(--radius-full);
-  border: 1px solid var(--color-border-secondary);
-  transition: var(--transition-colors);
-}
-
-.user-button:hover .user-avatar {
-  border-color: var(--color-border-hover);
-}
-
-.user-avatar-placeholder {
-  width: var(--space-6);
-  height: var(--space-6);
-  border-radius: var(--radius-full);
-  background: var(--color-interactive-primary);
-  color: var(--color-text-inverse);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  transition: var(--transition-colors);
-  border: 1px solid var(--color-border-secondary);
-}
-
-.user-button:hover .user-avatar-placeholder {
-  background: var(--color-interactive-primary-hover);
-  border-color: var(--color-border-hover);
-}
-
-/* User Dropdown */
-.user-dropdown {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-primary);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-  padding: var(--space-2) 0;
-  min-width: 200px;
-  z-index: 2000;
-  animation: dropdownIn 0.15s ease-out;
-}
-
-.user-dropdown-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  margin-bottom: var(--space-1);
-}
-
-.user-avatar-large {
-  width: var(--space-8);
-  height: var(--space-8);
-  border-radius: var(--radius-full);
-  border: 1px solid var(--color-border-secondary);
-  flex-shrink: 0;
-}
-
-.user-avatar-placeholder-large {
-  width: var(--space-8);
-  height: var(--space-8);
-  border-radius: var(--radius-full);
-  background: var(--color-interactive-primary);
-  color: var(--color-text-inverse);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  border: 1px solid var(--color-border-secondary);
-  flex-shrink: 0;
-}
-
-.user-info {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  flex: 1;
   min-width: 0;
 }
 
-.user-login {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.chevron-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: transform 0.2s ease;
 }
 
-.user-email {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-tertiary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.workspace-selector:hover .chevron-icon {
+  opacity: 1;
 }
 
-.user-dropdown-divider {
-  height: 1px;
-  background: var(--color-border-primary);
-  margin: var(--space-1) 0;
-}
+/* ========================================
+   Search
+   ======================================== */
 
-.user-dropdown-item {
+.search-container {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   width: 100%;
-  padding: var(--space-2) var(--space-4);
-  border: none;
-  background: none;
-  color: var(--color-text-primary);
+  height: 32px;
+  padding: 0 var(--space-3);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--radius-md);
+  transition: all 0.15s ease;
   cursor: pointer;
-  font-size: var(--font-size-sm);
-  text-align: left;
-  transition: var(--transition-colors);
 }
 
-.user-dropdown-item:hover {
-  background: var(--color-interactive-tertiary-hover);
-}
-
-.user-dropdown-item:active {
+.search-container:hover {
+  border-color: var(--color-border-hover);
   background: var(--color-bg-tertiary);
 }
 
-.user-dropdown-item.danger {
-  color: var(--color-semantic-danger);
+.search-container:focus-within {
+  border-color: var(--color-interactive-primary);
+  box-shadow: 0 0 0 3px rgba(56, 139, 255, 0.1);
 }
 
-.user-dropdown-item.danger:hover {
-  background: var(--color-semantic-danger);
-  color: var(--color-text-inverse);
-}
-
-.user-dropdown-item svg {
+.search-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--color-text-tertiary);
   flex-shrink: 0;
-  color: currentColor;
 }
 
-.user-dropdown-item span {
+.search-input {
   flex: 1;
+  border: none;
+  background: none;
+  outline: none;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+
+.search-input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.search-kbd {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px var(--space-1-5);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-secondary);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-tertiary);
+  font-family: var(--font-family-mono);
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* ========================================
+   Action Buttons
+   ======================================== */
+
+.nav-action-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.nav-action-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.nav-action-btn:hover {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border-secondary);
+  color: var(--color-text-primary);
+}
+
+.nav-action-btn:active {
+  transform: scale(0.95);
+}
+
+.nav-action-btn.active {
+  background: var(--color-interactive-primary);
+  border-color: var(--color-interactive-primary);
+  color: white;
+}
+
+.nav-action-btn.active:hover {
+  background: var(--color-interactive-primary-hover);
+  border-color: var(--color-interactive-primary-hover);
+}
+
+.nav-action-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-primary);
+  outline-offset: 2px;
+}
+
+/* Task Badge */
+.nav-action-btn.has-badge {
+  overflow: visible;
+}
+
+.task-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: var(--color-semantic-error);
+  border: 2px solid var(--color-bg-primary);
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  color: white;
+  line-height: 1;
+}
+
+/* ========================================
+   User Menu
+   ======================================== */
+
+.user-menu {
+  position: relative;
+}
+
+.user-avatar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: none;
+  border: 2px solid transparent;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.user-avatar-btn:hover {
+  border-color: var(--color-border-secondary);
+}
+
+.user-avatar-btn.active {
+  border-color: var(--color-interactive-primary);
+}
+
+.user-avatar-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-primary);
+  outline-offset: 2px;
+}
+
+.user-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-full);
+  object-fit: cover;
+}
+
+.user-avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--color-interactive-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ========================================
+   User Dropdown
+   ======================================== */
+
+.user-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 240px;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08);
+  padding: var(--space-2);
+  z-index: 10000;
+}
+
+.dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  margin-bottom: var(--space-1);
+}
+
+.dropdown-avatar,
+.dropdown-avatar-placeholder {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.dropdown-avatar {
+  border: 2px solid var(--color-border-secondary);
+  object-fit: cover;
+}
+
+.dropdown-avatar-placeholder {
+  background: var(--color-interactive-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  border: 2px solid var(--color-border-secondary);
+}
+
+.dropdown-user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.dropdown-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: 2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-@keyframes dropdownIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95) translateY(-5px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
+.dropdown-email {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: var(--color-border-primary);
+  margin: var(--space-2) 0;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dropdown-item svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.dropdown-item:hover {
+  background: var(--color-bg-tertiary);
+}
+
+.dropdown-item.danger {
+  color: var(--color-semantic-error);
+}
+
+.dropdown-item.danger:hover {
+  background: var(--color-semantic-error);
+  color: white;
+}
+
+/* ========================================
+   Animations
+   ======================================== */
+
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: all 0.15s ease;
+}
+
+.dropdown-enter-from {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.96);
+}
+
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+/* ========================================
+   Responsive
+   ======================================== */
+
+@media (max-width: 968px) {
+  .nav-center {
+    max-width: 400px;
   }
 }
 
 @media (max-width: 768px) {
+  .top-nav {
+    height: 44px;
+    padding: 0 var(--space-3);
+  }
+
   .nav-center {
     display: none;
   }
 
-  .btn-text {
+  .nav-divider {
     display: none;
   }
 
-  .workspace-info {
+  .workspace-selector {
+    max-width: 200px;
+    padding: var(--space-1) var(--space-2);
+  }
+
+  .workspace-name {
+    font-size: var(--font-size-xs);
+  }
+
+  .nav-action-btn {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+@media (max-width: 480px) {
+  .brand-name {
+    display: none;
+  }
+
+  .workspace-selector {
     max-width: 120px;
+  }
+
+  .chevron-icon {
+    display: none;
   }
 }
 </style>

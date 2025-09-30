@@ -11,6 +11,8 @@ pub mod metrics;
 pub mod system;
 pub mod themes;
 pub mod user_preferences;
+pub mod microsoft_auth;
+pub mod todo_sync;
 
 use axum::Router;
 use crate::AppState;
@@ -31,6 +33,8 @@ pub fn api_routes() -> Router<AppState> {
         .nest("/system", system::routes())
         .nest("/themes", themes::routes())
         .nest("/user/preferences", user_preferences::routes())
+        .nest("/microsoft", microsoft_auth_routes())
+        .nest("/todo", todo_sync::routes())
 }
 
 fn auth_routes() -> Router<AppState> {
@@ -49,4 +53,23 @@ fn github_routes() -> Router<AppState> {
         .route("/repositories", axum::routing::get(github::list_repositories))
         .route("/repositories/:owner/:repo", axum::routing::get(github::get_repository_info))
         .route("/clone", axum::routing::post(github::clone_repository))
+}
+
+fn microsoft_auth_routes() -> Router<AppState> {
+    Router::new()
+        // Authentication
+        .route("/status", axum::routing::get(microsoft_auth::get_auth_status))
+        .route("/connect", axum::routing::get(microsoft_auth::start_oauth_flow))
+        .route("/callback", axum::routing::post(microsoft_auth::handle_oauth_callback))
+        .route("/disconnect", axum::routing::delete(microsoft_auth::disconnect_microsoft))
+        // Lists and tasks
+        .route("/lists", axum::routing::get(microsoft_auth::get_all_task_lists))
+        .route("/lists", axum::routing::post(microsoft_auth::create_task_list))
+        .route("/lists/default", axum::routing::get(microsoft_auth::get_default_task_list))
+        .route("/lists/:list_id/tasks", axum::routing::get(microsoft_auth::get_list_tasks))
+        .route("/lists/:list_id/tasks", axum::routing::post(microsoft_auth::create_task_in_list))
+        .route("/lists/:list_id/tasks/:task_id", axum::routing::put(microsoft_auth::update_task))
+        .route("/lists/:list_id/tasks/:task_id", axum::routing::delete(microsoft_auth::delete_task))
+        // Utilities
+        .route("/health", axum::routing::get(microsoft_auth::health_check))
 }

@@ -8,7 +8,7 @@
         @click="showCreateModal = true"
         title="Create new process"
       >
-        <PlusIcon class="h-3.5 w-3.5" />
+        <PlusIcon class="icon-sm" />
       </button>
     </div>
 
@@ -78,7 +78,7 @@
               class="action-btn stop"
               title="Stop process"
             >
-              <StopIcon class="h-3 w-3" />
+              <StopIcon class="icon-sm" />
             </button>
             <button 
               v-if="process.status === 'Stopped' || process.status === 'Failed'"
@@ -86,14 +86,14 @@
               class="action-btn restart"
               title="Restart process"
             >
-              <ArrowPathIcon class="h-3 w-3" />
+              <ArrowPathIcon class="icon-sm" />
             </button>
             <button 
               @click.stop="deleteProcess(process.id)"
               class="action-btn delete"
               title="Delete process"
             >
-              <TrashIcon class="h-3 w-3" />
+              <TrashIcon class="icon-sm" />
             </button>
             <button 
               @click.stop="toggleProcessExpand(process.id)"
@@ -101,7 +101,7 @@
               :class="{ 'is-expanded': expandedProcesses.has(process.id) }"
               title="Toggle details"
             >
-              <ChevronDownIcon class="h-3 w-3" />
+              <ChevronDownIcon class="icon-sm" />
             </button>
           </div>
         </div>

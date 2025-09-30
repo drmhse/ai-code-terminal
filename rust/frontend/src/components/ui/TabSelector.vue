@@ -30,10 +30,11 @@
 </template>
 
 <script setup lang="ts">
+import type { Component } from 'vue'
 export interface Tab {
   value: string
   label: string
-  icon?: any
+  icon?: Component
   iconSvg?: string
   disabled?: boolean
 }
@@ -43,6 +44,7 @@ interface Props {
   modelValue: string
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
