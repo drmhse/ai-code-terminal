@@ -130,11 +130,12 @@ const handleCreateItem = async (data: { name: string; type: 'file' | 'directory'
 
   try {
     const parentPath = uiStore.createItemModalData.parentPath
+    const workspaceId = workspaceStore.currentWorkspace?.id
 
     if (data.type === 'file') {
-      await apiService.createFile(parentPath, data.name, data.content || '')
+      await apiService.createFile(parentPath, data.name, data.content || '', workspaceId)
     } else {
-      await apiService.createDirectory(parentPath, data.name)
+      await apiService.createDirectory(parentPath, data.name, workspaceId)
     }
 
     // Refresh the file listing

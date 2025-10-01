@@ -158,6 +158,11 @@ class MicrosoftAuthService {
   }
 
 
+  async getTask(listId: string, taskId: string): Promise<TodoTask> {
+    const response: AxiosResponse<ApiResponse<TodoTask>> = await this.client.get(`/api/v1/microsoft/lists/${listId}/tasks/${taskId}`)
+    return response.data.data
+  }
+
   async updateTask(listId: string, taskId: string, request: Partial<CreateTaskRequest>): Promise<TodoTask> {
     const response: AxiosResponse<ApiResponse<TodoTask>> = await this.client.put(`/api/v1/microsoft/lists/${listId}/tasks/${taskId}`, request)
     return response.data.data

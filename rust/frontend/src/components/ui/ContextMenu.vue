@@ -1,11 +1,9 @@
 <template>
   <div
     v-if="uiStore.showContextMenu"
+    ref="contextMenuRef"
     class="context-menu"
-    :style="{
-      left: uiStore.contextMenuX + 'px',
-      top: uiStore.contextMenuY + 'px'
-    }"
+    :style="menuPositionStyle"
     @click.stop
   >
     <div v-if="uiStore.contextMenuFile" class="context-menu-header">
@@ -123,9 +121,47 @@
         <span>Copy Path</span>
         <kbd class="keybind">Ctrl+Shift+C</kbd>
       </button>
-      
+
       <div class="context-menu-divider"></div>
-      
+
+      <!-- Cut/Copy/Paste operations -->
+      <button @click="cutFile" class="context-menu-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="6" cy="6" r="3"></circle>
+          <circle cx="6" cy="18" r="3"></circle>
+          <line x1="20" y1="4" x2="8.12" y2="15.88"></line>
+          <line x1="14.47" y1="14.48" x2="20" y2="20"></line>
+          <line x1="8.12" y1="8.12" x2="12" y2="12"></line>
+        </svg>
+        <span>Cut</span>
+        <kbd class="keybind">Ctrl+X</kbd>
+      </button>
+
+      <button @click="copyFile" class="context-menu-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>
+          <path d="m4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
+        </svg>
+        <span>Copy</span>
+        <kbd class="keybind">Ctrl+C</kbd>
+      </button>
+
+      <button
+        @click="pasteFile"
+        class="context-menu-item"
+        :disabled="!hasClipboardFiles"
+        :class="{ disabled: !hasClipboardFiles }"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+          <rect width="8" height="4" x="8" y="2" rx="1" ry="1"></rect>
+        </svg>
+        <span>Paste</span>
+        <kbd class="keybind">Ctrl+V</kbd>
+      </button>
+
+      <div class="context-menu-divider"></div>
+
       <!-- File operations -->
       <button @click="renameFile" class="context-menu-item">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -164,6 +200,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed, ref, watch, nextTick } from 'vue'
 import { useFileStore } from '@/stores/file'
 import { useFileOperations } from '@/composables/useFileOperations'
 import { useUIStore } from '@/stores/ui'
@@ -172,6 +209,63 @@ import type { FileItem } from '@/types'
 const fileStore = useFileStore()
 const uiStore = useUIStore()
 const fileOperations = useFileOperations()
+
+const contextMenuRef = ref<HTMLElement | null>(null)
+
+// Check if clipboard has files
+const hasClipboardFiles = computed(() => {
+  return fileStore.clipboardFiles.length > 0
+})
+
+// Calculate menu position to keep it within viewport
+const menuPositionStyle = computed(() => {
+  const x = uiStore.contextMenuX
+  const y = uiStore.contextMenuY
+
+  // Default position
+  let left = x
+  let top = y
+  let transformOrigin = 'top left'
+
+  // If menu ref is available, adjust position to stay in viewport
+  if (contextMenuRef.value) {
+    const menuRect = contextMenuRef.value.getBoundingClientRect()
+    const menuWidth = menuRect.width || 280 // fallback to max-width
+    const menuHeight = menuRect.height || 500 // estimated max height
+
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+
+    // Adjust horizontal position if menu would overflow right edge
+    if (x + menuWidth > viewportWidth) {
+      left = viewportWidth - menuWidth - 8 // 8px padding from edge
+      transformOrigin = 'top right'
+    }
+
+    // Adjust vertical position if menu would overflow bottom edge
+    if (y + menuHeight > viewportHeight) {
+      top = viewportHeight - menuHeight - 8 // 8px padding from edge
+      transformOrigin = left !== x ? 'bottom right' : 'bottom left'
+    }
+  }
+
+  return {
+    left: `${left}px`,
+    top: `${top}px`,
+    transformOrigin
+  }
+})
+
+// Watch for context menu visibility changes to recalculate position
+watch(() => uiStore.showContextMenu, async (isVisible) => {
+  if (isVisible) {
+    await nextTick()
+    // Force reactivity update after menu is rendered
+    if (contextMenuRef.value) {
+      contextMenuRef.value.getBoundingClientRect()
+    }
+  }
+})
 
 const previewFile = async () => {
   if (!uiStore.contextMenuFile) return
@@ -300,16 +394,16 @@ const duplicateFile = async () => {
 
 const deleteFile = async () => {
   if (!uiStore.contextMenuFile) return
-  
+
   uiStore.openConfirmDeleteModal({
     itemName: uiStore.contextMenuFile.name,
     itemType: uiStore.contextMenuFile.type === 'directory' ? 'folder' : 'file',
-    additionalInfo: uiStore.contextMenuFile.type === 'directory' 
+    additionalInfo: uiStore.contextMenuFile.type === 'directory'
       ? 'This will delete the folder and all its contents. This action cannot be undone.'
       : 'This action cannot be undone.',
     onConfirm: async () => {
       await fileStore.deleteFile(uiStore.contextMenuFile! as FileItem)
-      
+
       uiStore.addResourceAlert({
         type: 'info',
         title: 'Item Deleted',
@@ -317,7 +411,69 @@ const deleteFile = async () => {
       })
     }
   })
-  
+
+  uiStore.closeContextMenu()
+}
+
+// Cut/Copy/Paste operations
+const cutFile = () => {
+  if (!uiStore.contextMenuFile) return
+
+  // Get selected files or just the context menu file
+  const filesToCut = fileStore.selectedFiles.size > 0 && fileStore.selectedFiles.has(uiStore.contextMenuFile.path)
+    ? Array.from(fileStore.selectedFiles)
+    : [uiStore.contextMenuFile.path]
+
+  fileStore.cutFiles(filesToCut)
+
+  uiStore.addResourceAlert({
+    type: 'info',
+    title: 'Cut',
+    message: `Cut ${filesToCut.length} item(s)`
+  })
+
+  uiStore.closeContextMenu()
+}
+
+const copyFile = () => {
+  if (!uiStore.contextMenuFile) return
+
+  // Get selected files or just the context menu file
+  const filesToCopy = fileStore.selectedFiles.size > 0 && fileStore.selectedFiles.has(uiStore.contextMenuFile.path)
+    ? Array.from(fileStore.selectedFiles)
+    : [uiStore.contextMenuFile.path]
+
+  fileStore.copyFiles(filesToCopy)
+
+  uiStore.addResourceAlert({
+    type: 'info',
+    title: 'Copied',
+    message: `Copied ${filesToCopy.length} item(s)`
+  })
+
+  uiStore.closeContextMenu()
+}
+
+const pasteFile = async () => {
+  if (!uiStore.contextMenuFile) return
+  if (fileStore.clipboardFiles.length === 0) return
+
+  try {
+    await fileStore.pasteFiles(uiStore.contextMenuFile as FileItem)
+
+    uiStore.addResourceAlert({
+      type: 'info',
+      title: 'Pasted',
+      message: `Pasted ${fileStore.clipboardOperation === 'cut' ? 'moved' : 'copied'} ${fileStore.clipboardFiles.length} item(s)`
+    })
+  } catch (err) {
+    uiStore.addResourceAlert({
+      type: 'error',
+      title: 'Paste Failed',
+      message: err instanceof Error ? err.message : 'Failed to paste files'
+    })
+  }
+
   uiStore.closeContextMenu()
 }
 </script>
@@ -399,6 +555,12 @@ const deleteFile = async () => {
 .context-menu-item.danger:hover {
   background: var(--error);
   color: white;
+}
+
+.context-menu-item.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .context-menu-item svg {

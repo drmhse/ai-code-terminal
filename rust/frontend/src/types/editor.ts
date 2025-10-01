@@ -31,6 +31,10 @@ export interface EditorOptions {
   theme?: EditorThemeData
   fileExtension?: string | undefined
   onChange?: (content: string) => void
+  // Application-level keyboard shortcuts
+  onSave?: () => void
+  onSaveAll?: () => void
+  onClose?: () => void
 }
 
 export interface EditorInstance {

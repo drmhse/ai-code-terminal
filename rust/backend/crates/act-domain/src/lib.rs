@@ -18,6 +18,7 @@ pub mod task_context_parser;
 pub mod task_attachment_service;
 pub mod task_priority_service;
 pub mod task_sync_service;
+pub mod task_execution_service;
 
 pub use workspace_service::{
     WorkspaceService, GitService, WorkspaceSettings, GitStatus, GitCommit, CloneRequest
@@ -70,6 +71,11 @@ pub use task_priority_service::{
 pub use task_sync_service::{
     TaskSyncService, TaskSync, TaskSyncError, TaskSyncConfig, TaskSyncResult, SyncAction
 };
+pub use task_execution_service::{
+    TaskExecutionService, TaskExecutionRequest, TaskExecution, TaskExecutionStatus,
+    TaskExecutionResult, ExecutionPermissionMode, TaskExecutionError, OutputBroadcaster,
+    TaskExecutionId
+};
 
 use std::sync::Arc;
 
@@ -98,6 +104,7 @@ pub struct DomainServices {
     pub microsoft_auth_service: MicrosoftAuthService,
     pub todo_sync_service: TodoSyncService,
     pub task_sync_service: TaskSyncService,
+    pub task_execution_service: Option<TaskExecutionService>,
 }
 
 impl DomainServices {
@@ -219,6 +226,7 @@ impl DomainServices {
             microsoft_auth_service,
             todo_sync_service,
             task_sync_service,
+            task_execution_service: None, // Will be initialized with OutputBroadcaster in server
         }
     }
 }

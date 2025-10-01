@@ -13,7 +13,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use tracing::info;
-use act_core::{DirectoryListing, FileContent, CreateFileRequest};
+use act_core::{DirectoryListing, FileContent, CreateFileRequest, CreateDirectoryRequest, MoveRequest, CopyRequest};
 use crate::models::{Session, session_info_from_domain};
 
 // Response wrapper for file content that properly encodes content as string
@@ -60,6 +60,11 @@ pub fn routes() -> Router<AppState> {
         .route("/:workspace_id", delete(delete_workspace))
         .route("/:workspace_id/sessions", get(get_workspace_sessions))
         .route("/:workspace_id/files", get(get_workspace_files))
+        .route("/:workspace_id/files", post(create_workspace_file))
+        .route("/:workspace_id/files", delete(delete_workspace_file))
+        .route("/:workspace_id/files/rename", axum::routing::patch(rename_workspace_file))
+        .route("/:workspace_id/files/move", axum::routing::patch(move_workspace_file))
+        .route("/:workspace_id/files/copy", post(copy_workspace_file))
         .route("/:workspace_id/files/content", get(get_workspace_file_content))
         .route("/:workspace_id/files/content", put(save_workspace_file_content))
 }
@@ -243,6 +248,37 @@ pub struct SaveWorkspaceFileRequest {
     pub content: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct CreateWorkspaceFileRequest {
+    pub path: String,
+    pub content: Option<String>,
+    pub is_directory: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct DeleteWorkspaceFileQuery {
+    pub path: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RenameWorkspaceFileRequest {
+    pub from_path: String,
+    pub to_path: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MoveWorkspaceFileRequest {
+    pub from_path: String,
+    pub to_path: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CopyWorkspaceFileRequest {
+    pub from_path: String,
+    pub to_path: String,
+    pub recursive: Option<bool>,
+}
+
 pub async fn get_workspace_file_content(
     auth_user: AuthenticatedUser,
     Path(workspace_id): Path<String>,
@@ -324,6 +360,255 @@ pub async fn save_workspace_file_content(
 }
 
 
+
+pub async fn create_workspace_file(
+    auth_user: AuthenticatedUser,
+    Path(workspace_id): Path<String>,
+    State(state): State<AppState>,
+    Json(request): Json<CreateWorkspaceFileRequest>
+) -> Result<Json<ApiResponse<()>>, ServerError> {
+    info!("Workspace file/directory creation requested: {} path: {} for user {}", workspace_id, request.path, auth_user.user_id);
+
+    // Get the workspace to get its local path
+    let workspace = state.domain_services.workspace_service
+        .get_workspace(&auth_user.user_id, &workspace_id)
+        .await?;
+
+    // Handle relative path within the workspace
+    let file_path = if request.path.starts_with("/") {
+        // Absolute path - use as is but make it relative to workspace
+        std::path::PathBuf::from(&workspace.local_path).join(request.path.trim_start_matches('/'))
+    } else {
+        // Relative path - join with workspace path
+        std::path::PathBuf::from(&workspace.local_path).join(&request.path)
+    };
+
+    if request.is_directory.unwrap_or(false) {
+        info!("Creating directory: {}", file_path.display());
+        let dir_request = CreateDirectoryRequest {
+            path: file_path,
+            create_parent_dirs: true,
+        };
+
+        match state.filesystem.create_directory(dir_request).await {
+            Ok(_) => {
+                info!("Directory created successfully for workspace {} path {}", workspace_id, request.path);
+                Ok(Json(ApiResponse::success(())))
+            },
+            Err(e) => {
+                tracing::error!("Failed to create workspace directory: {}", e);
+                Err(ServerError::from(e))
+            }
+        }
+    } else {
+        info!("Creating file: {}", file_path.display());
+        let file_request = CreateFileRequest {
+            path: file_path,
+            content: request.content.unwrap_or_default().into_bytes(),
+            create_parent_dirs: true,
+        };
+
+        match state.filesystem.write_file(file_request).await {
+            Ok(_) => {
+                info!("File created successfully for workspace {} path {}", workspace_id, request.path);
+                Ok(Json(ApiResponse::success(())))
+            },
+            Err(e) => {
+                tracing::error!("Failed to create workspace file: {}", e);
+                Err(ServerError::from(e))
+            }
+        }
+    }
+}
+
+pub async fn delete_workspace_file(
+    auth_user: AuthenticatedUser,
+    Path(workspace_id): Path<String>,
+    Query(params): Query<DeleteWorkspaceFileQuery>,
+    State(state): State<AppState>
+) -> Result<Json<ApiResponse<()>>, ServerError> {
+    info!("Workspace file deletion requested: {} path: {} for user {}", workspace_id, params.path, auth_user.user_id);
+
+    // Get the workspace to get its local path
+    let workspace = state.domain_services.workspace_service
+        .get_workspace(&auth_user.user_id, &workspace_id)
+        .await?;
+
+    // Handle relative path within the workspace
+    let file_path = if params.path.starts_with("/") {
+        // Absolute path - use as is but make it relative to workspace
+        std::path::PathBuf::from(&workspace.local_path).join(params.path.trim_start_matches('/'))
+    } else {
+        // Relative path - join with workspace path
+        std::path::PathBuf::from(&workspace.local_path).join(&params.path)
+    };
+
+    info!("Deleting file: {}", file_path.display());
+
+    // Check if it's a directory first and delete appropriately
+    match state.filesystem.is_directory(&file_path).await {
+        Ok(true) => {
+            match state.filesystem.delete_directory(&file_path, true).await {
+                Ok(_) => {
+                    info!("Directory deleted successfully for workspace {} path {}", workspace_id, params.path);
+                    Ok(Json(ApiResponse::success(())))
+                },
+                Err(e) => {
+                    tracing::error!("Failed to delete workspace directory: {}", e);
+                    Err(ServerError::from(e))
+                }
+            }
+        }
+        _ => {
+            match state.filesystem.delete_file(&file_path).await {
+                Ok(_) => {
+                    info!("File deleted successfully for workspace {} path {}", workspace_id, params.path);
+                    Ok(Json(ApiResponse::success(())))
+                },
+                Err(e) => {
+                    tracing::error!("Failed to delete workspace file: {}", e);
+                    Err(ServerError::from(e))
+                }
+            }
+        }
+    }
+}
+
+pub async fn rename_workspace_file(
+    auth_user: AuthenticatedUser,
+    Path(workspace_id): Path<String>,
+    State(state): State<AppState>,
+    Json(request): Json<RenameWorkspaceFileRequest>
+) -> Result<Json<ApiResponse<()>>, ServerError> {
+    info!("Workspace file rename requested: {} from {} to {} for user {}", workspace_id, request.from_path, request.to_path, auth_user.user_id);
+
+    // Get the workspace to get its local path
+    let workspace = state.domain_services.workspace_service
+        .get_workspace(&auth_user.user_id, &workspace_id)
+        .await?;
+
+    // Handle relative paths within the workspace
+    let from_path = if request.from_path.starts_with("/") {
+        std::path::PathBuf::from(&workspace.local_path).join(request.from_path.trim_start_matches('/'))
+    } else {
+        std::path::PathBuf::from(&workspace.local_path).join(&request.from_path)
+    };
+
+    let to_path = if request.to_path.starts_with("/") {
+        std::path::PathBuf::from(&workspace.local_path).join(request.to_path.trim_start_matches('/'))
+    } else {
+        std::path::PathBuf::from(&workspace.local_path).join(&request.to_path)
+    };
+
+    info!("Renaming file from {} to {}", from_path.display(), to_path.display());
+
+    let move_request = MoveRequest {
+        from: from_path,
+        to: to_path,
+    };
+
+    match state.filesystem.move_item(move_request).await {
+        Ok(_) => {
+            info!("File renamed successfully for workspace {}", workspace_id);
+            Ok(Json(ApiResponse::success(())))
+        },
+        Err(e) => {
+            tracing::error!("Failed to rename workspace file: {}", e);
+            Err(ServerError::from(e))
+        }
+    }
+}
+
+pub async fn move_workspace_file(
+    auth_user: AuthenticatedUser,
+    Path(workspace_id): Path<String>,
+    State(state): State<AppState>,
+    Json(request): Json<MoveWorkspaceFileRequest>
+) -> Result<Json<ApiResponse<()>>, ServerError> {
+    info!("Workspace file move requested: {} from {} to {} for user {}", workspace_id, request.from_path, request.to_path, auth_user.user_id);
+
+    // Get the workspace to get its local path
+    let workspace = state.domain_services.workspace_service
+        .get_workspace(&auth_user.user_id, &workspace_id)
+        .await?;
+
+    // Handle relative paths within the workspace
+    let from_path = if request.from_path.starts_with("/") {
+        std::path::PathBuf::from(&workspace.local_path).join(request.from_path.trim_start_matches('/'))
+    } else {
+        std::path::PathBuf::from(&workspace.local_path).join(&request.from_path)
+    };
+
+    let to_path = if request.to_path.starts_with("/") {
+        std::path::PathBuf::from(&workspace.local_path).join(request.to_path.trim_start_matches('/'))
+    } else {
+        std::path::PathBuf::from(&workspace.local_path).join(&request.to_path)
+    };
+
+    info!("Moving file from {} to {}", from_path.display(), to_path.display());
+
+    let move_request = MoveRequest {
+        from: from_path,
+        to: to_path,
+    };
+
+    match state.filesystem.move_item(move_request).await {
+        Ok(_) => {
+            info!("File moved successfully for workspace {}", workspace_id);
+            Ok(Json(ApiResponse::success(())))
+        },
+        Err(e) => {
+            tracing::error!("Failed to move workspace file: {}", e);
+            Err(ServerError::from(e))
+        }
+    }
+}
+
+pub async fn copy_workspace_file(
+    auth_user: AuthenticatedUser,
+    Path(workspace_id): Path<String>,
+    State(state): State<AppState>,
+    Json(request): Json<CopyWorkspaceFileRequest>
+) -> Result<Json<ApiResponse<()>>, ServerError> {
+    info!("Workspace file copy requested: {} from {} to {} for user {}", workspace_id, request.from_path, request.to_path, auth_user.user_id);
+
+    // Get the workspace to get its local path
+    let workspace = state.domain_services.workspace_service
+        .get_workspace(&auth_user.user_id, &workspace_id)
+        .await?;
+
+    // Handle relative paths within the workspace
+    let from_path = if request.from_path.starts_with("/") {
+        std::path::PathBuf::from(&workspace.local_path).join(request.from_path.trim_start_matches('/'))
+    } else {
+        std::path::PathBuf::from(&workspace.local_path).join(&request.from_path)
+    };
+
+    let to_path = if request.to_path.starts_with("/") {
+        std::path::PathBuf::from(&workspace.local_path).join(request.to_path.trim_start_matches('/'))
+    } else {
+        std::path::PathBuf::from(&workspace.local_path).join(&request.to_path)
+    };
+
+    info!("Copying file from {} to {}", from_path.display(), to_path.display());
+
+    let copy_request = CopyRequest {
+        from: from_path,
+        to: to_path,
+        recursive: request.recursive.unwrap_or(true),
+    };
+
+    match state.filesystem.copy_item(copy_request).await {
+        Ok(_) => {
+            info!("File copied successfully for workspace {}", workspace_id);
+            Ok(Json(ApiResponse::success(())))
+        },
+        Err(e) => {
+            tracing::error!("Failed to copy workspace file: {}", e);
+            Err(ServerError::from(e))
+        }
+    }
+}
 
 // Helper function to convert FileContent to FileContentResponse
 fn convert_file_content_to_response(content: FileContent) -> FileContentResponse {

@@ -40,13 +40,18 @@ async fn main() -> anyhow::Result<()> {
     // Create application state with dependency injection
     let state = AppState::new(config.clone()).await
         .map_err(|err| anyhow::anyhow!("Failed to create application state: {}", err))?;
-    
+
     info!("Application state initialized with domain services");
 
 
     // Create Socket.IO server
     let (socket_layer, io) = SocketIo::new_layer();
-    
+
+    // Initialize TaskExecutionService with Socket.IO broadcaster
+    let broadcaster = std::sync::Arc::new(socket_handlers::SocketIOOutputBroadcaster::new(io.clone()));
+    state.initialize_task_execution_service(broadcaster).await;
+    info!("TaskExecutionService initialized with Socket.IO broadcaster");
+
     // Setup socket handlers with domain services
     socket_handlers::setup_socket_handlers(io, std::sync::Arc::new(state.clone()));
     info!("WebSocket handlers initialized with domain services");

@@ -89,6 +89,23 @@ export function useKeyboardShortcuts() {
             handleCommandPalette()
           }
           break
+        // File tree operations
+        case 'x':
+          event.preventDefault()
+          handleCut()
+          break
+        case 'c':
+          event.preventDefault()
+          handleCopy()
+          break
+        case 'v':
+          event.preventDefault()
+          await handlePaste()
+          break
+        case 'a':
+          event.preventDefault()
+          handleSelectAll()
+          break
       }
     }
 
@@ -355,11 +372,88 @@ export function useKeyboardShortcuts() {
       fileOperations.refreshFiles(undefined, false),
       workspaceStore.fetchWorkspaces()
     ])
-    
+
     uiStore.addResourceAlert({
       type: 'info',
       title: 'Hard Refresh',
       message: 'All data has been refreshed'
+    })
+  }
+
+  // File tree operations
+  const handleCut = () => {
+    if (fileStore.selectedFiles.size > 0) {
+      fileStore.cutFiles()
+      uiStore.addResourceAlert({
+        type: 'info',
+        title: 'Cut',
+        message: `Cut ${fileStore.selectedFiles.size} item(s)`
+      })
+    } else if (fileStore.selectedFile) {
+      fileStore.cutFiles([fileStore.selectedFile.path])
+      uiStore.addResourceAlert({
+        type: 'info',
+        title: 'Cut',
+        message: `Cut ${fileStore.selectedFile.name}`
+      })
+    }
+  }
+
+  const handleCopy = () => {
+    if (fileStore.selectedFiles.size > 0) {
+      fileStore.copyFiles()
+      uiStore.addResourceAlert({
+        type: 'info',
+        title: 'Copied',
+        message: `Copied ${fileStore.selectedFiles.size} item(s)`
+      })
+    } else if (fileStore.selectedFile) {
+      fileStore.copyFiles([fileStore.selectedFile.path])
+      uiStore.addResourceAlert({
+        type: 'info',
+        title: 'Copied',
+        message: `Copied ${fileStore.selectedFile.name}`
+      })
+    }
+  }
+
+  const handlePaste = async () => {
+    if (fileStore.clipboardFiles.length === 0) {
+      uiStore.addResourceAlert({
+        type: 'warning',
+        title: 'Nothing to Paste',
+        message: 'No files in clipboard'
+      })
+      return
+    }
+
+    // Paste into the selected directory, or current directory if file is selected
+    const targetDirectory = fileStore.selectedFile && fileStore.selectedFile.type === 'directory'
+      ? fileStore.selectedFile
+      : { path: fileStore.currentPath, type: 'directory' as const, name: 'current' }
+
+    try {
+      await fileStore.pasteFiles(targetDirectory as FileItem)
+      uiStore.addResourceAlert({
+        type: 'info',
+        title: 'Pasted',
+        message: `Pasted ${fileStore.clipboardFiles.length} item(s)`
+      })
+    } catch (err) {
+      uiStore.addResourceAlert({
+        type: 'error',
+        title: 'Paste Failed',
+        message: err instanceof Error ? err.message : 'Failed to paste files'
+      })
+    }
+  }
+
+  const handleSelectAll = () => {
+    fileStore.selectAllFiles()
+    uiStore.addResourceAlert({
+      type: 'info',
+      title: 'Selected All',
+      message: `Selected ${fileStore.selectedFiles.size} item(s)`
     })
   }
 
@@ -420,7 +514,13 @@ export const keyboardShortcuts = {
   // File operations
   rename: { key: 'F2', modifiers: [], description: 'Rename file' },
   delete: { key: 'Delete', modifiers: [], description: 'Delete file' },
-  copyPath: { key: 'C', modifiers: ['Ctrl', 'Shift'], description: 'Copy file path' }
+  copyPath: { key: 'C', modifiers: ['Ctrl', 'Shift'], description: 'Copy file path' },
+
+  // File tree operations
+  cut: { key: 'X', modifiers: ['Ctrl'], description: 'Cut selected files' },
+  copy: { key: 'C', modifiers: ['Ctrl'], description: 'Copy selected files' },
+  paste: { key: 'V', modifiers: ['Ctrl'], description: 'Paste files' },
+  selectAll: { key: 'A', modifiers: ['Ctrl'], description: 'Select all files' }
 }
 
 // Helper to format shortcut for display

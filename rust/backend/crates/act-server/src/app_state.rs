@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use tokio::sync::RwLock;
 use act_core::{
     Database,
     filesystem::FileSystem,
@@ -38,6 +39,26 @@ pub struct AppState {
     pub pty_service: Arc<dyn PtyService>,
     /// File system service
     pub filesystem: Arc<dyn FileSystem>,
+    /// Task execution service (initialized separately with Socket.IO)
+    pub task_execution_service: Arc<RwLock<Option<act_domain::TaskExecutionService>>>,
+}
+
+impl AppState {
+    /// Initialize TaskExecutionService with Socket.IO broadcaster
+    pub async fn initialize_task_execution_service(
+        &self,
+        broadcaster: Arc<dyn act_domain::OutputBroadcaster>,
+    ) {
+        // Create TaskExecutionService with broadcaster
+        let task_execution_service = act_domain::TaskExecutionService::new(
+            Arc::new(self.domain_services.task_sync_service.clone()),
+            broadcaster,
+        );
+
+        // Store in RwLock
+        let mut service = self.task_execution_service.write().await;
+        *service = Some(task_execution_service);
+    }
 }
 
 impl AppState {
@@ -153,6 +174,7 @@ impl AppState {
             domain_services,
             pty_service,
             filesystem,
+            task_execution_service: Arc::new(RwLock::new(None)),
         })
     }
 }

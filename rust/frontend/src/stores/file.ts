@@ -61,10 +61,18 @@ export const useFileStore = defineStore('file', () => {
   const loadingFiles = ref(false)
   const fileError = ref<string | null>(null)
   const showHiddenFiles = ref(false)
-  
+
   // Tree structure state (VS Code-like)
   const fileTree = ref<FileItem[]>([])
   const expandedDirectories = ref<Set<string>>(new Set())
+
+  // Multi-select state (VS Code-like)
+  const selectedFiles = ref<Set<string>>(new Set())
+  const lastSelectedPath = ref<string | null>(null)
+
+  // Clipboard state for cut/copy/paste
+  const clipboardFiles = ref<string[]>([])
+  const clipboardOperation = ref<'cut' | 'copy' | null>(null)
   
   
   
@@ -427,11 +435,103 @@ const clearPreviewError = () => {
     changesSummary.value = ''
   }
 
+  // Refresh the entire file tree while preserving expanded state
+  const refreshTree = async () => {
+    const workspace = getWorkspaceContext()
+    const workspaceId = workspace?.id
+
+    // Store currently expanded directories
+    const wasExpanded = new Set(expandedDirectories.value)
+
+    try {
+      // Refresh root level
+      await refreshFiles('.', false, workspaceId)
+
+      // Re-expand previously expanded directories
+      if (wasExpanded.size > 0) {
+        await reExpandDirectories(fileTree.value, wasExpanded)
+      }
+    } catch (err) {
+      console.error('Failed to refresh tree:', err)
+      throw err
+    }
+  }
+
+  // Recursively re-expand directories that were previously expanded
+  const reExpandDirectories = async (items: FileItem[], wasExpanded: Set<string>) => {
+    for (const item of items) {
+      if (item.type === 'directory' && wasExpanded.has(item.path)) {
+        // Re-expand this directory
+        await toggleDirectoryExpansion(item)
+
+        // If it has children, recursively expand them
+        if (item.children && item.children.length > 0) {
+          await reExpandDirectories(item.children, wasExpanded)
+        }
+      }
+    }
+  }
+
+  // Soft refresh - only reload a specific directory in the tree
+  const refreshParentDirectory = async (dirPath: string) => {
+    const workspace = getWorkspaceContext()
+    const workspaceId = workspace?.id
+
+    try {
+      // If it's the root, refresh the whole tree
+      if (dirPath === '.' || dirPath === '') {
+        await refreshTree()
+        return
+      }
+
+      // Find the parent directory in the tree
+      const findAndRefreshDirectory = async (items: FileItem[], targetPath: string): Promise<boolean> => {
+        for (const item of items) {
+          if (item.path === targetPath && item.type === 'directory') {
+            // Found the directory, refresh its children
+            if (item.isExpanded) {
+              // Collapse and re-expand to reload
+              await toggleDirectoryExpansion(item) // Collapse
+              await toggleDirectoryExpansion(item) // Re-expand
+            }
+            return true
+          }
+
+          // Search in children if expanded
+          if (item.children && item.children.length > 0) {
+            const found = await findAndRefreshDirectory(item.children, targetPath)
+            if (found) return true
+          }
+        }
+        return false
+      }
+
+      // Try to find and refresh the directory
+      const found = await findAndRefreshDirectory(fileTree.value, dirPath)
+
+      // If not found in tree, it might be at root level
+      if (!found && dirPath === '.') {
+        await refreshTree()
+      }
+    } catch (err) {
+      console.error('Failed to refresh parent directory:', err)
+      // Fallback to full refresh on error
+      await refreshTree()
+    }
+  }
+
   // File operations
   const createFile = async (name: string, content = '') => {
     try {
-      await apiService.createFile(currentPath.value, name, content)
-      await refreshFiles(currentPath.value, false) // Don't use cache
+      const workspace = getWorkspaceContext()
+      const workspaceId = workspace?.id
+      await apiService.createFile(currentPath.value, name, content, workspaceId)
+
+      // Clear cache for current path
+      directoryCache.value.delete(currentPath.value)
+
+      // Soft refresh - only reload the current directory
+      await refreshParentDirectory(currentPath.value)
     } catch (err) {
       fileError.value = err instanceof Error ? err.message : 'Failed to create file'
       throw err
@@ -440,8 +540,15 @@ const clearPreviewError = () => {
 
   const createDirectory = async (name: string) => {
     try {
-      await apiService.createDirectory(currentPath.value, name)
-      await refreshFiles(currentPath.value, false) // Don't use cache
+      const workspace = getWorkspaceContext()
+      const workspaceId = workspace?.id
+      await apiService.createDirectory(currentPath.value, name, workspaceId)
+
+      // Clear cache for current path
+      directoryCache.value.delete(currentPath.value)
+
+      // Soft refresh - only reload the current directory
+      await refreshParentDirectory(currentPath.value)
     } catch (err) {
       fileError.value = err instanceof Error ? err.message : 'Failed to create directory'
       throw err
@@ -450,8 +557,16 @@ const clearPreviewError = () => {
 
   const deleteFile = async (file: FileItem) => {
     try {
-      await apiService.deleteFile(file.path)
-      await refreshFiles(currentPath.value, false) // Don't use cache
+      const workspace = getWorkspaceContext()
+      const workspaceId = workspace?.id
+      await apiService.deleteFile(file.path, workspaceId)
+
+      // Clear cache for parent path
+      const parentPath = file.parentPath || file.path.split('/').slice(0, -1).join('/') || '.'
+      directoryCache.value.delete(parentPath)
+
+      // Soft refresh - only reload the parent directory
+      await refreshParentDirectory(parentPath)
     } catch (err) {
       fileError.value = err instanceof Error ? err.message : 'Failed to delete file'
       throw err
@@ -460,8 +575,46 @@ const clearPreviewError = () => {
 
   const renameFile = async (file: FileItem, newName: string) => {
     try {
-      await apiService.renameFile(file.path, newName)
-      await refreshFiles(currentPath.value, false) // Don't use cache
+      const workspace = getWorkspaceContext()
+      const workspaceId = workspace?.id
+
+      // Store expanded directories and update paths if renaming a directory
+      const wasExpanded = new Set(expandedDirectories.value)
+      const oldPath = file.path
+      const isDirectory = file.type === 'directory'
+
+      await apiService.renameFile(file.path, newName, workspaceId)
+
+      // Clear cache for parent path
+      const parentPath = file.parentPath || file.path.split('/').slice(0, -1).join('/') || '.'
+      directoryCache.value.delete(parentPath)
+
+      // If renaming a directory, update expanded paths
+      if (isDirectory && wasExpanded.has(oldPath)) {
+        const pathParts = oldPath.split('/')
+        pathParts[pathParts.length - 1] = newName
+        const newPath = pathParts.join('/')
+
+        // Update expanded directories set
+        expandedDirectories.value.delete(oldPath)
+        expandedDirectories.value.add(newPath)
+
+        // Update any child paths that were expanded
+        const updatedExpanded = new Set<string>()
+        for (const expandedPath of expandedDirectories.value) {
+          if (expandedPath.startsWith(oldPath + '/')) {
+            // This is a child of the renamed directory
+            const childPath = expandedPath.substring(oldPath.length)
+            updatedExpanded.add(newPath + childPath)
+          } else {
+            updatedExpanded.add(expandedPath)
+          }
+        }
+        expandedDirectories.value = updatedExpanded
+      }
+
+      // Soft refresh - only reload the parent directory
+      await refreshParentDirectory(parentPath)
     } catch (err) {
       fileError.value = err instanceof Error ? err.message : 'Failed to rename file'
       throw err
@@ -844,6 +997,184 @@ const clearPreviewError = () => {
     }
   }
 
+  // Multi-select operations (VS Code-like)
+  const toggleFileSelection = (file: FileItem, event?: MouseEvent) => {
+    const path = file.path
+
+    if (event?.shiftKey && lastSelectedPath.value) {
+      // Shift+Click: Select range
+      selectFileRange(lastSelectedPath.value, path)
+    } else if (event?.ctrlKey || event?.metaKey) {
+      // Ctrl/Cmd+Click: Toggle selection
+      if (selectedFiles.value.has(path)) {
+        selectedFiles.value.delete(path)
+      } else {
+        selectedFiles.value.add(path)
+      }
+      lastSelectedPath.value = path
+    } else {
+      // Regular click: Select single file
+      selectedFiles.value.clear()
+      selectedFiles.value.add(path)
+      lastSelectedPath.value = path
+      selectedFile.value = file
+    }
+  }
+
+  const selectFileRange = (fromPath: string, toPath: string) => {
+    // Get all visible files in tree order
+    const allFiles: FileItem[] = []
+    const collectFiles = (files: FileItem[]) => {
+      for (const file of files) {
+        allFiles.push(file)
+        if (file.isExpanded && file.children) {
+          collectFiles(file.children)
+        }
+      }
+    }
+    collectFiles(fileTree.value)
+
+    // Find indices
+    const fromIndex = allFiles.findIndex(f => f.path === fromPath)
+    const toIndex = allFiles.findIndex(f => f.path === toPath)
+
+    if (fromIndex === -1 || toIndex === -1) return
+
+    // Select range
+    const startIndex = Math.min(fromIndex, toIndex)
+    const endIndex = Math.max(fromIndex, toIndex)
+
+    selectedFiles.value.clear()
+    for (let i = startIndex; i <= endIndex; i++) {
+      selectedFiles.value.add(allFiles[i].path)
+    }
+  }
+
+  const clearFileSelection = () => {
+    selectedFiles.value.clear()
+    lastSelectedPath.value = null
+  }
+
+  const selectAllFiles = () => {
+    const allFiles: FileItem[] = []
+    const collectFiles = (files: FileItem[]) => {
+      for (const file of files) {
+        allFiles.push(file)
+        if (file.isExpanded && file.children) {
+          collectFiles(file.children)
+        }
+      }
+    }
+    collectFiles(fileTree.value)
+
+    selectedFiles.value.clear()
+    allFiles.forEach(file => selectedFiles.value.add(file.path))
+  }
+
+  // Clipboard operations
+  const cutFiles = (paths?: string[]) => {
+    const filePaths = paths || Array.from(selectedFiles.value)
+    if (filePaths.length === 0) return
+
+    clipboardFiles.value = filePaths
+    clipboardOperation.value = 'cut'
+  }
+
+  const copyFiles = (paths?: string[]) => {
+    const filePaths = paths || Array.from(selectedFiles.value)
+    if (filePaths.length === 0) return
+
+    clipboardFiles.value = filePaths
+    clipboardOperation.value = 'copy'
+  }
+
+  const pasteFiles = async (targetDirectory: FileItem) => {
+    if (clipboardFiles.value.length === 0 || !clipboardOperation.value) return
+
+    const workspace = getWorkspaceContext()
+    const workspaceId = workspace?.id
+
+    try {
+      for (const filePath of clipboardFiles.value) {
+        const fileName = filePath.split('/').pop() || filePath
+        const targetPath = targetDirectory.type === 'directory'
+          ? `${targetDirectory.path}/${fileName}`
+          : `${targetDirectory.path.split('/').slice(0, -1).join('/')}/${fileName}`
+
+        if (clipboardOperation.value === 'cut') {
+          await apiService.moveFile(filePath, targetPath, workspaceId)
+        } else {
+          await apiService.copyFile(filePath, targetPath, true, workspaceId)
+        }
+      }
+
+      // Clear cache for affected directories
+      const affectedPaths = new Set<string>()
+      for (const filePath of clipboardFiles.value) {
+        const parentPath = filePath.split('/').slice(0, -1).join('/') || '.'
+        affectedPaths.add(parentPath)
+      }
+      affectedPaths.add(targetDirectory.path)
+      affectedPaths.add(targetDirectory.parentPath || '.')
+
+      // Clear cache for affected paths
+      affectedPaths.forEach(path => directoryCache.value.delete(path))
+
+      // Clear clipboard if it was a cut operation
+      if (clipboardOperation.value === 'cut') {
+        clipboardFiles.value = []
+        clipboardOperation.value = null
+      }
+
+      // Refresh the entire tree
+      await refreshTree()
+    } catch (err) {
+      fileError.value = err instanceof Error ? err.message : 'Failed to paste files'
+      throw err
+    }
+  }
+
+  const clearClipboard = () => {
+    clipboardFiles.value = []
+    clipboardOperation.value = null
+  }
+
+  // Drag and drop operations
+  const moveFiles = async (filePaths: string[], targetDirectory: FileItem) => {
+    const workspace = getWorkspaceContext()
+    const workspaceId = workspace?.id
+
+    try {
+      for (const filePath of filePaths) {
+        const fileName = filePath.split('/').pop() || filePath
+        const targetPath = targetDirectory.type === 'directory'
+          ? `${targetDirectory.path}/${fileName}`
+          : targetDirectory.path
+
+        await apiService.moveFile(filePath, targetPath, workspaceId)
+      }
+
+      // Clear cache for affected directories
+      const affectedPaths = new Set<string>()
+      for (const filePath of filePaths) {
+        const parentPath = filePath.split('/').slice(0, -1).join('/') || '.'
+        affectedPaths.add(parentPath)
+      }
+      affectedPaths.add(targetDirectory.path)
+      affectedPaths.add(targetDirectory.parentPath || '.')
+
+      // Clear cache for affected paths
+      affectedPaths.forEach(path => directoryCache.value.delete(path))
+
+      // Refresh the entire tree
+      await refreshTree()
+      clearFileSelection()
+    } catch (err) {
+      fileError.value = err instanceof Error ? err.message : 'Failed to move files'
+      throw err
+    }
+  }
+
   return {
     // State
     fileExplorerEnabled: readonly(fileExplorerEnabled),
@@ -864,6 +1195,12 @@ const clearPreviewError = () => {
     // Tree structure state
     fileTree: readonly(fileTree),
     expandedDirectories: readonly(expandedDirectories),
+    // Multi-select state
+    selectedFiles: readonly(selectedFiles),
+    lastSelectedPath: readonly(lastSelectedPath),
+    // Clipboard state
+    clipboardFiles: readonly(clipboardFiles),
+    clipboardOperation: readonly(clipboardOperation),
     // Editor state
     openFiles: readonly(openFiles),
     fileTabs: readonly(fileTabs),
@@ -923,5 +1260,17 @@ const clearPreviewError = () => {
     closeEditor,
     clearCache,
     cleanupCache,
+    // Multi-select actions
+    toggleFileSelection,
+    selectFileRange,
+    clearFileSelection,
+    selectAllFiles,
+    // Clipboard actions
+    cutFiles,
+    copyFiles,
+    pasteFiles,
+    clearClipboard,
+    // Drag and drop actions
+    moveFiles,
   }
 })

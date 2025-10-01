@@ -128,12 +128,14 @@ const editorError = computed(() => fileStore.editorError)
 
 // Language mapping is now handled in the codemirror-editor utility
 
-// Watch for active file changes
-watch(activeFile, async (newFile) => {
-  if (newFile) {
-    // Always update the editor when there's an active file
-    // This ensures content displays even when switching between tabs
-    await updateEditor(newFile)
+// Watch for active file PATH changes (not content changes)
+// Only recreate editor when switching between different files
+watch(() => activeFile.value?.path, async (newPath, oldPath) => {
+  if (newPath && newPath !== oldPath) {
+    const file = activeFile.value
+    if (file) {
+      await updateEditor(file)
+    }
   }
 })
 
@@ -215,6 +217,19 @@ const updateEditor = async (file: EditorState) => {
       fileExtension: getFileExtension(file.path),
       onChange: (content: string) => {
         fileStore.updateFileContent(file.path, content)
+      },
+      // Keyboard shortcut handlers
+      onSave: () => {
+        console.log('💾 Ctrl+S pressed - saving file:', file.path)
+        saveActiveFile()
+      },
+      onSaveAll: () => {
+        console.log('💾 Ctrl+Shift+S pressed - saving all files')
+        saveAllFiles()
+      },
+      onClose: () => {
+        console.log('❌ Ctrl+W pressed - closing file:', file.path)
+        closeFile(file.path)
       }
     })
     

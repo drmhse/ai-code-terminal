@@ -317,6 +317,10 @@ class SocketService {
     return this.socket?.connected ?? false
   }
 
+  getSocket(): Socket | null {
+    return this.socket
+  }
+
   subscribe<T extends keyof SocketEventMap>(
     eventType: T,
     callback: (data: SocketEventMap[T]) => void

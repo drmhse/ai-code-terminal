@@ -1,24 +1,26 @@
 <template>
-  <div class="file-tree">
+  <div class="file-tree" role="tree" aria-label="File Explorer">
     <!-- Loading State -->
-    <div v-if="fileStore.loadingFiles" class="loading-state">
-      <div class="loading-spinner"></div>
+    <div v-if="fileStore.loadingFiles" class="loading-state" role="status" aria-live="polite">
+      <div class="loading-spinner" aria-hidden="true"></div>
       <span>Loading files...</span>
     </div>
-    
+
     <!-- Error State -->
-    <div v-else-if="fileStore.fileError" class="error-state">
-      <ExclamationCircleIcon class="icon-base" />
+    <div v-else-if="fileStore.fileError" class="error-state" role="alert">
+      <ExclamationCircleIcon class="icon-base" aria-hidden="true" />
       <span>{{ fileStore.fileError }}</span>
-      <button @click="() => refreshFiles()" class="retry-btn">Retry</button>
+      <button @click="() => refreshFiles()" class="retry-btn" aria-label="Retry loading files">
+        Retry
+      </button>
     </div>
-    
+
     <!-- Empty State -->
-    <div v-else-if="!fileStore.hasFiles" class="empty-state">
-      <FolderIcon class="icon-base" />
+    <div v-else-if="!fileStore.hasFiles" class="empty-state" role="status">
+      <FolderIcon class="icon-base" aria-hidden="true" />
       <span>No files found</span>
     </div>
-    
+
     <!-- VS Code-like Tree View -->
     <div v-else class="tree-container">
       <FileTreeNode
@@ -87,10 +89,16 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* ===================================
+   FILE TREE CONTAINER
+   VS Code/Zed inspired design
+   =================================== */
+
 .file-tree {
   height: 100%;
   overflow-y: auto;
-  font-size: 13px;
+  overflow-x: hidden;
+  font-size: var(--font-size-sm);
 }
 
 /* Loading, Error, Empty States */
@@ -101,51 +109,87 @@ onMounted(async () => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 24px 16px;
+  padding: var(--space-8) var(--space-4);
   text-align: center;
-  color: var(--text-secondary);
-  font-size: 13px;
-  gap: 8px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  gap: var(--space-3);
+}
+
+.loading-state .icon-base,
+.error-state .icon-base,
+.empty-state .icon-base {
+  width: 32px;
+  height: 32px;
+  color: var(--color-text-tertiary);
 }
 
 .loading-spinner {
   width: 24px;
   height: 24px;
   border: 2px solid transparent;
-  border-top: 2px solid var(--primary);
-  border-right: 2px solid var(--primary);
+  border-top: 2px solid var(--color-interactive-primary);
   border-radius: 50%;
-  animation: spin 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
-  box-shadow: 0 0 10px rgba(0, 123, 204, 0.3);
+  animation: spin 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  to { transform: rotate(360deg); }
 }
 
 .error-state {
-  color: var(--error);
+  color: var(--color-semantic-error);
+}
+
+.error-state .icon-base {
+  color: var(--color-semantic-error);
 }
 
 .retry-btn {
-  background: var(--button-bg);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  padding: 6px 12px;
-  border-radius: 4px;
+  background: var(--color-interactive-tertiary);
+  border: 1px solid var(--color-border-primary);
+  color: var(--color-text-primary);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-base);
   cursor: pointer;
-  font-size: 12px;
-  margin-top: 4px;
-  transition: all 0.15s ease;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  margin-top: var(--space-1);
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
 }
 
 .retry-btn:hover {
-  background: var(--button-hover);
+  background: var(--color-interactive-tertiary-hover);
+  border-color: var(--color-border-hover);
 }
 
-/* VS Code-like Tree Container */
+.retry-btn:active {
+  transform: scale(0.98);
+}
+
+/* Tree Container - Clean, minimal spacing */
 .tree-container {
-  padding: 4px 0;
+  padding: var(--space-1) 0;
+}
+
+/* Custom scrollbar for file tree */
+.file-tree::-webkit-scrollbar {
+  width: 10px;
+}
+
+.file-tree::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.file-tree::-webkit-scrollbar-thumb {
+  background: var(--color-scrollbar-thumb);
+  border-radius: var(--radius-base);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.file-tree::-webkit-scrollbar-thumb:hover {
+  background: var(--color-scrollbar-thumb-hover);
+  background-clip: padding-box;
 }
 </style>

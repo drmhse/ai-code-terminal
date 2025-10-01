@@ -5,7 +5,7 @@ use axum::{
     routing::{get, post, put, patch, delete},
     Router,
 };
-use act_core::{DirectoryListing, CreateFileRequest, FileContent, CreateDirectoryRequest, MoveRequest};
+use act_core::{DirectoryListing, CreateFileRequest, FileContent, CreateDirectoryRequest, MoveRequest, CopyRequest};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tracing::{debug, error, info};
@@ -28,6 +28,8 @@ pub fn routes() -> Router<AppState> {
         .route("/", post(create_file))
         .route("/", delete(delete_file))
         .route("/rename", patch(rename_file))
+        .route("/move", patch(move_file))
+        .route("/copy", post(copy_file))
 }
 
 #[derive(Debug, Deserialize)]
@@ -57,6 +59,19 @@ pub struct CreateFileRequestPayload {
 pub struct RenameFileRequest {
     pub from_path: String,
     pub to_path: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MoveFileRequest {
+    pub from_path: String,
+    pub to_path: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CopyFileRequest {
+    pub from_path: String,
+    pub to_path: String,
+    pub recursive: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -241,6 +256,47 @@ pub async fn rename_file(
         Ok(_) => Ok(Json(ApiResponse::success(()))),
         Err(e) => {
             error!("Failed to rename file: {}", e);
+            Err(ServerError::from(e))
+        }
+    }
+}
+
+pub async fn move_file(
+    State(state): State<AppState>,
+    Json(request): Json<MoveFileRequest>
+) -> Result<Json<ApiResponse<()>>, ServerError> {
+    info!("File move requested from {} to {}", request.from_path, request.to_path);
+
+    let move_request = MoveRequest {
+        from: PathBuf::from(request.from_path),
+        to: PathBuf::from(request.to_path),
+    };
+
+    match state.filesystem.move_item(move_request).await {
+        Ok(_) => Ok(Json(ApiResponse::success(()))),
+        Err(e) => {
+            error!("Failed to move file: {}", e);
+            Err(ServerError::from(e))
+        }
+    }
+}
+
+pub async fn copy_file(
+    State(state): State<AppState>,
+    Json(request): Json<CopyFileRequest>
+) -> Result<Json<ApiResponse<()>>, ServerError> {
+    info!("File copy requested from {} to {}", request.from_path, request.to_path);
+
+    let copy_request = CopyRequest {
+        from: PathBuf::from(request.from_path),
+        to: PathBuf::from(request.to_path),
+        recursive: request.recursive.unwrap_or(true),
+    };
+
+    match state.filesystem.copy_item(copy_request).await {
+        Ok(_) => Ok(Json(ApiResponse::success(()))),
+        Err(e) => {
+            error!("Failed to copy file: {}", e);
             Err(ServerError::from(e))
         }
     }

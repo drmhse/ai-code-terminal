@@ -1,10 +1,11 @@
-import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from '@codemirror/view'
+import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection, type KeyBinding } from '@codemirror/view'
 import { EditorState, StateEffect, type Extension } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { foldGutter, indentOnInput, bracketMatching, foldKeymap, syntaxHighlighting, HighlightStyle } from '@codemirror/language'
-import { highlightSelectionMatches } from '@codemirror/search'
+import { highlightSelectionMatches, searchKeymap } from '@codemirror/search'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { tags } from '@lezer/highlight'
+import { closeBrackets, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete'
 
 // Language imports
 import { javascript } from '@codemirror/lang-javascript'
@@ -99,9 +100,59 @@ function getLanguageExtension(fileExtension: string | undefined): Extension | nu
 }
 
 /**
+ * Create custom keybindings for application-level commands
+ * These are passed in via options to allow integration with the app
+ *
+ * Key modifier syntax:
+ * - 'Mod' = Ctrl on Windows/Linux, Cmd on macOS
+ * - 'Alt' = Alt/Option key
+ * - 'Shift' = Shift key
+ */
+function createCustomKeybindings(options: EditorOptions): KeyBinding[] {
+  const bindings: KeyBinding[] = []
+
+  // Save file: Ctrl+S / Cmd+S
+  if (options.onSave) {
+    bindings.push({
+      key: 'Mod-s',
+      run: () => {
+        options.onSave!()
+        return true // Prevent default browser save dialog
+      }
+    })
+  }
+
+  // Save all files: Ctrl+Shift+S / Cmd+Shift+S
+  if (options.onSaveAll) {
+    bindings.push({
+      key: 'Mod-Shift-s',
+      run: () => {
+        options.onSaveAll!()
+        return true
+      }
+    })
+  }
+
+  // Close file: Ctrl+W / Cmd+W
+  if (options.onClose) {
+    bindings.push({
+      key: 'Mod-w',
+      run: () => {
+        options.onClose!()
+        return true // Prevent browser tab close
+      }
+    })
+  }
+
+  return bindings
+}
+
+/**
  * Basic editor setup with proper extensions
  */
-function createBasicSetup(): Extension[] {
+function createBasicSetup(options: EditorOptions = {}): Extension[] {
+  const customBindings = createCustomKeybindings(options)
+
   return [
     lineNumbers(),
     foldGutter(),
@@ -109,14 +160,21 @@ function createBasicSetup(): Extension[] {
     EditorState.allowMultipleSelections.of(true),
     indentOnInput(),
     bracketMatching(),
+    closeBrackets(), // Auto-close brackets, quotes, etc.
     highlightActiveLine(),
     highlightSelectionMatches(),
-    history(),
+    history(), // Provides undo/redo
+    // Keymap order matters: custom bindings first, then framework defaults
+    // This allows our custom handlers to take precedence
     keymap.of([
-      ...defaultKeymap,
-      ...historyKeymap,
-      ...foldKeymap,
-      indentWithTab
+      ...customBindings,        // Custom app-level commands (Ctrl+S, etc.)
+      ...closeBracketsKeymap,   // Auto-closing brackets
+      ...completionKeymap,      // Autocomplete navigation
+      ...searchKeymap,          // Search/replace (Ctrl+F, Ctrl+H)
+      ...historyKeymap,         // Undo/redo (Ctrl+Z, Ctrl+Shift+Z)
+      ...foldKeymap,            // Code folding
+      ...defaultKeymap,         // Basic editor commands (copy/paste/cut)
+      indentWithTab             // Tab/Shift+Tab for indentation
     ]),
     // Container integration theme
     EditorView.theme({
@@ -169,7 +227,7 @@ function createEditorExtensions(options: EditorOptions): Extension[] {
     fileExtension = null
   } = options
 
-  const extensions: Extension[] = [...createBasicSetup()]
+  const extensions: Extension[] = [...createBasicSetup(options)]
 
   // Add language support
   const languageExt = getLanguageExtension(fileExtension || undefined)

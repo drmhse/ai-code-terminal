@@ -626,36 +626,121 @@ details?: Record<string, unknown>
     return this.saveFile(path, content, workspaceId)
   }
 
-  async createFile(parentPath: string, name: string, content = ''): Promise<void> {
-    await this.client.post('/api/v1/files', {
-      path: `${parentPath}/${name}`,
-      content,
-      type: 'file'
-    })
+  async createFile(parentPath: string, name: string, content = '', workspaceId?: string): Promise<void> {
+    const normalizedPath = `${parentPath}/${name}`.replace(/^\.\//, '')
+
+    if (workspaceId) {
+      // Use workspace-scoped endpoint
+      await this.client.post(`/api/v1/workspaces/${workspaceId}/files`, {
+        path: normalizedPath,
+        content,
+        is_directory: false
+      })
+    } else {
+      // Fallback to legacy endpoint
+      await this.client.post('/api/v1/files', {
+        path: normalizedPath,
+        content,
+        type: 'file'
+      })
+    }
   }
 
-  async createDirectory(parentPath: string, name: string): Promise<void> {
-    await this.client.post('/api/v1/files', {
-      path: `${parentPath}/${name}`,
-      type: 'directory'
-    })
+  async createDirectory(parentPath: string, name: string, workspaceId?: string): Promise<void> {
+    const normalizedPath = `${parentPath}/${name}`.replace(/^\.\//, '')
+
+    if (workspaceId) {
+      // Use workspace-scoped endpoint
+      await this.client.post(`/api/v1/workspaces/${workspaceId}/files`, {
+        path: normalizedPath,
+        is_directory: true
+      })
+    } else {
+      // Fallback to legacy endpoint
+      await this.client.post('/api/v1/files', {
+        path: normalizedPath,
+        type: 'directory'
+      })
+    }
   }
 
-  async deleteFile(path: string): Promise<void> {
-    await this.client.delete('/api/v1/files', {
-      params: { path }
-    })
+  async deleteFile(path: string, workspaceId?: string): Promise<void> {
+    const normalizedPath = path.replace(/^\.\//, '')
+
+    if (workspaceId) {
+      // Use workspace-scoped endpoint
+      await this.client.delete(`/api/v1/workspaces/${workspaceId}/files`, {
+        params: { path: normalizedPath }
+      })
+    } else {
+      // Fallback to legacy endpoint
+      await this.client.delete('/api/v1/files', {
+        params: { path: normalizedPath }
+      })
+    }
   }
 
-  async renameFile(oldPath: string, newName: string): Promise<void> {
+  async renameFile(oldPath: string, newName: string, workspaceId?: string): Promise<void> {
     const pathParts = oldPath.split('/')
     pathParts[pathParts.length - 1] = newName
     const newPath = pathParts.join('/')
 
-    await this.client.patch('/api/v1/files/rename', {
-      oldPath,
-      newPath
-    })
+    const normalizedOldPath = oldPath.replace(/^\.\//, '')
+    const normalizedNewPath = newPath.replace(/^\.\//, '')
+
+    if (workspaceId) {
+      // Use workspace-scoped endpoint
+      await this.client.patch(`/api/v1/workspaces/${workspaceId}/files/rename`, {
+        from_path: normalizedOldPath,
+        to_path: normalizedNewPath
+      })
+    } else {
+      // Fallback to legacy endpoint
+      await this.client.patch('/api/v1/files/rename', {
+        oldPath: normalizedOldPath,
+        newPath: normalizedNewPath
+      })
+    }
+  }
+
+  async moveFile(fromPath: string, toPath: string, workspaceId?: string): Promise<void> {
+    const normalizedFromPath = fromPath.replace(/^\.\//, '')
+    const normalizedToPath = toPath.replace(/^\.\//, '')
+
+    if (workspaceId) {
+      // Use workspace-scoped endpoint
+      await this.client.patch(`/api/v1/workspaces/${workspaceId}/files/move`, {
+        from_path: normalizedFromPath,
+        to_path: normalizedToPath
+      })
+    } else {
+      // Fallback to legacy endpoint
+      await this.client.patch('/api/v1/files/move', {
+        from_path: normalizedFromPath,
+        to_path: normalizedToPath
+      })
+    }
+  }
+
+  async copyFile(fromPath: string, toPath: string, recursive: boolean = true, workspaceId?: string): Promise<void> {
+    const normalizedFromPath = fromPath.replace(/^\.\//, '')
+    const normalizedToPath = toPath.replace(/^\.\//, '')
+
+    if (workspaceId) {
+      // Use workspace-scoped endpoint
+      await this.client.post(`/api/v1/workspaces/${workspaceId}/files/copy`, {
+        from_path: normalizedFromPath,
+        to_path: normalizedToPath,
+        recursive
+      })
+    } else {
+      // Fallback to legacy endpoint
+      await this.client.post('/api/v1/files/copy', {
+        from_path: normalizedFromPath,
+        to_path: normalizedToPath,
+        recursive
+      })
+    }
   }
 
   // Theme preference endpoints

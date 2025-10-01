@@ -136,6 +136,87 @@
         </div>
       </div>
 
+      <!-- Task Execution Section -->
+      <div v-if="workspaceStore.currentWorkspace" class="section execution-section">
+        <div class="execution-header">
+          <label class="section-label">
+            <PlayIcon v-if="!isExecuting" />
+            <ArrowPathIcon v-else class="animate-spin" />
+            <span>Task Execution</span>
+          </label>
+
+          <button
+            v-if="!isExecuting"
+            @click="handleWorkOnTask"
+            :disabled="!canExecute"
+            class="btn-execute"
+            title="Execute this task with Claude Code"
+          >
+            <PlayIcon />
+            <span>Work on Task</span>
+          </button>
+
+          <button
+            v-else
+            @click="handleCancelExecution"
+            class="btn-cancel"
+            title="Cancel execution"
+          >
+            <StopIcon />
+            <span>Cancel</span>
+          </button>
+        </div>
+
+        <!-- Execution Status -->
+        <div v-if="currentExecution" class="execution-status">
+          <div class="status-badge" :class="`status-${currentExecution.status}`">
+            {{ formatStatus(currentExecution.status) }}
+          </div>
+
+          <div v-if="currentExecution.status === 'running'" class="execution-info">
+            <span class="info-label">Started:</span>
+            <span class="info-value">{{ formatRelativeTime(currentExecution.startTime) }}</span>
+          </div>
+
+          <div v-if="currentExecution.durationMs" class="execution-info">
+            <span class="info-label">Duration:</span>
+            <span class="info-value">{{ formatDuration(currentExecution.durationMs) }}</span>
+          </div>
+        </div>
+
+        <!-- Live Output (Optional, collapsible) -->
+        <div v-if="currentExecution && showOutput" class="execution-output">
+          <div class="output-header">
+            <span class="output-title">Live Output</span>
+            <button @click="showOutput = false" class="btn-icon btn-xs">
+              <ChevronUpIcon />
+            </button>
+          </div>
+          <div class="output-content">
+            <pre>{{ currentExecution.output.join('\n') }}</pre>
+          </div>
+        </div>
+
+        <button
+          v-if="currentExecution && !showOutput"
+          @click="showOutput = true"
+          class="btn-link"
+        >
+          <ChevronDownIcon />
+          Show Output ({{ currentExecution.output.length }} lines)
+        </button>
+
+        <!-- Permission Mode Selector -->
+        <div v-if="!isExecuting" class="permission-mode">
+          <label class="mode-label">Permission Mode:</label>
+          <select v-model="selectedPermissionMode" class="mode-select">
+            <option value="plan">Plan Mode (Read-only)</option>
+            <option value="acceptEdits">Accept Edits (Recommended)</option>
+            <option value="bypassAll">Bypass All (Dangerous)</option>
+          </select>
+        </div>
+      </div>
+
       <!-- Timestamps -->
       <div class="section timestamps">
         <div v-if="task.created_date_time" class="timestamp-row">
@@ -154,6 +235,9 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import type { TodoTask, CreateTaskRequest } from '@/services/microsoft-auth'
+import { useTodoStore } from '@/stores/todo'
+import { useWorkspaceStore } from '@/stores/workspace'
+import { logger } from '@/utils/logger'
 import {
   XMarkIcon,
   TrashIcon,
@@ -165,7 +249,12 @@ import {
   ArrowTopRightOnSquareIcon,
   ExclamationTriangleIcon,
   FlagIcon,
-  MinusIcon
+  MinusIcon,
+  PlayIcon,
+  StopIcon,
+  ArrowPathIcon,
+  ChevronUpIcon,
+  ChevronDownIcon
 } from '@heroicons/vue/24/outline'
 
 interface Props {
@@ -181,6 +270,9 @@ const emit = defineEmits<{
   delete: []
 }>()
 
+const todoStore = useTodoStore()
+const workspaceStore = useWorkspaceStore()
+
 // Local state
 const localTask = ref({
   title: props.task.title,
@@ -192,6 +284,10 @@ const localTask = ref({
 const localDueDate = ref('')
 const titleTextareaRef = ref<HTMLTextAreaElement>()
 const descriptionTextareaRef = ref<HTMLTextAreaElement>()
+
+// Execution state
+const selectedPermissionMode = ref<'plan' | 'acceptEdits' | 'bypassAll'>('acceptEdits')
+const showOutput = ref(false)
 
 // Priority options
 const priorities = [
@@ -226,6 +322,20 @@ const codeContext = computed(() => {
     console.error('Failed to parse code context:', error)
     return null
   }
+})
+
+const currentExecution = computed(() => {
+  return todoStore.getExecutionByTaskId(props.task.id)
+})
+
+const isExecuting = computed(() => {
+  return todoStore.isTaskExecuting(props.task.id)
+})
+
+const canExecute = computed(() => {
+  return workspaceStore.currentWorkspace &&
+         props.task.title &&
+         !isExecuting.value
 })
 
 // Methods
@@ -315,6 +425,85 @@ const formatTimestamp = (dateString: string): string => {
     })
   }
 }
+
+// Task execution methods
+const handleWorkOnTask = async () => {
+  if (!workspaceStore.currentWorkspace) {
+    logger.error('No workspace selected')
+    return
+  }
+
+  try {
+    showOutput.value = true
+
+    await todoStore.startTaskExecution(
+      props.task.id,
+      workspaceStore.currentWorkspace.id,
+      selectedPermissionMode.value,
+      1800  // 30 min timeout
+    )
+
+    logger.log('Task execution started')
+  } catch (error) {
+    logger.error('Failed to start task execution:', error)
+  }
+}
+
+const handleCancelExecution = async () => {
+  if (!currentExecution.value) return
+
+  try {
+    await todoStore.cancelTaskExecution(currentExecution.value.executionId)
+    logger.log('Task execution cancelled')
+  } catch (error) {
+    logger.error('Failed to cancel task execution:', error)
+  }
+}
+
+const formatStatus = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    queued: 'Queued',
+    running: 'Running...',
+    completed: 'Completed',
+    failed: 'Failed',
+    cancelled: 'Cancelled',
+    timeout: 'Timed Out',
+  }
+  return statusMap[status] || status
+}
+
+const formatRelativeTime = (date: Date): string => {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
+
+  if (seconds < 60) return `${seconds}s ago`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  return `${hours}h ${minutes % 60}m ago`
+}
+
+const formatDuration = (ms: number): string => {
+  const seconds = Math.floor(ms / 1000)
+  if (seconds < 60) return `${seconds}s`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ${seconds % 60}s`
+  const hours = Math.floor(minutes / 60)
+  return `${hours}h ${minutes % 60}m`
+}
+
+// Watch for execution completion
+watch(() => currentExecution.value?.status, (newStatus, oldStatus) => {
+  if (oldStatus === 'running' &&
+      (newStatus === 'completed' || newStatus === 'failed')) {
+    showOutput.value = false
+
+    if (newStatus === 'completed') {
+      logger.log('Task execution completed successfully')
+    } else {
+      logger.error('Task execution failed')
+    }
+  }
+})
 
 // Initialize due date
 onMounted(() => {
@@ -730,5 +919,197 @@ watch(() => props.task, (newTask) => {
 .timestamp-value {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
+}
+
+/* Execution Section */
+.execution-section {
+  padding: var(--space-4);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-primary);
+}
+
+.execution-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.btn-execute {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: white;
+  background: #10a37f;
+  border: none;
+  border-radius: var(--radius-base);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.btn-execute svg {
+  width: 16px;
+  height: 16px;
+}
+
+.btn-execute:hover:not(:disabled) {
+  background: #0d8566;
+  transform: translateY(-1px);
+}
+
+.btn-execute:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-cancel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: white;
+  background: #dc2626;
+  border: none;
+  border-radius: var(--radius-base);
+  cursor: pointer;
+}
+
+.btn-cancel svg {
+  width: 16px;
+  height: 16px;
+}
+
+.execution-status {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-base);
+  margin-bottom: var(--space-3);
+}
+
+.status-badge {
+  display: inline-block;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-full);
+  width: fit-content;
+}
+
+.status-running {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.status-completed {
+  background: rgba(16, 163, 127, 0.1);
+  color: #10a37f;
+}
+
+.status-failed {
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+}
+
+.status-cancelled {
+  background: rgba(107, 114, 128, 0.1);
+  color: #6b7280;
+}
+
+.status-timeout {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.execution-info {
+  display: flex;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.info-label {
+  color: var(--color-text-tertiary);
+}
+
+.info-value {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.execution-output {
+  margin-top: var(--space-3);
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--radius-base);
+  overflow: hidden;
+}
+
+.output-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border-primary);
+}
+
+.output-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.output-content {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: var(--space-3);
+  background: var(--color-bg-primary);
+}
+
+.output-content pre {
+  margin: 0;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  color: var(--color-text-primary);
+}
+
+.permission-mode {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.mode-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.mode-select {
+  flex: 1;
+  padding: var(--space-2);
+  font-size: var(--font-size-sm);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--radius-base);
+  color: var(--color-text-primary);
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 </style>

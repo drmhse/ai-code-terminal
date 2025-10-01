@@ -231,6 +231,9 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
             session_service.add_output_handler(websocket_handler).await;
         }
     });
+
+    // Setup task execution handlers
+    setup_task_execution_handlers(io.clone(), state.clone());
     
     io.ns("/", move |socket: SocketRef| {
         let state = state.clone();
@@ -669,7 +672,7 @@ async fn authenticate_user(token: &str) -> Result<Claims, Box<dyn std::error::Er
     let secret = std::env::var("ACT_AUTH_JWT_SECRET")
         .unwrap_or_else(|_| "default-secret".to_string());
     let key = DecodingKey::from_secret(secret.as_bytes());
-    
+
     let token_data = decode::<Claims>(token, &key, &validation)?;
     Ok(token_data.claims)
 }
@@ -680,4 +683,300 @@ fn get_authenticated_user_id(socket: &SocketRef) -> Result<String, Box<dyn std::
     socket.extensions.get::<String>()
         .map(|s| s.clone())
         .ok_or_else(|| "Authentication required: user not found in socket extensions".into())
+}
+
+// ===== Task Execution Socket.IO Types =====
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StartTaskExecutionRequest {
+    #[serde(rename = "taskId")]
+    pub task_id: String,
+    #[serde(rename = "workspaceId")]
+    pub workspace_id: String,
+    #[serde(rename = "permissionMode")]
+    pub permission_mode: String,
+    #[serde(rename = "timeoutSeconds")]
+    pub timeout_seconds: Option<u64>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CancelTaskExecutionRequest {
+    #[serde(rename = "executionId")]
+    pub execution_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GetExecutionStatusRequest {
+    #[serde(rename = "executionId")]
+    pub execution_id: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TaskExecutionStartedEvent {
+    #[serde(rename = "executionId")]
+    pub execution_id: String,
+    #[serde(rename = "taskId")]
+    pub task_id: String,
+    pub status: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TaskExecutionOutputEvent {
+    #[serde(rename = "executionId")]
+    pub execution_id: String,
+    pub output: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TaskExecutionStatusEvent {
+    #[serde(rename = "executionId")]
+    pub execution_id: String,
+    pub status: String,
+    #[serde(rename = "exitCode")]
+    pub exit_code: Option<i32>,
+    #[serde(rename = "durationMs")]
+    pub duration_ms: Option<u64>,
+}
+
+// ===== Socket.IO Output Broadcaster =====
+
+pub struct SocketIOOutputBroadcaster {
+    io: SocketIo,
+}
+
+impl SocketIOOutputBroadcaster {
+    pub fn new(io: SocketIo) -> Self {
+        Self { io }
+    }
+}
+
+#[async_trait::async_trait]
+impl act_domain::OutputBroadcaster for SocketIOOutputBroadcaster {
+    async fn broadcast_output(&self, execution_id: &str, chunk: String) {
+        let _ = self.io.emit("task:execution:output", TaskExecutionOutputEvent {
+            execution_id: execution_id.to_string(),
+            output: chunk,
+        });
+    }
+
+    async fn broadcast_status(&self, execution_id: &str, status: act_domain::TaskExecutionStatus) {
+        use act_domain::TaskExecutionStatus;
+
+        let (status_str, exit_code, duration_ms) = match status {
+            TaskExecutionStatus::Queued => ("queued".to_string(), None, None),
+            TaskExecutionStatus::Running => ("running".to_string(), None, None),
+            TaskExecutionStatus::Completed { exit_code, duration_ms, .. } =>
+                ("completed".to_string(), Some(exit_code), Some(duration_ms)),
+            TaskExecutionStatus::Failed { exit_code, .. } =>
+                ("failed".to_string(), exit_code, None),
+            TaskExecutionStatus::Cancelled => ("cancelled".to_string(), None, None),
+            TaskExecutionStatus::TimedOut => ("timeout".to_string(), None, None),
+        };
+
+        let _ = self.io.emit("task:execution:status", TaskExecutionStatusEvent {
+            execution_id: execution_id.to_string(),
+            status: status_str,
+            exit_code,
+            duration_ms,
+        });
+    }
+}
+
+// ===== Task Execution Socket Handlers =====
+
+pub fn setup_task_execution_handlers(io: SocketIo, state: Arc<AppState>) {
+    io.ns("/", move |socket: SocketRef| {
+        let state = state.clone();
+
+        // Handler: Start task execution
+        socket.on("task:execution:start", {
+            let state = state.clone();
+            move |socket: SocketRef, Data::<StartTaskExecutionRequest>(req)| {
+                let state = state.clone();
+
+                async move {
+                    info!("Received task:execution:start for task {}", req.task_id);
+
+                    let task_execution_service_guard = state.task_execution_service.read().await;
+                    let task_execution_service = match task_execution_service_guard.as_ref() {
+                        Some(service) => service,
+                        None => {
+                            error!("TaskExecutionService not initialized");
+                            let _ = socket.emit("task:execution:error", ErrorEvent {
+                                error: "Task execution service not available".to_string(),
+                            });
+                            return;
+                        }
+                    };
+
+                    // Get task details from TaskSyncService
+                    let task = match state.domain_services.task_sync_service
+                        .get_task(&req.workspace_id, &req.task_id).await {
+                        Ok(Some(task)) => task,
+                        Ok(None) => {
+                            let _ = socket.emit("task:execution:error", ErrorEvent {
+                                error: "Task not found".to_string(),
+                            });
+                            return;
+                        }
+                        Err(e) => {
+                            error!("Failed to get task: {:?}", e);
+                            let _ = socket.emit("task:execution:error", ErrorEvent {
+                                error: format!("Failed to get task: {}", e),
+                            });
+                            return;
+                        }
+                    };
+
+                    // Get workspace details
+                    // TODO: Get authenticated user_id from socket extensions
+                    let user_id = match get_authenticated_user_id(&socket) {
+                        Ok(id) => id,
+                        Err(e) => {
+                            error!("Failed to get user_id: {:?}", e);
+                            let _ = socket.emit("task:execution:error", ErrorEvent {
+                                error: "Authentication required".to_string(),
+                            });
+                            return;
+                        }
+                    };
+
+                    let workspace = match state.domain_services.workspace_service
+                        .get_workspace(&user_id, &req.workspace_id).await {
+                        Ok(workspace) => workspace,
+                        Err(e) => {
+                            error!("Failed to get workspace: {:?}", e);
+                            let _ = socket.emit("task:execution:error", ErrorEvent {
+                                error: format!("Workspace not found: {}", e),
+                            });
+                            return;
+                        }
+                    };
+
+                    // Parse permission mode
+                    let permission_mode = match req.permission_mode.as_str() {
+                        "plan" => act_domain::ExecutionPermissionMode::Plan,
+                        "acceptEdits" => act_domain::ExecutionPermissionMode::AcceptEdits,
+                        "bypassAll" => act_domain::ExecutionPermissionMode::BypassAll,
+                        _ => act_domain::ExecutionPermissionMode::Plan,
+                    };
+
+                    // Create execution request
+                    let exec_request = act_domain::TaskExecutionRequest {
+                        task_id: req.task_id.clone(),
+                        workspace_id: req.workspace_id.clone(),
+                        task_title: task.title,
+                        task_description: task.body.map(|b| b.content).unwrap_or_default(),
+                        working_directory: workspace.local_path,
+                        permission_mode,
+                        timeout_seconds: req.timeout_seconds,
+                    };
+
+                    // Start execution
+                    match task_execution_service.start_execution(exec_request).await {
+                        Ok(execution_id) => {
+                            info!("Started execution: {}", execution_id);
+                            let _ = socket.emit("task:execution:started", TaskExecutionStartedEvent {
+                                execution_id: execution_id.clone(),
+                                task_id: req.task_id,
+                                status: "running".to_string(),
+                            });
+                        }
+                        Err(e) => {
+                            error!("Failed to start execution: {:?}", e);
+                            let _ = socket.emit("task:execution:error", ErrorEvent {
+                                error: format!("Failed to start execution: {}", e),
+                            });
+                        }
+                    }
+                }
+            }
+        });
+
+        // Handler: Cancel task execution
+        socket.on("task:execution:cancel", {
+            let state = state.clone();
+            move |socket: SocketRef, Data::<CancelTaskExecutionRequest>(req)| {
+                let state = state.clone();
+
+                async move {
+                    info!("Received task:execution:cancel for execution {}", req.execution_id);
+
+                    let task_execution_service_guard = state.task_execution_service.read().await;
+                    let task_execution_service = match task_execution_service_guard.as_ref() {
+                        Some(service) => service,
+                        None => {
+                            error!("TaskExecutionService not initialized");
+                            let _ = socket.emit("task:execution:error", ErrorEvent {
+                                error: "Task execution service not available".to_string(),
+                            });
+                            return;
+                        }
+                    };
+
+                    match task_execution_service.cancel_execution(&req.execution_id).await {
+                        Ok(_) => {
+                            info!("Cancelled execution: {}", req.execution_id);
+                            let _ = socket.emit("task:execution:cancelled", serde_json::json!({
+                                "executionId": req.execution_id,
+                            }));
+                        }
+                        Err(e) => {
+                            error!("Failed to cancel execution: {:?}", e);
+                            let _ = socket.emit("task:execution:error", ErrorEvent {
+                                error: format!("Failed to cancel execution: {}", e),
+                            });
+                        }
+                    }
+                }
+            }
+        });
+
+        // Handler: Get execution status
+        socket.on("task:execution:status", {
+            let state = state.clone();
+            move |socket: SocketRef, Data::<GetExecutionStatusRequest>(req)| {
+                let state = state.clone();
+
+                async move {
+                    let task_execution_service_guard = state.task_execution_service.read().await;
+                    let task_execution_service = match task_execution_service_guard.as_ref() {
+                        Some(service) => service,
+                        None => {
+                            let _ = socket.emit("task:execution:error", ErrorEvent {
+                                error: "Task execution service not available".to_string(),
+                            });
+                            return;
+                        }
+                    };
+
+                    if let Some(status) = task_execution_service.get_execution_status(&req.execution_id).await {
+                        use act_domain::TaskExecutionStatus;
+
+                        let (status_str, exit_code, duration_ms) = match status {
+                            TaskExecutionStatus::Queued => ("queued", None, None),
+                            TaskExecutionStatus::Running => ("running", None, None),
+                            TaskExecutionStatus::Completed { exit_code, duration_ms, .. } =>
+                                ("completed", Some(exit_code), Some(duration_ms)),
+                            TaskExecutionStatus::Failed { exit_code, .. } =>
+                                ("failed", exit_code, None),
+                            TaskExecutionStatus::Cancelled => ("cancelled", None, None),
+                            TaskExecutionStatus::TimedOut => ("timeout", None, None),
+                        };
+
+                        let _ = socket.emit("task:execution:status", TaskExecutionStatusEvent {
+                            execution_id: req.execution_id.clone(),
+                            status: status_str.to_string(),
+                            exit_code,
+                            duration_ms,
+                        });
+                    } else {
+                        let _ = socket.emit("task:execution:error", ErrorEvent {
+                            error: "Execution not found".to_string(),
+                        });
+                    }
+                }
+            }
+        });
+    });
 }

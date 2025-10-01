@@ -12,6 +12,18 @@ import type {
   CodeContext
 } from '@/services/microsoft-auth'
 import { logger } from '@/utils/logger'
+import { socketService } from '@/services/socket'
+
+export interface TaskExecution {
+  executionId: string
+  taskId: string
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | 'timeout'
+  output: string[]
+  exitCode?: number
+  durationMs?: number
+  startTime: Date
+  endTime?: Date
+}
 
 export const useTodoStore = defineStore('todo', () => {
   // Microsoft authentication state
@@ -42,6 +54,10 @@ export const useTodoStore = defineStore('todo', () => {
   const listsError = ref<string | null>(null)
   const defaultList = ref<TaskList | null>(null)
 
+  // Task execution state
+  const activeExecutions = ref<Map<string, TaskExecution>>(new Map())
+  const executionHistory = ref<TaskExecution[]>([])
+
   // Computed properties
   const hasValidAuth = computed(() => isAuthenticated.value && authStatus.value?.authenticated)
   const microsoftEmail = computed(() => authStatus.value?.microsoft_email)
@@ -53,6 +69,22 @@ export const useTodoStore = defineStore('todo', () => {
   const isDefaultListSelected = computed(() =>
     selectedList.value?.id === defaultList.value?.id
   )
+  const getExecutionByTaskId = computed(() => {
+    return (taskId: string) => {
+      for (const execution of activeExecutions.value.values()) {
+        if (execution.taskId === taskId) {
+          return execution
+        }
+      }
+      return null
+    }
+  })
+  const isTaskExecuting = computed(() => {
+    return (taskId: string) => {
+      const execution = getExecutionByTaskId.value(taskId)
+      return execution && (execution.status === 'queued' || execution.status === 'running')
+    }
+  })
 
   // Check authentication status
   const checkAuthStatus = async () => {
@@ -574,6 +606,167 @@ export const useTodoStore = defineStore('todo', () => {
     syncError.value = null
   }
 
+  // Task execution actions
+  const startTaskExecution = async (
+    taskId: string,
+    workspaceId: string,
+    permissionMode: 'plan' | 'acceptEdits' | 'bypassAll' = 'acceptEdits',
+    timeoutSeconds?: number
+  ): Promise<string> => {
+    try {
+      logger.log(`Starting execution for task ${taskId}`)
+
+      return new Promise<string>((resolve, reject) => {
+        const socket = socketService.getSocket()
+
+        if (!socket) {
+          reject(new Error('Socket not connected'))
+          return
+        }
+
+        const startedHandler = (event: any) => {
+          logger.log('Task execution started:', event)
+
+          const execution: TaskExecution = {
+            executionId: event.executionId,
+            taskId: event.taskId,
+            status: 'running',
+            output: [],
+            startTime: new Date(),
+          }
+
+          activeExecutions.value.set(event.executionId, execution)
+          resolve(event.executionId)
+
+          socket.off('task:execution:started', startedHandler)
+          socket.off('task:execution:error', errorHandler)
+        }
+
+        const errorHandler = (event: any) => {
+          logger.error('Task execution error:', event)
+          reject(new Error(event.error))
+
+          socket.off('task:execution:started', startedHandler)
+          socket.off('task:execution:error', errorHandler)
+        }
+
+        socket.once('task:execution:started', startedHandler)
+        socket.once('task:execution:error', errorHandler)
+
+        socket.emit('task:execution:start', {
+          taskId,
+          workspaceId,
+          permissionMode,
+          timeoutSeconds,
+        })
+      })
+    } catch (error) {
+      logger.error('Failed to start task execution:', error)
+      throw error
+    }
+  }
+
+  const cancelTaskExecution = async (executionId: string): Promise<void> => {
+    try {
+      logger.log(`Cancelling execution ${executionId}`)
+
+      return new Promise<void>((resolve, reject) => {
+        const socket = socketService.getSocket()
+
+        if (!socket) {
+          reject(new Error('Socket not connected'))
+          return
+        }
+
+        const cancelledHandler = () => {
+          logger.log('Task execution cancelled')
+
+          const execution = activeExecutions.value.get(executionId)
+          if (execution) {
+            execution.status = 'cancelled'
+            execution.endTime = new Date()
+            executionHistory.value.push(execution)
+            activeExecutions.value.delete(executionId)
+          }
+
+          resolve()
+
+          socket.off('task:execution:cancelled', cancelledHandler)
+          socket.off('task:execution:error', errorHandler)
+        }
+
+        const errorHandler = (event: any) => {
+          logger.error('Cancel execution error:', event)
+          reject(new Error(event.error))
+
+          socket.off('task:execution:cancelled', cancelledHandler)
+          socket.off('task:execution:error', errorHandler)
+        }
+
+        socket.once('task:execution:cancelled', cancelledHandler)
+        socket.once('task:execution:error', errorHandler)
+
+        socket.emit('task:execution:cancel', { executionId })
+      })
+    } catch (error) {
+      logger.error('Failed to cancel task execution:', error)
+      throw error
+    }
+  }
+
+  const getExecutionStatus = (executionId: string) => {
+    socketService.getSocket()?.emit('task:execution:status', { executionId })
+  }
+
+  const refreshTask = async (taskId: string) => {
+    if (!selectedList.value) return
+
+    try {
+      const task = tasks.value.find(t => t.id === taskId)
+      if (task) {
+        const updatedTask = await microsoftAuthService.getTask(selectedList.value.id, taskId)
+        const index = tasks.value.findIndex(t => t.id === taskId)
+        if (index !== -1) {
+          tasks.value[index] = updatedTask
+        }
+      }
+    } catch (error) {
+      logger.error('Failed to refresh task:', error)
+    }
+  }
+
+  const setupExecutionListeners = () => {
+    const socket = socketService.getSocket()
+    if (!socket) return
+
+    socket.on('task:execution:output', (event: any) => {
+      const execution = activeExecutions.value.get(event.executionId)
+      if (execution) {
+        execution.output.push(event.output)
+      }
+    })
+
+    socket.on('task:execution:status', (event: any) => {
+      const execution = activeExecutions.value.get(event.executionId)
+      if (execution) {
+        execution.status = event.status
+        execution.exitCode = event.exitCode
+        execution.durationMs = event.durationMs
+
+        if (event.status === 'completed' || event.status === 'failed' ||
+            event.status === 'cancelled' || event.status === 'timeout') {
+          execution.endTime = new Date()
+          executionHistory.value.push(execution)
+          activeExecutions.value.delete(event.executionId)
+
+          if (execution.taskId) {
+            refreshTask(execution.taskId)
+          }
+        }
+      }
+    })
+  }
+
   // Auto-load data when authentication changes
   watch(isAuthenticated, (newValue) => {
     if (!newValue) {
@@ -585,6 +778,9 @@ export const useTodoStore = defineStore('todo', () => {
     }
     // Note: We don't call loadTaskLists() here because checkAuthStatus() already does it
   })
+
+  // Setup execution listeners on store initialization
+  setupExecutionListeners()
 
   // Initialize workspace watcher after store setup
   // This must be done outside the return block to access workspace store reactively
@@ -657,6 +853,12 @@ export const useTodoStore = defineStore('todo', () => {
     hasLists,
     selectedListName,
     isDefaultListSelected,
+    getExecutionByTaskId,
+    isTaskExecuting,
+
+    // Execution state
+    activeExecutions,
+    executionHistory,
 
     // Actions
     checkAuthStatus,
@@ -683,5 +885,10 @@ export const useTodoStore = defineStore('todo', () => {
     workspaceHasList,
     createListForWorkspace,
     clearErrors,
+    // Task execution
+    startTaskExecution,
+    cancelTaskExecution,
+    getExecutionStatus,
+    refreshTask,
   }
 })

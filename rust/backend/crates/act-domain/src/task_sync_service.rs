@@ -572,6 +572,68 @@ impl TaskSyncService {
         info!("Sync {} for workspace: {}", if enabled { "enabled" } else { "disabled" }, workspace_id);
         Ok(())
     }
+
+    /// Append content to a task's description
+    /// Takes workspace_id to lookup the list_id mapping
+    pub async fn append_to_task_description(
+        &self,
+        workspace_id: &str,
+        task_id: &str,
+        content: &str,
+    ) -> Result<(), TaskSyncError> {
+        info!("Appending content to task: {} in workspace: {}", task_id, workspace_id);
+
+        // Get all workspace mappings and find the one for this workspace
+        let mappings = self.repository.get_all_workspace_mappings().await?;
+        let mapping = mappings.iter()
+            .find(|m| m.workspace_id == workspace_id)
+            .ok_or_else(|| TaskSyncError::Workspace(format!("No Microsoft To-Do list mapped for workspace: {}", workspace_id)))?;
+
+        // Get access token (using default user "1" for single-user setup)
+        let token = self.microsoft_auth.get_access_token("1").await
+            .map_err(|e| TaskSyncError::MicrosoftAuth(e))?;
+
+        let current_task = self.graph_client.get_task(&token, &mapping.microsoft_list_id, task_id).await?;
+
+        // Append new content to existing body content
+        let updated_content = if let Some(body) = &current_task.body {
+            format!("{}\n{}", body.content, content)
+        } else {
+            content.to_string()
+        };
+
+        // Update task via Microsoft Graph API
+        let update_body = serde_json::json!({
+            "body": {
+                "contentType": "text",
+                "content": updated_content
+            }
+        });
+
+        self.graph_client.patch_task(&token, &mapping.microsoft_list_id, task_id, update_body).await?;
+
+        info!("Successfully appended content to task: {}", task_id);
+        Ok(())
+    }
+
+    /// Get a specific task by ID
+    pub async fn get_task(&self, workspace_id: &str, task_id: &str) -> Result<Option<crate::microsoft_graph_client::Task>, TaskSyncError> {
+        // Get all workspace mappings and find the one for this workspace
+        let mappings = self.repository.get_all_workspace_mappings().await?;
+        let mapping = mappings.iter()
+            .find(|m| m.workspace_id == workspace_id)
+            .ok_or_else(|| TaskSyncError::Workspace(format!("No Microsoft To-Do list mapped for workspace: {}", workspace_id)))?;
+
+        // Get access token (using default user "1" for single-user setup)
+        let token = self.microsoft_auth.get_access_token("1").await
+            .map_err(|e| TaskSyncError::MicrosoftAuth(e))?;
+
+        match self.graph_client.get_task(&token, &mapping.microsoft_list_id, task_id).await {
+            Ok(task) => Ok(Some(task)),
+            Err(GraphApiError::NotFound { .. }) => Ok(None),
+            Err(e) => Err(TaskSyncError::GraphApi(e)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
