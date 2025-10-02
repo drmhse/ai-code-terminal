@@ -418,7 +418,8 @@ impl ProcessSecurityValidator {
         let canonical_path = std::fs::canonicalize(path_to_validate).map_err(|e| {
             CoreError::Validation(format!(
                 "Failed to resolve working directory '{}': {}",
-                path_to_validate.display(), e
+                path_to_validate.display(),
+                e
             ))
         })?;
 

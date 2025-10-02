@@ -32,8 +32,8 @@ pub use filesystem::{
     FileItem, FilePermissions, FileSystem, MoveRequest,
 };
 pub use models::{
-    ApiResponse, HierarchicalLayout, PaneNode, PaneNodeType, PaginatedResponse, PaginationInfo,
-    PaginationParams, ProcessStatus, Settings, SplitDirection, SystemMetrics, TerminalLayout,
+    ApiResponse, HierarchicalLayout, PaginatedResponse, PaginationInfo, PaginationParams, PaneNode,
+    PaneNodeType, ProcessStatus, Settings, SplitDirection, SystemMetrics, TerminalLayout,
     TerminalTabConfig, TerminalTabSize, UserProcess,
 };
 pub use pty::{PtyEvent, PtyService, PtySize, SessionConfig, SessionInfo};

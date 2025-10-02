@@ -241,11 +241,17 @@ impl WorkspaceService {
         // Get canonical path using filesystem abstraction
         let file_info = self.filesystem.get_file_info(path).await?;
         let canonical_path = file_info.path;
-        info!("Resolved path using filesystem abstraction: {}", canonical_path.display());
+        info!(
+            "Resolved path using filesystem abstraction: {}",
+            canonical_path.display()
+        );
 
         // Additional validation using filesystem abstraction - check if path is allowed
         if !self.filesystem.is_path_allowed(&canonical_path) {
-            error!("Path is not allowed by filesystem security policy: {}", canonical_path.display());
+            error!(
+                "Path is not allowed by filesystem security policy: {}",
+                canonical_path.display()
+            );
             return Err(CoreError::Validation(format!(
                 "Cannot open this directory as workspace: {}",
                 folder_path

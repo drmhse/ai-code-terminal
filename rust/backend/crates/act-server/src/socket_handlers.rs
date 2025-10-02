@@ -423,9 +423,9 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                             return;
                         }
                     };
-                    
+
                     info!("Terminal command executed by user {}: session={}, command='{}'", user_id, data.session_id, data.command);
-                    
+
                     // Command history is handled by the shell itself through the PTY
                     socket.emit("terminal:command:ack", serde_json::json!({
                         "sessionId": data.session_id,
@@ -453,7 +453,7 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                             return;
                         }
                     };
-                    
+
                     match state.domain_services.session_service.resize_session(&user_id, &data.session_id, data.cols, data.rows).await {
                         Ok(_) => {
                             debug!("Resized session {} to {}x{}", data.session_id, data.cols, data.rows);
@@ -486,7 +486,7 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                             return;
                         }
                     };
-                    
+
                     match state.domain_services.session_service.list_active_sessions(&user_id).await {
                         Ok(sessions) => {
                             let workspace_sessions: Vec<_> = sessions
@@ -499,7 +499,7 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                                     }
                                 })
                                 .collect();
-                            
+
                             socket.emit("workspace-sessions", serde_json::json!({
                                 "workspaceId": data.workspace_id,
                                 "sessions": workspace_sessions
@@ -534,7 +534,7 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                             return;
                         }
                     };
-                    
+
                     match state.domain_services.session_service.terminate_session(&user_id, &data.session_id).await {
                         Ok(_) => {
                             info!("Terminated session: {}", data.session_id);
@@ -601,10 +601,10 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                 let subs = stats_subs.clone();
                 async move {
                     let socket_id = socket.id.to_string();
-                    
+
                     let mut subscriptions = subs.write().await;
                     let mut subscription = StatsSubscription::new(socket.clone());
-                    
+
                     match subscription.start(state.clone()).await {
                         Ok(_) => {
                             subscriptions.insert(socket_id, subscription);
@@ -631,13 +631,13 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
                 let subs = stats_subs.clone();
                 async move {
                     let socket_id = socket.id.to_string();
-                    
+
                     let mut subscriptions = subs.write().await;
                     if let Some(mut subscription) = subscriptions.remove(&socket_id) {
                         subscription.stop().await;
                         info!("Stopped stats subscription for socket {}", socket.id);
                     }
-                    
+
                     socket.emit("stats:unsubscribed", serde_json::json!({
                         "success": true
                     })).ok();

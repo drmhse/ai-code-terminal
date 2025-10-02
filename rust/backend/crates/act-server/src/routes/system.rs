@@ -107,8 +107,10 @@ pub async fn browse_directory(
     State(state): State<AppState>,
     user: AuthenticatedUser,
 ) -> Result<Json<ApiResponse<act_domain::BrowseDirectoryResponse>>, ServerError> {
-    debug!("Browse directory requested: {:?} for user: {} in workspace: {:?}",
-           params.path, user.user_id, params.workspace_id);
+    debug!(
+        "Browse directory requested: {:?} for user: {} in workspace: {:?}",
+        params.path, user.user_id, params.workspace_id
+    );
 
     // Determine the path to browse
     let browse_path = if let Some(workspace_id) = &params.workspace_id {
@@ -120,11 +122,16 @@ pub async fn browse_directory(
             .await
             .map_err(|e| {
                 tracing::error!("Failed to access workspace {}: {}", workspace_id, e);
-                ServerError::from(CoreError::NotFound(format!("Workspace not found: {}", workspace_id)))
+                ServerError::from(CoreError::NotFound(format!(
+                    "Workspace not found: {}",
+                    workspace_id
+                )))
             })?;
 
-        debug!("User {} accessing workspace {} at path: {}",
-               user.user_id, workspace_id, workspace.local_path);
+        debug!(
+            "User {} accessing workspace {} at path: {}",
+            user.user_id, workspace_id, workspace.local_path
+        );
 
         // Resolve path within workspace
         match &params.path {
@@ -146,7 +153,8 @@ pub async fn browse_directory(
     };
 
     // Use the filesystem abstraction to list directory
-    let directory_listing = state.filesystem
+    let directory_listing = state
+        .filesystem
         .list_directory(&browse_path)
         .await
         .map_err(|e| {
@@ -156,17 +164,23 @@ pub async fn browse_directory(
 
     // Convert to the expected response format
     let current_path_str = browse_path.to_string_lossy().to_string();
-    let parent_path = browse_path.parent().map(|p| p.to_string_lossy().to_string());
+    let parent_path = browse_path
+        .parent()
+        .map(|p| p.to_string_lossy().to_string());
 
-    let entries = directory_listing.items.into_iter().map(|item| {
-        let is_hidden = item.name.starts_with('.');
-        act_domain::DirectoryEntry {
-            name: item.name,
-            path: item.path.to_string_lossy().to_string(),
-            is_directory: item.is_directory,
-            is_hidden,
-        }
-    }).collect();
+    let entries = directory_listing
+        .items
+        .into_iter()
+        .map(|item| {
+            let is_hidden = item.name.starts_with('.');
+            act_domain::DirectoryEntry {
+                name: item.name,
+                path: item.path.to_string_lossy().to_string(),
+                is_directory: item.is_directory,
+                is_hidden,
+            }
+        })
+        .collect();
 
     let response = act_domain::BrowseDirectoryResponse {
         current_path: current_path_str,

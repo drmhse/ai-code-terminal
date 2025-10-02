@@ -174,15 +174,16 @@ impl TaskSyncService {
         // Check for empty or whitespace-only title
         if trimmed.is_empty() {
             return Err(TaskSyncError::Validation(
-                "Task title cannot be empty".to_string()
+                "Task title cannot be empty".to_string(),
             ));
         }
 
         // Check maximum length (Microsoft To-Do limit is 255 characters)
         if trimmed.len() > 255 {
-            return Err(TaskSyncError::Validation(
-                format!("Task title too long: {} characters (max: 255)", trimmed.len())
-            ));
+            return Err(TaskSyncError::Validation(format!(
+                "Task title too long: {} characters (max: 255)",
+                trimmed.len()
+            )));
         }
 
         Ok(trimmed.to_string())
@@ -381,7 +382,10 @@ impl TaskSyncService {
         let access_token = self.microsoft_auth.get_access_token(&user_id).await?;
 
         // Fetch tasks from Microsoft
-        let (microsoft_tasks, _) = self.graph_client.get_tasks(&access_token, &list_id, None).await?;
+        let (microsoft_tasks, _) = self
+            .graph_client
+            .get_tasks(&access_token, &list_id, None)
+            .await?;
 
         // Get local tasks
         let local_tasks = self.repository.get_workspace_tasks(workspace_id).await?;
@@ -859,10 +863,7 @@ impl TaskSyncService {
             .update_task(&token, &mapping.microsoft_list_id, task_id, update_request)
             .await?;
 
-        info!(
-            "Successfully updated task {} {}",
-            task_id, action
-        );
+        info!("Successfully updated task {} {}", task_id, action);
         Ok(())
     }
 
@@ -889,8 +890,14 @@ impl TaskSyncService {
         status: crate::microsoft_graph_client::TaskStatus,
         content: &str,
     ) -> Result<(), TaskSyncError> {
-        self.update_task_with_optional_content(user_id, workspace_id, task_id, status, Some(content))
-            .await
+        self.update_task_with_optional_content(
+            user_id,
+            workspace_id,
+            task_id,
+            status,
+            Some(content),
+        )
+        .await
     }
 }
 
@@ -1050,9 +1057,7 @@ mod tests {
             .returning(|_| Ok("valid_token_123".to_string()));
 
         // Mock graph API calls
-        mock_graph
-            .expect_list_tasks()
-            .returning(|_, _| Ok(vec![]));
+        mock_graph.expect_list_tasks().returning(|_, _| Ok(vec![]));
 
         mock_repo
             .expect_upsert_task_sync_metadata()
@@ -1071,7 +1076,10 @@ mod tests {
 
         // Verify sync succeeded - the expect_ensure_valid_token with eq(test_user_id)
         // will panic if called with wrong user_id (e.g., "system")
-        assert!(result.is_ok(), "Background sync should succeed with real user credentials");
+        assert!(
+            result.is_ok(),
+            "Background sync should succeed with real user credentials"
+        );
     }
 
     #[tokio::test]
@@ -1120,9 +1128,7 @@ mod tests {
             .times(1)
             .returning(|_| Ok("workspace_token".to_string()));
 
-        mock_graph
-            .expect_list_tasks()
-            .returning(|_, _| Ok(vec![]));
+        mock_graph.expect_list_tasks().returning(|_, _| Ok(vec![]));
 
         mock_repo
             .expect_upsert_task_sync_metadata()
@@ -1139,28 +1145,40 @@ mod tests {
         // Execute sync
         let result = service.sync_workspace(test_workspace_id).await;
 
-        assert!(result.is_ok(), "Sync should fetch user_id from workspace when metadata doesn't exist");
+        assert!(
+            result.is_ok(),
+            "Sync should fetch user_id from workspace when metadata doesn't exist"
+        );
     }
 
     #[test]
     fn test_task_title_validation_empty() {
         let result = TaskSyncService::validate_task_title("");
         assert!(result.is_err(), "Empty title should be rejected");
-        assert_eq!(result.unwrap_err().to_string(), "Validation error: Task title cannot be empty");
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Validation error: Task title cannot be empty"
+        );
     }
 
     #[test]
     fn test_task_title_validation_whitespace_only() {
         let result = TaskSyncService::validate_task_title("   ");
         assert!(result.is_err(), "Whitespace-only title should be rejected");
-        assert_eq!(result.unwrap_err().to_string(), "Validation error: Task title cannot be empty");
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Validation error: Task title cannot be empty"
+        );
     }
 
     #[test]
     fn test_task_title_validation_too_long() {
         let long_title = "a".repeat(256);
         let result = TaskSyncService::validate_task_title(&long_title);
-        assert!(result.is_err(), "Title longer than 255 chars should be rejected");
+        assert!(
+            result.is_err(),
+            "Title longer than 255 chars should be rejected"
+        );
         assert!(result.unwrap_err().to_string().contains("too long"));
         assert!(result.unwrap_err().to_string().contains("256"));
     }
@@ -1175,7 +1193,10 @@ mod tests {
     #[test]
     fn test_task_title_validation_trimming() {
         let result = TaskSyncService::validate_task_title("  Valid Title  ");
-        assert!(result.is_ok(), "Title with surrounding whitespace should be trimmed");
+        assert!(
+            result.is_ok(),
+            "Title with surrounding whitespace should be trimmed"
+        );
         assert_eq!(result.unwrap(), "Valid Title");
     }
 
@@ -1183,7 +1204,10 @@ mod tests {
     fn test_task_title_validation_max_length() {
         let max_title = "a".repeat(255);
         let result = TaskSyncService::validate_task_title(&max_title);
-        assert!(result.is_ok(), "Title with exactly 255 chars should be accepted");
+        assert!(
+            result.is_ok(),
+            "Title with exactly 255 chars should be accepted"
+        );
         assert_eq!(result.unwrap().len(), 255);
     }
 }

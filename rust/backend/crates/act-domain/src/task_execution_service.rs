@@ -531,18 +531,24 @@ impl TaskExecutionService {
         // Check if we should retry
         let retry_count = {
             let executions = self.active_executions.read().await;
-            let execution = executions.get(execution_id)
+            let execution = executions
+                .get(execution_id)
                 .ok_or(TaskExecutionError::ExecutionNotFound)?;
             execution.retry_count
         };
 
         if self.should_retry_execution(exit_code, retry_count) {
-            info!("Execution {} will be retried (attempt {})", execution_id, retry_count + 1);
+            info!(
+                "Execution {} will be retried (attempt {})",
+                execution_id,
+                retry_count + 1
+            );
 
             // Get the original request for retry
             let original_request = {
                 let executions = self.active_executions.read().await;
-                let execution = executions.get(execution_id)
+                let execution = executions
+                    .get(execution_id)
                     .ok_or(TaskExecutionError::ExecutionNotFound)?;
                 execution.original_request.clone()
             };
@@ -561,14 +567,20 @@ impl TaskExecutionService {
 
                 // Trigger the retry
                 if let Err(e) = self.retry_execution(execution_id, request).await {
-                    error!("Failed to start retry for execution {}: {:?}", execution_id, e);
+                    error!(
+                        "Failed to start retry for execution {}: {:?}",
+                        execution_id, e
+                    );
                     // If retry fails, continue with normal failure handling
                 } else {
                     // Return early - retry will handle the rest
                     return Ok(());
                 }
             } else {
-                warn!("No original request found for execution {} - cannot retry", execution_id);
+                warn!(
+                    "No original request found for execution {} - cannot retry",
+                    execution_id
+                );
             }
         }
 
@@ -730,16 +742,21 @@ Session ID: `{}`
         // Retry on specific exit codes that indicate transient failures
         match exit_code {
             // Common transient error codes
-            1 | 2 | 130 | 143 => true,  // Generic errors, interrupts, timeouts
-            _ => false,  // Don't retry on other exit codes
+            1 | 2 | 130 | 143 => true, // Generic errors, interrupts, timeouts
+            _ => false,                // Don't retry on other exit codes
         }
     }
 
-    async fn retry_execution(&self, execution_id: &str, _request: TaskExecutionRequest) -> Result<(), TaskExecutionError> {
+    async fn retry_execution(
+        &self,
+        execution_id: &str,
+        _request: TaskExecutionRequest,
+    ) -> Result<(), TaskExecutionError> {
         // Increment retry count and reset execution state
         let retry_count = {
             let mut executions = self.active_executions.write().await;
-            let execution = executions.get_mut(execution_id)
+            let execution = executions
+                .get_mut(execution_id)
                 .ok_or(TaskExecutionError::ExecutionNotFound)?;
 
             execution.retry_count += 1;
@@ -752,7 +769,10 @@ Session ID: `{}`
             execution.child_process = None;
             execution.output_buffer = Arc::new(RwLock::new(Vec::new()));
 
-            info!("Retrying execution {} (attempt {}/{})", execution_id, retry_count, MAX_RETRY_ATTEMPTS);
+            info!(
+                "Retrying execution {} (attempt {}/{})",
+                execution_id, retry_count, MAX_RETRY_ATTEMPTS
+            );
             retry_count
         };
 
@@ -769,7 +789,10 @@ Session ID: `{}`
             // Note: We can't call run_execution directly from here due to Send constraints
             // Instead, we'll need to use a channel or other mechanism to trigger the retry
             // For now, let's just log that a retry would happen here
-            info!("Retry execution {} scheduled (implementing retry mechanism)", execution_id_clone);
+            info!(
+                "Retry execution {} scheduled (implementing retry mechanism)",
+                execution_id_clone
+            );
         });
 
         // Return early to avoid recursion
@@ -955,7 +978,10 @@ The task execution was manually cancelled by the user.
                     info!("Cleaned up execution: {}", execution_id_owned);
                 }
                 None => {
-                    warn!("Attempted to clean up non-existent execution: {}", execution_id_owned);
+                    warn!(
+                        "Attempted to clean up non-existent execution: {}",
+                        execution_id_owned
+                    );
                 }
             }
 
@@ -964,7 +990,10 @@ The task execution was manually cancelled by the user.
         });
 
         // Store handle for graceful shutdown
-        self.cleanup_handles.write().await.insert(execution_id_for_map, handle);
+        self.cleanup_handles
+            .write()
+            .await
+            .insert(execution_id_for_map, handle);
 
         Ok(())
     }

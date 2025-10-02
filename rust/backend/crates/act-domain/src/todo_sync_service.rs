@@ -212,7 +212,10 @@ impl TodoSyncService {
             .await?;
 
         // Fetch all lists from Graph API
-        let (lists, _) = self.graph_client.get_task_lists(&access_token, None).await?;
+        let (lists, _) = self
+            .graph_client
+            .get_task_lists(&access_token, None)
+            .await?;
 
         // Strategy 1: Check for explicit mapping (cache/database)
         if let Some(list_id) = self.get_workspace_list_id(workspace_id).await? {

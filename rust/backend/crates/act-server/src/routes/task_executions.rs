@@ -1,12 +1,11 @@
 use crate::{
-    error::ServerError,
-    middleware::auth::AuthenticatedUser,
-    models::ApiResponse,
-    AppState,
+    error::ServerError, middleware::auth::AuthenticatedUser, models::ApiResponse, AppState,
 };
 
-use act_domain::task_execution_service::{TaskExecutionRequest, TaskExecutionStatus, ExecutionPermissionMode};
 use act_core::CoreError;
+use act_domain::task_execution_service::{
+    ExecutionPermissionMode, TaskExecutionRequest, TaskExecutionStatus,
+};
 use axum::{
     extract::{Path, State},
     response::Json,
@@ -14,7 +13,7 @@ use axum::{
     Router,
 };
 use serde::{Deserialize, Serialize};
-use tracing::{info, error};
+use tracing::{error, info};
 
 #[derive(Debug, Deserialize)]
 pub struct CreateTaskExecutionRequest {
@@ -54,7 +53,11 @@ pub async fn create_task_execution(
         "plan" => ExecutionPermissionMode::Plan,
         "acceptEdits" => ExecutionPermissionMode::AcceptEdits,
         "bypassAll" => ExecutionPermissionMode::BypassAll,
-        _ => return Err(ServerError::from(CoreError::Validation("Invalid permission mode".to_string()))),
+        _ => {
+            return Err(ServerError::from(CoreError::Validation(
+                "Invalid permission mode".to_string(),
+            )))
+        }
     };
 
     let execution_request = TaskExecutionRequest {
@@ -70,15 +73,21 @@ pub async fn create_task_execution(
 
     let execution_id = {
         let service_guard = state.task_execution_service.read().await;
-        let service = service_guard.as_ref()
-            .ok_or_else(|| ServerError::from(CoreError::Database("Task execution service not initialized".to_string())))?;
+        let service = service_guard.as_ref().ok_or_else(|| {
+            ServerError::from(CoreError::Database(
+                "Task execution service not initialized".to_string(),
+            ))
+        })?;
 
         service
             .start_execution(execution_request)
             .await
             .map_err(|e| {
                 error!("Failed to create task execution: {:?}", e);
-                ServerError::from(CoreError::Database(format!("Failed to create task execution: {}", e)))
+                ServerError::from(CoreError::Database(format!(
+                    "Failed to create task execution: {}",
+                    e
+                )))
             })?
     };
 
@@ -99,8 +108,11 @@ pub async fn retry_task_execution(
     // Get the current execution to check if it belongs to the user
     let execution = {
         let service_guard = state.task_execution_service.read().await;
-        let service = service_guard.as_ref()
-            .ok_or_else(|| ServerError::from(CoreError::Database("Task execution service not initialized".to_string())))?;
+        let service = service_guard.as_ref().ok_or_else(|| {
+            ServerError::from(CoreError::Database(
+                "Task execution service not initialized".to_string(),
+            ))
+        })?;
 
         let executions = service.get_active_executions().await;
         executions.get(&execution_id).cloned()
@@ -108,19 +120,26 @@ pub async fn retry_task_execution(
 
     if let Some(execution) = execution {
         if execution.user_id != user.user_id {
-            return Err(ServerError::from(CoreError::PermissionDenied("You can only retry your own executions".to_string())));
+            return Err(ServerError::from(CoreError::PermissionDenied(
+                "You can only retry your own executions".to_string(),
+            )));
         }
 
         // Check if execution can be retried
         if !matches!(execution.status, TaskExecutionStatus::Failed { .. }) {
-            return Err(ServerError::from(CoreError::Validation("Only failed executions can be retried".to_string())));
+            return Err(ServerError::from(CoreError::Validation(
+                "Only failed executions can be retried".to_string(),
+            )));
         }
 
         // Check if we have the original request
         if let Some(_original_request) = execution.original_request {
             // For now, we'll log the retry attempt since the auto-retry mechanism
             // needs to be triggered properly without recursion
-            info!("Manual retry requested for execution {} - scheduling retry", execution_id);
+            info!(
+                "Manual retry requested for execution {} - scheduling retry",
+                execution_id
+            );
 
             // TODO: Implement proper manual retry mechanism
             // This would involve resetting the execution state and triggering a new run
@@ -131,15 +150,22 @@ pub async fn retry_task_execution(
                 message: "Retry scheduled successfully".to_string(),
             })))
         } else {
-            Err(ServerError::from(CoreError::Database("No original request found for retry".to_string())))
+            Err(ServerError::from(CoreError::Database(
+                "No original request found for retry".to_string(),
+            )))
         }
     } else {
-        Err(ServerError::from(CoreError::NotFound("Execution not found".to_string())))
+        Err(ServerError::from(CoreError::NotFound(
+            "Execution not found".to_string(),
+        )))
     }
 }
 
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/executions", post(create_task_execution))
-        .route("/executions/:execution_id/retry", post(retry_task_execution))
+        .route(
+            "/executions/:execution_id/retry",
+            post(retry_task_execution),
+        )
 }

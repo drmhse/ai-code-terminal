@@ -24,10 +24,10 @@ pub mod todo_sync_service;
 pub mod user_preferences_service;
 pub mod workspace_service;
 
+pub use system_service::SystemServiceConfig;
 pub use workspace_service::{
     CloneRequest, GitCommit, GitService, GitStatus, WorkspaceService, WorkspaceSettings,
 };
-pub use system_service::{SystemServiceConfig};
 
 pub use session_service::{
     ConnectionId, OutputEventHandler, RollingBuffer, SessionService, TerminalOutputEvent, UserId,
@@ -154,7 +154,8 @@ impl DomainServices {
             workspace_root: PathBuf::from(workspace_root),
             allow_access_to_parent_dirs,
         };
-        let system_service = SystemService::new(metrics_repository, system_monitor, system_service_config);
+        let system_service =
+            SystemService::new(metrics_repository, system_monitor, system_service_config);
 
         let auth_service =
             AuthService::new(github_auth_service, jwt_service, auth_repository.clone());

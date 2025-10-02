@@ -142,11 +142,7 @@ pub async fn create_empty_workspace(
     let workspace = state
         .domain_services
         .workspace_service
-        .create_empty_workspace(
-            &auth_user.user_id,
-            request.name,
-            request.path,
-        )
+        .create_empty_workspace(&auth_user.user_id, request.name, request.path)
         .await?;
 
     info!("Empty workspace created successfully: {}", workspace.id);

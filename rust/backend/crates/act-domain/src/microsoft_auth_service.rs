@@ -613,7 +613,10 @@ impl MicrosoftAuthService {
         debug!("Getting all task lists for user: {}", user_id);
 
         let access_token = self.get_access_token(user_id).await?;
-        let (lists, _next_link) = self.graph_client.get_task_lists(&access_token, None).await?;
+        let (lists, _next_link) = self
+            .graph_client
+            .get_task_lists(&access_token, None)
+            .await?;
 
         debug!("Retrieved {} task lists for user {}", lists.len(), user_id);
         Ok(lists)
@@ -628,7 +631,10 @@ impl MicrosoftAuthService {
         debug!("Getting tasks from list {} for user: {}", list_id, user_id);
 
         let access_token = self.get_access_token(user_id).await?;
-        let (tasks, _next_link) = self.graph_client.get_tasks(&access_token, list_id, None).await?;
+        let (tasks, _next_link) = self
+            .graph_client
+            .get_tasks(&access_token, list_id, None)
+            .await?;
 
         debug!(
             "Retrieved {} tasks from list {} for user {}",
@@ -654,12 +660,22 @@ impl MicrosoftAuthService {
         let access_token = self.get_access_token(user_id).await?;
 
         // First, get the total count by fetching a small page (just 1 item)
-        let (_, _next_link) = self.graph_client.get_tasks(&access_token, list_id, Some(&act_core::PaginationParams::with_limit(1))).await?;
+        let (_, _next_link) = self
+            .graph_client
+            .get_tasks(
+                &access_token,
+                list_id,
+                Some(&act_core::PaginationParams::with_limit(1)),
+            )
+            .await?;
 
         // For Microsoft Graph API, we need to estimate total count since it doesn't provide exact counts
         // We'll use the next_link to determine if there are more items, but for simplicity we'll
         // fetch the requested page and return the actual count + whether there might be more
-        let (tasks, _) = self.graph_client.get_tasks(&access_token, list_id, Some(pagination)).await?;
+        let (tasks, _) = self
+            .graph_client
+            .get_tasks(&access_token, list_id, Some(pagination))
+            .await?;
 
         debug!(
             "Retrieved {} paginated tasks from list {} for user {}",

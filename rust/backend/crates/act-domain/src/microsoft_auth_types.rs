@@ -307,4 +307,3 @@ pub trait MicrosoftAuthRepository: Send + Sync {
     fn string_to_task_importance(&self, s: String) -> TaskImportance;
     fn string_to_task_sync_status(&self, s: String) -> TaskSyncStatus;
 }
-

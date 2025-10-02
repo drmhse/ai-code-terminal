@@ -421,14 +421,17 @@ impl SystemService {
                     .unwrap_or_else(|_| workspace_path);
 
                 if !canonical_path.starts_with(&workspace_canonical) {
-                    return Err(CoreError::FileSystem(
-                        format!("Access denied: path {} is not within workspace {}",
-                               canonical_path.to_string_lossy(), workspace_id)
-                    ));
+                    return Err(CoreError::FileSystem(format!(
+                        "Access denied: path {} is not within workspace {}",
+                        canonical_path.to_string_lossy(),
+                        workspace_id
+                    )));
                 }
             } else {
                 // If no workspace_id, restrict to workspace root
-                let workspace_root_canonical = self.config.workspace_root
+                let workspace_root_canonical = self
+                    .config
+                    .workspace_root
                     .canonicalize()
                     .unwrap_or_else(|_| self.config.workspace_root.clone());
 
@@ -531,4 +534,3 @@ pub struct BrowseDirectoryResponse {
     pub parent_path: Option<String>,
     pub entries: Vec<DirectoryEntry>,
 }
-
