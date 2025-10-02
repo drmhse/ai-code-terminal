@@ -1,11 +1,6 @@
-use axum::{
-    extract::State,
-    response::Json,
-    routing::get,
-    Router,
-};
-use serde_json::{json, Value};
 use crate::AppState;
+use axum::{extract::State, response::Json, routing::get, Router};
+use serde_json::{json, Value};
 
 pub fn routes() -> Router<AppState> {
     Router::new()

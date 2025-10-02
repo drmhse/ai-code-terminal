@@ -13,7 +13,10 @@ export interface FileIconInfo {
 /**
  * Get file extension from filename
  */
-export function getFileExtension(filename: string): string {
+export function getFileExtension(filename: string | undefined | null): string {
+  if (!filename || typeof filename !== 'string') {
+    return ''
+  }
   const parts = filename.split('.')
   return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : ''
 }
@@ -21,9 +24,13 @@ export function getFileExtension(filename: string): string {
 /**
  * Get file type classification for styling
  */
-export function getFileTypeClass(filename: string, isDirectory: boolean): string {
+export function getFileTypeClass(filename: string | undefined | null, isDirectory: boolean): string {
   if (isDirectory) {
     return 'icon-directory'
+  }
+
+  if (!filename || typeof filename !== 'string') {
+    return 'icon-file'
   }
 
   const ext = getFileExtension(filename)
@@ -133,7 +140,10 @@ export function formatFileSize(bytes: number): string {
 /**
  * Get file language for syntax highlighting
  */
-export function getFileLanguage(filename: string): string {
+export function getFileLanguage(filename: string | undefined | null): string {
+  if (!filename || typeof filename !== 'string') {
+    return 'plaintext'
+  }
   const ext = getFileExtension(filename)
 
   const languageMap: Record<string, string> = {
@@ -237,7 +247,10 @@ export function getFileLanguage(filename: string): string {
 /**
  * Check if a file is a text file (can be opened in editor)
  */
-export function isTextFile(filename: string): boolean {
+export function isTextFile(filename: string | undefined | null): boolean {
+  if (!filename || typeof filename !== 'string') {
+    return false
+  }
   const textExtensions = [
     'js', 'jsx', 'ts', 'tsx', 'mjs', 'cjs',
     'py', 'pyw', 'pyi',
@@ -261,7 +274,10 @@ export function isTextFile(filename: string): boolean {
 /**
  * Check if a filename should be hidden by default
  */
-export function isHiddenFile(filename: string): boolean {
+export function isHiddenFile(filename: string | undefined | null): boolean {
+  if (!filename || typeof filename !== 'string') {
+    return false
+  }
   return filename.startsWith('.') && filename !== '.'
 }
 

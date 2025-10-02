@@ -223,6 +223,34 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }
   }
 
+  const openFolder = async (options: {
+    name: string
+    path: string
+  }) => {
+    loading.value = true
+    error.value = null
+
+    try {
+      const newWorkspace = await apiService.openFolder({
+        name: options.name,
+        path: options.path
+      })
+
+      workspaces.value.push(newWorkspace)
+
+      // Auto-select the opened workspace
+      await switchWorkspace(newWorkspace)
+
+      return newWorkspace
+    } catch (err) {
+      error.value = 'Failed to open folder as workspace'
+      logger.error('Failed to open folder:', err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
   const deleteWorkspace = async (id: string) => {
     loading.value = true
     error.value = null
@@ -858,6 +886,7 @@ const recoverSession = (recoveryToken: string, sessionId: string): Promise<void>
     fetchWorkspaces,
     createWorkspace,
     createEmptyWorkspace,
+    openFolder,
     deleteWorkspace,
     switchWorkspace,
     selectWorkspace,

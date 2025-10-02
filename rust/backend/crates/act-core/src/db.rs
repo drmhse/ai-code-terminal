@@ -1,7 +1,7 @@
-use sqlx::{sqlite::SqlitePool, migrate::MigrateDatabase, Sqlite};
-use std::time::Duration;
+use sqlx::{migrate::MigrateDatabase, sqlite::SqlitePool, Sqlite};
 use std::path::Path;
-use tracing::{info, error};
+use std::time::Duration;
+use tracing::{error, info};
 
 use crate::{CoreError as Error, Result};
 
@@ -17,20 +17,24 @@ impl Database {
         // Extract file path from database URL and create parent directory if needed
         let file_path = database_url.strip_prefix("sqlite:").unwrap_or(database_url);
         let db_path = Path::new(file_path);
-        
+
         if let Some(parent) = db_path.parent() {
             if !parent.exists() {
                 info!("Creating database directory: {}", parent.display());
-                tokio::fs::create_dir_all(parent).await
-                    .map_err(|e| Error::Database(format!("Failed to create database directory: {}", e)))?;
+                tokio::fs::create_dir_all(parent).await.map_err(|e| {
+                    Error::Database(format!("Failed to create database directory: {}", e))
+                })?;
             }
         }
 
         // Create database if it doesn't exist
-        if !Sqlite::database_exists(database_url).await
-            .map_err(|e| Error::Database(e.to_string()))? {
+        if !Sqlite::database_exists(database_url)
+            .await
+            .map_err(|e| Error::Database(e.to_string()))?
+        {
             info!("Creating database at {}", database_url);
-            Sqlite::create_database(database_url).await
+            Sqlite::create_database(database_url)
+                .await
                 .map_err(|e| Error::Database(e.to_string()))?;
         }
 
@@ -42,9 +46,10 @@ impl Database {
                 sqlx::sqlite::SqliteConnectOptions::new()
                     .filename(database_url.strip_prefix("sqlite:").unwrap_or(database_url))
                     .create_if_missing(true)
-                    .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
-            ).await
-                .map_err(|e| Error::Database(e.to_string()))?;
+                    .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal),
+            )
+            .await
+            .map_err(|e| Error::Database(e.to_string()))?;
 
         info!("Database connection pool created successfully");
 
@@ -54,7 +59,7 @@ impl Database {
     /// Run database migrations
     pub async fn migrate(&self) -> Result<()> {
         info!("Running database migrations");
-        
+
         match sqlx::migrate!("../../migrations").run(&self.pool).await {
             Ok(_) => {
                 info!("Database migrations completed successfully");

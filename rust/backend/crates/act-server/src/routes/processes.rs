@@ -1,8 +1,5 @@
 use crate::{
-    models::ApiResponse,
-    middleware::auth::AuthenticatedUser,
-    AppState,
-    error::ServerError,
+    error::ServerError, middleware::auth::AuthenticatedUser, models::ApiResponse, AppState,
 };
 
 use axum::{
@@ -12,7 +9,7 @@ use axum::{
     Router,
 };
 use serde::{Deserialize, Serialize};
-use tracing::info;
+use tracing::{info, warn};
 
 #[derive(Debug, Deserialize)]
 pub struct CreateProcessRequest {
@@ -42,8 +39,6 @@ pub struct UpdateProcessRequest {
     pub session_id: Option<String>,
     pub tags: Option<Vec<String>>,
 }
-
-
 
 #[derive(Debug, Deserialize)]
 pub struct ListProcessesQuery {
@@ -112,7 +107,10 @@ impl From<act_core::models::UserProcess> for ProcessResponse {
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/", get(list_processes).post(create_process))
-        .route("/:id", get(get_process).put(update_process).delete(delete_process))
+        .route(
+            "/:id",
+            get(get_process).put(update_process).delete(delete_process),
+        )
         .route("/:id/stop", post(stop_process))
         .route("/:id/restart", post(restart_process))
         .route("/:id/output", get(get_process_output))
@@ -126,20 +124,27 @@ async fn list_processes(
     info!("Listing processes for user {}", user.user_id);
 
     let processes = if let Some(workspace_id) = &params.workspace_id {
-        state.domain_services.process_service
+        state
+            .domain_services
+            .process_service
             .list_workspace_processes(&user.user_id, workspace_id)
             .await
     } else if let Some(session_id) = &params.session_id {
-        state.domain_services.process_service
+        state
+            .domain_services
+            .process_service
             .list_session_processes(&user.user_id, session_id)
             .await
     } else {
-        state.domain_services.process_service
+        state
+            .domain_services
+            .process_service
             .list_user_processes(&user.user_id)
             .await
     }?;
 
-    let process_responses: Vec<ProcessResponse> = processes.into_iter().map(ProcessResponse::from).collect();
+    let process_responses: Vec<ProcessResponse> =
+        processes.into_iter().map(ProcessResponse::from).collect();
 
     Ok(Json(ApiResponse::success(process_responses)))
 }
@@ -149,7 +154,31 @@ async fn create_process(
     user: AuthenticatedUser,
     Json(request): Json<CreateProcessRequest>,
 ) -> Result<Json<ApiResponse<ProcessResponse>>, ServerError> {
-    info!("Creating process '{}' for user {}", request.name, user.user_id);
+    info!(
+        "Creating process '{}' for user {}",
+        request.name, user.user_id
+    );
+
+    // Fetch workspace_root if workspace_id is provided
+    let workspace_root = if let Some(ref workspace_id) = request.workspace_id {
+        match state
+            .domain_services
+            .workspace_service
+            .get_workspace(&user.user_id, workspace_id)
+            .await
+        {
+            Ok(workspace) => Some(workspace.local_path),
+            Err(e) => {
+                warn!(
+                    "Failed to fetch workspace {} for process creation: {}",
+                    workspace_id, e
+                );
+                None
+            }
+        }
+    } else {
+        None
+    };
 
     let domain_request = act_core::repository::CreateProcessRequest {
         name: request.name,
@@ -160,11 +189,14 @@ async fn create_process(
         max_restarts: request.max_restarts,
         auto_restart: request.auto_restart,
         workspace_id: request.workspace_id,
+        workspace_root,
         session_id: request.session_id,
         tags: request.tags,
     };
 
-    let process = state.domain_services.process_service
+    let process = state
+        .domain_services
+        .process_service
         .create_process(&user.user_id, domain_request)
         .await?;
 
@@ -178,7 +210,9 @@ async fn get_process(
 ) -> Result<Json<ApiResponse<ProcessResponse>>, ServerError> {
     info!("Getting process {} for user {}", id, user.user_id);
 
-    let process = state.domain_services.process_service
+    let process = state
+        .domain_services
+        .process_service
         .get_process(&user.user_id, &id)
         .await?;
 
@@ -204,7 +238,9 @@ async fn update_process(
         tags: request.tags,
     };
 
-    let process = state.domain_services.process_service
+    let process = state
+        .domain_services
+        .process_service
         .update_process(&user.user_id, &id, domain_request)
         .await?;
 
@@ -218,7 +254,9 @@ async fn delete_process(
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
     info!("Deleting process {} for user {}", id, user.user_id);
 
-    state.domain_services.process_service
+    state
+        .domain_services
+        .process_service
         .delete_process(&user.user_id, &id)
         .await?;
 
@@ -232,7 +270,9 @@ async fn stop_process(
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
     info!("Stopping process {} for user {}", id, user.user_id);
 
-    state.domain_services.process_service
+    state
+        .domain_services
+        .process_service
         .stop_process(&user.user_id, &id)
         .await?;
 
@@ -246,7 +286,9 @@ async fn restart_process(
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
     info!("Restarting process {} for user {}", id, user.user_id);
 
-    state.domain_services.process_service
+    state
+        .domain_services
+        .process_service
         .restart_process(&user.user_id, &id)
         .await?;
 
@@ -258,9 +300,14 @@ async fn get_process_output(
     user: AuthenticatedUser,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<String>>, ServerError> {
-    info!("Getting output for process {} for user {}", id, user.user_id);
+    info!(
+        "Getting output for process {} for user {}",
+        id, user.user_id
+    );
 
-    let (stdout, stderr) = state.domain_services.process_service
+    let (stdout, stderr) = state
+        .domain_services
+        .process_service
         .get_process_output(&user.user_id, &id)
         .await?;
 

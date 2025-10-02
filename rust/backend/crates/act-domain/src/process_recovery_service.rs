@@ -1,19 +1,21 @@
-use std::sync::Arc;
-use std::collections::HashMap;
-use tokio::time::{Duration, interval, MissedTickBehavior};
-use tracing::{info, warn, error, debug};
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::time::{interval, Duration, MissedTickBehavior};
+use tracing::{debug, error, info, warn};
 
 use act_core::{
-    repository::{ProcessRepository, ProcessRunner},
-    models::{UserProcess, ProcessStatus},
     events::{
-        EventPublisher, ProcessEvent, create_process_status_changed_event,
-        ProcessStopReason, ProcessStoppedEvent
+        create_process_status_changed_event, EventPublisher, ProcessEvent, ProcessStopReason,
+        ProcessStoppedEvent,
     },
-    security::{SecurityAuditLogger, ProcessSecurityAuditEntry, SecurityAction, SecurityResult, RiskLevel},
-    Result, CoreError,
+    models::{ProcessStatus, UserProcess},
+    repository::{ProcessRepository, ProcessRunner},
+    security::{
+        ProcessSecurityAuditEntry, RiskLevel, SecurityAction, SecurityAuditLogger, SecurityResult,
+    },
+    CoreError, Result,
 };
 
 /// Process recovery configuration
@@ -36,8 +38,8 @@ pub struct ProcessRecoveryConfig {
 impl Default for ProcessRecoveryConfig {
     fn default() -> Self {
         Self {
-            health_check_interval: 30,  // 30 seconds
-            orphan_timeout: 300,        // 5 minutes
+            health_check_interval: 30, // 30 seconds
+            orphan_timeout: 300,       // 5 minutes
             max_recovery_attempts: 3,
             enable_process_adoption: true,
             enable_state_persistence: true,
@@ -115,7 +117,10 @@ impl ProcessRecoveryService {
 
     /// Start the process recovery service
     pub async fn start(&self) -> Result<()> {
-        info!("Starting process recovery service with instance ID: {}", self.server_instance_id);
+        info!(
+            "Starting process recovery service with instance ID: {}",
+            self.server_instance_id
+        );
 
         // Perform initial recovery on startup
         if let Err(e) = self.perform_startup_recovery().await {
@@ -138,22 +143,35 @@ impl ProcessRecoveryService {
         let mut termination_count = 0;
 
         for process in all_processes {
-            if matches!(process.status, ProcessStatus::Running | ProcessStatus::Starting | ProcessStatus::Restarting) {
+            if matches!(
+                process.status,
+                ProcessStatus::Running | ProcessStatus::Starting | ProcessStatus::Restarting
+            ) {
                 match self.recover_process(&process).await {
                     Ok(RecoveryResult::Recovered) => {
                         recovery_count += 1;
-                        info!("Successfully recovered process: {} (PID: {:?})", process.name, process.pid);
+                        info!(
+                            "Successfully recovered process: {} (PID: {:?})",
+                            process.name, process.pid
+                        );
                     }
                     Ok(RecoveryResult::Terminated) => {
                         termination_count += 1;
-                        info!("Terminated orphaned process: {} (PID: {:?})", process.name, process.pid);
+                        info!(
+                            "Terminated orphaned process: {} (PID: {:?})",
+                            process.name, process.pid
+                        );
                     }
                     Ok(RecoveryResult::AlreadyTerminated) => {
-                        debug!("Process already terminated: {} (PID: {:?})", process.name, process.pid);
+                        debug!(
+                            "Process already terminated: {} (PID: {:?})",
+                            process.name, process.pid
+                        );
                     }
                     Err(e) => {
                         warn!("Failed to recover process {}: {}", process.name, e);
-                        self.update_stats(|stats| stats.recovery_failures += 1).await;
+                        self.update_stats(|stats| stats.recovery_failures += 1)
+                            .await;
                     }
                 }
             }
@@ -210,11 +228,17 @@ impl ProcessRecoveryService {
                         match self.handle_orphaned_process(&process, pid).await {
                             Ok(RecoveryResult::Recovered) => {
                                 stats_update.processes_recovered += 1;
-                                info!("Recovered orphaned process: {} (PID: {})", process.name, pid);
+                                info!(
+                                    "Recovered orphaned process: {} (PID: {})",
+                                    process.name, pid
+                                );
                             }
                             Ok(RecoveryResult::Terminated) => {
                                 stats_update.processes_terminated += 1;
-                                info!("Terminated orphaned process: {} (PID: {})", process.name, pid);
+                                info!(
+                                    "Terminated orphaned process: {} (PID: {})",
+                                    process.name, pid
+                                );
                             }
                             Ok(RecoveryResult::AlreadyTerminated) => {
                                 // Process was already cleaned up
@@ -270,11 +294,20 @@ impl ProcessRecoveryService {
     }
 
     /// Handle an orphaned process
-    async fn handle_orphaned_process(&self, process: &UserProcess, pid: i32) -> Result<RecoveryResult> {
+    async fn handle_orphaned_process(
+        &self,
+        process: &UserProcess,
+        pid: i32,
+    ) -> Result<RecoveryResult> {
         warn!("Handling orphaned process: {} (PID: {})", process.name, pid);
 
         // Log security audit entry
-        self.log_security_audit(process, SecurityAction::ProcessStart, SecurityResult::Warning).await;
+        self.log_security_audit(
+            process,
+            SecurityAction::ProcessStart,
+            SecurityResult::Warning,
+        )
+        .await;
 
         if self.config.enable_process_adoption {
             // Try to adopt the orphaned process
@@ -293,7 +326,10 @@ impl ProcessRecoveryService {
         match self.terminate_orphaned_process(process, pid).await {
             Ok(_) => Ok(RecoveryResult::Terminated),
             Err(e) => {
-                error!("Failed to terminate orphaned process {}: {}", process.name, e);
+                error!(
+                    "Failed to terminate orphaned process {}: {}",
+                    process.name, e
+                );
                 Err(e)
             }
         }
@@ -316,7 +352,8 @@ impl ProcessRecoveryService {
             last_seen: Utc::now(),
             recovery_attempts: 0,
             server_instance_id: self.server_instance_id.clone(),
-        }).await?;
+        })
+        .await?;
 
         // Get current resource usage
         let resource_usage = self.process_runner.get_resource_usage(pid).await.ok();
@@ -332,7 +369,10 @@ impl ProcessRecoveryService {
         );
 
         if let Err(e) = self.event_publisher.publish(status_changed_event).await {
-            warn!("Failed to publish adoption event for process {}: {}", process.name, e);
+            warn!(
+                "Failed to publish adoption event for process {}: {}",
+                process.name, e
+            );
         }
 
         Ok(())
@@ -340,21 +380,24 @@ impl ProcessRecoveryService {
 
     /// Terminate an orphaned process
     async fn terminate_orphaned_process(&self, process: &UserProcess, pid: i32) -> Result<()> {
-        info!("Terminating orphaned process: {} (PID: {})", process.name, pid);
+        info!(
+            "Terminating orphaned process: {} (PID: {})",
+            process.name, pid
+        );
 
         // Try to stop the process gracefully
         if let Err(e) = self.process_runner.stop_process(pid).await {
-            warn!("Failed to stop orphaned process gracefully, force killing: {}", e);
+            warn!(
+                "Failed to stop orphaned process gracefully, force killing: {}",
+                e
+            );
             self.process_runner.force_kill_process(pid).await?;
         }
 
         // Update process status in database
-        self.process_repository.update_status(
-            &process.user_id,
-            &process.id,
-            "Terminated",
-            None,
-        ).await?;
+        self.process_repository
+            .update_status(&process.user_id, &process.id, "Terminated", None)
+            .await?;
 
         // Clean up persisted state
         self.remove_persisted_state(&process.id).await?;
@@ -368,12 +411,17 @@ impl ProcessRecoveryService {
             process_name: process.name.clone(),
             pid: Some(pid),
             exit_code: None,
-            reason: ProcessStopReason::Error("Orphaned process terminated by recovery service".to_string()),
+            reason: ProcessStopReason::Error(
+                "Orphaned process terminated by recovery service".to_string(),
+            ),
             correlation_id: Some(format!("orphan-cleanup-{}", self.server_instance_id)),
         });
 
         if let Err(e) = self.event_publisher.publish(stopped_event).await {
-            warn!("Failed to publish termination event for process {}: {}", process.name, e);
+            warn!(
+                "Failed to publish termination event for process {}: {}",
+                process.name, e
+            );
         }
 
         Ok(())
@@ -384,12 +432,9 @@ impl ProcessRecoveryService {
         debug!("Handling terminated process: {}", process.name);
 
         // Update process status in database
-        self.process_repository.update_status(
-            &process.user_id,
-            &process.id,
-            "Terminated",
-            None,
-        ).await?;
+        self.process_repository
+            .update_status(&process.user_id, &process.id, "Terminated", None)
+            .await?;
 
         // Clean up persisted state
         self.remove_persisted_state(&process.id).await?;
@@ -413,18 +458,18 @@ impl ProcessRecoveryService {
                     Ok(RecoveryResult::AlreadyTerminated)
                 }
                 Err(e) => {
-                    warn!("Failed to check if process {} is running: {}", process.name, e);
+                    warn!(
+                        "Failed to check if process {} is running: {}",
+                        process.name, e
+                    );
                     Err(e)
                 }
             }
         } else {
             // Process has no PID, mark as failed
-            self.process_repository.update_status(
-                &process.user_id,
-                &process.id,
-                "Failed",
-                None,
-            ).await?;
+            self.process_repository
+                .update_status(&process.user_id, &process.id, "Failed", None)
+                .await?;
             Ok(RecoveryResult::AlreadyTerminated)
         }
     }
@@ -445,18 +490,22 @@ impl ProcessRecoveryService {
             return Ok(());
         }
 
-        let state_dir = self.config.state_persistence_dir.as_ref()
-            .ok_or_else(|| CoreError::Configuration("State persistence directory not configured".to_string()))?;
+        let state_dir = self.config.state_persistence_dir.as_ref().ok_or_else(|| {
+            CoreError::Configuration("State persistence directory not configured".to_string())
+        })?;
 
         // Ensure state directory exists
-        tokio::fs::create_dir_all(state_dir).await
+        tokio::fs::create_dir_all(state_dir)
+            .await
             .map_err(|e| CoreError::Io(format!("Failed to create state directory: {}", e)))?;
 
         let state_file = format!("{}/{}.json", state_dir, state.process_id);
-        let state_json = serde_json::to_string_pretty(state)
-            .map_err(|e| CoreError::Serialization(format!("Failed to serialize process state: {}", e)))?;
+        let state_json = serde_json::to_string_pretty(state).map_err(|e| {
+            CoreError::Serialization(format!("Failed to serialize process state: {}", e))
+        })?;
 
-        tokio::fs::write(&state_file, state_json).await
+        tokio::fs::write(&state_file, state_json)
+            .await
             .map_err(|e| CoreError::Io(format!("Failed to write state file: {}", e)))?;
 
         debug!("Saved persisted state for process: {}", state.process_id);
@@ -464,20 +513,25 @@ impl ProcessRecoveryService {
     }
 
     /// Load persisted process state
-    async fn load_persisted_state(&self, process_id: &str) -> Result<Option<PersistedProcessState>> {
+    async fn load_persisted_state(
+        &self,
+        process_id: &str,
+    ) -> Result<Option<PersistedProcessState>> {
         if !self.config.enable_state_persistence {
             return Ok(None);
         }
 
-        let state_dir = self.config.state_persistence_dir.as_ref()
-            .ok_or_else(|| CoreError::Configuration("State persistence directory not configured".to_string()))?;
+        let state_dir = self.config.state_persistence_dir.as_ref().ok_or_else(|| {
+            CoreError::Configuration("State persistence directory not configured".to_string())
+        })?;
 
         let state_file = format!("{}/{}.json", state_dir, process_id);
 
         match tokio::fs::read_to_string(&state_file).await {
             Ok(state_json) => {
-                let state = serde_json::from_str(&state_json)
-                    .map_err(|e| CoreError::Serialization(format!("Failed to deserialize process state: {}", e)))?;
+                let state = serde_json::from_str(&state_json).map_err(|e| {
+                    CoreError::Serialization(format!("Failed to deserialize process state: {}", e))
+                })?;
                 Ok(Some(state))
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
@@ -491,8 +545,9 @@ impl ProcessRecoveryService {
             return Ok(());
         }
 
-        let state_dir = self.config.state_persistence_dir.as_ref()
-            .ok_or_else(|| CoreError::Configuration("State persistence directory not configured".to_string()))?;
+        let state_dir = self.config.state_persistence_dir.as_ref().ok_or_else(|| {
+            CoreError::Configuration("State persistence directory not configured".to_string())
+        })?;
 
         let state_file = format!("{}/{}.json", state_dir, process_id);
 
@@ -503,7 +558,10 @@ impl ProcessRecoveryService {
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()), // Already removed
             Err(e) => {
-                warn!("Failed to remove state file for process {}: {}", process_id, e);
+                warn!(
+                    "Failed to remove state file for process {}: {}",
+                    process_id, e
+                );
                 Ok(()) // Don't fail the operation if we can't clean up the state file
             }
         }
@@ -519,7 +577,12 @@ impl ProcessRecoveryService {
     }
 
     /// Log security audit entry
-    async fn log_security_audit(&self, process: &UserProcess, action: SecurityAction, result: SecurityResult) {
+    async fn log_security_audit(
+        &self,
+        process: &UserProcess,
+        action: SecurityAction,
+        result: SecurityResult,
+    ) {
         let audit_entry = ProcessSecurityAuditEntry {
             timestamp: Utc::now(),
             user_id: process.user_id.clone(),

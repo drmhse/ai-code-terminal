@@ -1,6 +1,6 @@
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use serde::{Serialize, Deserialize};
 
 /// Errors that can occur in Microsoft auth repository operations
 #[derive(Debug, Error)]
@@ -93,6 +93,7 @@ pub enum TaskSyncStatus {
 pub struct TaskSyncMetadata {
     pub workspace_id: String,
     pub microsoft_list_id: String,
+    pub user_id: Option<String>, // User ID from workspace table
     pub last_sync_timestamp: i64,
     pub last_successful_sync: Option<i64>,
     pub sync_version: String,
@@ -160,7 +161,10 @@ pub trait MicrosoftAuthRepository: Send + Sync {
     ) -> Result<(), MicrosoftAuthRepositoryError>;
 
     /// Get Microsoft auth data for a user
-    async fn get_auth_data(&self, user_id: &str) -> Result<Option<MicrosoftAuthData>, MicrosoftAuthRepositoryError>;
+    async fn get_auth_data(
+        &self,
+        user_id: &str,
+    ) -> Result<Option<MicrosoftAuthData>, MicrosoftAuthRepositoryError>;
 
     /// Update access token and expiry (for token refresh)
     async fn update_access_token(
@@ -174,7 +178,10 @@ pub trait MicrosoftAuthRepository: Send + Sync {
     async fn remove_auth(&self, user_id: &str) -> Result<(), MicrosoftAuthRepositoryError>;
 
     /// Get all users with expiring tokens (for proactive refresh)
-    async fn get_users_with_expiring_tokens(&self, expires_before: i64) -> Result<Vec<String>, MicrosoftAuthRepositoryError>;
+    async fn get_users_with_expiring_tokens(
+        &self,
+        expires_before: i64,
+    ) -> Result<Vec<String>, MicrosoftAuthRepositoryError>;
 
     /// Store workspace to Microsoft list mapping
     async fn store_workspace_mapping(
@@ -185,21 +192,35 @@ pub trait MicrosoftAuthRepository: Send + Sync {
     ) -> Result<(), MicrosoftAuthRepositoryError>;
 
     /// Get Microsoft list ID for a workspace
-    async fn get_workspace_list_id(&self, workspace_id: &str) -> Result<Option<String>, MicrosoftAuthRepositoryError>;
+    async fn get_workspace_list_id(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Option<String>, MicrosoftAuthRepositoryError>;
 
     /// Get all workspace mappings for cleanup/sync
-    async fn get_all_workspace_mappings(&self) -> Result<Vec<WorkspaceTodoMapping>, MicrosoftAuthRepositoryError>;
+    async fn get_all_workspace_mappings(
+        &self,
+    ) -> Result<Vec<WorkspaceTodoMapping>, MicrosoftAuthRepositoryError>;
 
     /// Remove workspace mapping (when workspace is deleted)
-    async fn remove_workspace_mapping(&self, workspace_id: &str) -> Result<(), MicrosoftAuthRepositoryError>;
+    async fn remove_workspace_mapping(
+        &self,
+        workspace_id: &str,
+    ) -> Result<(), MicrosoftAuthRepositoryError>;
 
     // OAuth state management methods
 
     /// Store OAuth state for PKCE flow
-    async fn store_oauth_state(&self, oauth_state: &OAuthState) -> Result<(), MicrosoftAuthRepositoryError>;
+    async fn store_oauth_state(
+        &self,
+        oauth_state: &OAuthState,
+    ) -> Result<(), MicrosoftAuthRepositoryError>;
 
     /// Get OAuth state by state parameter
-    async fn get_oauth_state(&self, state: &str) -> Result<Option<OAuthState>, MicrosoftAuthRepositoryError>;
+    async fn get_oauth_state(
+        &self,
+        state: &str,
+    ) -> Result<Option<OAuthState>, MicrosoftAuthRepositoryError>;
 
     /// Remove OAuth state after use
     async fn remove_oauth_state(&self, state: &str) -> Result<(), MicrosoftAuthRepositoryError>;
@@ -212,10 +233,17 @@ pub trait MicrosoftAuthRepository: Send + Sync {
     /// Acquire a lock for refreshing a user's token
     /// Returns true if lock was acquired, false if another process holds the lock
     /// Lock automatically expires after timeout_seconds
-    async fn acquire_token_refresh_lock(&self, user_id: &str, timeout_seconds: i64) -> Result<bool, MicrosoftAuthRepositoryError>;
+    async fn acquire_token_refresh_lock(
+        &self,
+        user_id: &str,
+        timeout_seconds: i64,
+    ) -> Result<bool, MicrosoftAuthRepositoryError>;
 
     /// Release the token refresh lock for a user
-    async fn release_token_refresh_lock(&self, user_id: &str) -> Result<(), MicrosoftAuthRepositoryError>;
+    async fn release_token_refresh_lock(
+        &self,
+        user_id: &str,
+    ) -> Result<(), MicrosoftAuthRepositoryError>;
 
     // Task synchronization methods
 
@@ -223,28 +251,50 @@ pub trait MicrosoftAuthRepository: Send + Sync {
     async fn upsert_task(&self, task: &MicrosoftTask) -> Result<(), MicrosoftAuthRepositoryError>;
 
     /// Get all tasks for a workspace
-    async fn get_workspace_tasks(&self, workspace_id: &str) -> Result<Vec<MicrosoftTask>, MicrosoftAuthRepositoryError>;
+    async fn get_workspace_tasks(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<MicrosoftTask>, MicrosoftAuthRepositoryError>;
 
     /// Get tasks pending synchronization
-    async fn get_pending_tasks(&self, workspace_id: Option<&str>) -> Result<Vec<MicrosoftTask>, MicrosoftAuthRepositoryError>;
+    async fn get_pending_tasks(
+        &self,
+        workspace_id: Option<&str>,
+    ) -> Result<Vec<MicrosoftTask>, MicrosoftAuthRepositoryError>;
 
     /// Delete a task locally
     async fn delete_task(&self, task_id: &str) -> Result<(), MicrosoftAuthRepositoryError>;
 
     /// Update task sync status
-    async fn update_task_sync_status(&self, task_id: &str, status: TaskSyncStatus) -> Result<(), MicrosoftAuthRepositoryError>;
+    async fn update_task_sync_status(
+        &self,
+        task_id: &str,
+        status: TaskSyncStatus,
+    ) -> Result<(), MicrosoftAuthRepositoryError>;
 
     /// Get task synchronization metadata
-    async fn get_task_sync_metadata(&self, workspace_id: &str) -> Result<Option<TaskSyncMetadata>, MicrosoftAuthRepositoryError>;
+    async fn get_task_sync_metadata(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Option<TaskSyncMetadata>, MicrosoftAuthRepositoryError>;
 
     /// Update task synchronization metadata
-    async fn upsert_task_sync_metadata(&self, metadata: &TaskSyncMetadata) -> Result<(), MicrosoftAuthRepositoryError>;
+    async fn upsert_task_sync_metadata(
+        &self,
+        metadata: &TaskSyncMetadata,
+    ) -> Result<(), MicrosoftAuthRepositoryError>;
 
     /// Get workspaces needing sync
-    async fn get_workspaces_needing_sync(&self, before_timestamp: i64) -> Result<Vec<TaskSyncMetadata>, MicrosoftAuthRepositoryError>;
+    async fn get_workspaces_needing_sync(
+        &self,
+        before_timestamp: i64,
+    ) -> Result<Vec<TaskSyncMetadata>, MicrosoftAuthRepositoryError>;
 
     /// Delete all tasks for a workspace (cleanup)
-    async fn delete_workspace_tasks(&self, workspace_id: &str) -> Result<(), MicrosoftAuthRepositoryError>;
+    async fn delete_workspace_tasks(
+        &self,
+        workspace_id: &str,
+    ) -> Result<(), MicrosoftAuthRepositoryError>;
 
     // Helper methods for enum conversion
     fn task_status_to_string(&self, status: &TaskStatus) -> String;

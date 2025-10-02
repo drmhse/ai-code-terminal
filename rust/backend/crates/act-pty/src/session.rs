@@ -1,9 +1,9 @@
-use act_core::{PtySize};
 use act_core::pty::{SessionId, WorkspaceId};
-use portable_pty::{Child, MasterPty};
-use tokio::sync::mpsc;
+use act_core::PtySize;
 use chrono::{DateTime, Utc};
+use portable_pty::{Child, MasterPty};
 use std::sync::Arc;
+use tokio::sync::mpsc;
 use tokio::sync::Mutex;
 
 pub struct PtySession {

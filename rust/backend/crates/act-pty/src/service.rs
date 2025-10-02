@@ -1,14 +1,11 @@
-use act_core::{
-    PtyService, PtyEvent, PtySize, SessionConfig, SessionInfo,
-    Result, CoreError
-};
+use crate::session::PtySession;
 use act_core::pty::{SessionId, SessionStatus};
+use act_core::{CoreError, PtyEvent, PtyService, PtySize, Result, SessionConfig, SessionInfo};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{Mutex, mpsc};
-use tracing::{info, error, debug, warn};
-use crate::session::PtySession;
+use tokio::sync::{mpsc, Mutex};
+use tracing::{debug, error, info, warn};
 
 #[derive(Debug, Clone)]
 pub struct TokioPtyService {
@@ -35,14 +32,20 @@ impl PtyService for TokioPtyService {
         &self,
         config: SessionConfig,
     ) -> Result<(tokio::sync::mpsc::UnboundedReceiver<PtyEvent>, SessionInfo)> {
-        info!("Creating PTY session {} for workspace {}", config.session_id, config.workspace_id);
-        info!("Shell detection: SHELL env var is {:?}", std::env::var("SHELL"));
+        info!(
+            "Creating PTY session {} for workspace {}",
+            config.session_id, config.workspace_id
+        );
+        info!(
+            "Shell detection: SHELL env var is {:?}",
+            std::env::var("SHELL")
+        );
 
         // VS Code approach: Force consistent shell across all platforms
         let shell = if cfg!(windows) {
             "cmd.exe"
         } else {
-            "/bin/bash"  // Force bash everywhere for consistency
+            "/bin/bash" // Force bash everywhere for consistency
         };
 
         info!("Using standardized shell: {}", shell);
@@ -51,7 +54,7 @@ impl PtyService for TokioPtyService {
 
         // Force clean bash environment without user customizations
         if !cfg!(windows) {
-            cmd.args(["--norc", "--noprofile", "-i"]);  // Clean interactive bash
+            cmd.args(["--norc", "--noprofile", "-i"]); // Clean interactive bash
         }
 
         if let Some(ref working_dir) = config.working_dir {
@@ -73,7 +76,7 @@ impl PtyService for TokioPtyService {
 
         // Force simple, clean prompt without complex positioning
         if !cfg!(windows) {
-            cmd.env("PS1", "$ ");  // Simple prompt, no escape sequences
+            cmd.env("PS1", "$ "); // Simple prompt, no escape sequences
         }
 
         if let Some(env) = &config.environment {
@@ -82,15 +85,20 @@ impl PtyService for TokioPtyService {
             }
         }
 
-        info!("Creating PTY with size: {}x{}", pty_size.cols, pty_size.rows);
+        info!(
+            "Creating PTY with size: {}x{}",
+            pty_size.cols, pty_size.rows
+        );
 
         let pty_system = portable_pty::native_pty_system();
-        let pty_pair = pty_system.openpty(pty_size)
+        let pty_pair = pty_system
+            .openpty(pty_size)
             .map_err(|e| CoreError::Pty(format!("Failed to create PTY: {}", e)))?;
 
         let (master, slave) = (pty_pair.master, pty_pair.slave);
 
-        let child = slave.spawn_command(cmd)
+        let child = slave
+            .spawn_command(cmd)
             .map_err(|e| CoreError::Pty(format!("Failed to spawn shell command: {}", e)))?;
 
         let pid = child.process_id();
@@ -101,9 +109,11 @@ impl PtyService for TokioPtyService {
         // Create batching channel for output throttling
         let (batch_tx, mut batch_rx) = mpsc::unbounded_channel::<Vec<u8>>();
 
-        let reader = master.try_clone_reader()
+        let reader = master
+            .try_clone_reader()
             .map_err(|e| CoreError::Pty(format!("Failed to clone reader: {}", e)))?;
-        let writer = master.take_writer()
+        let writer = master
+            .take_writer()
             .map_err(|e| CoreError::Pty(format!("Failed to take writer: {}", e)))?;
 
         let pty_session = PtySession::new(
@@ -193,7 +203,10 @@ impl PtyService for TokioPtyService {
                     }
                 }
             }
-            debug!("PTY I/O and process wait task ended for session {}", read_session_id);
+            debug!(
+                "PTY I/O and process wait task ended for session {}",
+                read_session_id
+            );
         });
 
         // Output batching task - collects output for 16ms before sending
@@ -233,7 +246,10 @@ impl PtyService for TokioPtyService {
                     }
                 }
             }
-            debug!("PTY output batching task ended for session {}", batch_session_id);
+            debug!(
+                "PTY output batching task ended for session {}",
+                batch_session_id
+            );
         });
 
         let writer = Arc::new(Mutex::new(writer));
@@ -252,17 +268,29 @@ impl PtyService for TokioPtyService {
                         let mut writer = writer_clone.blocking_lock();
                         writer.write_all(&input).and_then(|_| writer.flush())
                     }
-                }).await {
+                })
+                .await
+                {
                     Ok(Ok(_)) => {
-                        debug!("✅ Wrote {} bytes to PTY session {}: {:?}",
-                               input.len(), write_session_id, String::from_utf8_lossy(&input));
+                        debug!(
+                            "Wrote {} bytes to PTY session {}: {:?}",
+                            input.len(),
+                            write_session_id,
+                            String::from_utf8_lossy(&input)
+                        );
                     }
                     Ok(Err(err)) => {
-                        error!("Failed to write to PTY session {}: {}", write_session_id, err);
+                        error!(
+                            "Failed to write to PTY session {}: {}",
+                            write_session_id, err
+                        );
                         break;
                     }
                     Err(join_err) => {
-                        error!("PTY write task join error for session {}: {}", write_session_id, join_err);
+                        error!(
+                            "PTY write task join error for session {}: {}",
+                            write_session_id, join_err
+                        );
                         break;
                     }
                 }
@@ -280,7 +308,10 @@ impl PtyService for TokioPtyService {
             created_at: chrono::Utc::now(),
         };
 
-        info!("✅ PTY session {} created successfully with PID {:?}", config.session_id, pid);
+        info!(
+            "PTY session {} created successfully with PID {:?}",
+            config.session_id, pid
+        );
         Ok((output_rx, session_info))
     }
 
@@ -288,11 +319,16 @@ impl PtyService for TokioPtyService {
         let sessions = self.sessions.lock().await;
         if let Some(session) = sessions.get(session_id) {
             let session = session.lock().await;
-            session.input_tx.send(data.to_vec())
+            session
+                .input_tx
+                .send(data.to_vec())
                 .map_err(|e| CoreError::Pty(format!("Failed to send input: {}", e)))?;
             Ok(())
         } else {
-            Err(CoreError::NotFound(format!("PTY session {} not found", session_id)))
+            Err(CoreError::NotFound(format!(
+                "PTY session {} not found",
+                session_id
+            )))
         }
     }
 
@@ -306,24 +342,35 @@ impl PtyService for TokioPtyService {
                 pixel_width: size.pixel_width,
                 pixel_height: size.pixel_height,
             };
-            session.master.resize(pty_size)
+            session
+                .master
+                .resize(pty_size)
                 .map_err(|e| CoreError::Pty(format!("Failed to resize PTY: {}", e)))?;
             session.size = size.clone();
-            info!("✅ Resized PTY session {} to {}x{}", session_id, size.cols, size.rows);
+            info!(
+                "Resized PTY session {} to {}x{}",
+                session_id, size.cols, size.rows
+            );
             Ok(())
         } else {
-            Err(CoreError::NotFound(format!("PTY session {} not found", session_id)))
+            Err(CoreError::NotFound(format!(
+                "PTY session {} not found",
+                session_id
+            )))
         }
     }
 
     async fn destroy_session(&self, session_id: &SessionId) -> Result<()> {
         let mut sessions = self.sessions.lock().await;
         if sessions.remove(session_id).is_some() {
-            info!("✅ Destroyed PTY session {}", session_id);
+            info!("Destroyed PTY session {}", session_id);
             Ok(())
         } else {
             warn!("PTY session {} not found for destruction", session_id);
-            Err(CoreError::NotFound(format!("PTY session {} not found", session_id)))
+            Err(CoreError::NotFound(format!(
+                "PTY session {} not found",
+                session_id
+            )))
         }
     }
 
@@ -359,7 +406,10 @@ impl PtyService for TokioPtyService {
                 created_at: session.created_at,
             })
         } else {
-            Err(CoreError::NotFound(format!("PTY session {} not found", session_id)))
+            Err(CoreError::NotFound(format!(
+                "PTY session {} not found",
+                session_id
+            )))
         }
     }
 
@@ -368,15 +418,25 @@ impl PtyService for TokioPtyService {
         Ok(sessions.contains_key(session_id))
     }
 
-    async fn update_session_pane_id(&self, session_id: &SessionId, pane_id: Option<String>) -> Result<()> {
+    async fn update_session_pane_id(
+        &self,
+        session_id: &SessionId,
+        pane_id: Option<String>,
+    ) -> Result<()> {
         let sessions = self.sessions.lock().await;
         if let Some(session_arc) = sessions.get(session_id) {
             let mut session = session_arc.lock().await;
             session.pane_id = pane_id.clone();
-            info!("Updated pane_id for session {} to {:?}", session_id, pane_id);
+            info!(
+                "Updated pane_id for session {} to {:?}",
+                session_id, pane_id
+            );
             Ok(())
         } else {
-            Err(CoreError::NotFound(format!("PTY session {} not found", session_id)))
+            Err(CoreError::NotFound(format!(
+                "PTY session {} not found",
+                session_id
+            )))
         }
     }
 }

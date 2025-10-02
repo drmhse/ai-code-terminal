@@ -1,25 +1,31 @@
 use async_trait::async_trait;
-use sqlx::{SqlitePool, Row};
+use sqlx::{Row, SqlitePool};
 use tracing::{debug, error, info};
 
 use super::error::PersistenceError;
 use act_domain::{
-    MicrosoftAuthRepository, MicrosoftAuthData, WorkspaceTodoMapping, MicrosoftAuthRepositoryError,
-    microsoft_auth_types::{MicrosoftTask, TaskSyncMetadata, TaskSyncStatus, TaskStatus, TaskImportance, OAuthState}
+    microsoft_auth_types::{
+        MicrosoftTask, OAuthState, TaskImportance, TaskStatus, TaskSyncMetadata, TaskSyncStatus,
+    },
+    MicrosoftAuthData, MicrosoftAuthRepository, MicrosoftAuthRepositoryError, WorkspaceTodoMapping,
 };
 
 macro_rules! handle_db_error {
     ($expr:expr) => {
-        $expr.await.map_err(|e| convert_persistence_error(PersistenceError::DatabaseConnection(e)))?
+        $expr
+            .await
+            .map_err(|e| convert_persistence_error(PersistenceError::DatabaseConnection(e)))?
     };
 }
 
 fn convert_persistence_error(e: PersistenceError) -> MicrosoftAuthRepositoryError {
     match e {
-        PersistenceError::DatabaseConnection(msg) => MicrosoftAuthRepositoryError::Connection(msg.to_string()),
+        PersistenceError::DatabaseConnection(msg) => {
+            MicrosoftAuthRepositoryError::Connection(msg.to_string())
+        }
         PersistenceError::WorkspaceNotFound(msg) | PersistenceError::SessionNotFound(msg) => {
             MicrosoftAuthRepositoryError::NotFound(msg)
-        },
+        }
         _ => MicrosoftAuthRepositoryError::Database(e.to_string()),
     }
 }
@@ -51,9 +57,8 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
 
         let now = chrono::Utc::now().timestamp();
 
-        handle_db_error!(
-            sqlx::query(
-                r#"
+        handle_db_error!(sqlx::query(
+            r#"
                 INSERT INTO user_microsoft_auth (
                     user_id, access_token_encrypted, refresh_token_encrypted,
                     token_expires_at, microsoft_user_id, microsoft_email,
@@ -67,38 +72,38 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
                     microsoft_email = excluded.microsoft_email,
                     updated_at = excluded.updated_at
                 "#
-            )
-            .bind(user_id)
-            .bind(access_token_encrypted)
-            .bind(refresh_token_encrypted)
-            .bind(token_expires_at)
-            .bind(microsoft_user_id)
-            .bind(microsoft_email)
-            .bind(now)
-            .bind(now)
-            .execute(&self.pool)
-        );
+        )
+        .bind(user_id)
+        .bind(access_token_encrypted)
+        .bind(refresh_token_encrypted)
+        .bind(token_expires_at)
+        .bind(microsoft_user_id)
+        .bind(microsoft_email)
+        .bind(now)
+        .bind(now)
+        .execute(&self.pool));
 
         info!("Microsoft auth tokens stored for user: {}", user_id);
         Ok(())
     }
 
-    async fn get_auth_data(&self, user_id: &str) -> Result<Option<MicrosoftAuthData>, MicrosoftAuthRepositoryError> {
+    async fn get_auth_data(
+        &self,
+        user_id: &str,
+    ) -> Result<Option<MicrosoftAuthData>, MicrosoftAuthRepositoryError> {
         debug!("Fetching Microsoft auth data for user: {}", user_id);
 
-        let row = handle_db_error!(
-            sqlx::query(
-                r#"
+        let row = handle_db_error!(sqlx::query(
+            r#"
                 SELECT user_id, access_token_encrypted, refresh_token_encrypted,
                        token_expires_at, microsoft_user_id, microsoft_email,
                        created_at, updated_at
                 FROM user_microsoft_auth
                 WHERE user_id = ?1
                 "#
-            )
-            .bind(user_id)
-            .fetch_optional(&self.pool)
-        );
+        )
+        .bind(user_id)
+        .fetch_optional(&self.pool));
 
         match row {
             Some(row) => {
@@ -133,26 +138,27 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
 
         let now = chrono::Utc::now().timestamp();
 
-        let rows_affected = handle_db_error!(
-            sqlx::query(
-                r#"
+        let rows_affected = handle_db_error!(sqlx::query(
+            r#"
                 UPDATE user_microsoft_auth
                 SET access_token_encrypted = ?1,
                     token_expires_at = ?2,
                     updated_at = ?3
                 WHERE user_id = ?4
                 "#
-            )
-            .bind(access_token_encrypted)
-            .bind(token_expires_at)
-            .bind(now)
-            .bind(user_id)
-            .execute(&self.pool)
-        ).rows_affected();
+        )
+        .bind(access_token_encrypted)
+        .bind(token_expires_at)
+        .bind(now)
+        .bind(user_id)
+        .execute(&self.pool))
+        .rows_affected();
 
         if rows_affected == 0 {
             error!("No Microsoft auth found to update for user: {}", user_id);
-            return Err(MicrosoftAuthRepositoryError::NotFound("Microsoft auth not found".to_string()));
+            return Err(MicrosoftAuthRepositoryError::NotFound(
+                "Microsoft auth not found".to_string(),
+            ));
         }
 
         debug!("Access token updated for user: {}", user_id);
@@ -162,11 +168,12 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
     async fn remove_auth(&self, user_id: &str) -> Result<(), MicrosoftAuthRepositoryError> {
         info!("Removing Microsoft auth for user: {}", user_id);
 
-        let rows_affected = handle_db_error!(
-            sqlx::query("DELETE FROM user_microsoft_auth WHERE user_id = ?1")
-                .bind(user_id)
-                .execute(&self.pool)
-        ).rows_affected();
+        let rows_affected = handle_db_error!(sqlx::query(
+            "DELETE FROM user_microsoft_auth WHERE user_id = ?1"
+        )
+        .bind(user_id)
+        .execute(&self.pool))
+        .rows_affected();
 
         if rows_affected == 0 {
             debug!("No Microsoft auth found to remove for user: {}", user_id);
@@ -177,24 +184,26 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
         Ok(())
     }
 
-    async fn get_users_with_expiring_tokens(&self, expires_before: i64) -> Result<Vec<String>, MicrosoftAuthRepositoryError> {
-        debug!("Finding users with tokens expiring before: {}", expires_before);
+    async fn get_users_with_expiring_tokens(
+        &self,
+        expires_before: i64,
+    ) -> Result<Vec<String>, MicrosoftAuthRepositoryError> {
+        debug!(
+            "Finding users with tokens expiring before: {}",
+            expires_before
+        );
 
-        let rows = handle_db_error!(
-            sqlx::query(
-                r#"
+        let rows = handle_db_error!(sqlx::query(
+            r#"
                 SELECT user_id
                 FROM user_microsoft_auth
                 WHERE token_expires_at < ?1
                 "#
-            )
-            .bind(expires_before)
-            .fetch_all(&self.pool)
-        );
+        )
+        .bind(expires_before)
+        .fetch_all(&self.pool));
 
-        let user_ids: Vec<String> = rows.into_iter()
-            .map(|row| row.get("user_id"))
-            .collect();
+        let user_ids: Vec<String> = rows.into_iter().map(|row| row.get("user_id")).collect();
 
         debug!("Found {} users with expiring tokens", user_ids.len());
         Ok(user_ids)
@@ -206,13 +215,19 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
         microsoft_list_id: &str,
         list_name: &str,
     ) -> Result<(), MicrosoftAuthRepositoryError> {
-        debug!("Storing workspace mapping: {} -> {}", workspace_id, microsoft_list_id);
+        debug!(
+            "Storing workspace mapping: {} -> {}",
+            workspace_id, microsoft_list_id
+        );
 
         let now = chrono::Utc::now().timestamp();
 
-        handle_db_error!(
-            sqlx::query(
-                r#"
+        debug!(
+            "About to execute workspace_todo_mappings INSERT: {} -> {}",
+            workspace_id, microsoft_list_id
+        );
+        let result = handle_db_error!(sqlx::query(
+            r#"
                 INSERT INTO workspace_todo_mappings (
                     workspace_id, microsoft_list_id, list_name, created_at, updated_at
                 ) VALUES (?1, ?2, ?3, ?4, ?5)
@@ -221,29 +236,36 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
                     list_name = excluded.list_name,
                     updated_at = excluded.updated_at
                 "#
-            )
-            .bind(workspace_id)
-            .bind(microsoft_list_id)
-            .bind(list_name)
-            .bind(now)
-            .bind(now)
-            .execute(&self.pool)
-        );
+        )
+        .bind(workspace_id)
+        .bind(microsoft_list_id)
+        .bind(list_name)
+        .bind(now)
+        .bind(now)
+        .execute(&self.pool));
 
-        info!("Workspace mapping stored: {} -> {}", workspace_id, microsoft_list_id);
+        debug!(
+            "workspace_todo_mappings INSERT completed, rows_affected: {}",
+            result.rows_affected()
+        );
+        info!(
+            "Workspace mapping stored: {} -> {}",
+            workspace_id, microsoft_list_id
+        );
         Ok(())
     }
 
-    async fn get_workspace_list_id(&self, workspace_id: &str) -> Result<Option<String>, MicrosoftAuthRepositoryError> {
+    async fn get_workspace_list_id(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Option<String>, MicrosoftAuthRepositoryError> {
         debug!("Getting Microsoft list ID for workspace: {}", workspace_id);
 
-        let row = handle_db_error!(
-            sqlx::query(
-                "SELECT microsoft_list_id FROM workspace_todo_mappings WHERE workspace_id = ?1"
-            )
-            .bind(workspace_id)
-            .fetch_optional(&self.pool)
-        );
+        let row = handle_db_error!(sqlx::query(
+            "SELECT microsoft_list_id FROM workspace_todo_mappings WHERE workspace_id = ?1"
+        )
+        .bind(workspace_id)
+        .fetch_optional(&self.pool));
 
         match row {
             Some(row) => {
@@ -258,21 +280,22 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
         }
     }
 
-    async fn get_all_workspace_mappings(&self) -> Result<Vec<WorkspaceTodoMapping>, MicrosoftAuthRepositoryError> {
+    async fn get_all_workspace_mappings(
+        &self,
+    ) -> Result<Vec<WorkspaceTodoMapping>, MicrosoftAuthRepositoryError> {
         debug!("Fetching all workspace mappings");
 
-        let rows = handle_db_error!(
-            sqlx::query(
-                r#"
+        let rows = handle_db_error!(sqlx::query(
+            r#"
                 SELECT workspace_id, microsoft_list_id, list_name, created_at, updated_at
                 FROM workspace_todo_mappings
                 ORDER BY created_at DESC
                 "#
-            )
-            .fetch_all(&self.pool)
-        );
+        )
+        .fetch_all(&self.pool));
 
-        let mappings: Vec<WorkspaceTodoMapping> = rows.into_iter()
+        let mappings: Vec<WorkspaceTodoMapping> = rows
+            .into_iter()
             .map(|row| WorkspaceTodoMapping {
                 workspace_id: row.get("workspace_id"),
                 microsoft_list_id: row.get("microsoft_list_id"),
@@ -286,14 +309,18 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
         Ok(mappings)
     }
 
-    async fn remove_workspace_mapping(&self, workspace_id: &str) -> Result<(), MicrosoftAuthRepositoryError> {
+    async fn remove_workspace_mapping(
+        &self,
+        workspace_id: &str,
+    ) -> Result<(), MicrosoftAuthRepositoryError> {
         info!("Removing workspace mapping for: {}", workspace_id);
 
-        let rows_affected = handle_db_error!(
-            sqlx::query("DELETE FROM workspace_todo_mappings WHERE workspace_id = ?1")
-                .bind(workspace_id)
-                .execute(&self.pool)
-        ).rows_affected();
+        let rows_affected = handle_db_error!(sqlx::query(
+            "DELETE FROM workspace_todo_mappings WHERE workspace_id = ?1"
+        )
+        .bind(workspace_id)
+        .execute(&self.pool))
+        .rows_affected();
 
         if rows_affected == 0 {
             debug!("No workspace mapping found to remove for: {}", workspace_id);
@@ -307,7 +334,10 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
     // Task synchronization methods
 
     async fn upsert_task(&self, task: &MicrosoftTask) -> Result<(), MicrosoftAuthRepositoryError> {
-        debug!("Upserting task: {} for workspace: {}", task.id, task.workspace_id);
+        debug!(
+            "Upserting task: {} for workspace: {}",
+            task.id, task.workspace_id
+        );
 
         let now = chrono::Utc::now().timestamp();
 
@@ -347,12 +377,14 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
         Ok(())
     }
 
-    async fn get_workspace_tasks(&self, workspace_id: &str) -> Result<Vec<MicrosoftTask>, MicrosoftAuthRepositoryError> {
+    async fn get_workspace_tasks(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<MicrosoftTask>, MicrosoftAuthRepositoryError> {
         debug!("Fetching tasks for workspace: {}", workspace_id);
 
-        let rows = handle_db_error!(
-            sqlx::query(
-                r#"
+        let rows = handle_db_error!(sqlx::query(
+            r#"
                 SELECT
                     id, workspace_id, microsoft_list_id, title, body_content, content_type,
                     status, importance, is_reminder_on, reminder_date_time, created_date_time,
@@ -362,12 +394,12 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
                 WHERE workspace_id = ?1
                 ORDER BY last_modified_date_time DESC
                 "#
-            )
-            .bind(workspace_id)
-            .fetch_all(&self.pool)
-        );
+        )
+        .bind(workspace_id)
+        .fetch_all(&self.pool));
 
-        let tasks: Vec<MicrosoftTask> = rows.into_iter()
+        let tasks: Vec<MicrosoftTask> = rows
+            .into_iter()
             .map(|row| MicrosoftTask {
                 id: row.get("id"),
                 workspace_id: row.get("workspace_id"),
@@ -390,11 +422,18 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
             })
             .collect();
 
-        debug!("Retrieved {} tasks for workspace: {}", tasks.len(), workspace_id);
+        debug!(
+            "Retrieved {} tasks for workspace: {}",
+            tasks.len(),
+            workspace_id
+        );
         Ok(tasks)
     }
 
-    async fn get_pending_tasks(&self, workspace_id: Option<&str>) -> Result<Vec<MicrosoftTask>, MicrosoftAuthRepositoryError> {
+    async fn get_pending_tasks(
+        &self,
+        workspace_id: Option<&str>,
+    ) -> Result<Vec<MicrosoftTask>, MicrosoftAuthRepositoryError> {
         debug!("Fetching pending tasks for workspace: {:?}", workspace_id);
 
         let query = if let Some(wid) = workspace_id {
@@ -408,7 +447,7 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
                 FROM microsoft_tasks
                 WHERE workspace_id = ?1 AND sync_status != 'synced'
                 ORDER BY local_last_modified ASC
-                "#
+                "#,
             )
             .bind(wid)
         } else {
@@ -422,13 +461,14 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
                 FROM microsoft_tasks
                 WHERE sync_status != 'synced'
                 ORDER BY local_last_modified ASC
-                "#
+                "#,
             )
         };
 
         let rows = handle_db_error!(query.fetch_all(&self.pool));
 
-        let tasks: Vec<MicrosoftTask> = rows.into_iter()
+        let tasks: Vec<MicrosoftTask> = rows
+            .into_iter()
             .map(|row| MicrosoftTask {
                 id: row.get("id"),
                 workspace_id: row.get("workspace_id"),
@@ -458,11 +498,11 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
     async fn delete_task(&self, task_id: &str) -> Result<(), MicrosoftAuthRepositoryError> {
         debug!("Deleting task: {}", task_id);
 
-        let rows_affected = handle_db_error!(
-            sqlx::query("DELETE FROM microsoft_tasks WHERE id = ?1")
+        let rows_affected =
+            handle_db_error!(sqlx::query("DELETE FROM microsoft_tasks WHERE id = ?1")
                 .bind(task_id)
-                .execute(&self.pool)
-        ).rows_affected();
+                .execute(&self.pool))
+            .rows_affected();
 
         if rows_affected == 0 {
             debug!("No task found to delete: {}", task_id);
@@ -473,7 +513,11 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
         Ok(())
     }
 
-    async fn update_task_sync_status(&self, task_id: &str, status: TaskSyncStatus) -> Result<(), MicrosoftAuthRepositoryError> {
+    async fn update_task_sync_status(
+        &self,
+        task_id: &str,
+        status: TaskSyncStatus,
+    ) -> Result<(), MicrosoftAuthRepositoryError> {
         debug!("Updating task {} sync status to: {:?}", task_id, status);
 
         let now = chrono::Utc::now().timestamp();
@@ -496,18 +540,26 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
         Ok(())
     }
 
-    async fn get_task_sync_metadata(&self, workspace_id: &str) -> Result<Option<TaskSyncMetadata>, MicrosoftAuthRepositoryError> {
-        debug!("Fetching task sync metadata for workspace: {}", workspace_id);
+    async fn get_task_sync_metadata(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Option<TaskSyncMetadata>, MicrosoftAuthRepositoryError> {
+        debug!(
+            "Fetching task sync metadata for workspace: {}",
+            workspace_id
+        );
 
         let row = handle_db_error!(
             sqlx::query(
                 r#"
                 SELECT
-                    workspace_id, microsoft_list_id, last_sync_timestamp, last_successful_sync,
-                    sync_version, sync_errors, max_sync_errors, last_sync_error, next_sync_attempt,
-                    sync_interval_seconds, is_sync_enabled, created_at, updated_at
-                FROM task_sync_metadata
-                WHERE workspace_id = ?1
+                    tsm.workspace_id, tsm.microsoft_list_id, tsm.last_sync_timestamp, tsm.last_successful_sync,
+                    tsm.sync_version, tsm.sync_errors, tsm.max_sync_errors, tsm.last_sync_error, tsm.next_sync_attempt,
+                    tsm.sync_interval_seconds, tsm.is_sync_enabled, tsm.created_at, tsm.updated_at,
+                    w.user_id
+                FROM task_sync_metadata tsm
+                LEFT JOIN workspaces w ON tsm.workspace_id = w.id
+                WHERE tsm.workspace_id = ?1
                 "#
             )
             .bind(workspace_id)
@@ -519,6 +571,7 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
                 let metadata = TaskSyncMetadata {
                     workspace_id: row.get("workspace_id"),
                     microsoft_list_id: row.get("microsoft_list_id"),
+                    user_id: row.get("user_id"),
                     last_sync_timestamp: row.get("last_sync_timestamp"),
                     last_successful_sync: row.get("last_successful_sync"),
                     sync_version: row.get("sync_version"),
@@ -541,8 +594,14 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
         }
     }
 
-    async fn upsert_task_sync_metadata(&self, metadata: &TaskSyncMetadata) -> Result<(), MicrosoftAuthRepositoryError> {
-        debug!("Upserting sync metadata for workspace: {}", metadata.workspace_id);
+    async fn upsert_task_sync_metadata(
+        &self,
+        metadata: &TaskSyncMetadata,
+    ) -> Result<(), MicrosoftAuthRepositoryError> {
+        debug!(
+            "Upserting sync metadata for workspace: {}",
+            metadata.workspace_id
+        );
 
         let now = chrono::Utc::now().timestamp();
 
@@ -573,34 +632,47 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
             .execute(&self.pool)
         );
 
-        debug!("Sync metadata upserted for workspace: {}", metadata.workspace_id);
+        debug!(
+            "Sync metadata upserted for workspace: {}",
+            metadata.workspace_id
+        );
         Ok(())
     }
 
-    async fn get_workspaces_needing_sync(&self, before_timestamp: i64) -> Result<Vec<TaskSyncMetadata>, MicrosoftAuthRepositoryError> {
-        debug!("Fetching workspaces needing sync before: {}", before_timestamp);
+    async fn get_workspaces_needing_sync(
+        &self,
+        before_timestamp: i64,
+    ) -> Result<Vec<TaskSyncMetadata>, MicrosoftAuthRepositoryError> {
+        debug!(
+            "Fetching workspaces needing sync before: {}",
+            before_timestamp
+        );
 
         let rows = handle_db_error!(
             sqlx::query(
                 r#"
                 SELECT
-                    workspace_id, microsoft_list_id, last_sync_timestamp, last_successful_sync,
-                    sync_version, sync_errors, max_sync_errors, last_sync_error, next_sync_attempt,
-                    sync_interval_seconds, is_sync_enabled, created_at, updated_at
-                FROM task_sync_metadata
-                WHERE is_sync_enabled = TRUE
-                    AND (next_sync_attempt IS NULL OR next_sync_attempt <= ?1)
-                ORDER BY next_sync_attempt ASC NULLS FIRST
+                    tsm.workspace_id, tsm.microsoft_list_id, tsm.last_sync_timestamp, tsm.last_successful_sync,
+                    tsm.sync_version, tsm.sync_errors, tsm.max_sync_errors, tsm.last_sync_error, tsm.next_sync_attempt,
+                    tsm.sync_interval_seconds, tsm.is_sync_enabled, tsm.created_at, tsm.updated_at,
+                    w.user_id
+                FROM task_sync_metadata tsm
+                LEFT JOIN workspaces w ON tsm.workspace_id = w.id
+                WHERE tsm.is_sync_enabled = TRUE
+                    AND (tsm.next_sync_attempt IS NULL OR tsm.next_sync_attempt <= ?1)
+                ORDER BY tsm.next_sync_attempt ASC NULLS FIRST
                 "#
             )
             .bind(before_timestamp)
             .fetch_all(&self.pool)
         );
 
-        let workspaces: Vec<TaskSyncMetadata> = rows.into_iter()
+        let workspaces: Vec<TaskSyncMetadata> = rows
+            .into_iter()
             .map(|row| TaskSyncMetadata {
                 workspace_id: row.get("workspace_id"),
                 microsoft_list_id: row.get("microsoft_list_id"),
+                user_id: row.get("user_id"),
                 last_sync_timestamp: row.get("last_sync_timestamp"),
                 last_successful_sync: row.get("last_successful_sync"),
                 sync_version: row.get("sync_version"),
@@ -619,27 +691,36 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
         Ok(workspaces)
     }
 
-    async fn delete_workspace_tasks(&self, workspace_id: &str) -> Result<(), MicrosoftAuthRepositoryError> {
+    async fn delete_workspace_tasks(
+        &self,
+        workspace_id: &str,
+    ) -> Result<(), MicrosoftAuthRepositoryError> {
         info!("Deleting all tasks for workspace: {}", workspace_id);
 
-        let rows_affected = handle_db_error!(
-            sqlx::query("DELETE FROM microsoft_tasks WHERE workspace_id = ?1")
-                .bind(workspace_id)
-                .execute(&self.pool)
-        ).rows_affected();
+        let rows_affected = handle_db_error!(sqlx::query(
+            "DELETE FROM microsoft_tasks WHERE workspace_id = ?1"
+        )
+        .bind(workspace_id)
+        .execute(&self.pool))
+        .rows_affected();
 
-        info!("Deleted {} tasks for workspace: {}", rows_affected, workspace_id);
+        info!(
+            "Deleted {} tasks for workspace: {}",
+            rows_affected, workspace_id
+        );
         Ok(())
     }
 
     // OAuth state management methods
 
-    async fn store_oauth_state(&self, oauth_state: &OAuthState) -> Result<(), MicrosoftAuthRepositoryError> {
+    async fn store_oauth_state(
+        &self,
+        oauth_state: &OAuthState,
+    ) -> Result<(), MicrosoftAuthRepositoryError> {
         debug!("Storing OAuth state for user: {}", oauth_state.user_id);
 
-        handle_db_error!(
-            sqlx::query(
-                r#"
+        handle_db_error!(sqlx::query(
+            r#"
                 INSERT INTO oauth_states (state, user_id, code_verifier, created_at, expires_at)
                 VALUES (?1, ?2, ?3, ?4, ?5)
                 ON CONFLICT(state) DO UPDATE SET
@@ -648,33 +729,33 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
                     created_at = excluded.created_at,
                     expires_at = excluded.expires_at
                 "#
-            )
-            .bind(&oauth_state.state)
-            .bind(&oauth_state.user_id)
-            .bind(&oauth_state.code_verifier)
-            .bind(oauth_state.created_at)
-            .bind(oauth_state.expires_at)
-            .execute(&self.pool)
-        );
+        )
+        .bind(&oauth_state.state)
+        .bind(&oauth_state.user_id)
+        .bind(&oauth_state.code_verifier)
+        .bind(oauth_state.created_at)
+        .bind(oauth_state.expires_at)
+        .execute(&self.pool));
 
         debug!("OAuth state stored successfully");
         Ok(())
     }
 
-    async fn get_oauth_state(&self, state: &str) -> Result<Option<OAuthState>, MicrosoftAuthRepositoryError> {
+    async fn get_oauth_state(
+        &self,
+        state: &str,
+    ) -> Result<Option<OAuthState>, MicrosoftAuthRepositoryError> {
         debug!("Retrieving OAuth state: {}", state);
 
-        let row = handle_db_error!(
-            sqlx::query(
-                r#"
+        let row = handle_db_error!(sqlx::query(
+            r#"
                 SELECT state, user_id, code_verifier, created_at, expires_at
                 FROM oauth_states
                 WHERE state = ?1
                 "#
-            )
-            .bind(state)
-            .fetch_optional(&self.pool)
-        );
+        )
+        .bind(state)
+        .fetch_optional(&self.pool));
 
         match row {
             Some(row) => {
@@ -698,11 +779,9 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
     async fn remove_oauth_state(&self, state: &str) -> Result<(), MicrosoftAuthRepositoryError> {
         debug!("Removing OAuth state: {}", state);
 
-        handle_db_error!(
-            sqlx::query("DELETE FROM oauth_states WHERE state = ?1")
-                .bind(state)
-                .execute(&self.pool)
-        );
+        handle_db_error!(sqlx::query("DELETE FROM oauth_states WHERE state = ?1")
+            .bind(state)
+            .execute(&self.pool));
 
         debug!("OAuth state removed successfully");
         Ok(())
@@ -712,54 +791,68 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
         let now = chrono::Utc::now().timestamp();
         debug!("Cleaning up expired OAuth states (before: {})", now);
 
-        let result = handle_db_error!(
-            sqlx::query("DELETE FROM oauth_states WHERE expires_at < ?1")
-                .bind(now)
-                .execute(&self.pool)
-        );
+        let result = handle_db_error!(sqlx::query(
+            "DELETE FROM oauth_states WHERE expires_at < ?1"
+        )
+        .bind(now)
+        .execute(&self.pool));
 
         let removed = result.rows_affected() as usize;
         info!("Cleaned up {} expired OAuth states", removed);
         Ok(removed)
     }
 
-    async fn acquire_token_refresh_lock(&self, user_id: &str, timeout_seconds: i64) -> Result<bool, MicrosoftAuthRepositoryError> {
+    async fn acquire_token_refresh_lock(
+        &self,
+        user_id: &str,
+        timeout_seconds: i64,
+    ) -> Result<bool, MicrosoftAuthRepositoryError> {
         let now = chrono::Utc::now().timestamp();
         let expires_at = now + timeout_seconds;
 
-        debug!("Attempting to acquire token refresh lock for user: {} (timeout: {}s)", user_id, timeout_seconds);
+        debug!(
+            "Attempting to acquire token refresh lock for user: {} (timeout: {}s)",
+            user_id, timeout_seconds
+        );
 
         // First, clean up any expired locks
-        let _ = handle_db_error!(
-            sqlx::query("DELETE FROM token_refresh_locks WHERE expires_at < ?1")
-                .bind(now)
-                .execute(&self.pool)
-        );
+        let _ = handle_db_error!(sqlx::query(
+            "DELETE FROM token_refresh_locks WHERE expires_at < ?1"
+        )
+        .bind(now)
+        .execute(&self.pool));
 
         // Try to insert a new lock using INSERT OR IGNORE (SQLite specific)
-        let result = handle_db_error!(
-            sqlx::query(
-                "INSERT OR IGNORE INTO token_refresh_locks (user_id, acquired_at, expires_at)
+        let result = handle_db_error!(sqlx::query(
+            "INSERT OR IGNORE INTO token_refresh_locks (user_id, acquired_at, expires_at)
                  VALUES (?1, ?2, ?3)"
-            )
-            .bind(user_id)
-            .bind(now)
-            .bind(expires_at)
-            .execute(&self.pool)
-        );
+        )
+        .bind(user_id)
+        .bind(now)
+        .bind(expires_at)
+        .execute(&self.pool));
 
         let lock_acquired = result.rows_affected() > 0;
 
         if lock_acquired {
-            debug!("Successfully acquired token refresh lock for user: {}", user_id);
+            debug!(
+                "Successfully acquired token refresh lock for user: {}",
+                user_id
+            );
         } else {
-            debug!("Failed to acquire token refresh lock for user: {} (lock already held)", user_id);
+            debug!(
+                "Failed to acquire token refresh lock for user: {} (lock already held)",
+                user_id
+            );
         }
 
         Ok(lock_acquired)
     }
 
-    async fn release_token_refresh_lock(&self, user_id: &str) -> Result<(), MicrosoftAuthRepositoryError> {
+    async fn release_token_refresh_lock(
+        &self,
+        user_id: &str,
+    ) -> Result<(), MicrosoftAuthRepositoryError> {
         debug!("Releasing token refresh lock for user: {}", user_id);
 
         handle_db_error!(

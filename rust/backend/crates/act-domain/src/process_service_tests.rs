@@ -11,6 +11,7 @@ mod tests {
         repository::{
             ProcessRepository, ProcessRunner, CreateProcessRequest, ProcessStartRequest,
             ProcessInfo, ProcessResourceUsage, ProcessResourceLimits, ProcessOutputConfig,
+            WorkspaceRepository, Workspace,
         },
         models::{UserProcess, ProcessStatus},
         events::{EventPublisher, ProcessEvent, InMemoryEventPublisher},
@@ -57,6 +58,22 @@ mod tests {
         }
     }
 
+    mock! {
+        TestWorkspaceRepository {}
+
+        #[async_trait]
+        impl WorkspaceRepository for TestWorkspaceRepository {
+            async fn create(&self, user_id: &str, request: act_core::repository::CreateWorkspaceRequest) -> Result<Workspace>;
+            async fn get_by_id(&self, user_id: &str, workspace_id: &str) -> Result<Workspace>;
+            async fn get_by_github_repo(&self, user_id: &str, github_repo: &str) -> Result<Option<Workspace>>;
+            async fn list_all(&self, user_id: &str) -> Result<Vec<Workspace>>;
+            async fn list_active(&self, user_id: &str) -> Result<Vec<Workspace>>;
+            async fn update(&self, user_id: &str, workspace_id: &str, request: act_core::repository::UpdateWorkspaceRequest) -> Result<Workspace>;
+            async fn delete(&self, user_id: &str, workspace_id: &str) -> Result<()>;
+            async fn set_active(&self, user_id: &str, workspace_id: &str, active: bool) -> Result<()>;
+        }
+    }
+
     fn create_test_process(id: &str, name: &str, status: ProcessStatus) -> UserProcess {
         UserProcess {
             id: id.to_string(),
@@ -88,6 +105,7 @@ mod tests {
     fn create_test_service() -> (ProcessService, Arc<InMemoryEventPublisher>) {
         let mut mock_repo = MockTestProcessRepository::new();
         let mut mock_runner = MockTestProcessRunner::new();
+        let mock_workspace_repo = MockTestWorkspaceRepository::new();
 
         // Set up default mock behaviors
         mock_repo.expect_create()
@@ -122,6 +140,7 @@ mod tests {
             event_publisher.clone(),
             security_validator,
             security_audit_logger,
+            Arc::new(mock_workspace_repo),
         );
 
         (service, event_publisher)
@@ -141,6 +160,7 @@ mod tests {
             max_restarts: Some(3),
             auto_restart: Some(true),
             workspace_id: Some("workspace1".to_string()),
+            workspace_root: None,
             session_id: Some("session1".to_string()),
             tags: Some(vec!["test".to_string()]),
         };
@@ -177,6 +197,7 @@ mod tests {
             max_restarts: Some(3),
             auto_restart: Some(true),
             workspace_id: Some("workspace1".to_string()),
+            workspace_root: None,
             session_id: Some("session1".to_string()),
             tags: Some(vec!["test".to_string()]),
         };
@@ -367,6 +388,7 @@ mod tests {
             max_restarts: Some(3),
             auto_restart: Some(true),
             workspace_id: Some("workspace1".to_string()),
+            workspace_root: None,
             session_id: None,
             tags: None,
         };
@@ -423,6 +445,7 @@ mod tests {
             max_restarts: Some(1),
             auto_restart: Some(false),
             workspace_id: Some("workspace1".to_string()),
+            workspace_root: None,
             session_id: None,
             tags: None,
         };

@@ -8,13 +8,10 @@ use serde::Serialize;
 use tracing::{debug, error, info};
 
 use crate::{
-    middleware::auth::AuthenticatedUser,
-    models::ApiResponse,
-    error::ServerError,
-    AppState,
+    error::ServerError, middleware::auth::AuthenticatedUser, models::ApiResponse, AppState,
 };
-use act_domain::{TodoSyncStatus, WorkspaceSyncStatus, CacheStats, TaskList};
 use act_core::CoreError;
+use act_domain::{CacheStats, TaskList, TodoSyncStatus, WorkspaceSyncStatus};
 
 #[derive(Debug, Serialize)]
 pub struct TodoSyncStatusResponse {
@@ -48,7 +45,8 @@ impl From<TodoSyncStatus> for TodoSyncStatusResponse {
             total_workspaces: status.total_workspaces,
             synced_workspaces: status.synced_workspaces,
             cached_workspaces: status.cached_workspaces,
-            workspace_statuses: status.workspace_statuses
+            workspace_statuses: status
+                .workspace_statuses
                 .into_iter()
                 .map(WorkspaceSyncStatusResponse::from)
                 .collect(),
@@ -94,13 +92,20 @@ pub async fn get_sync_status(
         .await
         .map_err(|e| {
             error!("Failed to get sync status: {}", e);
-            ServerError(CoreError::Internal(format!("Failed to get sync status: {}", e)))
+            ServerError(CoreError::Internal(format!(
+                "Failed to get sync status: {}",
+                e
+            )))
         })?;
 
-    info!("Retrieved sync status for user {}: {} total workspaces, {} synced",
-          user.user_id, status.total_workspaces, status.synced_workspaces);
+    info!(
+        "Retrieved sync status for user {}: {} total workspaces, {} synced",
+        user.user_id, status.total_workspaces, status.synced_workspaces
+    );
 
-    Ok(Json(ApiResponse::success(TodoSyncStatusResponse::from(status))))
+    Ok(Json(ApiResponse::success(TodoSyncStatusResponse::from(
+        status,
+    ))))
 }
 
 /// Sync a specific workspace
@@ -109,7 +114,10 @@ pub async fn sync_workspace(
     State(app_state): State<AppState>,
     user: AuthenticatedUser,
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
-    info!("Syncing workspace {} for user: {}", workspace_id, user.user_id);
+    info!(
+        "Syncing workspace {} for user: {}",
+        workspace_id, user.user_id
+    );
 
     // Get the workspace first to ensure it exists and belongs to the user
     let workspace = app_state
@@ -119,7 +127,10 @@ pub async fn sync_workspace(
         .await
         .map_err(|e| {
             error!("Failed to get workspace {}: {}", workspace_id, e);
-            ServerError(CoreError::Internal(format!("Failed to get workspace: {}", e)))
+            ServerError(CoreError::Internal(format!(
+                "Failed to get workspace: {}",
+                e
+            )))
         })?;
 
     // Ensure the project list exists for this workspace
@@ -130,10 +141,16 @@ pub async fn sync_workspace(
         .await
         .map_err(|e| {
             error!("Failed to sync workspace {}: {}", workspace_id, e);
-            ServerError(CoreError::Internal(format!("Failed to sync workspace: {}", e)))
+            ServerError(CoreError::Internal(format!(
+                "Failed to sync workspace: {}",
+                e
+            )))
         })?;
 
-    info!("Successfully synced workspace {} for user: {}", workspace_id, user.user_id);
+    info!(
+        "Successfully synced workspace {} for user: {}",
+        workspace_id, user.user_id
+    );
 
     Ok(Json(ApiResponse::success(())))
 }
@@ -151,11 +168,21 @@ pub async fn sync_all_workspaces(
         .sync_all_workspace_lists(&user.user_id)
         .await
         .map_err(|e| {
-            error!("Failed to sync all workspaces for user {}: {}", user.user_id, e);
-            ServerError(CoreError::Internal(format!("Failed to sync all workspaces: {}", e)))
+            error!(
+                "Failed to sync all workspaces for user {}: {}",
+                user.user_id, e
+            );
+            ServerError(CoreError::Internal(format!(
+                "Failed to sync all workspaces: {}",
+                e
+            )))
         })?;
 
-    info!("Successfully synced {} workspaces for user: {}", mappings.len(), user.user_id);
+    info!(
+        "Successfully synced {} workspaces for user: {}",
+        mappings.len(),
+        user.user_id
+    );
 
     Ok(Json(ApiResponse::success(())))
 }
@@ -174,7 +201,10 @@ pub async fn refresh_cache(
         .await
         .map_err(|e| {
             error!("Failed to refresh cache: {}", e);
-            ServerError(CoreError::Internal(format!("Failed to refresh cache: {}", e)))
+            ServerError(CoreError::Internal(format!(
+                "Failed to refresh cache: {}",
+                e
+            )))
         })?;
 
     info!("Successfully refreshed todo sync cache");
@@ -191,7 +221,10 @@ pub async fn get_workspace_list(
     State(app_state): State<AppState>,
     user: AuthenticatedUser,
 ) -> Result<Json<ApiResponse<Option<TaskList>>>, ServerError> {
-    debug!("Getting list for workspace {} for user: {}", workspace_id, user.user_id);
+    debug!(
+        "Getting list for workspace {} for user: {}",
+        workspace_id, user.user_id
+    );
 
     let list = app_state
         .domain_services
@@ -200,11 +233,17 @@ pub async fn get_workspace_list(
         .await
         .map_err(|e| {
             error!("Failed to get workspace list: {}", e);
-            ServerError(CoreError::Internal(format!("Failed to get workspace list: {}", e)))
+            ServerError(CoreError::Internal(format!(
+                "Failed to get workspace list: {}",
+                e
+            )))
         })?;
 
     if let Some(ref list) = list {
-        info!("Found list '{}' for workspace {}", list.display_name, workspace_id);
+        info!(
+            "Found list '{}' for workspace {}",
+            list.display_name, workspace_id
+        );
     } else {
         info!("No list found for workspace {}", workspace_id);
     }

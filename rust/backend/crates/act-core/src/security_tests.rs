@@ -317,4 +317,215 @@ mod tests {
         let result = ProcessSecurityValidator::new(config);
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_symlink_pointing_to_blocked_directory() {
+        use std::fs;
+        use std::path::Path;
+
+        let validator = create_test_validator();
+
+        // Create a temporary directory for testing
+        let temp_dir = std::env::temp_dir();
+        let test_symlink_dir = temp_dir.join("test_symlink_security");
+        let symlink_path = test_symlink_dir.join("link_to_etc");
+
+        // Clean up from previous test runs
+        let _ = fs::remove_dir_all(&test_symlink_dir);
+        fs::create_dir_all(&test_symlink_dir).expect("Failed to create test directory");
+
+        // Create symlink pointing to /etc (a blocked directory)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            if symlink("/etc", &symlink_path).is_ok() {
+                // Test that symlink to blocked directory is rejected
+                let result = validator.validate_working_directory(
+                    symlink_path.to_str().unwrap(),
+                    None,
+                );
+                assert!(result.is_err(), "Symlink to /etc should be blocked");
+
+                if let Err(e) = result {
+                    let err_msg = e.to_string();
+                    assert!(
+                        err_msg.contains("not allowed") || err_msg.contains("blocked"),
+                        "Error message should indicate directory is not allowed: {}",
+                        err_msg
+                    );
+                }
+
+                // Clean up
+                let _ = fs::remove_file(&symlink_path);
+            }
+        }
+
+        // Test symlink to /sys
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            let symlink_to_sys = test_symlink_dir.join("link_to_sys");
+            if symlink("/sys", &symlink_to_sys).is_ok() {
+                let result = validator.validate_working_directory(
+                    symlink_to_sys.to_str().unwrap(),
+                    None,
+                );
+                assert!(result.is_err(), "Symlink to /sys should be blocked");
+
+                // Clean up
+                let _ = fs::remove_file(&symlink_to_sys);
+            }
+        }
+
+        // Test symlink to /proc
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            let symlink_to_proc = test_symlink_dir.join("link_to_proc");
+            if symlink("/proc", &symlink_to_proc).is_ok() {
+                let result = validator.validate_working_directory(
+                    symlink_to_proc.to_str().unwrap(),
+                    None,
+                );
+                assert!(result.is_err(), "Symlink to /proc should be blocked");
+
+                // Clean up
+                let _ = fs::remove_file(&symlink_to_proc);
+            }
+        }
+
+        // Clean up test directory
+        let _ = fs::remove_dir_all(&test_symlink_dir);
+    }
+
+    #[test]
+    fn test_symlink_to_safe_directory_allowed() {
+        use std::fs;
+
+        let validator = create_permissive_validator();
+
+        // Create temporary directories for testing
+        let temp_dir = std::env::temp_dir();
+        let test_dir = temp_dir.join("test_safe_symlink");
+        let safe_target = test_dir.join("safe_directory");
+        let symlink_path = test_dir.join("link_to_safe");
+
+        // Clean up from previous test runs
+        let _ = fs::remove_dir_all(&test_dir);
+        fs::create_dir_all(&safe_target).expect("Failed to create safe directory");
+
+        // Create symlink pointing to a safe directory
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            if symlink(&safe_target, &symlink_path).is_ok() {
+                // Symlink to safe directory should be allowed (after resolving)
+                let result = validator.validate_working_directory(
+                    symlink_path.to_str().unwrap(),
+                    None,
+                );
+                // Should succeed as long as both original and resolved paths are safe
+                assert!(result.is_ok(), "Symlink to safe directory should be allowed");
+
+                // Clean up
+                let _ = fs::remove_file(&symlink_path);
+            }
+        }
+
+        // Clean up test directory
+        let _ = fs::remove_dir_all(&test_dir);
+    }
+
+    #[test]
+    fn test_validate_nonexistent_path_uses_parent() {
+        use std::fs;
+
+        let validator = create_permissive_validator();
+
+        // Create a temporary parent directory
+        let temp_dir = std::env::temp_dir();
+        let parent_dir = temp_dir.join("test_parent_validation");
+        let nonexistent_child = parent_dir.join("new_directory");
+
+        // Clean up from previous runs
+        let _ = fs::remove_dir_all(&parent_dir);
+        fs::create_dir_all(&parent_dir).expect("Failed to create parent directory");
+
+        // Validate the non-existent child path - should succeed by validating parent
+        let result = validator.validate_working_directory(
+            nonexistent_child.to_str().unwrap(),
+            None,
+        );
+        assert!(result.is_ok(), "Should validate parent directory when child doesn't exist");
+
+        // Now create the child and validate again - should still succeed
+        fs::create_dir(&nonexistent_child).expect("Failed to create child directory");
+        let result = validator.validate_working_directory(
+            nonexistent_child.to_str().unwrap(),
+            None,
+        );
+        assert!(result.is_ok(), "Should validate existing child directory");
+
+        // Clean up
+        let _ = fs::remove_dir_all(&parent_dir);
+    }
+
+    #[test]
+    fn test_validate_nonexistent_path_with_nonexistent_parent() {
+        let validator = create_permissive_validator();
+
+        let temp_dir = std::env::temp_dir();
+        let nonexistent_parent = temp_dir.join("does_not_exist_parent");
+        let nonexistent_child = nonexistent_parent.join("does_not_exist_child");
+
+        // Clean up to ensure they don't exist
+        let _ = std::fs::remove_dir_all(&nonexistent_parent);
+
+        // Should fail because parent doesn't exist
+        let result = validator.validate_working_directory(
+            nonexistent_child.to_str().unwrap(),
+            None,
+        );
+        assert!(result.is_err(), "Should fail when parent directory doesn't exist");
+
+        if let Err(e) = result {
+            assert!(
+                e.to_string().contains("Parent directory") || e.to_string().contains("does not exist"),
+                "Error should mention parent directory: {}",
+                e
+            );
+        }
+    }
+
+    #[test]
+    fn test_create_directory_in_safe_validated_path() {
+        use std::fs;
+
+        let validator = create_permissive_validator();
+
+        // Create a safe parent directory
+        let temp_dir = std::env::temp_dir();
+        let safe_parent = temp_dir.join("test_safe_create");
+        let new_dir = safe_parent.join("newly_created");
+
+        // Clean up
+        let _ = fs::remove_dir_all(&safe_parent);
+        fs::create_dir_all(&safe_parent).expect("Failed to create safe parent");
+
+        // Validate the path that will be created
+        let result = validator.validate_working_directory(
+            new_dir.to_str().unwrap(),
+            None,
+        );
+        assert!(result.is_ok(), "Should validate parent for path to be created");
+
+        // Actually create the directory after validation
+        fs::create_dir(&new_dir).expect("Failed to create new directory");
+
+        // Verify it was created successfully
+        assert!(new_dir.exists(), "Directory should have been created");
+
+        // Clean up
+        let _ = fs::remove_dir_all(&safe_parent);
+    }
 }

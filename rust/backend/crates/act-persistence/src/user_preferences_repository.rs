@@ -1,7 +1,7 @@
-use act_core::user_preferences::{UserPreferencesRepository, UserPreferences};
+use act_core::user_preferences::{UserPreferences, UserPreferencesRepository};
 use async_trait::async_trait;
-use sqlx::SqlitePool;
 use sqlx::Row;
+use sqlx::SqlitePool;
 
 use super::error::PersistenceError;
 
@@ -17,13 +17,16 @@ impl SqlUserPreferencesRepository {
 
 #[async_trait]
 impl UserPreferencesRepository for SqlUserPreferencesRepository {
-    async fn get_user_preferences(&self, user_id: &str) -> Result<Option<UserPreferences>, act_core::error::CoreError> {
+    async fn get_user_preferences(
+        &self,
+        user_id: &str,
+    ) -> Result<Option<UserPreferences>, act_core::error::CoreError> {
         let row = sqlx::query(
             r#"
             SELECT current_workspace_id, layout_preferences
             FROM user_settings
             WHERE user_id = ?1
-            "#
+            "#,
         )
         .bind(user_id)
         .fetch_optional(&self.pool)
@@ -37,10 +40,9 @@ impl UserPreferencesRepository for SqlUserPreferencesRepository {
 
                 // Deserialize layout preferences from JSON, or use default if null/invalid
                 let layout_preferences = match layout_preferences_json {
-                    Some(json_str) => {
-                        serde_json::from_str(&json_str)
-                            .unwrap_or_else(|_| act_core::user_preferences::LayoutPreferences::default())
-                    }
+                    Some(json_str) => serde_json::from_str(&json_str).unwrap_or_else(|_| {
+                        act_core::user_preferences::LayoutPreferences::default()
+                    }),
                     None => act_core::user_preferences::LayoutPreferences::default(),
                 };
 
@@ -56,7 +58,11 @@ impl UserPreferencesRepository for SqlUserPreferencesRepository {
         }
     }
 
-    async fn save_user_preferences(&self, user_id: &str, preferences: &UserPreferences) -> Result<(), act_core::error::CoreError> {
+    async fn save_user_preferences(
+        &self,
+        user_id: &str,
+        preferences: &UserPreferences,
+    ) -> Result<(), act_core::error::CoreError> {
         // Serialize layout preferences to JSON (following theme repository pattern)
         let layout_preferences_json = serde_json::to_string(&preferences.layout_preferences)
             .map_err(|e| act_core::error::CoreError::Internal(e.to_string()))?;
@@ -68,7 +74,7 @@ impl UserPreferencesRepository for SqlUserPreferencesRepository {
             ON CONFLICT(user_id) DO UPDATE SET
                 current_workspace_id = excluded.current_workspace_id,
                 layout_preferences = excluded.layout_preferences
-            "#
+            "#,
         )
         .bind(user_id)
         .bind(&preferences.current_workspace_id)
@@ -80,9 +86,15 @@ impl UserPreferencesRepository for SqlUserPreferencesRepository {
         Ok(())
     }
 
-    async fn set_current_workspace(&self, user_id: &str, workspace_id: Option<&str>) -> Result<(), act_core::error::CoreError> {
+    async fn set_current_workspace(
+        &self,
+        user_id: &str,
+        workspace_id: Option<&str>,
+    ) -> Result<(), act_core::error::CoreError> {
         // Get existing preferences to preserve layout_preferences when updating workspace
-        let mut preferences = self.get_user_preferences(user_id).await?
+        let mut preferences = self
+            .get_user_preferences(user_id)
+            .await?
             .unwrap_or_else(UserPreferences::default);
 
         // Update only the current_workspace_id field

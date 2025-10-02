@@ -433,19 +433,48 @@ const handleWorkOnTask = async () => {
     return
   }
 
+  // Create a temporary execution ID for optimistic UI
+  const tempExecutionId = `temp-${Date.now()}`
+
   try {
+    // Optimistic UI: Create a pending execution immediately
+    todoStore.activeExecutions.set(tempExecutionId, {
+      executionId: tempExecutionId,
+      taskId: props.task.id,
+      status: 'queued',
+      output: ['Connecting to execution service...'],
+      startTime: new Date(),
+    })
+
+    // Show output panel immediately for better UX
     showOutput.value = true
 
-    await todoStore.startTaskExecution(
+    // Show loading state
+    logger.log('Starting task execution...')
+
+    const executionId = await todoStore.startTaskExecution(
       props.task.id,
       workspaceStore.currentWorkspace.id,
       selectedPermissionMode.value,
       1800  // 30 min timeout
     )
 
-    logger.log('Task execution started')
+    // Remove temporary execution since the real one is now active
+    todoStore.activeExecutions.delete(tempExecutionId)
+
+    logger.log('Task execution started successfully:', executionId)
   } catch (error) {
+    // Update the temporary execution to show error
+    const tempExecution = todoStore.activeExecutions.get(tempExecutionId)
+    if (tempExecution) {
+      tempExecution.status = 'failed'
+      tempExecution.output.push(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      tempExecution.endTime = new Date()
+    }
+
     logger.error('Failed to start task execution:', error)
+    // Keep output panel open to show the error
+    showOutput.value = true
   }
 }
 

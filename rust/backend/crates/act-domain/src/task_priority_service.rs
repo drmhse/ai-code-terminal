@@ -1,8 +1,8 @@
-use crate::{TaskImportance, TaskContext};
-use serde::{Deserialize, Serialize};
+use crate::{TaskContext, TaskImportance};
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tracing::{info, debug};
+use tracing::{debug, info};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PriorityAnalysis {
@@ -83,7 +83,8 @@ impl TaskPriorityService {
         ];
 
         for (keyword, weight) in high_priority {
-            self.high_priority_keywords.insert(keyword.to_string(), weight);
+            self.high_priority_keywords
+                .insert(keyword.to_string(), weight);
         }
 
         // Medium priority keywords (weight 0.3-0.7)
@@ -104,7 +105,8 @@ impl TaskPriorityService {
         ];
 
         for (keyword, weight) in medium_priority {
-            self.medium_priority_keywords.insert(keyword.to_string(), weight);
+            self.medium_priority_keywords
+                .insert(keyword.to_string(), weight);
         }
 
         // Low priority keywords (weight 0.1-0.3)
@@ -126,7 +128,8 @@ impl TaskPriorityService {
         ];
 
         for (keyword, weight) in low_priority {
-            self.low_priority_keywords.insert(keyword.to_string(), weight);
+            self.low_priority_keywords
+                .insert(keyword.to_string(), weight);
         }
     }
 
@@ -265,8 +268,10 @@ impl TaskPriorityService {
             reasons.push(format!("Detected: {:?}", flag));
         }
 
-        info!("Priority analysis complete: score={}, importance={:?}, confidence={}",
-              score, importance, confidence);
+        info!(
+            "Priority analysis complete: score={}, importance={:?}, confidence={}",
+            score, importance, confidence
+        );
 
         PriorityAnalysis {
             suggested_importance: importance,
@@ -277,7 +282,13 @@ impl TaskPriorityService {
         }
     }
 
-    fn analyze_patterns(&self, text: &str, score: &mut f32, reasons: &mut Vec<String>, flags: &mut Vec<PriorityFlag>) {
+    fn analyze_patterns(
+        &self,
+        text: &str,
+        score: &mut f32,
+        reasons: &mut Vec<String>,
+        flags: &mut Vec<PriorityFlag>,
+    ) {
         // Check production patterns
         for pattern in &self.production_patterns {
             if pattern.is_match(text) {
@@ -319,7 +330,13 @@ impl TaskPriorityService {
         }
     }
 
-    fn analyze_code_context(&self, context: &TaskContext, score: &mut f32, reasons: &mut Vec<String>, flags: &mut Vec<PriorityFlag>) {
+    fn analyze_code_context(
+        &self,
+        context: &TaskContext,
+        score: &mut f32,
+        reasons: &mut Vec<String>,
+        flags: &mut Vec<PriorityFlag>,
+    ) {
         // Analyze file path for clues
         let file_path = &context.file.to_lowercase();
 
@@ -331,21 +348,30 @@ impl TaskPriorityService {
         }
 
         // Security-related files
-        if file_path.contains("auth") || file_path.contains("security") || file_path.contains("crypto") {
+        if file_path.contains("auth")
+            || file_path.contains("security")
+            || file_path.contains("crypto")
+        {
             *score += 0.6;
             reasons.push("Code context involves security-related files".to_string());
             flags.push(PriorityFlag::SecurityIssue);
         }
 
         // Performance-critical files
-        if file_path.contains("perf") || file_path.contains("optimization") || file_path.contains("cache") {
+        if file_path.contains("perf")
+            || file_path.contains("optimization")
+            || file_path.contains("cache")
+        {
             *score += 0.4;
             reasons.push("Code context involves performance-critical files".to_string());
             flags.push(PriorityFlag::Performance);
         }
 
         // Database/data files
-        if file_path.contains("db") || file_path.contains("database") || file_path.contains("migration") {
+        if file_path.contains("db")
+            || file_path.contains("database")
+            || file_path.contains("migration")
+        {
             *score += 0.5;
             reasons.push("Code context involves database/data files".to_string());
             flags.push(PriorityFlag::DataLoss);
@@ -366,11 +392,17 @@ impl TaskPriorityService {
         }
     }
 
-    fn calculate_importance_and_confidence(&self, score: f32, flags: &[PriorityFlag]) -> (TaskImportance, f32) {
+    fn calculate_importance_and_confidence(
+        &self,
+        score: f32,
+        flags: &[PriorityFlag],
+    ) -> (TaskImportance, f32) {
         // Priority flags override score-based calculation
         for flag in flags {
             match flag {
-                PriorityFlag::SecurityIssue | PriorityFlag::ProductionBug | PriorityFlag::DataLoss => {
+                PriorityFlag::SecurityIssue
+                | PriorityFlag::ProductionBug
+                | PriorityFlag::DataLoss => {
                     return (TaskImportance::High, 0.9);
                 }
                 PriorityFlag::CustomerReported | PriorityFlag::BreakingChange => {

@@ -1,15 +1,16 @@
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 use thiserror::Error;
-use tracing::{debug, info, warn, error};
+use tracing::{debug, error, info, warn};
 
 use crate::{
-    MicrosoftAuthService, MicrosoftAuthError,
-    GraphClient, GraphApiError, CreateListRequest,
-    microsoft_auth_types::{MicrosoftAuthRepository, WorkspaceTodoMapping, MicrosoftAuthRepositoryError},
+    microsoft_auth_types::{
+        MicrosoftAuthRepository, MicrosoftAuthRepositoryError, WorkspaceTodoMapping,
+    },
+    CreateListRequest, GraphApiError, GraphClient, MicrosoftAuthError, MicrosoftAuthService,
     WorkspaceService,
 };
 use act_core::Workspace;
@@ -121,22 +122,33 @@ impl TodoSyncService {
     /// 2. Check database if not in cache
     /// 3. Create new list if it doesn't exist
     /// 4. Update cache with result
-    pub async fn ensure_project_list(&self, user_id: &str, workspace: &Workspace) -> Result<String, TodoSyncError> {
+    pub async fn ensure_project_list(
+        &self,
+        user_id: &str,
+        workspace: &Workspace,
+    ) -> Result<String, TodoSyncError> {
         let workspace_id = &workspace.id;
         debug!("Ensuring project list for workspace: {}", workspace_id);
 
         // 1. Check cache first
         if let Some(cached_list_id) = self.get_cached_list_id(workspace_id).await {
-            debug!("Found cached list ID {} for workspace {}", cached_list_id, workspace_id);
+            debug!(
+                "Found cached list ID {} for workspace {}",
+                cached_list_id, workspace_id
+            );
             return Ok(cached_list_id);
         }
 
         // 2. Check database
         if let Some(list_id) = self.repository.get_workspace_list_id(workspace_id).await? {
-            debug!("Found database list ID {} for workspace {}", list_id, workspace_id);
+            debug!(
+                "Found database list ID {} for workspace {}",
+                list_id, workspace_id
+            );
 
             // Update cache
-            self.cache_list_mapping(workspace_id, &list_id, &workspace.name).await;
+            self.cache_list_mapping(workspace_id, &list_id, &workspace.name)
+                .await;
 
             return Ok(list_id);
         }
@@ -145,17 +157,26 @@ impl TodoSyncService {
         info!("Creating new To Do list for workspace: {}", workspace_id);
 
         let list_name = self.generate_list_name(workspace);
-        let list_id = self.create_workspace_list(user_id, workspace_id, &list_name).await?;
+        let list_id = self
+            .create_workspace_list(user_id, workspace_id, &list_name)
+            .await?;
 
         // 4. Update cache
-        self.cache_list_mapping(workspace_id, &list_id, &list_name).await;
+        self.cache_list_mapping(workspace_id, &list_id, &list_name)
+            .await;
 
-        info!("Created and cached new list '{}' ({}) for workspace {}", list_name, list_id, workspace_id);
+        info!(
+            "Created and cached new list '{}' ({}) for workspace {}",
+            list_name, list_id, workspace_id
+        );
         Ok(list_id)
     }
 
     /// Get the Microsoft list ID for a workspace from cache or database
-    pub async fn get_workspace_list_id(&self, workspace_id: &str) -> Result<Option<String>, TodoSyncError> {
+    pub async fn get_workspace_list_id(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Option<String>, TodoSyncError> {
         // Check cache first
         if let Some(cached_list_id) = self.get_cached_list_id(workspace_id).await {
             return Ok(Some(cached_list_id));
@@ -174,35 +195,114 @@ impl TodoSyncService {
     ///
     /// This method retrieves the list from Microsoft Graph API, providing
     /// complete list metadata including display name, ownership, etc.
-    pub async fn get_workspace_list(&self, user_id: &str, workspace_id: &str) -> Result<Option<crate::TaskList>, TodoSyncError> {
-        // Get the list ID from cache/database
-        let list_id = match self.get_workspace_list_id(workspace_id).await? {
-            Some(id) => id,
-            None => return Ok(None),
-        };
+    ///
+    /// It implements intelligent matching:
+    /// 1. First checks for an explicit workspace->list mapping (cache/database)
+    /// 2. If no mapping exists, attempts to match by workspace name to list display name
+    /// 3. If a match is found, creates the mapping for future lookups
+    pub async fn get_workspace_list(
+        &self,
+        user_id: &str,
+        workspace_id: &str,
+    ) -> Result<Option<crate::TaskList>, TodoSyncError> {
+        // Get access token first (needed for all scenarios)
+        let access_token = self
+            .microsoft_auth_service
+            .get_access_token(user_id)
+            .await?;
 
-        // Get access token
-        let access_token = self.microsoft_auth_service.get_access_token(user_id).await?;
-
-        // Fetch the list from Graph API
+        // Fetch all lists from Graph API
         let lists = self.graph_client.get_task_lists(&access_token).await?;
 
-        // Find the matching list
-        let task_list = lists.into_iter()
-            .find(|list| list.id == list_id);
+        // Strategy 1: Check for explicit mapping (cache/database)
+        if let Some(list_id) = self.get_workspace_list_id(workspace_id).await? {
+            debug!(
+                "Found explicit mapping for workspace {} -> list {}",
+                workspace_id, list_id
+            );
 
-        Ok(task_list)
+            // Find the matching list by ID
+            let task_list = lists.into_iter().find(|list| list.id == list_id);
+
+            return Ok(task_list);
+        }
+
+        // Strategy 2: No explicit mapping - try name-based matching
+        debug!(
+            "No explicit mapping for workspace {}, attempting name-based matching",
+            workspace_id
+        );
+
+        // Get workspace info to compare names
+        let workspace = self
+            .workspace_service
+            .get_workspace(user_id, &workspace_id.to_string())
+            .await
+            .map_err(|e| TodoSyncError::Workspace(e.to_string()))?;
+
+        let workspace_name = self.generate_list_name(&workspace);
+
+        // Try to find a list with matching name (case-insensitive)
+        let matched_list = lists
+            .into_iter()
+            .find(|list| list.display_name.eq_ignore_ascii_case(&workspace_name));
+
+        if let Some(ref list) = matched_list {
+            info!(
+                "Found name-based match: workspace '{}' -> list '{}' ({})",
+                workspace_name, list.display_name, list.id
+            );
+
+            // Create the mapping in database for future lookups
+            debug!(
+                "Attempting to store workspace mapping: {} -> {}",
+                workspace_id, list.id
+            );
+            match self
+                .repository
+                .store_workspace_mapping(workspace_id, &list.id, &list.display_name)
+                .await
+            {
+                Ok(_) => {
+                    info!("Successfully stored workspace mapping in database");
+                }
+                Err(e) => {
+                    error!("Failed to persist workspace->list mapping: {}", e);
+                    // Don't fail the request - we still found the list
+                }
+            }
+
+            // Update cache
+            debug!("Updating cache for workspace mapping");
+            info!(
+                "Created mapping for workspace {} -> list {} ({})",
+                workspace_name, list.display_name, list.id
+            );
+            self.cache_list_mapping(workspace_id, &list.id, &list.display_name)
+                .await;
+            debug!("Cache updated successfully");
+        } else {
+            debug!("No list found matching workspace name '{}'", workspace_name);
+        }
+
+        Ok(matched_list)
     }
 
     /// Sync all workspace lists for a user
     ///
     /// This method ensures all user workspaces have corresponding To Do lists
     /// and updates the cache with current mappings.
-    pub async fn sync_all_workspace_lists(&self, user_id: &str) -> Result<Vec<WorkspaceTodoMapping>, TodoSyncError> {
+    pub async fn sync_all_workspace_lists(
+        &self,
+        user_id: &str,
+    ) -> Result<Vec<WorkspaceTodoMapping>, TodoSyncError> {
         info!("Syncing all workspace lists for user: {}", user_id);
 
         // Get all user workspaces
-        let workspaces = self.workspace_service.list_workspaces(user_id, false).await
+        let workspaces = self
+            .workspace_service
+            .list_workspaces(user_id, false)
+            .await
             .map_err(|e| TodoSyncError::Workspace(e.to_string()))?;
 
         let mut mappings = Vec::new();
@@ -214,18 +314,31 @@ impl TodoSyncService {
                         workspace_id: workspace.id.clone(),
                         microsoft_list_id: list_id,
                         list_name: self.generate_list_name(&workspace),
-                        created_at: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as i64,
-                        updated_at: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as i64,
+                        created_at: SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs() as i64,
+                        updated_at: SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs() as i64,
                     };
                     mappings.push(mapping);
                 }
                 Err(e) => {
-                    warn!("Failed to ensure list for workspace {}: {}", workspace.id, e);
+                    warn!(
+                        "Failed to ensure list for workspace {}: {}",
+                        workspace.id, e
+                    );
                 }
             }
         }
 
-        info!("Synced {} workspace lists for user: {}", mappings.len(), user_id);
+        info!(
+            "Synced {} workspace lists for user: {}",
+            mappings.len(),
+            user_id
+        );
         Ok(mappings)
     }
 
@@ -235,7 +348,10 @@ impl TodoSyncService {
     pub async fn get_sync_status(&self, user_id: &str) -> Result<TodoSyncStatus, TodoSyncError> {
         debug!("Getting sync status for user: {}", user_id);
 
-        let workspaces = self.workspace_service.list_workspaces(user_id, false).await
+        let workspaces = self
+            .workspace_service
+            .list_workspaces(user_id, false)
+            .await
             .map_err(|e| TodoSyncError::Workspace(e.to_string()))?;
 
         let mut workspace_statuses = Vec::new();
@@ -275,14 +391,20 @@ impl TodoSyncService {
         let mappings = self.repository.get_all_workspace_mappings().await?;
 
         let mut cache = self.list_cache.write().await;
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
 
         for mapping in mappings {
-            cache.insert(mapping.workspace_id.clone(), CachedListMapping {
-                microsoft_list_id: mapping.microsoft_list_id,
-                list_name: mapping.list_name,
-                cached_at: now,
-            });
+            cache.insert(
+                mapping.workspace_id.clone(),
+                CachedListMapping {
+                    microsoft_list_id: mapping.microsoft_list_id,
+                    list_name: mapping.list_name,
+                    cached_at: now,
+                },
+            );
         }
 
         info!("Refreshed cache with {} workspace mappings", cache.len());
@@ -295,7 +417,10 @@ impl TodoSyncService {
         let cache = self.list_cache.read().await;
 
         if let Some(cached) = cache.get(workspace_id) {
-            let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
 
             // Check if cache entry is still valid
             if now - cached.cached_at < self.config.cache_ttl_seconds {
@@ -310,15 +435,24 @@ impl TodoSyncService {
 
     async fn cache_list_mapping(&self, workspace_id: &str, list_id: &str, list_name: &str) {
         let mut cache = self.list_cache.write().await;
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
 
-        cache.insert(workspace_id.to_string(), CachedListMapping {
-            microsoft_list_id: list_id.to_string(),
-            list_name: list_name.to_string(),
-            cached_at: now,
-        });
+        cache.insert(
+            workspace_id.to_string(),
+            CachedListMapping {
+                microsoft_list_id: list_id.to_string(),
+                list_name: list_name.to_string(),
+                cached_at: now,
+            },
+        );
 
-        debug!("Cached list mapping for workspace {}: {}", workspace_id, list_id);
+        debug!(
+            "Cached list mapping for workspace {}: {}",
+            workspace_id, list_id
+        );
     }
 
     async fn is_workspace_cached(&self, workspace_id: &str) -> bool {
@@ -338,33 +472,46 @@ impl TodoSyncService {
         }
     }
 
-    async fn create_workspace_list(&self, user_id: &str, workspace_id: &str, list_name: &str) -> Result<String, TodoSyncError> {
+    async fn create_workspace_list(
+        &self,
+        user_id: &str,
+        workspace_id: &str,
+        list_name: &str,
+    ) -> Result<String, TodoSyncError> {
         // Get access token
-        let access_token = self.microsoft_auth_service.get_access_token(user_id).await?;
+        let access_token = self
+            .microsoft_auth_service
+            .get_access_token(user_id)
+            .await?;
 
         // Create list via Graph API
         let create_request = CreateListRequest {
             display_name: list_name.to_string(),
         };
 
-        let task_list = self.graph_client.create_task_list(&access_token, create_request).await?;
+        let task_list = self
+            .graph_client
+            .create_task_list(&access_token, create_request)
+            .await?;
 
         // Store mapping in database
-        self.repository.store_workspace_mapping(
-            workspace_id,
-            &task_list.id,
-            &task_list.display_name,
-        ).await?;
+        self.repository
+            .store_workspace_mapping(workspace_id, &task_list.id, &task_list.display_name)
+            .await?;
 
         Ok(task_list.id)
     }
 
     async fn get_cache_stats(&self) -> CacheStats {
         let cache = self.list_cache.read().await;
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
 
         let total_entries = cache.len();
-        let valid_entries = cache.values()
+        let valid_entries = cache
+            .values()
             .filter(|cached| now - cached.cached_at < self.config.cache_ttl_seconds)
             .count();
 
@@ -413,24 +560,44 @@ pub struct CacheStats {
 /// Trait for dependency injection and testing
 #[async_trait]
 pub trait TodoSync: Send + Sync {
-    async fn ensure_project_list(&self, user_id: &str, workspace: &Workspace) -> Result<String, TodoSyncError>;
-    async fn get_workspace_list_id(&self, workspace_id: &str) -> Result<Option<String>, TodoSyncError>;
-    async fn sync_all_workspace_lists(&self, user_id: &str) -> Result<Vec<WorkspaceTodoMapping>, TodoSyncError>;
+    async fn ensure_project_list(
+        &self,
+        user_id: &str,
+        workspace: &Workspace,
+    ) -> Result<String, TodoSyncError>;
+    async fn get_workspace_list_id(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Option<String>, TodoSyncError>;
+    async fn sync_all_workspace_lists(
+        &self,
+        user_id: &str,
+    ) -> Result<Vec<WorkspaceTodoMapping>, TodoSyncError>;
     async fn get_sync_status(&self, user_id: &str) -> Result<TodoSyncStatus, TodoSyncError>;
     async fn refresh_cache(&self) -> Result<(), TodoSyncError>;
 }
 
 #[async_trait]
 impl TodoSync for TodoSyncService {
-    async fn ensure_project_list(&self, user_id: &str, workspace: &Workspace) -> Result<String, TodoSyncError> {
+    async fn ensure_project_list(
+        &self,
+        user_id: &str,
+        workspace: &Workspace,
+    ) -> Result<String, TodoSyncError> {
         self.ensure_project_list(user_id, workspace).await
     }
 
-    async fn get_workspace_list_id(&self, workspace_id: &str) -> Result<Option<String>, TodoSyncError> {
+    async fn get_workspace_list_id(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Option<String>, TodoSyncError> {
         self.get_workspace_list_id(workspace_id).await
     }
 
-    async fn sync_all_workspace_lists(&self, user_id: &str) -> Result<Vec<WorkspaceTodoMapping>, TodoSyncError> {
+    async fn sync_all_workspace_lists(
+        &self,
+        user_id: &str,
+    ) -> Result<Vec<WorkspaceTodoMapping>, TodoSyncError> {
         self.sync_all_workspace_lists(user_id).await
     }
 

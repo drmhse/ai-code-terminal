@@ -1,5 +1,5 @@
-use async_trait::async_trait;
 use crate::error::Result;
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -22,8 +22,8 @@ pub struct AuthToken {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct JwtClaims {
     pub sub: String,
-    pub github_username: String,  // GitHub username  
-    pub username: String,  // GitHub username (for compatibility)
+    pub github_username: String, // GitHub username
+    pub username: String,        // GitHub username (for compatibility)
     pub exp: usize,
     pub iat: usize,
 }
@@ -68,9 +68,27 @@ pub trait JwtService: Send + Sync {
 #[async_trait]
 pub trait AuthRepository: Send + Sync {
     async fn find_user_by_github_id(&self, github_id: &str) -> Result<Option<AuthenticatedUser>>;
-    async fn create_user(&self, github_id: &str, username: &str, email: Option<String>, avatar_url: Option<String>) -> Result<AuthenticatedUser>;
-    async fn update_user(&self, user_id: &str, username: &str, email: Option<String>, avatar_url: Option<String>) -> Result<AuthenticatedUser>;
-    async fn store_github_token(&self, user_id: &str, token: &str, refresh_token: Option<String>, expires_at: DateTime<Utc>) -> Result<()>;
+    async fn create_user(
+        &self,
+        github_id: &str,
+        username: &str,
+        email: Option<String>,
+        avatar_url: Option<String>,
+    ) -> Result<AuthenticatedUser>;
+    async fn update_user(
+        &self,
+        user_id: &str,
+        username: &str,
+        email: Option<String>,
+        avatar_url: Option<String>,
+    ) -> Result<AuthenticatedUser>;
+    async fn store_github_token(
+        &self,
+        user_id: &str,
+        token: &str,
+        refresh_token: Option<String>,
+        expires_at: DateTime<Utc>,
+    ) -> Result<()>;
     async fn get_github_token(&self, user_id: &str) -> Result<Option<String>>;
     async fn get_github_refresh_token(&self, user_id: &str) -> Result<Option<String>>;
     async fn is_github_token_expired(&self, user_id: &str) -> Result<bool>;
@@ -136,6 +154,15 @@ pub struct RepositoryListOptions {
 
 #[async_trait]
 pub trait GitHubRepositoryService: Send + Sync {
-    async fn list_repositories(&self, access_token: &str, options: RepositoryListOptions) -> Result<Vec<GitHubRepository>>;
-    async fn get_repository(&self, access_token: &str, owner: &str, repo: &str) -> Result<GitHubRepository>;
+    async fn list_repositories(
+        &self,
+        access_token: &str,
+        options: RepositoryListOptions,
+    ) -> Result<Vec<GitHubRepository>>;
+    async fn get_repository(
+        &self,
+        access_token: &str,
+        owner: &str,
+        repo: &str,
+    ) -> Result<GitHubRepository>;
 }

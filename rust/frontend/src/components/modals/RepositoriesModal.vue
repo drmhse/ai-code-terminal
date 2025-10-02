@@ -2,18 +2,25 @@
   <BaseModal
     :show="true"
     title="Create Workspace"
-    @close="closeModal"
+    size="large"
+    @close="handleClose"
   >
-    <!-- Tab Selection -->
     <template #header>
-      <TabSelector
-        v-model="activeTab"
-        :tabs="workspaceTabs"
-      />
+      <div class="workspace-tabs">
+        <button
+          v-for="tab in tabs"
+          :key="tab.value"
+          @click="activeTab = tab.value"
+          :class="['tab', { active: activeTab === tab.value }]"
+        >
+          <component :is="tab.icon" />
+          <span>{{ tab.label }}</span>
+        </button>
+      </div>
     </template>
 
-    <!-- Search Input (Clone Tab Only) -->
-    <div v-if="activeTab === 'clone'" class="search-section">
+    <!-- Search (Clone tab only) -->
+    <div v-if="activeTab === 'clone'" class="search-container">
       <SearchInput
         v-model="searchTerm"
         placeholder="Search repositories..."
@@ -23,17 +30,26 @@
     </div>
 
     <!-- Tab Content -->
-    <div class="tab-content">
-      <!-- Empty Workspace Tab -->
+    <div class="modal-body">
+      <!-- Empty Workspace -->
       <EmptyWorkspaceForm
         v-if="activeTab === 'empty'"
         ref="emptyFormRef"
-        :loading="creatingEmptyWorkspace"
-        :error="emptyWorkspaceError"
-        @submit="handleEmptyWorkspaceSubmit"
+        :loading="emptyLoading"
+        :error="emptyError"
+        @submit="handleEmptySubmit"
       />
 
-      <!-- Clone Repository Tab -->
+      <!-- Open Folder -->
+      <OpenFolderForm
+        v-else-if="activeTab === 'open'"
+        ref="openFormRef"
+        :loading="openLoading"
+        :error="openError"
+        @submit="handleOpenSubmit"
+      />
+
+      <!-- Clone Repository -->
       <RepositoryList
         v-else-if="activeTab === 'clone'"
         :repositories="repositories"
@@ -51,24 +67,20 @@
 
     <!-- Clone Progress -->
     <CloneProgress
+      v-if="cloneProgress"
       :progress="cloneProgressData"
       :allow-cancel="true"
       @cancel="handleCancelClone"
     />
 
-    <!-- Clone Error -->
-    <div v-if="cloneError" class="clone-error">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10"></circle>
-        <line x1="12" y1="8" x2="12" y2="12"></line>
-        <line x1="12" y1="16" x2="12.01" y2="16"></line>
-      </svg>
+    <!-- Error Display -->
+    <div v-if="cloneError" class="error-banner">
+      <ExclamationCircleIcon />
       <span>{{ cloneError }}</span>
     </div>
 
-    <!-- Footer Actions -->
     <template #footer>
-      <button @click="closeModal" class="btn btn-secondary">
+      <button @click="handleClose" class="btn-secondary">
         Cancel
       </button>
 
@@ -76,11 +88,22 @@
         v-if="activeTab === 'empty'"
         type="submit"
         form="empty-workspace-form"
-        class="btn btn-primary"
-        :disabled="!canCreateWorkspace"
+        class="btn-primary"
+        :disabled="!canSubmitEmpty"
       >
-        <LoadingSpinner v-if="creatingEmptyWorkspace" size="small" />
+        <LoadingSpinner v-if="emptyLoading" size="small" />
         <span v-else>Create Workspace</span>
+      </button>
+
+      <button
+        v-if="activeTab === 'open'"
+        type="submit"
+        form="open-folder-form"
+        class="btn-primary"
+        :disabled="!canSubmitOpen"
+      >
+        <LoadingSpinner v-if="openLoading" size="small" />
+        <span v-else>Open Folder</span>
       </button>
     </template>
   </BaseModal>
@@ -92,19 +115,24 @@ import { storeToRefs } from 'pinia'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUIStore } from '@/stores/ui'
 import type { Repository } from '@/stores/workspace'
+import {
+  FolderPlusIcon,
+  FolderOpenIcon,
+  ArrowDownTrayIcon,
+  ExclamationCircleIcon
+} from '@heroicons/vue/24/outline'
 
-// Component imports
 import BaseModal from '@/components/ui/BaseModal.vue'
-import TabSelector, { type Tab } from '@/components/ui/TabSelector.vue'
 import SearchInput from '@/components/ui/SearchInput.vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 import EmptyWorkspaceForm, { type EmptyWorkspaceFormData } from '@/components/forms/EmptyWorkspaceForm.vue'
+import OpenFolderForm, { type OpenFolderFormData } from '@/components/forms/OpenFolderForm.vue'
 import RepositoryList from '@/components/repository/RepositoryList.vue'
 import CloneProgress, { type CloneProgressData } from '@/components/repository/CloneProgress.vue'
 
-// Store integration
 const workspaceStore = useWorkspaceStore()
 const uiStore = useUIStore()
+
 const {
   repositories,
   repositoriesLoading,
@@ -116,37 +144,29 @@ const {
   cloneError
 } = storeToRefs(workspaceStore)
 
-// Local state
-const activeTab = ref<'empty' | 'clone'>('empty')
+// State
+const activeTab = ref<'empty' | 'open' | 'clone'>('empty')
 const searchTerm = ref('')
-const creatingEmptyWorkspace = ref(false)
-const emptyWorkspaceError = ref<string | null>(null)
+const emptyLoading = ref(false)
+const emptyError = ref<string | null>(null)
 const emptyFormRef = ref<InstanceType<typeof EmptyWorkspaceForm>>()
+const openLoading = ref(false)
+const openError = ref<string | null>(null)
+const openFormRef = ref<InstanceType<typeof OpenFolderForm>>()
 
-// Tab configuration
-const workspaceTabs = computed<Tab[]>(() => [
-  {
-    value: 'empty',
-    label: 'Empty Workspace',
-    iconSvg: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>'
-  },
-  {
-    value: 'clone',
-    label: 'Clone Repository',
-    iconSvg: '<path d="M15 14c-2.5-1-3.7-3-3.7-3-.8 1.5-3.3 3-3.3 3h7zm-7.5 2c0 1.4 1.1 2.5 2.5 2.5s2.5-1.1 2.5-2.5h-5zm10 0c0 1.4 1.1 2.5 2.5 2.5s2.5-1.1 2.5-2.5h-5z"></path>'
-  }
+// Tabs
+const tabs = computed(() => [
+  { value: 'empty', label: 'Empty Workspace', icon: FolderPlusIcon },
+  { value: 'open', label: 'Open Folder', icon: FolderOpenIcon },
+  { value: 'clone', label: 'Clone Repository', icon: ArrowDownTrayIcon }
 ])
 
-// Computed properties
-const canCreateWorkspace = computed(() => {
-  return !creatingEmptyWorkspace.value && emptyFormRef.value?.isValid
-})
+// Computed
+const canSubmitEmpty = computed(() => !emptyLoading.value && emptyFormRef.value?.isValid)
+const canSubmitOpen = computed(() => !openLoading.value && openFormRef.value?.isValid)
 
 const cloneProgressData = computed<CloneProgressData | null>(() => {
-  if (!cloneProgress.value?.repository) {
-    return null
-  }
-
+  if (!cloneProgress.value?.repository) return null
   return {
     repository: cloneProgress.value.repository,
     progress: cloneProgress.value.progress || 0,
@@ -157,8 +177,8 @@ const cloneProgressData = computed<CloneProgressData | null>(() => {
   }
 })
 
-// Event handlers
-const closeModal = () => {
+// Handlers
+const handleClose = () => {
   uiStore.closeRepositoriesModal()
 }
 
@@ -191,10 +211,9 @@ const handleRetryLoad = async () => {
   await workspaceStore.loadRepositories(1, false)
 }
 
-
-const handleEmptyWorkspaceSubmit = async (data: EmptyWorkspaceFormData) => {
-  creatingEmptyWorkspace.value = true
-  emptyWorkspaceError.value = null
+const handleEmptySubmit = async (data: EmptyWorkspaceFormData) => {
+  emptyLoading.value = true
+  emptyError.value = null
 
   try {
     await workspaceStore.createEmptyWorkspace({
@@ -202,39 +221,93 @@ const handleEmptyWorkspaceSubmit = async (data: EmptyWorkspaceFormData) => {
       description: data.description || undefined,
       path: data.path || undefined
     })
-
-    // Reset form and close modal on success
     emptyFormRef.value?.resetForm()
-    closeModal()
+    handleClose()
   } catch (err) {
-    emptyWorkspaceError.value = err instanceof Error ? err.message : 'Failed to create workspace'
-    console.error('Failed to create empty workspace:', err)
+    emptyError.value = err instanceof Error ? err.message : 'Failed to create workspace'
   } finally {
-    creatingEmptyWorkspace.value = false
+    emptyLoading.value = false
+  }
+}
+
+const handleOpenSubmit = async (data: OpenFolderFormData) => {
+  openLoading.value = true
+  openError.value = null
+
+  try {
+    await workspaceStore.openFolder({
+      name: data.name,
+      path: data.path
+    })
+    openFormRef.value?.resetForm()
+    handleClose()
+  } catch (err) {
+    openError.value = err instanceof Error ? err.message : 'Failed to open folder'
+  } finally {
+    openLoading.value = false
   }
 }
 
 const handleCancelClone = () => {
-  // Implement clone cancellation if supported by the store
   console.log('Clone cancellation requested')
 }
 
-// Lifecycle
 onMounted(async () => {
-  // Setup initial data loading if needed
   nextTick(() => {
-    // Any initialization that needs to happen after component mount
+    // Any initialization
   })
 })
 </script>
 
 <style scoped>
-.search-section {
-  padding: 0 var(--space-3xl, 32px) var(--space-2xl, 24px);
-  border-bottom: 1px solid var(--border-color);
+/* Tabs */
+.workspace-tabs {
+  display: flex;
+  gap: var(--space-2);
+  padding: 0 var(--space-6);
+  margin-bottom: var(--space-4);
 }
 
-.tab-content {
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-base);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  white-space: nowrap;
+}
+
+.tab svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.tab:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+.tab.active {
+  background: var(--color-interactive-primary);
+  color: white;
+}
+
+/* Search */
+.search-container {
+  padding: 0 var(--space-6) var(--space-4);
+  border-bottom: 1px solid var(--color-border-primary);
+}
+
+/* Body */
+.modal-body {
   flex: 1;
   overflow: hidden;
   display: flex;
@@ -242,88 +315,82 @@ onMounted(async () => {
   min-height: 0;
 }
 
-.clone-error {
+/* Error Banner */
+.error-banner {
   display: flex;
   align-items: center;
-  gap: var(--space-md, 12px);
-  padding: var(--space-lg, 16px) var(--space-3xl, 32px);
-  background: var(--error);
-  color: white;
-  font-size: var(--font-size-base, 14px);
-  font-weight: var(--font-weight-medium, 500);
-  border-top: 1px solid var(--border-color);
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  background: var(--color-semantic-error-bg);
+  border: 1px solid var(--color-semantic-error-border);
+  border-radius: var(--radius-base);
+  color: var(--color-semantic-error);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  margin: 0 var(--space-6) var(--space-4);
 }
 
-.btn {
-  padding: var(--space-md, 12px) var(--space-xl, 20px);
-  border-radius: var(--radius-lg, 12px);
-  font-size: var(--font-size-base, 14px);
-  font-weight: var(--font-weight-medium, 500);
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: all 0.2s ease;
-  display: flex;
+.error-banner svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+/* Buttons */
+.btn-secondary,
+.btn-primary {
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-sm, 8px);
-  min-height: 44px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-base);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  border: 1px solid transparent;
+  min-height: 40px;
 }
 
 .btn-secondary {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border-color: var(--border-color);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-primary);
 }
 
 .btn-secondary:hover {
-  background: var(--bg-primary);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background: var(--color-bg-quaternary);
+  border-color: var(--color-border-hover);
 }
 
 .btn-primary {
-  background: var(--primary);
+  background: var(--color-interactive-primary);
   color: white;
-  border-color: var(--primary);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--primary-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: var(--color-interactive-primary-hover);
 }
 
 .btn-primary:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
-  transform: none;
 }
 
-/* Responsive Design */
+/* Responsive */
 @media (max-width: 768px) {
-  .search-section {
-    padding: 0 var(--space-2xl, 24px) var(--space-xl, 20px);
+  .workspace-tabs {
+    padding: 0 var(--space-4);
+    flex-wrap: wrap;
   }
-}
 
-@media (max-width: 480px) {
-  .search-section {
-    padding: 0 var(--space-lg, 16px) var(--space-lg, 16px);
+  .search-container {
+    padding: 0 var(--space-4) var(--space-3);
   }
-}
 
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-  .btn {
-    border-width: 2px;
-  }
-}
-
-/* Reduced motion support */
-@media (prefers-reduced-motion: reduce) {
-  .btn {
-    transition: none !important;
+  .error-banner {
+    margin: 0 var(--space-4) var(--space-3);
   }
 }
 </style>

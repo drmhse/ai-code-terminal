@@ -16,6 +16,20 @@ interface DirectoryListing {
   hidden_items: number
 }
 
+// System browse types
+interface DirectoryEntry {
+  name: string
+  path: string
+  is_directory: boolean
+  is_hidden: boolean
+}
+
+interface BrowseDirectoryResponse {
+  current_path: string
+  parent_path: string | null
+  entries: DirectoryEntry[]
+}
+
 // Layout types
 interface CreateLayoutRequest {
   name: string
@@ -504,6 +518,17 @@ details?: Record<string, unknown>
     return response.data.data
   }
 
+  async openFolder(options: {
+    name: string
+    path: string
+  }): Promise<Workspace> {
+    const response: AxiosResponse<ApiResponse<Workspace>> = await this.client.post('/api/v1/workspaces/open', {
+      name: options.name,
+      path: options.path,
+    })
+    return response.data.data
+  }
+
   async deleteWorkspace(id: string): Promise<void> {
     await this.client.delete(`/api/v1/workspaces/${id}`)
   }
@@ -843,6 +868,12 @@ details?: Record<string, unknown>
   // System stats endpoints
   async getSystemStats(): Promise<AppStats> {
     const response: AxiosResponse<ApiResponse<AppStats>> = await this.client.get('/api/v1/system/stats')
+    return response.data.data
+  }
+
+  async browseDirectory(path?: string): Promise<BrowseDirectoryResponse> {
+    const params = path ? { path } : undefined
+    const response: AxiosResponse<ApiResponse<BrowseDirectoryResponse>> = await this.client.get('/api/v1/system/browse', { params })
     return response.data.data
   }
 

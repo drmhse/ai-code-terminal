@@ -624,7 +624,8 @@ export const useTodoStore = defineStore('todo', () => {
           return
         }
 
-        const startedHandler = (event: any) => {
+        // Set up one-time listeners using the socket service observables
+        const startedSubscription = socketService.taskExecutionStarted$.subscribe((event: any) => {
           logger.log('Task execution started:', event)
 
           const execution: TaskExecution = {
@@ -638,27 +639,34 @@ export const useTodoStore = defineStore('todo', () => {
           activeExecutions.value.set(event.executionId, execution)
           resolve(event.executionId)
 
-          socket.off('task:execution:started', startedHandler)
-          socket.off('task:execution:error', errorHandler)
-        }
+          // Clean up subscriptions
+          startedSubscription.unsubscribe()
+          errorSubscription.unsubscribe()
+        })
 
-        const errorHandler = (event: any) => {
+        const errorSubscription = socketService.taskExecutionError$.subscribe((event: any) => {
           logger.error('Task execution error:', event)
           reject(new Error(event.error))
 
-          socket.off('task:execution:started', startedHandler)
-          socket.off('task:execution:error', errorHandler)
-        }
+          // Clean up subscriptions
+          startedSubscription.unsubscribe()
+          errorSubscription.unsubscribe()
+        })
 
-        socket.once('task:execution:started', startedHandler)
-        socket.once('task:execution:error', errorHandler)
-
+        // Emit the start event
         socket.emit('task:execution:start', {
           taskId,
           workspaceId,
           permissionMode,
           timeoutSeconds,
         })
+
+        // Set a timeout to reject if no response
+        setTimeout(() => {
+          startedSubscription.unsubscribe()
+          errorSubscription.unsubscribe()
+          reject(new Error('Task execution start timeout'))
+        }, 10000) // 10 second timeout
       })
     } catch (error) {
       logger.error('Failed to start task execution:', error)
@@ -678,7 +686,8 @@ export const useTodoStore = defineStore('todo', () => {
           return
         }
 
-        const cancelledHandler = () => {
+        // Set up one-time listener using the socket service observable
+        const cancelledSubscription = socketService.taskExecutionCancelled$.subscribe(() => {
           logger.log('Task execution cancelled')
 
           const execution = activeExecutions.value.get(executionId)
@@ -691,22 +700,29 @@ export const useTodoStore = defineStore('todo', () => {
 
           resolve()
 
-          socket.off('task:execution:cancelled', cancelledHandler)
-          socket.off('task:execution:error', errorHandler)
-        }
+          // Clean up subscriptions
+          cancelledSubscription.unsubscribe()
+          errorSubscription.unsubscribe()
+        })
 
-        const errorHandler = (event: any) => {
+        const errorSubscription = socketService.taskExecutionError$.subscribe((event: any) => {
           logger.error('Cancel execution error:', event)
           reject(new Error(event.error))
 
-          socket.off('task:execution:cancelled', cancelledHandler)
-          socket.off('task:execution:error', errorHandler)
-        }
+          // Clean up subscriptions
+          cancelledSubscription.unsubscribe()
+          errorSubscription.unsubscribe()
+        })
 
-        socket.once('task:execution:cancelled', cancelledHandler)
-        socket.once('task:execution:error', errorHandler)
-
+        // Emit the cancel event
         socket.emit('task:execution:cancel', { executionId })
+
+        // Set a timeout to reject if no response
+        setTimeout(() => {
+          cancelledSubscription.unsubscribe()
+          errorSubscription.unsubscribe()
+          reject(new Error('Task execution cancel timeout'))
+        }, 10000) // 10 second timeout
       })
     } catch (error) {
       logger.error('Failed to cancel task execution:', error)
@@ -736,17 +752,15 @@ export const useTodoStore = defineStore('todo', () => {
   }
 
   const setupExecutionListeners = () => {
-    const socket = socketService.getSocket()
-    if (!socket) return
-
-    socket.on('task:execution:output', (event: any) => {
+    // Subscribe to task execution events from socket service
+    socketService.taskExecutionOutput$.subscribe((event: any) => {
       const execution = activeExecutions.value.get(event.executionId)
       if (execution) {
         execution.output.push(event.output)
       }
     })
 
-    socket.on('task:execution:status', (event: any) => {
+    socketService.taskExecutionStatus$.subscribe((event: any) => {
       const execution = activeExecutions.value.get(event.executionId)
       if (execution) {
         execution.status = event.status
@@ -764,6 +778,10 @@ export const useTodoStore = defineStore('todo', () => {
           }
         }
       }
+    })
+
+    socketService.taskExecutionError$.subscribe((event: any) => {
+      logger.error('Task execution error:', event)
     })
   }
 

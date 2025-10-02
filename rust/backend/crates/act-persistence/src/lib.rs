@@ -1,33 +1,33 @@
 //! Persistence layer for ACT domain objects
-//! 
+//!
 //! This crate provides SQLx-based implementations of the repository traits
 //! defined in act-core, enabling persistent storage of workspaces and sessions.
 
-pub mod workspace_repository;
 pub mod auth_repository;
-pub mod layout_repository;
-pub mod process_repository;
-pub mod metrics_repository;
 pub mod error;
+pub mod layout_repository;
+pub mod metrics_repository;
+pub mod microsoft_auth_repository;
+pub mod process_repository;
 pub mod theme_repository;
 pub mod user_preferences_repository;
-pub mod microsoft_auth_repository;
+pub mod workspace_repository;
 
-pub use workspace_repository::SqlWorkspaceRepository;
 pub use auth_repository::SqlAuthRepository;
+pub use error::PersistenceError;
 pub use layout_repository::SqlLayoutRepository;
-pub use process_repository::SqlProcessRepository;
 pub use metrics_repository::SqlxMetricsRepository;
+pub use microsoft_auth_repository::SqlMicrosoftAuthRepository;
+pub use process_repository::SqlProcessRepository;
 pub use theme_repository::SqlThemeRepository;
 pub use user_preferences_repository::SqlUserPreferencesRepository;
-pub use microsoft_auth_repository::SqlMicrosoftAuthRepository;
-pub use error::PersistenceError;
+pub use workspace_repository::SqlWorkspaceRepository;
 
-use act_core::repository::{WorkspaceRepository, LayoutRepository, ProcessRepository};
 use act_core::auth::AuthRepository;
-use act_domain::MicrosoftAuthRepository;
+use act_core::repository::{LayoutRepository, ProcessRepository, WorkspaceRepository};
 use act_core::theme::ThemeRepository;
 use act_core::user_preferences::UserPreferencesRepository;
+use act_domain::MicrosoftAuthRepository;
 use sqlx::SqlitePool;
 
 /// Factory function to create all repositories with a shared database pool
@@ -59,7 +59,6 @@ impl Repositories {
     pub fn workspace_repo(&self) -> Arc<dyn WorkspaceRepository> {
         Arc::new(self.workspace.clone())
     }
-
 
     /// Get auth repository as trait object
     pub fn auth_repo(&self) -> Arc<dyn AuthRepository> {

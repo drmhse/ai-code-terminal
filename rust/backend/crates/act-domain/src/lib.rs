@@ -1,93 +1,94 @@
-pub mod workspace_service;
-pub mod session_service;
-pub mod system_service;
-pub mod git_service;
+#![warn(clippy::clone_on_copy)]
+
 pub mod auth_service;
+pub mod encryption_service;
+pub mod git_service;
 pub mod github_service;
 pub mod layout_service;
-pub mod process_service;
-pub mod process_recovery_service;
-pub mod theme_service;
-pub mod user_preferences_service;
-pub mod encryption_service;
-pub mod microsoft_graph_client;
 pub mod microsoft_auth_service;
 pub mod microsoft_auth_types;
-pub mod todo_sync_service;
-pub mod task_context_parser;
+pub mod microsoft_graph_client;
+pub mod process_recovery_service;
+pub mod process_service;
+pub mod session_service;
+pub mod system_service;
 pub mod task_attachment_service;
+pub mod task_context_parser;
+pub mod task_execution_service;
 pub mod task_priority_service;
 pub mod task_sync_service;
-pub mod task_execution_service;
+pub mod theme_service;
+pub mod todo_sync_service;
+pub mod user_preferences_service;
+pub mod workspace_service;
 
 pub use workspace_service::{
-    WorkspaceService, GitService, WorkspaceSettings, GitStatus, GitCommit, CloneRequest
+    CloneRequest, GitCommit, GitService, GitStatus, WorkspaceService, WorkspaceSettings,
 };
 
 pub use session_service::{
-    SessionService, RollingBuffer, UserLiveState, TerminalOutputEvent, OutputEventHandler, UserId, ConnectionId
+    ConnectionId, OutputEventHandler, RollingBuffer, SessionService, TerminalOutputEvent, UserId,
+    UserLiveState,
 };
 
 pub use system_service::{
-    SystemService, MetricsRepository, SystemMonitor, MetricEvent, MetricsSummary, 
-    PerformanceMetrics, TimePeriod, UserActivity, SystemHealth, HealthStatus, DailyReport
+    BrowseDirectoryResponse, DailyReport, DirectoryEntry, HealthStatus, MetricEvent,
+    MetricsRepository, MetricsSummary, PerformanceMetrics, SystemHealth, SystemMonitor,
+    SystemService, TimePeriod, UserActivity,
 };
 
-pub use git_service::{LocalGitService};
+pub use git_service::LocalGitService;
 
-pub use auth_service::{AuthService, AuthResult, AuthStatus};
+pub use auth_service::{AuthResult, AuthService, AuthStatus};
 
 pub use github_service::{GitHubService, RepositoryQuery};
 
-pub use layout_service::{LayoutService};
-pub use process_service::{ProcessService};
-pub use process_recovery_service::{ProcessRecoveryService, ProcessRecoveryConfig};
-pub use theme_service::{ThemeService};
-pub use user_preferences_service::{UserPreferencesService};
-pub use encryption_service::{EncryptionService, TokenEncryption, EncryptionError};
-pub use microsoft_graph_client::{
-    MicrosoftGraphClient, GraphClient, GraphApiError, TaskList, Task, TaskBody,
-    TaskStatus, TaskImportance, TaskDateTime, ChecklistItem, CreateTaskRequest,
-    CreateListRequest, CreateChecklistItemRequest
-};
+pub use encryption_service::{EncryptionError, EncryptionService, TokenEncryption};
+pub use layout_service::LayoutService;
 pub use microsoft_auth_service::{
-    MicrosoftAuthService, MicrosoftAuthError, MicrosoftOAuthConfig, AuthorizationUrl, MicrosoftTokenResponse, MicrosoftHealthStatus
+    AuthorizationUrl, MicrosoftAuthError, MicrosoftAuthService, MicrosoftHealthStatus,
+    MicrosoftOAuthConfig, MicrosoftTokenResponse,
 };
 pub use microsoft_auth_types::{
-    MicrosoftAuthRepository, MicrosoftAuthData, WorkspaceTodoMapping, MicrosoftAuthRepositoryError
+    MicrosoftAuthData, MicrosoftAuthRepository, MicrosoftAuthRepositoryError, WorkspaceTodoMapping,
 };
-pub use todo_sync_service::{
-    TodoSyncService, TodoSyncError, TodoSyncConfig, TodoSync, TodoSyncStatus, WorkspaceSyncStatus, CacheStats
+pub use microsoft_graph_client::{
+    ChecklistItem, CreateChecklistItemRequest, CreateListRequest, CreateTaskRequest, GraphApiError,
+    GraphClient, MicrosoftGraphClient, Task, TaskBody, TaskDateTime, TaskImportance, TaskList,
+    TaskStatus,
 };
-pub use task_context_parser::{
-    TaskContextParser, TaskContext, ParsedTaskNote, TaskContextError
-};
+pub use process_recovery_service::{ProcessRecoveryConfig, ProcessRecoveryService};
+pub use process_service::ProcessService;
 pub use task_attachment_service::{
-    TaskAttachmentService, TaskAttachment, AttachmentUpload, AttachmentStrategy, AttachmentDecision
+    AttachmentDecision, AttachmentStrategy, AttachmentUpload, TaskAttachment, TaskAttachmentService,
 };
-pub use task_priority_service::{
-    TaskPriorityService, PriorityAnalysis, PriorityFlag
-};
-pub use task_sync_service::{
-    TaskSyncService, TaskSync, TaskSyncError, TaskSyncConfig, TaskSyncResult, SyncAction
-};
+pub use task_context_parser::{ParsedTaskNote, TaskContext, TaskContextError, TaskContextParser};
 pub use task_execution_service::{
-    TaskExecutionService, TaskExecutionRequest, TaskExecution, TaskExecutionStatus,
-    TaskExecutionResult, ExecutionPermissionMode, TaskExecutionError, OutputBroadcaster,
-    TaskExecutionId
+    ExecutionPermissionMode, OutputBroadcaster, TaskExecution, TaskExecutionError, TaskExecutionId,
+    TaskExecutionRequest, TaskExecutionResult, TaskExecutionService, TaskExecutionStatus,
 };
+pub use task_priority_service::{PriorityAnalysis, PriorityFlag, TaskPriorityService};
+pub use task_sync_service::{
+    SyncAction, TaskSync, TaskSyncConfig, TaskSyncError, TaskSyncResult, TaskSyncService,
+};
+pub use theme_service::ThemeService;
+pub use todo_sync_service::{
+    CacheStats, TodoSync, TodoSyncConfig, TodoSyncError, TodoSyncService, TodoSyncStatus,
+    WorkspaceSyncStatus,
+};
+pub use user_preferences_service::UserPreferencesService;
 
 use std::sync::Arc;
 
 use act_core::{
-    repository::{WorkspaceRepository, LayoutRepository, ProcessRepository, ProcessRunner},
-    theme::ThemeRepository,
-    user_preferences::UserPreferencesRepository,
+    events::EventPublisher,
     filesystem::FileSystem,
     pty::PtyService,
-    events::EventPublisher,
+    repository::{LayoutRepository, ProcessRepository, ProcessRunner, WorkspaceRepository},
     security::{ProcessSecurityValidator, SecurityAuditLogger},
-    GitHubAuthService, JwtService, AuthRepository, GitHubRepositoryService,
+    theme::ThemeRepository,
+    user_preferences::UserPreferencesRepository,
+    AuthRepository, GitHubAuthService, GitHubRepositoryService, JwtService,
 };
 
 pub struct DomainServices {
@@ -137,7 +138,7 @@ impl DomainServices {
         microsoft_oauth_config: MicrosoftOAuthConfig,
     ) -> Self {
         let workspace_service = WorkspaceService::new(
-            workspace_repository,
+            workspace_repository.clone(),
             filesystem,
             git_service,
             workspace_root,
@@ -145,25 +146,14 @@ impl DomainServices {
 
         let session_service = SessionService::new(pty_service);
 
-        let system_service = SystemService::new(
-            metrics_repository,
-            system_monitor,
-        );
+        let system_service = SystemService::new(metrics_repository, system_monitor);
 
-        let auth_service = AuthService::new(
-            github_auth_service,
-            jwt_service,
-            auth_repository.clone(),
-        );
+        let auth_service =
+            AuthService::new(github_auth_service, jwt_service, auth_repository.clone());
 
-        let github_service = GitHubService::new(
-            github_repository_service,
-            auth_repository,
-        );
+        let github_service = GitHubService::new(github_repository_service, auth_repository);
 
-        let layout_service = LayoutService::new(
-            layout_repository,
-        );
+        let layout_service = LayoutService::new(layout_repository);
 
         let process_service = ProcessService::new(
             process_repository.clone(),
@@ -181,13 +171,9 @@ impl DomainServices {
             process_recovery_config,
         );
 
-        let theme_service = ThemeService::new(
-            theme_repository,
-        );
+        let theme_service = ThemeService::new(theme_repository);
 
-        let user_preferences_service = UserPreferencesService::new(
-            user_preferences_repository,
-        );
+        let user_preferences_service = UserPreferencesService::new(user_preferences_repository);
 
         let microsoft_auth_service = MicrosoftAuthService::new(
             microsoft_auth_repository.clone(),

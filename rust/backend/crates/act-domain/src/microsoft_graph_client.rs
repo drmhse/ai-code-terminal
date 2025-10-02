@@ -2,7 +2,7 @@ use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 use thiserror::Error;
-use tracing::{debug, warn, error, info};
+use tracing::{debug, error, info, warn};
 use url::Url;
 
 #[derive(Debug, Error)]
@@ -62,7 +62,7 @@ pub struct Task {
     pub last_modified_date_time: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskBody {
     pub content: String,
     #[serde(rename = "contentType")]
@@ -87,7 +87,7 @@ pub enum TaskImportance {
     High,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskDateTime {
     #[serde(rename = "dateTime")]
     pub date_time: String,
@@ -165,13 +165,21 @@ impl MicrosoftGraphClient {
 
         let url = self.base_url.join("me/todo/lists")?;
         debug!("Request URL: {}", url);
-        debug!("Access token (first 20 chars): {}", &access_token[..access_token.len().min(20)]);
+        debug!(
+            "Access token (first 20 chars): {}",
+            &access_token[..access_token.len().min(20)]
+        );
 
         match self.make_authenticated_request(access_token, &url).await {
             Ok(response) => {
                 let status = response.status();
                 let response_text = response.text().await?;
-                debug!("Graph API response status: {}, body length: {}, body: {}", status, response_text.len(), response_text);
+                debug!(
+                    "Graph API response status: {}, body length: {}, body: {}",
+                    status,
+                    response_text.len(),
+                    response_text
+                );
 
                 // Check if the response is successful but empty
                 if response_text.is_empty() {
@@ -181,7 +189,10 @@ impl MicrosoftGraphClient {
 
                 let api_response: GraphApiResponse<TaskList> = serde_json::from_str(&response_text)
                     .map_err(|e| {
-                        error!("Failed to parse task lists response: {}. Response body: {}", e, response_text);
+                        error!(
+                            "Failed to parse task lists response: {}. Response body: {}",
+                            e, response_text
+                        );
                         GraphApiError::JsonError(e)
                     })?;
 
@@ -189,8 +200,10 @@ impl MicrosoftGraphClient {
 
                 // Log each task list for debugging
                 for (i, list) in api_response.value.iter().enumerate() {
-                    debug!("Task list {}: id='{}', name='{}', is_owner={}, wellknown='{:?}'",
-                           i, list.id, list.display_name, list.is_owner, list.wellknown_list_name);
+                    debug!(
+                        "Task list {}: id='{}', name='{}', is_owner={}, wellknown='{:?}'",
+                        i, list.id, list.display_name, list.is_owner, list.wellknown_list_name
+                    );
                 }
 
                 Ok(api_response.value)
@@ -213,7 +226,7 @@ impl MicrosoftGraphClient {
     pub async fn create_task_list(
         &self,
         access_token: &str,
-        request: CreateListRequest
+        request: CreateListRequest,
     ) -> Result<TaskList, GraphApiError> {
         debug!("Creating task list: {}", request.display_name);
 
@@ -221,33 +234,55 @@ impl MicrosoftGraphClient {
         debug!("POST URL: {}", url);
         debug!("Request payload: {:?}", request);
 
-        match self.make_authenticated_post(access_token, &url, &request).await {
+        match self
+            .make_authenticated_post(access_token, &url, &request)
+            .await
+        {
             Ok(response) => {
                 let status = response.status();
                 let response_text = response.text().await?;
-                debug!("Create list response status: {}, body: {}", status, response_text);
+                debug!(
+                    "Create list response status: {}, body: {}",
+                    status, response_text
+                );
 
                 let task_list: TaskList = serde_json::from_str(&response_text)?;
-                info!("Created task list: {} ({})", task_list.display_name, task_list.id);
+                info!(
+                    "Created task list: {} ({})",
+                    task_list.display_name, task_list.id
+                );
                 Ok(task_list)
             }
             Err(e) => {
-                error!("Failed to create task list '{}': {}", request.display_name, e);
+                error!(
+                    "Failed to create task list '{}': {}",
+                    request.display_name, e
+                );
                 Err(e)
             }
         }
     }
 
     /// Get tasks from a specific list
-    pub async fn get_tasks(&self, access_token: &str, list_id: &str) -> Result<Vec<Task>, GraphApiError> {
+    pub async fn get_tasks(
+        &self,
+        access_token: &str,
+        list_id: &str,
+    ) -> Result<Vec<Task>, GraphApiError> {
         debug!("Fetching tasks for list: {}", list_id);
 
-        let url = self.base_url.join(&format!("me/todo/lists/{}/tasks", list_id))?;
+        let url = self
+            .base_url
+            .join(&format!("me/todo/lists/{}/tasks", list_id))?;
         let response = self.make_authenticated_request(access_token, &url).await?;
 
         let api_response: GraphApiResponse<Task> = response.json().await?;
 
-        debug!("Retrieved {} tasks from list {}", api_response.value.len(), list_id);
+        debug!(
+            "Retrieved {} tasks from list {}",
+            api_response.value.len(),
+            list_id
+        );
         Ok(api_response.value)
     }
 
@@ -260,7 +295,9 @@ impl MicrosoftGraphClient {
     ) -> Result<Task, GraphApiError> {
         debug!("Fetching task {} from list {}", task_id, list_id);
 
-        let url = self.base_url.join(&format!("me/todo/lists/{}/tasks/{}", list_id, task_id))?;
+        let url = self
+            .base_url
+            .join(&format!("me/todo/lists/{}/tasks/{}", list_id, task_id))?;
         let response = self.make_authenticated_request(access_token, &url).await?;
 
         let task: Task = response.json().await?;
@@ -278,8 +315,12 @@ impl MicrosoftGraphClient {
     ) -> Result<Task, GraphApiError> {
         debug!("Creating task '{}' in list {}", request.title, list_id);
 
-        let url = self.base_url.join(&format!("me/todo/lists/{}/tasks", list_id))?;
-        let response = self.make_authenticated_post(access_token, &url, &request).await?;
+        let url = self
+            .base_url
+            .join(&format!("me/todo/lists/{}/tasks", list_id))?;
+        let response = self
+            .make_authenticated_post(access_token, &url, &request)
+            .await?;
 
         let task: Task = response.json().await?;
 
@@ -297,8 +338,12 @@ impl MicrosoftGraphClient {
     ) -> Result<Task, GraphApiError> {
         debug!("Patching task {} in list {}", task_id, list_id);
 
-        let url = self.base_url.join(&format!("me/todo/lists/{}/tasks/{}", list_id, task_id))?;
-        let response = self.make_authenticated_patch(access_token, &url, &patch_data).await?;
+        let url = self
+            .base_url
+            .join(&format!("me/todo/lists/{}/tasks/{}", list_id, task_id))?;
+        let response = self
+            .make_authenticated_patch(access_token, &url, &patch_data)
+            .await?;
 
         let task: Task = response.json().await?;
 
@@ -316,8 +361,12 @@ impl MicrosoftGraphClient {
     ) -> Result<Task, GraphApiError> {
         debug!("Updating task {} in list {}", task_id, list_id);
 
-        let url = self.base_url.join(&format!("me/todo/lists/{}/tasks/{}", list_id, task_id))?;
-        let response = self.make_authenticated_patch(access_token, &url, &request).await?;
+        let url = self
+            .base_url
+            .join(&format!("me/todo/lists/{}/tasks/{}", list_id, task_id))?;
+        let response = self
+            .make_authenticated_patch(access_token, &url, &request)
+            .await?;
 
         let task: Task = response.json().await?;
 
@@ -334,7 +383,9 @@ impl MicrosoftGraphClient {
     ) -> Result<(), GraphApiError> {
         debug!("Deleting task {} from list {}", task_id, list_id);
 
-        let url = self.base_url.join(&format!("me/todo/lists/{}/tasks/{}", list_id, task_id))?;
+        let url = self
+            .base_url
+            .join(&format!("me/todo/lists/{}/tasks/{}", list_id, task_id))?;
         self.make_authenticated_delete(access_token, &url).await?;
 
         info!("Deleted task {} from list {}", task_id, list_id);
@@ -348,9 +399,15 @@ impl MicrosoftGraphClient {
         list_id: &str,
         task_id: &str,
     ) -> Result<Vec<ChecklistItem>, GraphApiError> {
-        debug!("Fetching checklist items for task {} in list {}", task_id, list_id);
+        debug!(
+            "Fetching checklist items for task {} in list {}",
+            task_id, list_id
+        );
 
-        let url = self.base_url.join(&format!("me/todo/lists/{}/tasks/{}/checklistItems", list_id, task_id))?;
+        let url = self.base_url.join(&format!(
+            "me/todo/lists/{}/tasks/{}/checklistItems",
+            list_id, task_id
+        ))?;
         let response = self.make_authenticated_request(access_token, &url).await?;
 
         let api_response: GraphApiResponse<ChecklistItem> = response.json().await?;
@@ -367,31 +424,53 @@ impl MicrosoftGraphClient {
         task_id: &str,
         request: CreateChecklistItemRequest,
     ) -> Result<ChecklistItem, GraphApiError> {
-        debug!("Creating checklist item '{}' for task {}", request.display_name, task_id);
+        debug!(
+            "Creating checklist item '{}' for task {}",
+            request.display_name, task_id
+        );
 
-        let url = self.base_url.join(&format!("me/todo/lists/{}/tasks/{}/checklistItems", list_id, task_id))?;
-        let response = self.make_authenticated_post(access_token, &url, &request).await?;
+        let url = self.base_url.join(&format!(
+            "me/todo/lists/{}/tasks/{}/checklistItems",
+            list_id, task_id
+        ))?;
+        let response = self
+            .make_authenticated_post(access_token, &url, &request)
+            .await?;
 
         let item: ChecklistItem = response.json().await?;
 
-        debug!("Created checklist item: {} ({})", item.display_name, item.id);
+        debug!(
+            "Created checklist item: {} ({})",
+            item.display_name, item.id
+        );
         Ok(item)
     }
 
     /// Generic GET request
-    pub async fn get(&self, access_token: &str, url: &str) -> Result<reqwest::Response, GraphApiError> {
+    pub async fn get(
+        &self,
+        access_token: &str,
+        url: &str,
+    ) -> Result<reqwest::Response, GraphApiError> {
         let full_url = if url.starts_with("https://") {
             url.parse()?
         } else {
             self.base_url.join(url)?
         };
-        self.make_authenticated_request(access_token, &full_url).await
+        self.make_authenticated_request(access_token, &full_url)
+            .await
     }
 
     /// Generic POST request
-    pub async fn post<T: Serialize>(&self, access_token: &str, url: &str, body: T) -> Result<reqwest::Response, GraphApiError> {
+    pub async fn post<T: Serialize>(
+        &self,
+        access_token: &str,
+        url: &str,
+        body: T,
+    ) -> Result<reqwest::Response, GraphApiError> {
         let full_url = self.base_url.join(url)?;
-        self.make_authenticated_post(access_token, &full_url, &body).await
+        self.make_authenticated_post(access_token, &full_url, &body)
+            .await
     }
 
     // Private helper methods
@@ -402,20 +481,28 @@ impl MicrosoftGraphClient {
         url: &Url,
     ) -> Result<reqwest::Response, GraphApiError> {
         debug!("Making authenticated request to URL: {}", url);
-        debug!("Using access token (first 50 chars): {}...", &access_token[..access_token.len().min(50)]);
+        debug!(
+            "Using access token (first 50 chars): {}...",
+            &access_token[..access_token.len().min(50)]
+        );
 
         self.execute_with_retry(|| async {
-            let request = self.client
+            let request = self
+                .client
                 .get(url.clone())
                 .bearer_auth(access_token)
                 .header("User-Agent", "ACT-Terminal/1.0")
                 .header("Accept", "application/json")
                 .header("Content-Type", "application/json");
 
-            debug!("Request headers: Authorization=Bearer {}..., User-Agent=ACT-Terminal/1.0", &access_token[..access_token.len().min(20)]);
+            debug!(
+                "Request headers: Authorization=Bearer {}..., User-Agent=ACT-Terminal/1.0",
+                &access_token[..access_token.len().min(20)]
+            );
 
             request.send().await
-        }).await
+        })
+        .await
     }
 
     async fn make_authenticated_post<T: Serialize>(
@@ -431,7 +518,8 @@ impl MicrosoftGraphClient {
                 .json(body)
                 .send()
                 .await
-        }).await
+        })
+        .await
     }
 
     async fn make_authenticated_patch<T: Serialize>(
@@ -447,7 +535,8 @@ impl MicrosoftGraphClient {
                 .json(body)
                 .send()
                 .await
-        }).await
+        })
+        .await
     }
 
     async fn make_authenticated_delete(
@@ -461,7 +550,8 @@ impl MicrosoftGraphClient {
                 .bearer_auth(access_token)
                 .send()
                 .await
-        }).await
+        })
+        .await
     }
 
     async fn execute_with_retry<F, Fut>(
@@ -483,7 +573,10 @@ impl MicrosoftGraphClient {
                     let duration = start_time.elapsed();
 
                     // Log performance metrics
-                    debug!("Graph API request completed in {:?} with status {}", duration, status);
+                    debug!(
+                        "Graph API request completed in {:?} with status {}",
+                        duration, status
+                    );
 
                     match status {
                         StatusCode::OK | StatusCode::CREATED | StatusCode::NO_CONTENT => {
@@ -497,14 +590,14 @@ impl MicrosoftGraphClient {
                         StatusCode::FORBIDDEN => {
                             let error_text = response.text().await.unwrap_or_default();
                             return Err(GraphApiError::PermissionDenied {
-                                operation: error_text
+                                operation: error_text,
                             });
                         }
                         StatusCode::NOT_FOUND => {
                             let error_text = response.text().await.unwrap_or_default();
                             error!("Graph API 404 error: {}", error_text);
                             return Err(GraphApiError::NotFound {
-                                resource: format!("Requested resource not found: {}", error_text)
+                                resource: format!("Requested resource not found: {}", error_text),
                             });
                         }
                         StatusCode::TOO_MANY_REQUESTS => {
@@ -524,15 +617,19 @@ impl MicrosoftGraphClient {
                             } else {
                                 error!("Max retries exceeded for rate limited request");
                                 return Err(GraphApiError::RateLimited {
-                                    retry_after_seconds: retry_after
+                                    retry_after_seconds: retry_after,
                                 });
                             }
                         }
                         _ => {
                             let error_text = response.text().await.unwrap_or_default();
                             if attempt < Self::MAX_RETRIES {
-                                warn!("Request failed with status {}, retrying (attempt {}/{})",
-                                     status, attempt + 1, Self::MAX_RETRIES + 1);
+                                warn!(
+                                    "Request failed with status {}, retrying (attempt {}/{})",
+                                    status,
+                                    attempt + 1,
+                                    Self::MAX_RETRIES + 1
+                                );
                                 tokio::time::sleep(delay).await;
                                 delay = delay.saturating_mul(2); // Exponential backoff
                                 continue;
@@ -547,8 +644,12 @@ impl MicrosoftGraphClient {
                 }
                 Err(e) => {
                     if attempt < Self::MAX_RETRIES {
-                        warn!("Network error, retrying (attempt {}/{}): {}",
-                             attempt + 1, Self::MAX_RETRIES + 1, e);
+                        warn!(
+                            "Network error, retrying (attempt {}/{}): {}",
+                            attempt + 1,
+                            Self::MAX_RETRIES + 1,
+                            e
+                        );
                         tokio::time::sleep(delay).await;
                         delay = delay.saturating_mul(2);
                         continue;
@@ -567,15 +668,61 @@ impl MicrosoftGraphClient {
 #[async_trait::async_trait]
 pub trait GraphClient: Send + Sync {
     async fn get_task_lists(&self, access_token: &str) -> Result<Vec<TaskList>, GraphApiError>;
-    async fn create_task_list(&self, access_token: &str, request: CreateListRequest) -> Result<TaskList, GraphApiError>;
-    async fn get_tasks(&self, access_token: &str, list_id: &str) -> Result<Vec<Task>, GraphApiError>;
-    async fn get_task(&self, access_token: &str, list_id: &str, task_id: &str) -> Result<Task, GraphApiError>;
-    async fn create_task(&self, access_token: &str, list_id: &str, request: CreateTaskRequest) -> Result<Task, GraphApiError>;
-    async fn patch_task(&self, access_token: &str, list_id: &str, task_id: &str, patch_data: serde_json::Value) -> Result<Task, GraphApiError>;
-    async fn update_task(&self, access_token: &str, list_id: &str, task_id: &str, request: CreateTaskRequest) -> Result<Task, GraphApiError>;
-    async fn delete_task(&self, access_token: &str, list_id: &str, task_id: &str) -> Result<(), GraphApiError>;
-    async fn get_checklist_items(&self, access_token: &str, list_id: &str, task_id: &str) -> Result<Vec<ChecklistItem>, GraphApiError>;
-    async fn create_checklist_item(&self, access_token: &str, list_id: &str, task_id: &str, request: CreateChecklistItemRequest) -> Result<ChecklistItem, GraphApiError>;
+    async fn create_task_list(
+        &self,
+        access_token: &str,
+        request: CreateListRequest,
+    ) -> Result<TaskList, GraphApiError>;
+    async fn get_tasks(
+        &self,
+        access_token: &str,
+        list_id: &str,
+    ) -> Result<Vec<Task>, GraphApiError>;
+    async fn get_task(
+        &self,
+        access_token: &str,
+        list_id: &str,
+        task_id: &str,
+    ) -> Result<Task, GraphApiError>;
+    async fn create_task(
+        &self,
+        access_token: &str,
+        list_id: &str,
+        request: CreateTaskRequest,
+    ) -> Result<Task, GraphApiError>;
+    async fn patch_task(
+        &self,
+        access_token: &str,
+        list_id: &str,
+        task_id: &str,
+        patch_data: serde_json::Value,
+    ) -> Result<Task, GraphApiError>;
+    async fn update_task(
+        &self,
+        access_token: &str,
+        list_id: &str,
+        task_id: &str,
+        request: CreateTaskRequest,
+    ) -> Result<Task, GraphApiError>;
+    async fn delete_task(
+        &self,
+        access_token: &str,
+        list_id: &str,
+        task_id: &str,
+    ) -> Result<(), GraphApiError>;
+    async fn get_checklist_items(
+        &self,
+        access_token: &str,
+        list_id: &str,
+        task_id: &str,
+    ) -> Result<Vec<ChecklistItem>, GraphApiError>;
+    async fn create_checklist_item(
+        &self,
+        access_token: &str,
+        list_id: &str,
+        task_id: &str,
+        request: CreateChecklistItemRequest,
+    ) -> Result<ChecklistItem, GraphApiError>;
 }
 
 #[async_trait::async_trait]
@@ -584,39 +731,89 @@ impl GraphClient for MicrosoftGraphClient {
         self.get_task_lists(access_token).await
     }
 
-    async fn create_task_list(&self, access_token: &str, request: CreateListRequest) -> Result<TaskList, GraphApiError> {
+    async fn create_task_list(
+        &self,
+        access_token: &str,
+        request: CreateListRequest,
+    ) -> Result<TaskList, GraphApiError> {
         self.create_task_list(access_token, request).await
     }
 
-    async fn get_tasks(&self, access_token: &str, list_id: &str) -> Result<Vec<Task>, GraphApiError> {
+    async fn get_tasks(
+        &self,
+        access_token: &str,
+        list_id: &str,
+    ) -> Result<Vec<Task>, GraphApiError> {
         self.get_tasks(access_token, list_id).await
     }
 
-    async fn get_task(&self, access_token: &str, list_id: &str, task_id: &str) -> Result<Task, GraphApiError> {
+    async fn get_task(
+        &self,
+        access_token: &str,
+        list_id: &str,
+        task_id: &str,
+    ) -> Result<Task, GraphApiError> {
         self.get_task(access_token, list_id, task_id).await
     }
 
-    async fn create_task(&self, access_token: &str, list_id: &str, request: CreateTaskRequest) -> Result<Task, GraphApiError> {
+    async fn create_task(
+        &self,
+        access_token: &str,
+        list_id: &str,
+        request: CreateTaskRequest,
+    ) -> Result<Task, GraphApiError> {
         self.create_task(access_token, list_id, request).await
     }
 
-    async fn patch_task(&self, access_token: &str, list_id: &str, task_id: &str, patch_data: serde_json::Value) -> Result<Task, GraphApiError> {
-        self.patch_task(access_token, list_id, task_id, patch_data).await
+    async fn patch_task(
+        &self,
+        access_token: &str,
+        list_id: &str,
+        task_id: &str,
+        patch_data: serde_json::Value,
+    ) -> Result<Task, GraphApiError> {
+        self.patch_task(access_token, list_id, task_id, patch_data)
+            .await
     }
 
-    async fn update_task(&self, access_token: &str, list_id: &str, task_id: &str, request: CreateTaskRequest) -> Result<Task, GraphApiError> {
-        self.update_task(access_token, list_id, task_id, request).await
+    async fn update_task(
+        &self,
+        access_token: &str,
+        list_id: &str,
+        task_id: &str,
+        request: CreateTaskRequest,
+    ) -> Result<Task, GraphApiError> {
+        self.update_task(access_token, list_id, task_id, request)
+            .await
     }
 
-    async fn delete_task(&self, access_token: &str, list_id: &str, task_id: &str) -> Result<(), GraphApiError> {
+    async fn delete_task(
+        &self,
+        access_token: &str,
+        list_id: &str,
+        task_id: &str,
+    ) -> Result<(), GraphApiError> {
         self.delete_task(access_token, list_id, task_id).await
     }
 
-    async fn get_checklist_items(&self, access_token: &str, list_id: &str, task_id: &str) -> Result<Vec<ChecklistItem>, GraphApiError> {
-        self.get_checklist_items(access_token, list_id, task_id).await
+    async fn get_checklist_items(
+        &self,
+        access_token: &str,
+        list_id: &str,
+        task_id: &str,
+    ) -> Result<Vec<ChecklistItem>, GraphApiError> {
+        self.get_checklist_items(access_token, list_id, task_id)
+            .await
     }
 
-    async fn create_checklist_item(&self, access_token: &str, list_id: &str, task_id: &str, request: CreateChecklistItemRequest) -> Result<ChecklistItem, GraphApiError> {
-        self.create_checklist_item(access_token, list_id, task_id, request).await
+    async fn create_checklist_item(
+        &self,
+        access_token: &str,
+        list_id: &str,
+        task_id: &str,
+        request: CreateChecklistItemRequest,
+    ) -> Result<ChecklistItem, GraphApiError> {
+        self.create_checklist_item(access_token, list_id, task_id, request)
+            .await
     }
 }

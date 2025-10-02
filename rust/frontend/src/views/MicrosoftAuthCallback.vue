@@ -85,10 +85,11 @@ onMounted(async () => {
     if (window.opener) {
       console.log('🔄 Notifying parent window of Microsoft auth success')
       window.opener.postMessage({ type: 'MICROSOFT_AUTH_SUCCESS' }, window.location.origin)
+      // Wait a bit longer to ensure parent receives and processes the message
       setTimeout(() => {
         console.log('🔄 Closing popup window')
         window.close()
-      }, 1000)
+      }, 1500)
       return
     }
 

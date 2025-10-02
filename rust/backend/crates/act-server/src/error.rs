@@ -1,7 +1,7 @@
 use act_core::CoreError;
 use axum::{
-    response::{IntoResponse, Response},
     http::StatusCode,
+    response::{IntoResponse, Response},
     Json,
 };
 use serde_json::json;
@@ -17,7 +17,10 @@ impl From<CoreError> for ServerError {
 
 impl From<StatusCode> for ServerError {
     fn from(status: StatusCode) -> Self {
-        ServerError(CoreError::Auth(format!("Authentication failed: {}", status)))
+        ServerError(CoreError::Auth(format!(
+            "Authentication failed: {}",
+            status
+        )))
     }
 }
 
@@ -47,10 +50,14 @@ impl IntoResponse for ServerError {
             CoreError::FileSystem(_) => (StatusCode::INTERNAL_SERVER_ERROR, "File system error"),
             CoreError::Config(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Configuration error"),
             CoreError::Auth(_) => (StatusCode::UNAUTHORIZED, "Authentication error"),
-            CoreError::Serialization(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Serialization error"),
+            CoreError::Serialization(_) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Serialization error")
+            }
             CoreError::Network(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Network error"),
             CoreError::Timeout(_) => (StatusCode::REQUEST_TIMEOUT, "Request timeout"),
-            CoreError::ServiceUnavailable(_) => (StatusCode::SERVICE_UNAVAILABLE, "Service unavailable"),
+            CoreError::ServiceUnavailable(_) => {
+                (StatusCode::SERVICE_UNAVAILABLE, "Service unavailable")
+            }
             CoreError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.as_str()),
             _ => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
         };

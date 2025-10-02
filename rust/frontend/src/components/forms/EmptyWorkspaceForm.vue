@@ -1,66 +1,60 @@
 <template>
-  <form @submit.prevent="handleSubmit" class="empty-workspace-form" id="empty-workspace-form">
-    <div class="form-section">
-      <label for="workspace-name" class="form-label">Workspace Name</label>
+  <form @submit.prevent="handleSubmit" class="workspace-form" id="empty-workspace-form">
+    <!-- Name Field -->
+    <div class="form-field">
+      <label for="workspace-name" class="field-label">Workspace Name</label>
       <input
         id="workspace-name"
         v-model="form.name"
         type="text"
         placeholder="Enter workspace name..."
-        class="form-input"
-        :class="{ 'error': errors.name }"
+        class="field-input"
+        :class="{ error: errors.name }"
         :disabled="loading"
         required
       >
-      <p v-if="errors.name" class="form-error">
-        {{ errors.name }}
-      </p>
+      <p v-if="errors.name" class="field-error">{{ errors.name }}</p>
     </div>
 
-    <div class="form-section">
-      <label for="workspace-description" class="form-label">Description</label>
+    <!-- Description Field -->
+    <div class="form-field">
+      <label for="workspace-description" class="field-label">Description <span class="optional">(optional)</span></label>
       <textarea
         id="workspace-description"
         v-model="form.description"
-        placeholder="Enter workspace description (optional)..."
-        class="form-textarea"
+        placeholder="Enter workspace description..."
+        class="field-textarea"
+        :class="{ error: errors.description }"
         :disabled="loading"
         rows="3"
       ></textarea>
-      <p v-if="errors.description" class="form-error">
-        {{ errors.description }}
-      </p>
+      <p v-if="errors.description" class="field-error">{{ errors.description }}</p>
     </div>
 
-    <div class="form-section">
-      <label for="workspace-path" class="form-label">Location</label>
+    <!-- Location Field -->
+    <div class="form-field">
+      <label for="workspace-location" class="field-label">Location <span class="optional">(optional)</span></label>
       <input
-        id="workspace-path"
+        id="workspace-location"
         v-model="form.path"
         type="text"
         placeholder="Leave empty for default location..."
-        class="form-input"
-        :class="{ 'error': errors.path }"
+        class="field-input"
+        :class="{ error: errors.path }"
         :disabled="loading"
       >
-      <p v-if="errors.path" class="form-error">
-        {{ errors.path }}
-      </p>
-      <p v-else class="form-hint">
-        Leave empty to create workspace in the default location
-      </p>
+      <p v-if="errors.path" class="field-error">{{ errors.path }}</p>
+      <p v-else class="field-hint">Leave empty to create workspace in the default location</p>
     </div>
 
-    <div v-if="loading" class="loading-state">
+    <!-- Loading State -->
+    <div v-if="loading" class="form-loading">
       <LoadingSpinner size="medium" text="Creating workspace..." />
     </div>
 
-    <div v-if="error" class="error-message">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10"></circle>
-        <line x1="12" y1="8" x2="12" y2="12"></line>
-        <line x1="12" y1="16" x2="12.01" y2="16"></line>
-      </svg>
+    <!-- Error Display -->
+    <div v-if="error" class="form-error-banner">
+      <ExclamationCircleIcon />
       <span>{{ error }}</span>
     </div>
   </form>
@@ -68,6 +62,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
+import { ExclamationCircleIcon } from '@heroicons/vue/24/outline'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 
 export interface EmptyWorkspaceFormData {
@@ -146,137 +141,121 @@ defineExpose({
 </script>
 
 <style scoped>
-.empty-workspace-form {
-  padding: var(--space-3xl, 32px);
+.workspace-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-6);
   flex: 1;
   overflow-y: auto;
   min-height: 0;
+}
+
+/* Form Fields */
+.form-field {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2xl, 24px);
+  gap: var(--space-2);
 }
 
-.form-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm, 8px);
+.field-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
 }
 
-.form-label {
-  font-size: var(--font-size-base, 14px);
-  font-weight: var(--font-weight-medium, 500);
-  color: var(--text-primary);
-  letter-spacing: -0.01em;
+.optional {
+  color: var(--color-text-tertiary);
+  font-weight: var(--font-weight-normal);
 }
 
-.form-input,
-.form-textarea {
-  padding: var(--space-lg, 16px);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg, 12px);
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  font-size: var(--font-size-base, 14px);
-  outline: none;
-  transition: all 0.2s ease;
+.field-input,
+.field-textarea {
+  padding: var(--space-3);
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-base);
+  background: var(--color-input-background);
+  color: var(--color-input-text);
+  font-size: var(--font-size-sm);
   font-family: inherit;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all var(--transition-base);
 }
 
-.form-input:focus,
-.form-textarea:focus {
-  border-color: var(--primary);
-  box-shadow:
-    0 0 0 3px rgba(var(--primary-rgb, 59, 130, 246), 0.1),
-    0 1px 3px rgba(0, 0, 0, 0.1);
-  background: var(--bg-primary);
+.field-input::placeholder,
+.field-textarea::placeholder {
+  color: var(--color-input-placeholder);
 }
 
-.form-input.error,
-.form-textarea.error {
-  border-color: var(--error);
-  box-shadow: 0 0 0 3px rgba(var(--error-rgb, 239, 68, 68), 0.1);
+.field-input:focus,
+.field-textarea:focus {
+  outline: none;
+  border-color: var(--color-input-border-focus);
+  background: var(--color-input-background-focus);
 }
 
-.form-input:disabled,
-.form-textarea:disabled {
+.field-input.error,
+.field-textarea.error {
+  border-color: var(--color-input-border-error);
+}
+
+.field-input:disabled,
+.field-textarea:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  background: var(--bg-tertiary);
 }
 
-.form-textarea {
+.field-textarea {
   resize: vertical;
-  min-height: 100px;
-  line-height: 1.5;
+  min-height: 80px;
+  line-height: var(--line-height-normal);
 }
 
-.form-hint {
-  font-size: var(--font-size-sm, 12px);
-  color: var(--text-muted);
-  line-height: 1.4;
+.field-hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  margin: 0;
 }
 
-.form-error {
-  font-size: var(--font-size-sm, 12px);
-  color: var(--error);
-  font-weight: var(--font-weight-medium, 500);
+.field-error {
+  font-size: var(--font-size-xs);
+  color: var(--color-semantic-error);
+  font-weight: var(--font-weight-medium);
+  margin: 0;
 }
 
-.loading-state {
+/* Loading */
+.form-loading {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-2xl, 24px);
+  padding: var(--space-6);
 }
 
-.error-message {
+/* Error Banner */
+.form-error-banner {
   display: flex;
   align-items: center;
-  gap: var(--space-md, 12px);
-  padding: var(--space-lg, 16px) var(--space-xl, 20px);
-  background: var(--error);
-  color: white;
-  border-radius: var(--radius-lg, 12px);
-  font-size: var(--font-size-base, 14px);
-  font-weight: var(--font-weight-medium, 500);
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-semantic-error-bg);
+  border: 1px solid var(--color-semantic-error-border);
+  border-radius: var(--radius-base);
+  color: var(--color-semantic-error);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
 }
 
-/* Responsive Design */
-@media (max-width: 480px) {
-  .empty-workspace-form {
-    padding: var(--space-2xl, 24px);
-  }
-
-  .form-input,
-  .form-textarea {
-    padding: var(--space-md, 12px);
-  }
+.form-error-banner svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
 }
 
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-  .form-input,
-  .form-textarea {
-    border-width: 2px;
-  }
-
-  .form-input:focus,
-  .form-textarea:focus {
-    border-width: 2px;
-  }
-
-  .form-input.error,
-  .form-textarea.error {
-    border-width: 2px;
-  }
-}
-
-/* Reduced motion support */
-@media (prefers-reduced-motion: reduce) {
-  .form-input,
-  .form-textarea {
-    transition: none !important;
+/* Responsive */
+@media (max-width: 768px) {
+  .workspace-form {
+    padding: var(--space-4);
+    gap: var(--space-4);
   }
 }
 </style>

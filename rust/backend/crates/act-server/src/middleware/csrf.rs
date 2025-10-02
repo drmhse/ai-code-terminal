@@ -26,12 +26,12 @@ impl CsrfProtection {
     }
 
     /// Verify CSRF token for state-changing requests
-    pub async fn verify_csrf(
-        request: Request,
-        next: Next,
-    ) -> Result<Response, StatusCode> {
+    pub async fn verify_csrf(request: Request, next: Next) -> Result<Response, StatusCode> {
         // Skip CSRF verification for safe methods
-        if matches!(request.method(), &Method::GET | &Method::HEAD | &Method::OPTIONS) {
+        if matches!(
+            request.method(),
+            &Method::GET | &Method::HEAD | &Method::OPTIONS
+        ) {
             return Ok(next.run(request).await);
         }
 
@@ -42,25 +42,26 @@ impl CsrfProtection {
         }
 
         // Extract CSRF token from header
-        let csrf_token = request.headers()
+        let csrf_token = request
+            .headers()
             .get("X-CSRF-Token")
             .and_then(|value| value.to_str().ok())
             .ok_or(StatusCode::FORBIDDEN)?;
 
         // Extract CSRF token from cookie
-        let cookie_token = request.headers()
+        let cookie_token = request
+            .headers()
             .get("cookie")
             .and_then(|cookie| cookie.to_str().ok())
             .and_then(|cookie_str| {
-                cookie_str.split(';')
-                    .find_map(|s| {
-                        let parts: Vec<&str> = s.trim().splitn(2, '=').collect();
-                        if parts.len() == 2 && parts[0].trim() == "csrf_token" {
-                            Some(parts[1].trim())
-                        } else {
-                            None
-                        }
-                    })
+                cookie_str.split(';').find_map(|s| {
+                    let parts: Vec<&str> = s.trim().splitn(2, '=').collect();
+                    if parts.len() == 2 && parts[0].trim() == "csrf_token" {
+                        Some(parts[1].trim())
+                    } else {
+                        None
+                    }
+                })
             })
             .ok_or(StatusCode::FORBIDDEN)?;
 

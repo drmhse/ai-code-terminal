@@ -1,10 +1,13 @@
-use act_core::{Result, models::SystemMetrics};
-use act_domain::system_service::{MetricsRepository, SystemMonitor, MetricEvent, MetricsSummary, PerformanceMetrics, TimePeriod, UserActivity};
-use chrono::{Utc, Duration};
+use act_core::{models::SystemMetrics, Result};
+use act_domain::system_service::{
+    MetricEvent, MetricsRepository, MetricsSummary, PerformanceMetrics, SystemMonitor, TimePeriod,
+    UserActivity,
+};
 use async_trait::async_trait;
-use sysinfo::{System, Disks, Networks};
+use chrono::{Duration, Utc};
 use std::collections::HashMap;
 use std::sync::Arc;
+use sysinfo::{Disks, Networks, System};
 use tokio::sync::RwLock;
 
 /// Real implementation of MetricsRepository that stores metrics in memory
@@ -63,7 +66,9 @@ impl MetricsRepository for InMemoryMetricsRepository {
         // Filter events within the time period
         let period_events: Vec<&MetricEvent> = events
             .iter()
-            .filter(|event| event.timestamp >= time_period.start_time && event.timestamp <= time_period.end_time)
+            .filter(|event| {
+                event.timestamp >= time_period.start_time && event.timestamp <= time_period.end_time
+            })
             .collect();
 
         // Calculate summary statistics
@@ -75,8 +80,8 @@ impl MetricsRepository for InMemoryMetricsRepository {
         let active_sessions = period_events
             .iter()
             .filter(|event| {
-                event.event_type == "session" && 
-                (event.event_name == "create" || event.event_name == "resume")
+                event.event_type == "session"
+                    && (event.event_name == "create" || event.event_name == "resume")
             })
             .count() as u64;
 
@@ -103,10 +108,13 @@ impl MetricsRepository for InMemoryMetricsRepository {
         for event in period_events.iter().filter(|e| e.event_type == "command") {
             if let Some(command) = event.properties.get("command") {
                 if let Some(command_str) = command.as_str() {
-                    let count = command_counts.entry(command_str.to_string()).or_insert((0, 0.0));
+                    let count = command_counts
+                        .entry(command_str.to_string())
+                        .or_insert((0, 0.0));
                     count.0 += 1;
                     if let Some(duration) = event.duration_ms {
-                        count.1 = (count.1 * (count.0 - 1) as f64 + duration as f64) / count.0 as f64;
+                        count.1 =
+                            (count.1 * (count.0 - 1) as f64 + duration as f64) / count.0 as f64;
                     }
                 }
             }
@@ -114,21 +122,24 @@ impl MetricsRepository for InMemoryMetricsRepository {
 
         let most_used_commands: Vec<act_domain::system_service::CommandUsage> = command_counts
             .into_iter()
-            .map(|(command, (count, avg_duration))| act_domain::system_service::CommandUsage {
-                command,
-                count,
-                average_duration_ms: avg_duration,
-            })
+            .map(
+                |(command, (count, avg_duration))| act_domain::system_service::CommandUsage {
+                    command,
+                    count,
+                    average_duration_ms: avg_duration,
+                },
+            )
             .collect();
 
         // Calculate error rate
         let error_commands = period_events
             .iter()
             .filter(|event| {
-                event.event_type == "command" &&
-                event.properties.get("exit_code").is_some_and(|code| {
-                    code.as_i64().is_some_and(|c| c != 0)
-                })
+                event.event_type == "command"
+                    && event
+                        .properties
+                        .get("exit_code")
+                        .is_some_and(|code| code.as_i64().is_some_and(|c| c != 0))
             })
             .count() as u64;
 
@@ -158,7 +169,7 @@ impl MetricsRepository for InMemoryMetricsRepository {
 
     async fn get_user_activity(&self, user_id: &str, _days: i32) -> Result<UserActivity> {
         let events = self.events.read().await;
-        
+
         let user_events: Vec<&MetricEvent> = events
             .iter()
             .filter(|event| event.user_id.as_ref().is_some_and(|uid| uid == user_id))
@@ -218,12 +229,18 @@ impl MetricsRepository for InMemoryMetricsRepository {
         })
     }
 
-    async fn get_performance_metrics(&self, time_period: TimePeriod) -> Result<Vec<PerformanceMetrics>> {
+    async fn get_performance_metrics(
+        &self,
+        time_period: TimePeriod,
+    ) -> Result<Vec<PerformanceMetrics>> {
         let metrics = self.performance_metrics.read().await;
-        
+
         let filtered_metrics: Vec<PerformanceMetrics> = metrics
             .iter()
-            .filter(|metric| metric.timestamp >= time_period.start_time && metric.timestamp <= time_period.end_time)
+            .filter(|metric| {
+                metric.timestamp >= time_period.start_time
+                    && metric.timestamp <= time_period.end_time
+            })
             .cloned()
             .collect();
 
@@ -233,7 +250,7 @@ impl MetricsRepository for InMemoryMetricsRepository {
     async fn cleanup_old_metrics(&self, days_to_keep: i32) -> Result<u64> {
         let events_cleaned = self.cleanup_old_events(days_to_keep).await;
         let metrics_cleaned = self.cleanup_old_performance_metrics(days_to_keep).await;
-        
+
         // info!("Cleaned up {} old events and {} old performance metrics", events_cleaned, metrics_cleaned);
         Ok((events_cleaned + metrics_cleaned) as u64)
     }
@@ -244,12 +261,17 @@ impl MetricsRepository for InMemoryMetricsRepository {
 
         let period_events: Vec<&MetricEvent> = events
             .iter()
-            .filter(|event| event.timestamp >= time_period.start_time && event.timestamp <= time_period.end_time)
+            .filter(|event| {
+                event.timestamp >= time_period.start_time && event.timestamp <= time_period.end_time
+            })
             .collect();
 
         let period_perf_metrics: Vec<&PerformanceMetrics> = perf_metrics
             .iter()
-            .filter(|metric| metric.timestamp >= time_period.start_time && metric.timestamp <= time_period.end_time)
+            .filter(|metric| {
+                metric.timestamp >= time_period.start_time
+                    && metric.timestamp <= time_period.end_time
+            })
             .collect();
 
         match format.to_lowercase().as_str() {
@@ -264,8 +286,9 @@ impl MetricsRepository for InMemoryMetricsRepository {
             }
             "csv" => {
                 let mut csv_output = String::new();
-                csv_output.push_str("timestamp,event_type,event_name,user_id,session_id,duration_ms\n");
-                
+                csv_output
+                    .push_str("timestamp,event_type,event_name,user_id,session_id,duration_ms\n");
+
                 for event in period_events {
                     csv_output.push_str(&format!(
                         "{},{},{},{},{},{}\n",
@@ -277,10 +300,13 @@ impl MetricsRepository for InMemoryMetricsRepository {
                         event.duration_ms.unwrap_or(0)
                     ));
                 }
-                
+
                 Ok(csv_output)
             }
-            _ => Err(act_core::CoreError::Validation(format!("Unsupported export format: {}", format))),
+            _ => Err(act_core::CoreError::Validation(format!(
+                "Unsupported export format: {}",
+                format
+            ))),
         }
     }
 }
@@ -309,7 +335,8 @@ impl RealSystemMonitor {
         let disks = Disks::new_with_refreshed_list();
 
         // Get current working directory
-        let current_path = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/"));
+        let current_path =
+            std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/"));
 
         // Find the disk that contains our current path
         for disk in disks.list() {
@@ -329,7 +356,9 @@ impl RealSystemMonitor {
             return Ok((used_space, total_space));
         }
 
-        Err(act_core::CoreError::Internal("No disk information available".to_string()))
+        Err(act_core::CoreError::Internal(
+            "No disk information available".to_string(),
+        ))
     }
 
     async fn get_network_stats(&self) -> (u64, u64) {
@@ -396,12 +425,20 @@ impl SystemMonitor for RealSystemMonitor {
         let system = self.system.read().await;
         let total = system.total_memory();
         let used = system.used_memory();
-        Ok(if total > 0 { (used as f64 / total as f64) * 100.0 } else { 0.0 })
+        Ok(if total > 0 {
+            (used as f64 / total as f64) * 100.0
+        } else {
+            0.0
+        })
     }
 
     async fn get_disk_usage(&self) -> Result<f64> {
         let (used, total) = self.get_disk_usage().await?;
-        Ok(if total > 0 { (used as f64 / total as f64) * 100.0 } else { 0.0 })
+        Ok(if total > 0 {
+            (used as f64 / total as f64) * 100.0
+        } else {
+            0.0
+        })
     }
 
     async fn get_network_stats(&self) -> Result<(u64, u64)> {

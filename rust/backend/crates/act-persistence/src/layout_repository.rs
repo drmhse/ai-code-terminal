@@ -1,15 +1,17 @@
-use act_core::repository::{LayoutRepository, CreateLayoutRequest, UpdateLayoutRequest, LayoutId};
 use act_core::models::TerminalLayout;
+use act_core::repository::{CreateLayoutRequest, LayoutId, LayoutRepository, UpdateLayoutRequest};
 use async_trait::async_trait;
-use sqlx::SqlitePool;
-use sqlx::Row;
 use chrono::Utc;
+use sqlx::Row;
+use sqlx::SqlitePool;
 
 use super::error::PersistenceError;
 
 macro_rules! handle_db_error {
     ($expr:expr) => {
-        $expr.await.map_err(|e| PersistenceError::DatabaseConnection(e))?
+        $expr
+            .await
+            .map_err(|e| PersistenceError::DatabaseConnection(e))?
     };
 }
 
@@ -23,7 +25,9 @@ impl SqlLayoutRepository {
         Self { pool }
     }
 
-    async fn map_row_to_layout(row: sqlx::sqlite::SqliteRow) -> Result<TerminalLayout, PersistenceError> {
+    async fn map_row_to_layout(
+        row: sqlx::sqlite::SqliteRow,
+    ) -> Result<TerminalLayout, PersistenceError> {
         Ok(TerminalLayout {
             id: row.get("id"),
             name: row.get("name"),
@@ -40,7 +44,11 @@ impl SqlLayoutRepository {
 
 #[async_trait]
 impl LayoutRepository for SqlLayoutRepository {
-    async fn create(&self, user_id: &str, request: CreateLayoutRequest) -> Result<TerminalLayout, act_core::error::CoreError> {
+    async fn create(
+        &self,
+        user_id: &str,
+        request: CreateLayoutRequest,
+    ) -> Result<TerminalLayout, act_core::error::CoreError> {
         let layout_id = uuid::Uuid::new_v4().to_string();
         let now = Utc::now();
         let is_default = request.is_default.unwrap_or(false);
@@ -65,29 +73,37 @@ impl LayoutRepository for SqlLayoutRepository {
             .fetch_one(&self.pool)
         );
 
-        let layout = Self::map_row_to_layout(row).await
+        let layout = Self::map_row_to_layout(row)
+            .await
             .map_err(|e| act_core::error::CoreError::Repository(e.to_string()))?;
 
         Ok(layout)
     }
 
-    async fn get_by_id(&self, user_id: &str, id: &LayoutId) -> Result<TerminalLayout, act_core::error::CoreError> {
-        let row = handle_db_error!(
-            sqlx::query(
-                "SELECT * FROM terminal_layouts WHERE id = ?1 AND user_id = ?2"
-            )
-            .bind(id)
-            .bind(user_id)
-            .fetch_one(&self.pool)
-        );
+    async fn get_by_id(
+        &self,
+        user_id: &str,
+        id: &LayoutId,
+    ) -> Result<TerminalLayout, act_core::error::CoreError> {
+        let row = handle_db_error!(sqlx::query(
+            "SELECT * FROM terminal_layouts WHERE id = ?1 AND user_id = ?2"
+        )
+        .bind(id)
+        .bind(user_id)
+        .fetch_one(&self.pool));
 
-        let layout = Self::map_row_to_layout(row).await
+        let layout = Self::map_row_to_layout(row)
+            .await
             .map_err(|e| act_core::error::CoreError::Repository(e.to_string()))?;
 
         Ok(layout)
     }
 
-    async fn list_for_workspace(&self, user_id: &str, workspace_id: &act_core::repository::WorkspaceId) -> Result<Vec<TerminalLayout>, act_core::error::CoreError> {
+    async fn list_for_workspace(
+        &self,
+        user_id: &str,
+        workspace_id: &act_core::repository::WorkspaceId,
+    ) -> Result<Vec<TerminalLayout>, act_core::error::CoreError> {
         let rows = handle_db_error!(
             sqlx::query(
                 "SELECT * FROM terminal_layouts WHERE workspace_id = ?1 AND user_id = ?2 ORDER BY created_at ASC"
@@ -99,7 +115,8 @@ impl LayoutRepository for SqlLayoutRepository {
 
         let mut layouts = Vec::new();
         for row in rows {
-            let layout = Self::map_row_to_layout(row).await
+            let layout = Self::map_row_to_layout(row)
+                .await
                 .map_err(|e| act_core::error::CoreError::Repository(e.to_string()))?;
             layouts.push(layout);
         }
@@ -107,18 +124,20 @@ impl LayoutRepository for SqlLayoutRepository {
         Ok(layouts)
     }
 
-    async fn list_all(&self, user_id: &str) -> Result<Vec<TerminalLayout>, act_core::error::CoreError> {
-        let rows = handle_db_error!(
-            sqlx::query(
-                "SELECT * FROM terminal_layouts WHERE user_id = ?1 ORDER BY created_at ASC"
-            )
-            .bind(user_id)
-            .fetch_all(&self.pool)
-        );
+    async fn list_all(
+        &self,
+        user_id: &str,
+    ) -> Result<Vec<TerminalLayout>, act_core::error::CoreError> {
+        let rows = handle_db_error!(sqlx::query(
+            "SELECT * FROM terminal_layouts WHERE user_id = ?1 ORDER BY created_at ASC"
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool));
 
         let mut layouts = Vec::new();
         for row in rows {
-            let layout = Self::map_row_to_layout(row).await
+            let layout = Self::map_row_to_layout(row)
+                .await
                 .map_err(|e| act_core::error::CoreError::Repository(e.to_string()))?;
             layouts.push(layout);
         }
@@ -126,12 +145,16 @@ impl LayoutRepository for SqlLayoutRepository {
         Ok(layouts)
     }
 
-    async fn update(&self, user_id: &str, id: &LayoutId, request: UpdateLayoutRequest) -> Result<TerminalLayout, act_core::error::CoreError> {
+    async fn update(
+        &self,
+        user_id: &str,
+        id: &LayoutId,
+        request: UpdateLayoutRequest,
+    ) -> Result<TerminalLayout, act_core::error::CoreError> {
         let now = Utc::now();
 
-        let row = handle_db_error!(
-            sqlx::query(
-                r#"
+        let row = handle_db_error!(sqlx::query(
+            r#"
                 UPDATE terminal_layouts
                 SET name = COALESCE(?1, name),
                     tree_structure = COALESCE(?2, tree_structure),
@@ -140,40 +163,46 @@ impl LayoutRepository for SqlLayoutRepository {
                 WHERE id = ?5 AND user_id = ?6
                 RETURNING *
                 "#,
-            )
-            .bind(&request.name)
-            .bind(&request.tree_structure)
-            .bind(request.is_default)
-            .bind(now)
-            .bind(id)
-            .bind(user_id)
-            .fetch_one(&self.pool)
-        );
+        )
+        .bind(&request.name)
+        .bind(&request.tree_structure)
+        .bind(request.is_default)
+        .bind(now)
+        .bind(id)
+        .bind(user_id)
+        .fetch_one(&self.pool));
 
-        let layout = Self::map_row_to_layout(row).await
+        let layout = Self::map_row_to_layout(row)
+            .await
             .map_err(|e| act_core::error::CoreError::Repository(e.to_string()))?;
 
         Ok(layout)
     }
 
     async fn delete(&self, user_id: &str, id: &LayoutId) -> Result<(), act_core::error::CoreError> {
-        let result = handle_db_error!(
-            sqlx::query(
-                "DELETE FROM terminal_layouts WHERE id = ?1 AND user_id = ?2"
-            )
-            .bind(id)
-            .bind(user_id)
-            .execute(&self.pool)
-        );
+        let result = handle_db_error!(sqlx::query(
+            "DELETE FROM terminal_layouts WHERE id = ?1 AND user_id = ?2"
+        )
+        .bind(id)
+        .bind(user_id)
+        .execute(&self.pool));
 
         if result.rows_affected() == 0 {
-            return Err(act_core::error::CoreError::NotFound(format!("Layout with id {} not found", id)));
+            return Err(act_core::error::CoreError::NotFound(format!(
+                "Layout with id {} not found",
+                id
+            )));
         }
 
         Ok(())
     }
 
-    async fn set_default(&self, user_id: &str, id: &LayoutId, workspace_id: &act_core::repository::WorkspaceId) -> Result<(), act_core::error::CoreError> {
+    async fn set_default(
+        &self,
+        user_id: &str,
+        id: &LayoutId,
+        workspace_id: &act_core::repository::WorkspaceId,
+    ) -> Result<(), act_core::error::CoreError> {
         let mut tx = handle_db_error!(self.pool.begin());
 
         // First, unset all other layouts as default for this workspace
@@ -199,7 +228,10 @@ impl LayoutRepository for SqlLayoutRepository {
 
         if result.rows_affected() == 0 {
             handle_db_error!(tx.rollback());
-            return Err(act_core::error::CoreError::NotFound(format!("Layout with id {} not found", id)));
+            return Err(act_core::error::CoreError::NotFound(format!(
+                "Layout with id {} not found",
+                id
+            )));
         }
 
         handle_db_error!(tx.commit());

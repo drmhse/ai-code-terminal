@@ -1,8 +1,7 @@
-use std::sync::Arc;
 use act_core::{
-    Result, GitHubRepositoryService, GitHubRepository, RepositoryListOptions,
-    AuthRepository
+    AuthRepository, GitHubRepository, GitHubRepositoryService, RepositoryListOptions, Result,
 };
+use std::sync::Arc;
 
 pub struct GitHubService {
     github_repo_service: Arc<dyn GitHubRepositoryService>,
@@ -36,10 +35,13 @@ impl GitHubService {
     ) -> Result<Vec<GitHubRepository>> {
         tracing::debug!("Looking up GitHub token for user_id: {}", user_id);
         // Get the user's GitHub access token
-        let access_token = self.auth_repository
+        let access_token = self
+            .auth_repository
             .get_github_token(user_id)
             .await?
-            .ok_or_else(|| act_core::CoreError::Auth("GitHub authentication required".to_string()))?;
+            .ok_or_else(|| {
+                act_core::CoreError::Auth("GitHub authentication required".to_string())
+            })?;
 
         let options = RepositoryListOptions {
             page: query.page,
@@ -48,7 +50,8 @@ impl GitHubService {
             type_filter: query.type_filter,
         };
 
-        let mut repositories = self.github_repo_service
+        let mut repositories = self
+            .github_repo_service
             .list_repositories(&access_token, options)
             .await?;
 
@@ -56,9 +59,12 @@ impl GitHubService {
         if let Some(search_term) = query.search {
             let search_lower = search_term.to_lowercase();
             repositories.retain(|repo| {
-                repo.name.to_lowercase().contains(&search_lower) ||
-                repo.full_name.to_lowercase().contains(&search_lower) ||
-                repo.description.as_ref().is_some_and(|desc| desc.to_lowercase().contains(&search_lower))
+                repo.name.to_lowercase().contains(&search_lower)
+                    || repo.full_name.to_lowercase().contains(&search_lower)
+                    || repo
+                        .description
+                        .as_ref()
+                        .is_some_and(|desc| desc.to_lowercase().contains(&search_lower))
             });
         }
 
@@ -72,10 +78,13 @@ impl GitHubService {
         repo: &str,
     ) -> Result<GitHubRepository> {
         // Get the user's GitHub access token
-        let access_token = self.auth_repository
+        let access_token = self
+            .auth_repository
             .get_github_token(user_id)
             .await?
-            .ok_or_else(|| act_core::CoreError::Auth("GitHub authentication required".to_string()))?;
+            .ok_or_else(|| {
+                act_core::CoreError::Auth("GitHub authentication required".to_string())
+            })?;
 
         self.github_repo_service
             .get_repository(&access_token, owner, repo)

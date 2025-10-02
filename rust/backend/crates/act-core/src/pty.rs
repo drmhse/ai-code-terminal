@@ -71,5 +71,9 @@ pub trait PtyService: Send + Sync {
 
     async fn is_session_active(&self, session_id: &SessionId) -> Result<bool>;
 
-    async fn update_session_pane_id(&self, session_id: &SessionId, pane_id: Option<String>) -> Result<()>;
+    async fn update_session_pane_id(
+        &self,
+        session_id: &SessionId,
+        pane_id: Option<String>,
+    ) -> Result<()>;
 }

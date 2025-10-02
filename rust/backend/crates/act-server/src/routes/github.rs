@@ -1,12 +1,12 @@
-use crate::{AppState, models::ApiResponse, error::ServerError, utils::extract_bearer_token};
+use crate::{error::ServerError, models::ApiResponse, utils::extract_bearer_token, AppState};
+use act_domain::{CloneRequest, RepositoryQuery};
 use axum::{
-    extract::{Query, State, Path},
+    extract::{Path, Query, State},
     http::HeaderMap,
     Json,
 };
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
-use act_domain::{RepositoryQuery, CloneRequest};
 
 #[derive(Debug, Deserialize)]
 pub struct RepoQuery {
@@ -36,13 +36,18 @@ pub struct RepoInfoResponse {
 pub async fn list_repositories(
     Query(params): Query<RepoQuery>,
     State(state): State<AppState>,
-    headers: HeaderMap
+    headers: HeaderMap,
 ) -> Result<Json<ApiResponse<RepositoriesResponse>>, ServerError> {
     info!("Repository list requested with params: {:?}", params);
 
     let token = extract_bearer_token(&headers)?;
-    
-    match state.domain_services.auth_service.get_current_user(&token).await {
+
+    match state
+        .domain_services
+        .auth_service
+        .get_current_user(&token)
+        .await
+    {
         Ok(user) => {
             let query = RepositoryQuery {
                 page: params.page,
@@ -52,20 +57,30 @@ pub async fn list_repositories(
                 search: params.search,
             };
 
-            match state.domain_services.github_service.list_user_repositories(&user.user_id, query).await {
+            match state
+                .domain_services
+                .github_service
+                .list_user_repositories(&user.user_id, query)
+                .await
+            {
                 Ok(repositories) => {
-                    let repo_json: Vec<serde_json::Value> = repositories.iter()
+                    let repo_json: Vec<serde_json::Value> = repositories
+                        .iter()
                         .map(|repo| serde_json::to_value(repo).unwrap_or(serde_json::Value::Null))
                         .collect();
-                    
+
                     let response = RepositoriesResponse {
                         success: true,
                         repositories: repo_json.clone(),
                         total_count: repo_json.len(),
                         message: None,
                     };
-                    
-                    info!("Retrieved {} repositories for user {}", repo_json.len(), user.username);
+
+                    info!(
+                        "Retrieved {} repositories for user {}",
+                        repo_json.len(),
+                        user.username
+                    );
                     Ok(Json(ApiResponse::success(response)))
                 }
                 Err(e) => {
@@ -83,7 +98,7 @@ pub async fn list_repositories(
                     Ok(Json(ApiResponse::success(response)))
                 }
             }
-        },
+        }
         Err(e) => {
             error!("Failed to authenticate user: {}", e);
             Err(ServerError::from(e))
@@ -94,24 +109,35 @@ pub async fn list_repositories(
 pub async fn get_repository_info(
     Path((owner, repo)): Path<(String, String)>,
     State(state): State<AppState>,
-    headers: HeaderMap
+    headers: HeaderMap,
 ) -> Result<Json<ApiResponse<RepoInfoResponse>>, ServerError> {
     info!("Repository info requested for: {}/{}", owner, repo);
 
     let token = extract_bearer_token(&headers)?;
-    
-    match state.domain_services.auth_service.get_current_user(&token).await {
+
+    match state
+        .domain_services
+        .auth_service
+        .get_current_user(&token)
+        .await
+    {
         Ok(user) => {
-            match state.domain_services.github_service.get_repository_info(&user.user_id, &owner, &repo).await {
+            match state
+                .domain_services
+                .github_service
+                .get_repository_info(&user.user_id, &owner, &repo)
+                .await
+            {
                 Ok(repository) => {
-                    let repo_json = serde_json::to_value(&repository).unwrap_or(serde_json::Value::Null);
-                    
+                    let repo_json =
+                        serde_json::to_value(&repository).unwrap_or(serde_json::Value::Null);
+
                     let response = RepoInfoResponse {
                         success: true,
                         repository: Some(repo_json),
                         message: None,
                     };
-                    
+
                     info!("Retrieved repository info for {}/{}", owner, repo);
                     Ok(Json(ApiResponse::success(response)))
                 }
@@ -129,7 +155,7 @@ pub async fn get_repository_info(
                     Ok(Json(ApiResponse::success(response)))
                 }
             }
-        },
+        }
         Err(e) => {
             error!("Failed to authenticate user: {}", e);
             Err(ServerError::from(e))
@@ -155,13 +181,21 @@ pub struct CloneResponse {
 pub async fn clone_repository(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(request): Json<CloneRepositoryRequest>
+    Json(request): Json<CloneRepositoryRequest>,
 ) -> Result<Json<ApiResponse<CloneResponse>>, ServerError> {
-    info!("Repository clone requested: {} -> {}", request.git_url, request.name);
+    info!(
+        "Repository clone requested: {} -> {}",
+        request.git_url, request.name
+    );
 
     let token = extract_bearer_token(&headers)?;
-    
-    match state.domain_services.auth_service.get_current_user(&token).await {
+
+    match state
+        .domain_services
+        .auth_service
+        .get_current_user(&token)
+        .await
+    {
         Ok(user) => {
             // Get the user's GitHub token for authenticated cloning - this is done automatically by the workspace service
             // as it uses the auth repository to get the token when needed
@@ -174,16 +208,22 @@ pub async fn clone_repository(
                 description: request.description,
             };
 
-            match state.domain_services.workspace_service.clone_repository(&user.user_id, clone_request, github_token.as_deref()).await {
+            match state
+                .domain_services
+                .workspace_service
+                .clone_repository(&user.user_id, clone_request, github_token.as_deref())
+                .await
+            {
                 Ok(workspace) => {
-                    let workspace_json = serde_json::to_value(&workspace).unwrap_or(serde_json::Value::Null);
-                    
+                    let workspace_json =
+                        serde_json::to_value(&workspace).unwrap_or(serde_json::Value::Null);
+
                     let response = CloneResponse {
                         success: true,
                         workspace: Some(workspace_json),
                         message: None,
                     };
-                    
+
                     info!("Repository cloned successfully: {}", workspace.id);
                     Ok(Json(ApiResponse::success(response)))
                 }
@@ -201,11 +241,10 @@ pub async fn clone_repository(
                     Ok(Json(ApiResponse::success(response)))
                 }
             }
-        },
+        }
         Err(e) => {
             error!("Failed to authenticate user: {}", e);
             Err(ServerError::from(e))
         }
     }
 }
-

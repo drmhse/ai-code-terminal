@@ -1,18 +1,18 @@
 use act_core::repository::{
-    ProcessRunner, ProcessStartRequest, ProcessInfo, ProcessResourceUsage,
-    ProcessOutputChunk, ProcessOutputQuery, OutputStreamType, ProcessResourceLimits
+    OutputStreamType, ProcessInfo, ProcessOutputChunk, ProcessOutputQuery, ProcessResourceLimits,
+    ProcessResourceUsage, ProcessRunner, ProcessStartRequest,
 };
 use async_trait::async_trait;
-use std::collections::HashMap;
-use tokio::process::Command;
-use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::sync::{mpsc, Mutex, RwLock};
-use std::process::Stdio;
-use tracing::{info, warn, error};
-use std::sync::Arc;
-use std::time::{SystemTime, Duration};
 use chrono::Utc;
-use sysinfo::{System, Pid};
+use std::collections::HashMap;
+use std::process::Stdio;
+use std::sync::Arc;
+use std::time::{Duration, SystemTime};
+use sysinfo::{Pid, System};
+use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::process::Command;
+use tokio::sync::{mpsc, Mutex, RwLock};
+use tracing::{error, info, warn};
 
 /// Process tracking information with enhanced monitoring
 #[derive(Debug, Clone)]
@@ -79,7 +79,13 @@ impl<T: Clone> CircularBuffer<T> {
     fn get_recent(&self, count: usize) -> Vec<T> {
         let mut items: Vec<T> = self.iter().cloned().collect();
         items.reverse();
-        items.into_iter().take(count).collect::<Vec<_>>().into_iter().rev().collect()
+        items
+            .into_iter()
+            .take(count)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect()
     }
 }
 
@@ -112,10 +118,7 @@ impl TokioProcessRunner {
     }
 
     /// Start monitoring process output streams
-    async fn start_output_monitoring(
-        &self,
-        pid: i32,
-    ) {
+    async fn start_output_monitoring(&self, pid: i32) {
         let processes = self.running_processes.lock().await;
         let tracker = processes.get(&pid);
         if tracker.is_none() {
@@ -267,8 +270,14 @@ impl TokioProcessRunner {
 
 #[async_trait]
 impl ProcessRunner for TokioProcessRunner {
-    async fn start_process(&self, request: ProcessStartRequest) -> Result<ProcessInfo, act_core::error::CoreError> {
-        info!("Starting process: {} with args: {:?}", request.command, request.args);
+    async fn start_process(
+        &self,
+        request: ProcessStartRequest,
+    ) -> Result<ProcessInfo, act_core::error::CoreError> {
+        info!(
+            "Starting process: {} with args: {:?}",
+            request.command, request.args
+        );
 
         let mut cmd = Command::new(&request.command);
 
@@ -285,23 +294,24 @@ impl ProcessRunner for TokioProcessRunner {
 
         // Configure stdout/stderr capture
         cmd.stdout(Stdio::piped())
-           .stderr(Stdio::piped())
-           .stdin(Stdio::null());
+            .stderr(Stdio::piped())
+            .stdin(Stdio::null());
 
         // Start the process
-        let child = cmd.spawn()
-            .map_err(|e| {
-                error!("Failed to start process {}: {}", request.command, e);
-                act_core::error::CoreError::Process(format!("Failed to start process: {}", e))
-            })?;
+        let child = cmd.spawn().map_err(|e| {
+            error!("Failed to start process {}: {}", request.command, e);
+            act_core::error::CoreError::Process(format!("Failed to start process: {}", e))
+        })?;
 
-        let pid = child.id().map(|id| id as i32)
-            .ok_or_else(|| act_core::error::CoreError::Process("Failed to get process ID".to_string()))?;
+        let pid = child.id().map(|id| id as i32).ok_or_else(|| {
+            act_core::error::CoreError::Process("Failed to get process ID".to_string())
+        })?;
 
         let start_time = SystemTime::now();
 
         // Create enhanced process tracker
-        let buffer_size = request.output_config
+        let buffer_size = request
+            .output_config
             .as_ref()
             .and_then(|config| config.buffer_lines)
             .unwrap_or(self.default_buffer_size);
@@ -363,13 +373,16 @@ impl ProcessRunner for TokioProcessRunner {
                 tokio::time::sleep(Duration::from_secs(5)).await;
 
                 // Check if process is still running
-match tracker.child.lock().await.try_wait() {
+                match tracker.child.lock().await.try_wait() {
                     Ok(Some(_)) => {
                         info!("Process {} terminated gracefully", pid);
                         return Ok(());
                     }
                     Ok(None) => {
-                        info!("Process {} did not terminate gracefully, sending SIGKILL", pid);
+                        info!(
+                            "Process {} did not terminate gracefully, sending SIGKILL",
+                            pid
+                        );
                     }
                     Err(e) => {
                         warn!("Error checking process {} status: {}", pid, e);
@@ -380,13 +393,19 @@ match tracker.child.lock().await.try_wait() {
             // Force kill if graceful termination failed
             if let Err(e) = tracker.child.lock().await.kill().await {
                 warn!("Failed to kill process {}: {}", pid, e);
-                return Err(act_core::error::CoreError::Process(format!("Failed to kill process: {}", e)));
+                return Err(act_core::error::CoreError::Process(format!(
+                    "Failed to kill process: {}",
+                    e
+                )));
             }
 
             info!("Process {} stopped successfully", pid);
             Ok(())
         } else {
-            Err(act_core::error::CoreError::NotFound(format!("Process with PID {} not found", pid)))
+            Err(act_core::error::CoreError::NotFound(format!(
+                "Process with PID {} not found",
+                pid
+            )))
         }
     }
 
@@ -401,17 +420,26 @@ match tracker.child.lock().await.try_wait() {
         if let Some(tracker) = tracker {
             if let Err(e) = tracker.child.lock().await.kill().await {
                 warn!("Failed to force kill process {}: {}", pid, e);
-                return Err(act_core::error::CoreError::Process(format!("Failed to force kill process: {}", e)));
+                return Err(act_core::error::CoreError::Process(format!(
+                    "Failed to force kill process: {}",
+                    e
+                )));
             }
 
             info!("Process {} force killed successfully", pid);
             Ok(())
         } else {
-            Err(act_core::error::CoreError::NotFound(format!("Process with PID {} not found", pid)))
+            Err(act_core::error::CoreError::NotFound(format!(
+                "Process with PID {} not found",
+                pid
+            )))
         }
     }
 
-    async fn get_process_status(&self, pid: i32) -> Result<ProcessInfo, act_core::error::CoreError> {
+    async fn get_process_status(
+        &self,
+        pid: i32,
+    ) -> Result<ProcessInfo, act_core::error::CoreError> {
         let tracker = {
             let mut processes = self.running_processes.lock().await;
             processes.remove(&pid)
@@ -441,7 +469,11 @@ match tracker.child.lock().await.try_wait() {
                     let exit_code = exit_status.code();
                     ProcessInfo {
                         pid,
-                        status: if exit_code == Some(0) { "Completed".to_string() } else { "Failed".to_string() },
+                        status: if exit_code == Some(0) {
+                            "Completed".to_string()
+                        } else {
+                            "Failed".to_string()
+                        },
                         start_time,
                         exit_code,
                         resource_usage,
@@ -464,38 +496,46 @@ match tracker.child.lock().await.try_wait() {
 
             Ok(status_info)
         } else {
-            Err(act_core::error::CoreError::NotFound(format!("Process with PID {} not found", pid)))
+            Err(act_core::error::CoreError::NotFound(format!(
+                "Process with PID {} not found",
+                pid
+            )))
         }
     }
 
-    async fn get_process_output_stream(&self, pid: i32, query: ProcessOutputQuery) -> Result<Vec<ProcessOutputChunk>, act_core::error::CoreError> {
+    async fn get_process_output_stream(
+        &self,
+        pid: i32,
+        query: ProcessOutputQuery,
+    ) -> Result<Vec<ProcessOutputChunk>, act_core::error::CoreError> {
         let processes = self.running_processes.lock().await;
-        let tracker = processes.get(&pid)
-            .ok_or_else(|| act_core::error::CoreError::NotFound(format!("Process with PID {} not found", pid)))?;
+        let tracker = processes.get(&pid).ok_or_else(|| {
+            act_core::error::CoreError::NotFound(format!("Process with PID {} not found", pid))
+        })?;
 
         let mut results = Vec::new();
 
         // Get stdout chunks
-        if query.stream_filter.is_none() || matches!(query.stream_filter, Some(OutputStreamType::Stdout)) {
+        if query.stream_filter.is_none()
+            || matches!(query.stream_filter, Some(OutputStreamType::Stdout))
+        {
             let stdout_buffer = tracker.stdout_buffer.read().await;
             let mut stdout_chunks: Vec<_> = stdout_buffer
                 .iter()
-                .filter(|chunk| {
-                    query.since_sequence.is_none_or(|seq| chunk.sequence > seq)
-                })
+                .filter(|chunk| query.since_sequence.is_none_or(|seq| chunk.sequence > seq))
                 .cloned()
                 .collect();
             results.append(&mut stdout_chunks);
         }
 
         // Get stderr chunks
-        if query.stream_filter.is_none() || matches!(query.stream_filter, Some(OutputStreamType::Stderr)) {
+        if query.stream_filter.is_none()
+            || matches!(query.stream_filter, Some(OutputStreamType::Stderr))
+        {
             let stderr_buffer = tracker.stderr_buffer.read().await;
             let mut stderr_chunks: Vec<_> = stderr_buffer
                 .iter()
-                .filter(|chunk| {
-                    query.since_sequence.is_none_or(|seq| chunk.sequence > seq)
-                })
+                .filter(|chunk| query.since_sequence.is_none_or(|seq| chunk.sequence > seq))
                 .cloned()
                 .collect();
             results.append(&mut stderr_chunks);
@@ -510,10 +550,15 @@ match tracker.child.lock().await.try_wait() {
         Ok(results)
     }
 
-    async fn get_latest_output(&self, pid: i32, lines: Option<usize>) -> Result<(String, String), act_core::error::CoreError> {
+    async fn get_latest_output(
+        &self,
+        pid: i32,
+        lines: Option<usize>,
+    ) -> Result<(String, String), act_core::error::CoreError> {
         let processes = self.running_processes.lock().await;
-        let tracker = processes.get(&pid)
-            .ok_or_else(|| act_core::error::CoreError::NotFound(format!("Process with PID {} not found", pid)))?;
+        let tracker = processes.get(&pid).ok_or_else(|| {
+            act_core::error::CoreError::NotFound(format!("Process with PID {} not found", pid))
+        })?;
 
         let line_limit = lines.unwrap_or(100);
 
@@ -571,7 +616,10 @@ match tracker.child.lock().await.try_wait() {
         }
     }
 
-    async fn get_resource_usage(&self, pid: i32) -> Result<ProcessResourceUsage, act_core::error::CoreError> {
+    async fn get_resource_usage(
+        &self,
+        pid: i32,
+    ) -> Result<ProcessResourceUsage, act_core::error::CoreError> {
         let mut system = self.system_monitor.lock().await;
         system.refresh_process(Pid::from(pid as usize));
 
@@ -583,14 +631,21 @@ match tracker.child.lock().await.try_wait() {
                 file_descriptors: 0, // Not easily available through sysinfo
             })
         } else {
-            Err(act_core::error::CoreError::NotFound(format!("Process with PID {} not found in system", pid)))
+            Err(act_core::error::CoreError::NotFound(format!(
+                "Process with PID {} not found in system",
+                pid
+            )))
         }
     }
 
-    async fn subscribe_to_output(&self, pid: i32) -> Result<mpsc::Receiver<ProcessOutputChunk>, act_core::error::CoreError> {
+    async fn subscribe_to_output(
+        &self,
+        pid: i32,
+    ) -> Result<mpsc::Receiver<ProcessOutputChunk>, act_core::error::CoreError> {
         let processes = self.running_processes.lock().await;
-        let tracker = processes.get(&pid)
-            .ok_or_else(|| act_core::error::CoreError::NotFound(format!("Process with PID {} not found", pid)))?;
+        let tracker = processes.get(&pid).ok_or_else(|| {
+            act_core::error::CoreError::NotFound(format!("Process with PID {} not found", pid))
+        })?;
 
         let (sender, receiver) = mpsc::channel(100);
         let mut subscribers = tracker.output_subscribers.lock().await;
@@ -599,14 +654,21 @@ match tracker.child.lock().await.try_wait() {
         Ok(receiver)
     }
 
-    async fn set_resource_limits(&self, pid: i32, limits: ProcessResourceLimits) -> Result<(), act_core::error::CoreError> {
+    async fn set_resource_limits(
+        &self,
+        pid: i32,
+        limits: ProcessResourceLimits,
+    ) -> Result<(), act_core::error::CoreError> {
         let mut processes = self.running_processes.lock().await;
         if let Some(tracker) = processes.get_mut(&pid) {
             tracker.resource_limits = Some(limits);
             info!("Updated resource limits for process {}", pid);
             Ok(())
         } else {
-            Err(act_core::error::CoreError::NotFound(format!("Process with PID {} not found", pid)))
+            Err(act_core::error::CoreError::NotFound(format!(
+                "Process with PID {} not found",
+                pid
+            )))
         }
     }
 

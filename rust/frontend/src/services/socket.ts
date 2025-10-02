@@ -69,6 +69,11 @@ class SocketService {
   public readonly workspaceSessions$ = new Subject<WorkspaceSessionsEvent>()
   public readonly sessionRecovered$ = new Subject<SessionRecoveredEvent>()
   public readonly reconnectionFailed$ = new Subject<ReconnectionFailedEvent>()
+  public readonly taskExecutionStarted$ = new Subject<any>()
+  public readonly taskExecutionOutput$ = new Subject<any>()
+  public readonly taskExecutionStatus$ = new Subject<any>()
+  public readonly taskExecutionError$ = new Subject<any>()
+  public readonly taskExecutionCancelled$ = new Subject<any>()
 
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -160,6 +165,7 @@ class SocketService {
       this.setupTerminalListeners()
       this.setupStatsListeners()
       this.setupSessionListeners()
+      this.setupTaskExecutionListeners()
     })
   }
 
@@ -240,6 +246,35 @@ class SocketService {
 
     this.socket.on('terminal-error', (error: unknown) => {
       console.error('Terminal error:', error)
+    })
+  }
+
+  private setupTaskExecutionListeners(): void {
+    if (!this.socket) return
+
+    this.socket.on('task:execution:started', (data: unknown) => {
+      console.log('Task execution started:', data)
+      this.taskExecutionStarted$.next(data)
+    })
+
+    this.socket.on('task:execution:output', (data: unknown) => {
+      console.log('Task execution output:', data)
+      this.taskExecutionOutput$.next(data)
+    })
+
+    this.socket.on('task:execution:status', (data: unknown) => {
+      console.log('Task execution status:', data)
+      this.taskExecutionStatus$.next(data)
+    })
+
+    this.socket.on('task:execution:error', (data: unknown) => {
+      console.error('Task execution error:', data)
+      this.taskExecutionError$.next(data)
+    })
+
+    this.socket.on('task:execution:cancelled', (data: unknown) => {
+      console.log('Task execution cancelled:', data)
+      this.taskExecutionCancelled$.next(data)
     })
   }
 

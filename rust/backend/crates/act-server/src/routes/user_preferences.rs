@@ -1,20 +1,15 @@
 use crate::{
-    models::ApiResponse,
-    middleware::auth::AuthenticatedUser,
-    AppState,
-    error::ServerError,
+    error::ServerError, middleware::auth::AuthenticatedUser, models::ApiResponse, AppState,
 };
 use act_core::user_preferences::UserPreferences;
-use axum::{
-    extract::State,
-    response::Json,
-    routing::get,
-    Router,
-};
+use axum::{extract::State, response::Json, routing::get, Router};
 use tracing::info;
 
 pub fn routes() -> Router<AppState> {
-    Router::new().route("/", get(get_user_preferences).patch(update_user_preferences))
+    Router::new().route(
+        "/",
+        get(get_user_preferences).patch(update_user_preferences),
+    )
 }
 
 async fn get_user_preferences(

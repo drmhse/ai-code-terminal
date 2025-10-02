@@ -1,11 +1,16 @@
-use crate::{models::ApiResponse, AppState, error::ServerError, middleware::auth::AuthenticatedUser};
+use crate::{
+    error::ServerError, middleware::auth::AuthenticatedUser, models::ApiResponse, AppState,
+};
+use act_core::{
+    CopyRequest, CreateDirectoryRequest, CreateFileRequest, DirectoryListing, FileContent,
+    MoveRequest,
+};
 use axum::{
     extract::{Query, State},
     response::Json,
-    routing::{get, post, put, patch, delete},
+    routing::{delete, get, patch, post, put},
     Router,
 };
-use act_core::{DirectoryListing, CreateFileRequest, FileContent, CreateDirectoryRequest, MoveRequest, CopyRequest};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tracing::{debug, error, info};
@@ -84,7 +89,6 @@ pub async fn list_directory(
     State(state): State<AppState>,
     _user: AuthenticatedUser,
 ) -> Result<Json<ApiResponse<DirectoryListing>>, ServerError> {
-    
     // Handle root directory requests
     let path_str = params.path.unwrap_or_else(|| ".".to_string());
     let path = if path_str == "." || path_str == "./" || path_str.is_empty() {
@@ -92,16 +96,16 @@ pub async fn list_directory(
     } else {
         PathBuf::from(path_str)
     };
-    
+
     info!("Directory listing requested for: {}", path.display());
-    
+
     info!("Directory listing requested for: {}", path.display());
 
     match state.filesystem.list_directory(&path).await {
         Ok(listing) => {
             debug!("Directory listing successful");
             Ok(Json(ApiResponse::success(listing)))
-        },
+        }
         Err(e) => {
             error!("Failed to list directory: {}", e);
             Err(ServerError::from(e))
@@ -111,7 +115,7 @@ pub async fn list_directory(
 
 pub async fn read_file(
     Query(params): Query<ReadFileQuery>,
-    State(state): State<AppState>
+    State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<FileContentResponse>>, ServerError> {
     let path = PathBuf::from(params.path);
     info!("File read requested for: {}", path.display());
@@ -121,7 +125,7 @@ pub async fn read_file(
             // Convert FileContent to FileContentResponse with proper string encoding
             let response = convert_file_content_to_response(content);
             Ok(Json(ApiResponse::success(response)))
-        },
+        }
         Err(e) => {
             error!("Failed to read file: {}", e);
             Err(ServerError::from(e))
@@ -136,12 +140,12 @@ fn convert_file_content_to_response(content: FileContent) -> FileContentResponse
             Ok(text) => (text, false),
             Err(_) => {
                 // Fallback to base64 for binary content
-                use base64::{Engine as _, engine::general_purpose::STANDARD};
+                use base64::{engine::general_purpose::STANDARD, Engine as _};
                 (STANDARD.encode(&content.content), true)
             }
         }
     } else {
-        use base64::{Engine as _, engine::general_purpose::STANDARD};
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
         (STANDARD.encode(&content.content), true)
     };
 
@@ -156,7 +160,7 @@ fn convert_file_content_to_response(content: FileContent) -> FileContentResponse
 
 pub async fn save_file(
     State(state): State<AppState>,
-    Json(request): Json<SaveFileRequest>
+    Json(request): Json<SaveFileRequest>,
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
     info!("File save requested for: {}", request.path);
 
@@ -177,7 +181,7 @@ pub async fn save_file(
 
 pub async fn create_file(
     State(state): State<AppState>,
-    Json(request): Json<CreateFileRequestPayload>
+    Json(request): Json<CreateFileRequestPayload>,
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
     info!("File/directory creation requested for: {}", request.path);
 
@@ -186,7 +190,7 @@ pub async fn create_file(
             path: PathBuf::from(request.path),
             create_parent_dirs: true,
         };
-        
+
         match state.filesystem.create_directory(dir_request).await {
             Ok(_) => Ok(Json(ApiResponse::success(()))),
             Err(e) => {
@@ -213,39 +217,38 @@ pub async fn create_file(
 
 pub async fn delete_file(
     Query(params): Query<DeleteFileQuery>,
-    State(state): State<AppState>
+    State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
     let path = PathBuf::from(params.path);
     info!("File deletion requested for: {}", path.display());
 
     // Check if it's a directory first and delete appropriately
     match state.filesystem.is_directory(&path).await {
-        Ok(true) => {
-            match state.filesystem.delete_directory(&path, true).await {
-                Ok(_) => Ok(Json(ApiResponse::success(()))),
-                Err(e) => {
-                    error!("Failed to delete directory: {}", e);
-                    Err(ServerError::from(e))
-                }
+        Ok(true) => match state.filesystem.delete_directory(&path, true).await {
+            Ok(_) => Ok(Json(ApiResponse::success(()))),
+            Err(e) => {
+                error!("Failed to delete directory: {}", e);
+                Err(ServerError::from(e))
             }
-        }
-        _ => {
-            match state.filesystem.delete_file(&path).await {
-                Ok(_) => Ok(Json(ApiResponse::success(()))),
-                Err(e) => {
-                    error!("Failed to delete file: {}", e);
-                    Err(ServerError::from(e))
-                }
+        },
+        _ => match state.filesystem.delete_file(&path).await {
+            Ok(_) => Ok(Json(ApiResponse::success(()))),
+            Err(e) => {
+                error!("Failed to delete file: {}", e);
+                Err(ServerError::from(e))
             }
-        }
+        },
     }
 }
 
 pub async fn rename_file(
     State(state): State<AppState>,
-    Json(request): Json<RenameFileRequest>
+    Json(request): Json<RenameFileRequest>,
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
-    info!("File rename requested from {} to {}", request.from_path, request.to_path);
+    info!(
+        "File rename requested from {} to {}",
+        request.from_path, request.to_path
+    );
 
     let move_request = MoveRequest {
         from: PathBuf::from(request.from_path),
@@ -263,9 +266,12 @@ pub async fn rename_file(
 
 pub async fn move_file(
     State(state): State<AppState>,
-    Json(request): Json<MoveFileRequest>
+    Json(request): Json<MoveFileRequest>,
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
-    info!("File move requested from {} to {}", request.from_path, request.to_path);
+    info!(
+        "File move requested from {} to {}",
+        request.from_path, request.to_path
+    );
 
     let move_request = MoveRequest {
         from: PathBuf::from(request.from_path),
@@ -283,9 +289,12 @@ pub async fn move_file(
 
 pub async fn copy_file(
     State(state): State<AppState>,
-    Json(request): Json<CopyFileRequest>
+    Json(request): Json<CopyFileRequest>,
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
-    info!("File copy requested from {} to {}", request.from_path, request.to_path);
+    info!(
+        "File copy requested from {} to {}",
+        request.from_path, request.to_path
+    );
 
     let copy_request = CopyRequest {
         from: PathBuf::from(request.from_path),

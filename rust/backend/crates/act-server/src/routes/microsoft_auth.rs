@@ -1,20 +1,15 @@
-use crate::{
-    AppState,
-    models::ApiResponse,
-    middleware::auth::AuthenticatedUser
-};
+use crate::{middleware::auth::AuthenticatedUser, models::ApiResponse, AppState};
 use act_domain::{
-    MicrosoftAuthError, CreateTaskRequest as DomainCreateTaskRequest, CreateListRequest, TaskBody, TaskImportance,
-    microsoft_auth_types::OAuthState,
+    microsoft_auth_types::OAuthState, CreateListRequest,
+    CreateTaskRequest as DomainCreateTaskRequest, MicrosoftAuthError, TaskBody, TaskImportance,
 };
 use axum::{
-    extract::{State, Path},
+    extract::{Path, State},
     response::Result,
     Json,
 };
 use serde::{Deserialize, Serialize};
 use tracing::{error, info, warn};
-
 
 #[derive(Debug, Deserialize)]
 pub struct MicrosoftCallbackRequest {
@@ -57,13 +52,17 @@ pub struct CodeContext {
     context_snippet: Option<String>,
 }
 
-
 /// Get Microsoft authentication status for current user
 pub async fn get_auth_status(
     State(state): State<AppState>,
     auth_user: AuthenticatedUser,
 ) -> Result<Json<ApiResponse<MicrosoftAuthStatusResponse>>> {
-    match state.domain_services.microsoft_auth_service.is_authenticated(&auth_user.user_id).await {
+    match state
+        .domain_services
+        .microsoft_auth_service
+        .is_authenticated(&auth_user.user_id)
+        .await
+    {
         Ok(is_authenticated) => {
             let status = MicrosoftAuthStatusResponse {
                 authenticated: is_authenticated,
@@ -74,8 +73,14 @@ pub async fn get_auth_status(
             Ok(Json(ApiResponse::success(status)))
         }
         Err(e) => {
-            error!("Failed to check Microsoft auth status for user {}: {}", auth_user.user_id, e);
-            Ok(Json(ApiResponse::error(format!("Failed to check authentication status: {}", e))))
+            error!(
+                "Failed to check Microsoft auth status for user {}: {}",
+                auth_user.user_id, e
+            );
+            Ok(Json(ApiResponse::error(format!(
+                "Failed to check authentication status: {}",
+                e
+            ))))
         }
     }
 }
@@ -88,9 +93,17 @@ pub async fn start_oauth_flow(
     State(state): State<AppState>,
     auth_user: AuthenticatedUser,
 ) -> Result<Json<ApiResponse<AuthUrlResponse>>> {
-    match state.domain_services.microsoft_auth_service.get_authorization_url().await {
+    match state
+        .domain_services
+        .microsoft_auth_service
+        .get_authorization_url()
+        .await
+    {
         Ok(auth_response) => {
-            info!("Generated Microsoft OAuth URL for user: {}", auth_user.user_id);
+            info!(
+                "Generated Microsoft OAuth URL for user: {}",
+                auth_user.user_id
+            );
 
             // Store OAuth state in database for persistence across restarts
             let oauth_state = OAuthState::new(
@@ -99,15 +112,26 @@ pub async fn start_oauth_flow(
                 auth_response.code_verifier,
             );
 
-            if let Err(e) = state.domain_services.microsoft_auth_service.repository()
-                .store_oauth_state(&oauth_state).await
+            if let Err(e) = state
+                .domain_services
+                .microsoft_auth_service
+                .repository()
+                .store_oauth_state(&oauth_state)
+                .await
             {
-                error!("Failed to store OAuth state for user {}: {}", auth_user.user_id, e);
+                error!(
+                    "Failed to store OAuth state for user {}: {}",
+                    auth_user.user_id, e
+                );
                 return Ok(Json(ApiResponse::error("Failed to initiate OAuth flow")));
             }
 
             // Clean up expired states asynchronously
-            let repo = state.domain_services.microsoft_auth_service.repository().clone();
+            let repo = state
+                .domain_services
+                .microsoft_auth_service
+                .repository()
+                .clone();
             tokio::spawn(async move {
                 let _ = repo.cleanup_expired_oauth_states().await;
             });
@@ -120,8 +144,14 @@ pub async fn start_oauth_flow(
             Ok(Json(ApiResponse::success(response)))
         }
         Err(e) => {
-            error!("Failed to generate Microsoft OAuth URL for user {}: {}", auth_user.user_id, e);
-            Ok(Json(ApiResponse::error(format!("Failed to generate authorization URL: {}", e))))
+            error!(
+                "Failed to generate Microsoft OAuth URL for user {}: {}",
+                auth_user.user_id, e
+            );
+            Ok(Json(ApiResponse::error(format!(
+                "Failed to generate authorization URL: {}",
+                e
+            ))))
         }
     }
 }
@@ -133,16 +163,22 @@ pub async fn handle_oauth_callback(
     Json(request): Json<MicrosoftCallbackRequest>,
 ) -> Result<Json<ApiResponse<()>>> {
     if let Some(error) = request.error {
-        error!("Microsoft OAuth error for user {}: {} - {}",
-               auth_user.user_id, error,
-               request.error_description.unwrap_or_default());
+        error!(
+            "Microsoft OAuth error for user {}: {} - {}",
+            auth_user.user_id,
+            error,
+            request.error_description.unwrap_or_default()
+        );
         return Ok(Json(ApiResponse::error("Microsoft OAuth failed")));
     }
 
     let code = match request.code {
         Some(code) => code,
         None => {
-            error!("No authorization code received for user: {}", auth_user.user_id);
+            error!(
+                "No authorization code received for user: {}",
+                auth_user.user_id
+            );
             return Ok(Json(ApiResponse::error("No authorization code received")));
         }
     };
@@ -150,35 +186,55 @@ pub async fn handle_oauth_callback(
     let state_param = match request.state {
         Some(state) => state,
         None => {
-            error!("No state parameter received for user: {}", auth_user.user_id);
+            error!(
+                "No state parameter received for user: {}",
+                auth_user.user_id
+            );
             return Ok(Json(ApiResponse::error("No state parameter received")));
         }
     };
 
     // Retrieve code_verifier from database using state (CSRF token)
-    let code_verifier = match state.domain_services.microsoft_auth_service.repository()
-        .get_oauth_state(&state_param).await
+    let code_verifier = match state
+        .domain_services
+        .microsoft_auth_service
+        .repository()
+        .get_oauth_state(&state_param)
+        .await
     {
         Ok(Some(oauth_state)) => {
             // Validate that the entry belongs to the current user
             if oauth_state.user_id != auth_user.user_id {
-                error!("OAuth state user mismatch for state {}: expected {}, got {}",
-                       state_param, auth_user.user_id, oauth_state.user_id);
+                error!(
+                    "OAuth state user mismatch for state {}: expected {}, got {}",
+                    state_param, auth_user.user_id, oauth_state.user_id
+                );
                 return Ok(Json(ApiResponse::error("Invalid state parameter")));
             }
 
             // Check expiration
             if oauth_state.is_expired() {
-                error!("OAuth state expired for state {} and user: {}", state_param, auth_user.user_id);
+                error!(
+                    "OAuth state expired for state {} and user: {}",
+                    state_param, auth_user.user_id
+                );
                 // Clean up expired state
-                let _ = state.domain_services.microsoft_auth_service.repository()
-                    .remove_oauth_state(&state_param).await;
+                let _ = state
+                    .domain_services
+                    .microsoft_auth_service
+                    .repository()
+                    .remove_oauth_state(&state_param)
+                    .await;
                 return Ok(Json(ApiResponse::error("Expired state parameter")));
             }
 
             // Remove the state after retrieval (one-time use)
-            if let Err(e) = state.domain_services.microsoft_auth_service.repository()
-                .remove_oauth_state(&state_param).await
+            if let Err(e) = state
+                .domain_services
+                .microsoft_auth_service
+                .repository()
+                .remove_oauth_state(&state_param)
+                .await
             {
                 warn!("Failed to remove OAuth state after retrieval: {}", e);
             }
@@ -186,39 +242,75 @@ pub async fn handle_oauth_callback(
             oauth_state.code_verifier
         }
         Ok(None) => {
-            error!("OAuth state not found for state {} and user: {}", state_param, auth_user.user_id);
-            return Ok(Json(ApiResponse::error("Invalid or expired state parameter")));
+            error!(
+                "OAuth state not found for state {} and user: {}",
+                state_param, auth_user.user_id
+            );
+            return Ok(Json(ApiResponse::error(
+                "Invalid or expired state parameter",
+            )));
         }
         Err(e) => {
-            error!("Failed to retrieve OAuth state for user {}: {}", auth_user.user_id, e);
+            error!(
+                "Failed to retrieve OAuth state for user {}: {}",
+                auth_user.user_id, e
+            );
             return Ok(Json(ApiResponse::error("Failed to retrieve OAuth state")));
         }
     };
 
-    info!("Processing Microsoft OAuth callback for user: {}, code: {}, state: {}, verifier: {}",
-          auth_user.user_id, &code[..8], state_param, &code_verifier[..8]);
+    info!(
+        "Processing Microsoft OAuth callback for user: {}, code: {}, state: {}, verifier: {}",
+        auth_user.user_id,
+        &code[..8],
+        state_param,
+        &code_verifier[..8]
+    );
 
-    match state.domain_services.microsoft_auth_service.handle_oauth_callback(
-        &auth_user.user_id,
-        &code,
-        &state_param,
-        &code_verifier,
-    ).await {
+    match state
+        .domain_services
+        .microsoft_auth_service
+        .handle_oauth_callback(&auth_user.user_id, &code, &state_param, &code_verifier)
+        .await
+    {
         Ok(()) => {
-            info!("Microsoft authentication successful for user: {}", auth_user.user_id);
+            info!(
+                "Microsoft authentication successful for user: {}",
+                auth_user.user_id
+            );
 
             // Verify auth was actually stored
-            match state.domain_services.microsoft_auth_service.is_authenticated(&auth_user.user_id).await {
-                Ok(true) => info!("✅ Verified Microsoft auth stored for user: {}", auth_user.user_id),
-                Ok(false) => error!("❌ Microsoft auth NOT stored for user: {}", auth_user.user_id),
-                Err(e) => error!("❌ Failed to verify Microsoft auth for user {}: {}", auth_user.user_id, e),
+            match state
+                .domain_services
+                .microsoft_auth_service
+                .is_authenticated(&auth_user.user_id)
+                .await
+            {
+                Ok(true) => info!(
+                    "Verified Microsoft auth stored for user: {}",
+                    auth_user.user_id
+                ),
+                Ok(false) => error!(
+                    "❌ Microsoft auth NOT stored for user: {}",
+                    auth_user.user_id
+                ),
+                Err(e) => error!(
+                    "❌ Failed to verify Microsoft auth for user {}: {}",
+                    auth_user.user_id, e
+                ),
             }
 
             Ok(Json(ApiResponse::success(())))
         }
         Err(e) => {
-            error!("Microsoft OAuth callback failed for user {}: {}", auth_user.user_id, e);
-            Ok(Json(ApiResponse::error(format!("OAuth callback failed: {}", e))))
+            error!(
+                "Microsoft OAuth callback failed for user {}: {}",
+                auth_user.user_id, e
+            );
+            Ok(Json(ApiResponse::error(format!(
+                "OAuth callback failed: {}",
+                e
+            ))))
         }
     }
 }
@@ -228,42 +320,81 @@ pub async fn disconnect_microsoft(
     State(state): State<AppState>,
     auth_user: AuthenticatedUser,
 ) -> Result<Json<ApiResponse<()>>> {
-    match state.domain_services.microsoft_auth_service.disconnect(&auth_user.user_id).await {
+    match state
+        .domain_services
+        .microsoft_auth_service
+        .disconnect(&auth_user.user_id)
+        .await
+    {
         Ok(()) => {
-            info!("Microsoft account disconnected for user: {}", auth_user.user_id);
+            info!(
+                "Microsoft account disconnected for user: {}",
+                auth_user.user_id
+            );
             Ok(Json(ApiResponse::success(())))
         }
         Err(e) => {
-            error!("Failed to disconnect Microsoft account for user {}: {}", auth_user.user_id, e);
-            Ok(Json(ApiResponse::error(format!("Failed to disconnect Microsoft account: {}", e))))
+            error!(
+                "Failed to disconnect Microsoft account for user {}: {}",
+                auth_user.user_id, e
+            );
+            Ok(Json(ApiResponse::error(format!(
+                "Failed to disconnect Microsoft account: {}",
+                e
+            ))))
         }
     }
 }
-
 
 /// Get all task lists for the user
 pub async fn get_all_task_lists(
     State(state): State<AppState>,
     auth_user: AuthenticatedUser,
 ) -> Result<Json<ApiResponse<Vec<act_domain::TaskList>>>> {
-    match state.domain_services.microsoft_auth_service.get_all_task_lists(&auth_user.user_id).await {
+    match state
+        .domain_services
+        .microsoft_auth_service
+        .get_all_task_lists(&auth_user.user_id)
+        .await
+    {
         Ok(lists) => {
-            info!("Retrieved {} task lists for user: {}", lists.len(), auth_user.user_id);
+            info!(
+                "Retrieved {} task lists for user: {}",
+                lists.len(),
+                auth_user.user_id
+            );
             Ok(Json(ApiResponse::success(lists)))
         }
         Err(MicrosoftAuthError::NotAuthenticated) => {
-            warn!("User {} not authenticated with Microsoft", auth_user.user_id);
-            Ok(Json(ApiResponse::error("Microsoft authentication required")))
+            warn!(
+                "User {} not authenticated with Microsoft",
+                auth_user.user_id
+            );
+            Ok(Json(ApiResponse::error(
+                "Microsoft authentication required",
+            )))
         }
         Err(MicrosoftAuthError::GraphApi(act_domain::GraphApiError::NotFound { resource })) => {
-            warn!("Task lists not found for user {}: {}", auth_user.user_id, resource);
+            warn!(
+                "Task lists not found for user {}: {}",
+                auth_user.user_id, resource
+            );
             // For debugging purposes, still return the error to understand what's happening
             // In the future, this might return an empty array after we fix the root issue
-            Ok(Json(ApiResponse::error(format!("Task lists not found: {}", resource))))
+            Ok(Json(ApiResponse::error(format!(
+                "Task lists not found: {}",
+                resource
+            ))))
         }
         Err(e) => {
-            error!("Failed to get task lists for user {}: {}", auth_user.user_id, e);
-            Ok(Json(ApiResponse::error(format!("Failed to get task lists: {}", e))))
+            error!(
+                "Failed to get task lists for user {}: {}",
+                auth_user.user_id, e
+            );
+            Ok(Json(ApiResponse::error(format!(
+                "Failed to get task lists: {}",
+                e
+            ))))
         }
     }
 }
@@ -274,18 +405,39 @@ pub async fn get_list_tasks(
     auth_user: AuthenticatedUser,
     Path(list_id): Path<String>,
 ) -> Result<Json<ApiResponse<Vec<act_domain::Task>>>> {
-    match state.domain_services.microsoft_auth_service.get_list_tasks(&auth_user.user_id, &list_id).await {
+    match state
+        .domain_services
+        .microsoft_auth_service
+        .get_list_tasks(&auth_user.user_id, &list_id)
+        .await
+    {
         Ok(tasks) => {
-            info!("Retrieved {} tasks from list {} for user: {}", tasks.len(), list_id, auth_user.user_id);
+            info!(
+                "Retrieved {} tasks from list {} for user: {}",
+                tasks.len(),
+                list_id,
+                auth_user.user_id
+            );
             Ok(Json(ApiResponse::success(tasks)))
         }
         Err(MicrosoftAuthError::NotAuthenticated) => {
-            warn!("User {} not authenticated with Microsoft", auth_user.user_id);
-            Ok(Json(ApiResponse::error("Microsoft authentication required")))
+            warn!(
+                "User {} not authenticated with Microsoft",
+                auth_user.user_id
+            );
+            Ok(Json(ApiResponse::error(
+                "Microsoft authentication required",
+            )))
         }
         Err(e) => {
-            error!("Failed to get tasks from list {} for user {}: {}", list_id, auth_user.user_id, e);
-            Ok(Json(ApiResponse::error(format!("Failed to get tasks: {}", e))))
+            error!(
+                "Failed to get tasks from list {} for user {}: {}",
+                list_id, auth_user.user_id, e
+            );
+            Ok(Json(ApiResponse::error(format!(
+                "Failed to get tasks: {}",
+                e
+            ))))
         }
     }
 }
@@ -295,9 +447,17 @@ pub async fn get_default_task_list(
     State(state): State<AppState>,
     auth_user: AuthenticatedUser,
 ) -> Result<Json<ApiResponse<Option<act_domain::TaskList>>>> {
-    match state.domain_services.microsoft_auth_service.get_default_task_list(&auth_user.user_id).await {
+    match state
+        .domain_services
+        .microsoft_auth_service
+        .get_default_task_list(&auth_user.user_id)
+        .await
+    {
         Ok(Some(list)) => {
-            info!("Retrieved default task list '{}' for user: {}", list.display_name, auth_user.user_id);
+            info!(
+                "Retrieved default task list '{}' for user: {}",
+                list.display_name, auth_user.user_id
+            );
             Ok(Json(ApiResponse::success(Some(list))))
         }
         Ok(None) => {
@@ -305,12 +465,23 @@ pub async fn get_default_task_list(
             Ok(Json(ApiResponse::success(None)))
         }
         Err(MicrosoftAuthError::NotAuthenticated) => {
-            warn!("User {} not authenticated with Microsoft", auth_user.user_id);
-            Ok(Json(ApiResponse::error("Microsoft authentication required")))
+            warn!(
+                "User {} not authenticated with Microsoft",
+                auth_user.user_id
+            );
+            Ok(Json(ApiResponse::error(
+                "Microsoft authentication required",
+            )))
         }
         Err(e) => {
-            error!("Failed to get default task list for user {}: {}", auth_user.user_id, e);
-            Ok(Json(ApiResponse::error(format!("Failed to get default task list: {}", e))))
+            error!(
+                "Failed to get default task list for user {}: {}",
+                auth_user.user_id, e
+            );
+            Ok(Json(ApiResponse::error(format!(
+                "Failed to get default task list: {}",
+                e
+            ))))
         }
     }
 }
@@ -326,21 +497,37 @@ pub async fn create_task_list(
         return Ok(Json(ApiResponse::error("List name cannot be empty")));
     }
 
-    match state.domain_services.microsoft_auth_service.create_task_list(
-        &auth_user.user_id,
-        &request.display_name,
-    ).await {
+    match state
+        .domain_services
+        .microsoft_auth_service
+        .create_task_list(&auth_user.user_id, &request.display_name)
+        .await
+    {
         Ok(list) => {
-            info!("Created task list '{}' for user: {}", list.display_name, auth_user.user_id);
+            info!(
+                "Created task list '{}' for user: {}",
+                list.display_name, auth_user.user_id
+            );
             Ok(Json(ApiResponse::success(list)))
         }
         Err(MicrosoftAuthError::NotAuthenticated) => {
-            warn!("User {} not authenticated with Microsoft", auth_user.user_id);
-            Ok(Json(ApiResponse::error("Microsoft authentication required")))
+            warn!(
+                "User {} not authenticated with Microsoft",
+                auth_user.user_id
+            );
+            Ok(Json(ApiResponse::error(
+                "Microsoft authentication required",
+            )))
         }
         Err(e) => {
-            error!("Failed to create task list for user {}: {}", auth_user.user_id, e);
-            Ok(Json(ApiResponse::error(format!("Failed to create list: {}", e))))
+            error!(
+                "Failed to create task list for user {}: {}",
+                auth_user.user_id, e
+            );
+            Ok(Json(ApiResponse::error(format!(
+                "Failed to create list: {}",
+                e
+            ))))
         }
     }
 }
@@ -363,14 +550,17 @@ pub async fn create_task_in_list(
 
         // Add code context metadata
         content.push_str("\n\n---\n<!-- DEV-CONTEXT\n");
-        content.push_str(&serde_json::to_string_pretty(&serde_json::json!({
-            "file": context.file_path,
-            "lines": [context.line_start, context.line_end],
-            "branch": context.branch,
-            "commit": context.commit,
-            "language": context.language,
-            "context_snippet": context.context_snippet,
-        })).unwrap_or_default());
+        content.push_str(
+            &serde_json::to_string_pretty(&serde_json::json!({
+                "file": context.file_path,
+                "lines": [context.line_start, context.line_end],
+                "branch": context.branch,
+                "commit": context.commit,
+                "language": context.language,
+                "context_snippet": context.context_snippet,
+            }))
+            .unwrap_or_default(),
+        );
         content.push_str("\n-->");
 
         Some(TaskBody {
@@ -392,22 +582,37 @@ pub async fn create_task_in_list(
         status: None,
     };
 
-    match state.domain_services.microsoft_auth_service.create_task_in_list(
-        &auth_user.user_id,
-        &list_id,
-        domain_request,
-    ).await {
+    match state
+        .domain_services
+        .microsoft_auth_service
+        .create_task_in_list(&auth_user.user_id, &list_id, domain_request)
+        .await
+    {
         Ok(task) => {
-            info!("Created task '{}' in list {} for user: {}", task.title, list_id, auth_user.user_id);
+            info!(
+                "Created task '{}' in list {} for user: {}",
+                task.title, list_id, auth_user.user_id
+            );
             Ok(Json(ApiResponse::success(task)))
         }
         Err(MicrosoftAuthError::NotAuthenticated) => {
-            warn!("User {} not authenticated with Microsoft", auth_user.user_id);
-            Ok(Json(ApiResponse::error("Microsoft authentication required")))
+            warn!(
+                "User {} not authenticated with Microsoft",
+                auth_user.user_id
+            );
+            Ok(Json(ApiResponse::error(
+                "Microsoft authentication required",
+            )))
         }
         Err(e) => {
-            error!("Failed to create task in list {} for user {}: {}", list_id, auth_user.user_id, e);
-            Ok(Json(ApiResponse::error(format!("Failed to create task: {}", e))))
+            error!(
+                "Failed to create task in list {} for user {}: {}",
+                list_id, auth_user.user_id, e
+            );
+            Ok(Json(ApiResponse::error(format!(
+                "Failed to create task: {}",
+                e
+            ))))
         }
     }
 }
@@ -430,14 +635,17 @@ pub async fn update_task(
 
         // Add code context metadata
         content.push_str("\n\n---\n<!-- DEV-CONTEXT\n");
-        content.push_str(&serde_json::to_string_pretty(&serde_json::json!({
-            "file": context.file_path,
-            "lines": [context.line_start, context.line_end],
-            "branch": context.branch,
-            "commit": context.commit,
-            "language": context.language,
-            "context_snippet": context.context_snippet,
-        })).unwrap_or_default());
+        content.push_str(
+            &serde_json::to_string_pretty(&serde_json::json!({
+                "file": context.file_path,
+                "lines": [context.line_start, context.line_end],
+                "branch": context.branch,
+                "commit": context.commit,
+                "language": context.language,
+                "context_snippet": context.context_snippet,
+            }))
+            .unwrap_or_default(),
+        );
         content.push_str("\n-->");
 
         Some(TaskBody {
@@ -459,23 +667,37 @@ pub async fn update_task(
         status: request.status,
     };
 
-    match state.domain_services.microsoft_auth_service.update_task(
-        &auth_user.user_id,
-        &list_id,
-        &task_id,
-        domain_request,
-    ).await {
+    match state
+        .domain_services
+        .microsoft_auth_service
+        .update_task(&auth_user.user_id, &list_id, &task_id, domain_request)
+        .await
+    {
         Ok(task) => {
-            info!("Updated task '{}' in list {} for user: {}", task.title, list_id, auth_user.user_id);
+            info!(
+                "Updated task '{}' in list {} for user: {}",
+                task.title, list_id, auth_user.user_id
+            );
             Ok(Json(ApiResponse::success(task)))
         }
         Err(MicrosoftAuthError::NotAuthenticated) => {
-            warn!("User {} not authenticated with Microsoft", auth_user.user_id);
-            Ok(Json(ApiResponse::error("Microsoft authentication required")))
+            warn!(
+                "User {} not authenticated with Microsoft",
+                auth_user.user_id
+            );
+            Ok(Json(ApiResponse::error(
+                "Microsoft authentication required",
+            )))
         }
         Err(e) => {
-            error!("Failed to update task in list {} for user {}: {}", list_id, auth_user.user_id, e);
-            Ok(Json(ApiResponse::error(format!("Failed to update task: {}", e))))
+            error!(
+                "Failed to update task in list {} for user {}: {}",
+                list_id, auth_user.user_id, e
+            );
+            Ok(Json(ApiResponse::error(format!(
+                "Failed to update task: {}",
+                e
+            ))))
         }
     }
 }
@@ -486,22 +708,78 @@ pub async fn delete_task(
     auth_user: AuthenticatedUser,
     Path((list_id, task_id)): Path<(String, String)>,
 ) -> Result<Json<ApiResponse<()>>> {
-    match state.domain_services.microsoft_auth_service.delete_task(
-        &auth_user.user_id,
-        &list_id,
-        &task_id,
-    ).await {
+    match state
+        .domain_services
+        .microsoft_auth_service
+        .delete_task(&auth_user.user_id, &list_id, &task_id)
+        .await
+    {
         Ok(()) => {
-            info!("Deleted task {} from list {} for user: {}", task_id, list_id, auth_user.user_id);
+            info!(
+                "Deleted task {} from list {} for user: {}",
+                task_id, list_id, auth_user.user_id
+            );
             Ok(Json(ApiResponse::success(())))
         }
         Err(MicrosoftAuthError::NotAuthenticated) => {
-            warn!("User {} not authenticated with Microsoft", auth_user.user_id);
-            Ok(Json(ApiResponse::error("Microsoft authentication required")))
+            warn!(
+                "User {} not authenticated with Microsoft",
+                auth_user.user_id
+            );
+            Ok(Json(ApiResponse::error(
+                "Microsoft authentication required",
+            )))
         }
         Err(e) => {
-            error!("Failed to delete task {} from list {} for user {}: {}", task_id, list_id, auth_user.user_id, e);
-            Ok(Json(ApiResponse::error(format!("Failed to delete task: {}", e))))
+            error!(
+                "Failed to delete task {} from list {} for user {}: {}",
+                task_id, list_id, auth_user.user_id, e
+            );
+            Ok(Json(ApiResponse::error(format!(
+                "Failed to delete task: {}",
+                e
+            ))))
+        }
+    }
+}
+
+/// Get a specific task from a list
+pub async fn get_task(
+    State(state): State<AppState>,
+    auth_user: AuthenticatedUser,
+    Path((list_id, task_id)): Path<(String, String)>,
+) -> Result<Json<ApiResponse<act_domain::Task>>> {
+    match state
+        .domain_services
+        .microsoft_auth_service
+        .get_task(&auth_user.user_id, &list_id, &task_id)
+        .await
+    {
+        Ok(task) => {
+            info!(
+                "Retrieved task {} from list {} for user: {}",
+                task_id, list_id, auth_user.user_id
+            );
+            Ok(Json(ApiResponse::success(task)))
+        }
+        Err(MicrosoftAuthError::NotAuthenticated) => {
+            warn!(
+                "User {} not authenticated with Microsoft",
+                auth_user.user_id
+            );
+            Ok(Json(ApiResponse::error(
+                "Microsoft authentication required",
+            )))
+        }
+        Err(e) => {
+            error!(
+                "Failed to retrieve task {} from list {} for user {}: {}",
+                task_id, list_id, auth_user.user_id, e
+            );
+            Ok(Json(ApiResponse::error(format!(
+                "Failed to retrieve task: {}",
+                e
+            ))))
         }
     }
 }
@@ -511,7 +789,12 @@ pub async fn health_check(
     State(state): State<AppState>,
     auth_user: AuthenticatedUser,
 ) -> Result<Json<ApiResponse<serde_json::Value>>> {
-    match state.domain_services.microsoft_auth_service.health_check(&auth_user.user_id).await {
+    match state
+        .domain_services
+        .microsoft_auth_service
+        .health_check(&auth_user.user_id)
+        .await
+    {
         Ok(status) => {
             let health_info = serde_json::json!({
                 "microsoft_integration": "available",
@@ -525,8 +808,14 @@ pub async fn health_check(
             Ok(Json(ApiResponse::success(health_info)))
         }
         Err(e) => {
-            error!("Microsoft health check failed for user {}: {}", auth_user.user_id, e);
-            Ok(Json(ApiResponse::error(format!("Health check failed: {}", e))))
+            error!(
+                "Microsoft health check failed for user {}: {}",
+                auth_user.user_id, e
+            );
+            Ok(Json(ApiResponse::error(format!(
+                "Health check failed: {}",
+                e
+            ))))
         }
     }
 }

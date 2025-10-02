@@ -22,10 +22,6 @@ pub struct Workspace {
     pub user_id: String,
 }
 
-
-
-
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateWorkspaceRequest {
     pub name: String,
@@ -40,8 +36,6 @@ pub struct UpdateWorkspaceRequest {
     pub is_active: Option<bool>,
     pub last_sync_at: Option<DateTime<Utc>>,
 }
-
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateLayoutRequest {
@@ -62,38 +56,67 @@ pub struct UpdateLayoutRequest {
 #[async_trait]
 pub trait WorkspaceRepository: Send + Sync {
     async fn create(&self, user_id: &str, request: CreateWorkspaceRequest) -> Result<Workspace>;
-    
+
     async fn get_by_id(&self, user_id: &str, id: &WorkspaceId) -> Result<Workspace>;
-    
+
+    /// Get workspace by ID without user validation - for system operations only
+    async fn get_by_id_system(&self, id: &WorkspaceId) -> Result<Option<Workspace>>;
+
     async fn get_by_github_repo(&self, user_id: &str, repo: &str) -> Result<Option<Workspace>>;
-    
+
     async fn list_all(&self, user_id: &str) -> Result<Vec<Workspace>>;
-    
+
     async fn list_active(&self, user_id: &str) -> Result<Vec<Workspace>>;
-    
-    async fn update(&self, user_id: &str, id: &WorkspaceId, request: UpdateWorkspaceRequest) -> Result<Workspace>;
-    
+
+    async fn update(
+        &self,
+        user_id: &str,
+        id: &WorkspaceId,
+        request: UpdateWorkspaceRequest,
+    ) -> Result<Workspace>;
+
     async fn delete(&self, user_id: &str, id: &WorkspaceId) -> Result<()>;
-    
+
     async fn set_active(&self, user_id: &str, id: &WorkspaceId, active: bool) -> Result<()>;
 }
 
-
 #[async_trait]
 pub trait LayoutRepository: Send + Sync {
-    async fn create(&self, user_id: &str, request: CreateLayoutRequest) -> Result<crate::models::TerminalLayout>;
-    
-    async fn get_by_id(&self, user_id: &str, id: &LayoutId) -> Result<crate::models::TerminalLayout>;
-    
-    async fn list_for_workspace(&self, user_id: &str, workspace_id: &WorkspaceId) -> Result<Vec<crate::models::TerminalLayout>>;
-    
+    async fn create(
+        &self,
+        user_id: &str,
+        request: CreateLayoutRequest,
+    ) -> Result<crate::models::TerminalLayout>;
+
+    async fn get_by_id(
+        &self,
+        user_id: &str,
+        id: &LayoutId,
+    ) -> Result<crate::models::TerminalLayout>;
+
+    async fn list_for_workspace(
+        &self,
+        user_id: &str,
+        workspace_id: &WorkspaceId,
+    ) -> Result<Vec<crate::models::TerminalLayout>>;
+
     async fn list_all(&self, user_id: &str) -> Result<Vec<crate::models::TerminalLayout>>;
-    
-    async fn update(&self, user_id: &str, id: &LayoutId, request: UpdateLayoutRequest) -> Result<crate::models::TerminalLayout>;
-    
+
+    async fn update(
+        &self,
+        user_id: &str,
+        id: &LayoutId,
+        request: UpdateLayoutRequest,
+    ) -> Result<crate::models::TerminalLayout>;
+
     async fn delete(&self, user_id: &str, id: &LayoutId) -> Result<()>;
-    
-    async fn set_default(&self, user_id: &str, id: &LayoutId, workspace_id: &WorkspaceId) -> Result<()>;
+
+    async fn set_default(
+        &self,
+        user_id: &str,
+        id: &LayoutId,
+        workspace_id: &WorkspaceId,
+    ) -> Result<()>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -106,6 +129,7 @@ pub struct CreateProcessRequest {
     pub max_restarts: Option<i32>,
     pub auto_restart: Option<bool>,
     pub workspace_id: Option<WorkspaceId>,
+    pub workspace_root: Option<String>,
     pub session_id: Option<String>,
     pub tags: Option<Vec<String>>,
 }
@@ -124,26 +148,53 @@ pub struct UpdateProcessRequest {
 
 #[async_trait]
 pub trait ProcessRepository: Send + Sync {
-    async fn create(&self, user_id: &str, request: CreateProcessRequest) -> Result<crate::models::UserProcess>;
-    
+    async fn create(
+        &self,
+        user_id: &str,
+        request: CreateProcessRequest,
+    ) -> Result<crate::models::UserProcess>;
+
     async fn get_by_id(&self, user_id: &str, id: &str) -> Result<crate::models::UserProcess>;
-    
+
     async fn list_for_user(&self, user_id: &str) -> Result<Vec<crate::models::UserProcess>>;
-    
-    async fn list_for_workspace(&self, user_id: &str, workspace_id: &WorkspaceId) -> Result<Vec<crate::models::UserProcess>>;
-    
-    async fn list_for_session(&self, user_id: &str, session_id: &str) -> Result<Vec<crate::models::UserProcess>>;
-    
-    async fn list_by_status(&self, user_id: &str, status: &str) -> Result<Vec<crate::models::UserProcess>>;
-    
-    async fn update(&self, user_id: &str, id: &str, request: UpdateProcessRequest) -> Result<crate::models::UserProcess>;
-    
+
+    async fn list_for_workspace(
+        &self,
+        user_id: &str,
+        workspace_id: &WorkspaceId,
+    ) -> Result<Vec<crate::models::UserProcess>>;
+
+    async fn list_for_session(
+        &self,
+        user_id: &str,
+        session_id: &str,
+    ) -> Result<Vec<crate::models::UserProcess>>;
+
+    async fn list_by_status(
+        &self,
+        user_id: &str,
+        status: &str,
+    ) -> Result<Vec<crate::models::UserProcess>>;
+
+    async fn update(
+        &self,
+        user_id: &str,
+        id: &str,
+        request: UpdateProcessRequest,
+    ) -> Result<crate::models::UserProcess>;
+
     async fn delete(&self, user_id: &str, id: &str) -> Result<()>;
-    
-    async fn update_status(&self, user_id: &str, id: &str, status: &str, exit_code: Option<i32>) -> Result<()>;
-    
+
+    async fn update_status(
+        &self,
+        user_id: &str,
+        id: &str,
+        status: &str,
+        exit_code: Option<i32>,
+    ) -> Result<()>;
+
     async fn increment_restart_count(&self, user_id: &str, id: &str) -> Result<i32>;
-    
+
     async fn count_active_processes(&self) -> Result<u64>;
 
     // Methods for process recovery service - query across all users
@@ -228,7 +279,11 @@ pub trait ProcessRunner: Send + Sync {
 
     async fn get_process_status(&self, pid: i32) -> Result<ProcessInfo>;
 
-    async fn get_process_output_stream(&self, pid: i32, query: ProcessOutputQuery) -> Result<Vec<ProcessOutputChunk>>;
+    async fn get_process_output_stream(
+        &self,
+        pid: i32,
+        query: ProcessOutputQuery,
+    ) -> Result<Vec<ProcessOutputChunk>>;
 
     async fn get_latest_output(&self, pid: i32, lines: Option<usize>) -> Result<(String, String)>;
 

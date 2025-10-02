@@ -1,7 +1,8 @@
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::Arc;
 
-use act_core::{Result, CoreError, models::SystemMetrics};
+use act_core::{models::SystemMetrics, CoreError, Result};
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -75,7 +76,10 @@ pub trait MetricsRepository: Send + Sync {
     async fn record_performance_metrics(&self, metrics: PerformanceMetrics) -> Result<()>;
     async fn get_metrics_summary(&self, time_period: TimePeriod) -> Result<MetricsSummary>;
     async fn get_user_activity(&self, user_id: &str, days: i32) -> Result<UserActivity>;
-    async fn get_performance_metrics(&self, time_period: TimePeriod) -> Result<Vec<PerformanceMetrics>>;
+    async fn get_performance_metrics(
+        &self,
+        time_period: TimePeriod,
+    ) -> Result<Vec<PerformanceMetrics>>;
     async fn cleanup_old_metrics(&self, days_to_keep: i32) -> Result<u64>;
     async fn export_metrics(&self, time_period: TimePeriod, format: &str) -> Result<String>;
 }
@@ -137,8 +141,14 @@ impl SystemService {
         duration_ms: i64,
     ) -> Result<String> {
         let mut properties = HashMap::new();
-        properties.insert("command".to_string(), serde_json::Value::String(command.clone()));
-        properties.insert("exit_code".to_string(), serde_json::Value::Number(exit_code.into()));
+        properties.insert(
+            "command".to_string(),
+            serde_json::Value::String(command.clone()),
+        );
+        properties.insert(
+            "exit_code".to_string(),
+            serde_json::Value::Number(exit_code.into()),
+        );
 
         self.record_event(
             user_id,
@@ -147,7 +157,8 @@ impl SystemService {
             "execute".to_string(),
             properties,
             Some(duration_ms),
-        ).await
+        )
+        .await
     }
 
     pub async fn record_session_event(
@@ -164,7 +175,8 @@ impl SystemService {
             event_name,
             properties,
             None,
-        ).await
+        )
+        .await
     }
 
     pub async fn record_workspace_event(
@@ -175,7 +187,10 @@ impl SystemService {
         properties: HashMap<String, serde_json::Value>,
     ) -> Result<String> {
         let mut extended_properties = properties;
-        extended_properties.insert("workspace_id".to_string(), serde_json::Value::String(workspace_id));
+        extended_properties.insert(
+            "workspace_id".to_string(),
+            serde_json::Value::String(workspace_id),
+        );
 
         self.record_event(
             user_id,
@@ -184,112 +199,147 @@ impl SystemService {
             event_name,
             extended_properties,
             None,
-        ).await
+        )
+        .await
     }
 
     pub async fn get_current_system_metrics(&self) -> Result<SystemMetrics> {
         self.system_monitor.get_system_metrics().await
     }
 
-    pub async fn record_current_performance_metrics(&self, active_sessions: u32, _active_processes: u32) -> Result<()> {
+    pub async fn record_current_performance_metrics(
+        &self,
+        active_sessions: u32,
+        _active_processes: u32,
+    ) -> Result<()> {
         let system_metrics = self.system_monitor.get_system_metrics().await?;
         let (_network_rx, _network_tx) = self.system_monitor.get_network_stats().await?;
 
         let memory_usage_mb = if system_metrics.memory_total_bytes > 0 {
-            (system_metrics.memory_used_bytes as f64 / system_metrics.memory_total_bytes as f64) * 100.0
+            (system_metrics.memory_used_bytes as f64 / system_metrics.memory_total_bytes as f64)
+                * 100.0
         } else {
             0.0
         };
-        
+
         let disk_usage_mb = if system_metrics.disk_total_bytes > 0 {
             (system_metrics.disk_used_bytes as f64 / system_metrics.disk_total_bytes as f64) * 100.0
         } else {
             0.0
         };
-        
+
         let performance_metrics = PerformanceMetrics {
             cpu_usage_percent: system_metrics.cpu_usage_percent,
             memory_usage_mb,
             disk_usage_mb,
             active_connections: active_sessions as u64,
-            request_rate: 0.0, // Would need to be tracked separately
+            request_rate: 0.0,     // Would need to be tracked separately
             response_time_ms: 0.0, // Would need to be tracked separately
             timestamp: system_metrics.timestamp,
         };
 
-        self.metrics_repository.record_performance_metrics(performance_metrics).await
+        self.metrics_repository
+            .record_performance_metrics(performance_metrics)
+            .await
     }
 
     pub async fn get_metrics_summary(&self, time_period: TimePeriod) -> Result<MetricsSummary> {
-        self.metrics_repository.get_metrics_summary(time_period).await
+        self.metrics_repository
+            .get_metrics_summary(time_period)
+            .await
     }
 
     pub async fn get_user_activity(&self, user_id: &str, days: i32) -> Result<UserActivity> {
         if days <= 0 || days > 365 {
-            return Err(CoreError::Validation("Days must be between 1 and 365".to_string()));
+            return Err(CoreError::Validation(
+                "Days must be between 1 and 365".to_string(),
+            ));
         }
-        
-        self.metrics_repository.get_user_activity(user_id, days).await
+
+        self.metrics_repository
+            .get_user_activity(user_id, days)
+            .await
     }
 
-    pub async fn get_performance_metrics(&self, time_period: TimePeriod) -> Result<Vec<PerformanceMetrics>> {
+    pub async fn get_performance_metrics(
+        &self,
+        time_period: TimePeriod,
+    ) -> Result<Vec<PerformanceMetrics>> {
         if time_period.start_time >= time_period.end_time {
-            return Err(CoreError::Validation("Start time must be before end time".to_string()));
+            return Err(CoreError::Validation(
+                "Start time must be before end time".to_string(),
+            ));
         }
-        
-        self.metrics_repository.get_performance_metrics(time_period).await
+
+        self.metrics_repository
+            .get_performance_metrics(time_period)
+            .await
     }
 
     pub async fn cleanup_old_metrics(&self, days_to_keep: i32) -> Result<u64> {
         if days_to_keep <= 0 {
-            return Err(CoreError::Validation("Days to keep must be positive".to_string()));
+            return Err(CoreError::Validation(
+                "Days to keep must be positive".to_string(),
+            ));
         }
-        
-        let deleted_count = self.metrics_repository.cleanup_old_metrics(days_to_keep).await?;
-        
+
+        let deleted_count = self
+            .metrics_repository
+            .cleanup_old_metrics(days_to_keep)
+            .await?;
+
         if deleted_count > 0 {
             info!("Cleaned up {} old metric records", deleted_count);
         }
-        
+
         Ok(deleted_count)
     }
 
     pub async fn export_metrics(&self, time_period: TimePeriod, format: &str) -> Result<String> {
         let supported_formats = ["json", "csv"];
         if !supported_formats.contains(&format.to_lowercase().as_str()) {
-            return Err(CoreError::Validation(format!("Unsupported format: {}. Supported: {:?}", format, supported_formats)));
+            return Err(CoreError::Validation(format!(
+                "Unsupported format: {}. Supported: {:?}",
+                format, supported_formats
+            )));
         }
-        
+
         if time_period.start_time >= time_period.end_time {
-            return Err(CoreError::Validation("Start time must be before end time".to_string()));
+            return Err(CoreError::Validation(
+                "Start time must be before end time".to_string(),
+            ));
         }
-        
-        self.metrics_repository.export_metrics(time_period, format).await
+
+        self.metrics_repository
+            .export_metrics(time_period, format)
+            .await
     }
 
     pub async fn get_system_health(&self) -> Result<SystemHealth> {
         let system_metrics = self.get_current_system_metrics().await?;
-        
+
         let memory_usage_percent = if system_metrics.memory_total_bytes > 0 {
-            (system_metrics.memory_used_bytes as f64 / system_metrics.memory_total_bytes as f64) * 100.0
+            (system_metrics.memory_used_bytes as f64 / system_metrics.memory_total_bytes as f64)
+                * 100.0
         } else {
             0.0
         };
-        
-        let health_status = if system_metrics.cpu_usage_percent > 90.0 || memory_usage_percent > 90.0 {
-            HealthStatus::Critical
-        } else if system_metrics.cpu_usage_percent > 70.0 || memory_usage_percent > 70.0 {
-            HealthStatus::Warning
-        } else {
-            HealthStatus::Healthy
-        };
-        
+
+        let health_status =
+            if system_metrics.cpu_usage_percent > 90.0 || memory_usage_percent > 90.0 {
+                HealthStatus::Critical
+            } else if system_metrics.cpu_usage_percent > 70.0 || memory_usage_percent > 70.0 {
+                HealthStatus::Warning
+            } else {
+                HealthStatus::Healthy
+            };
+
         let disk_usage_percent = if system_metrics.disk_total_bytes > 0 {
             (system_metrics.disk_used_bytes as f64 / system_metrics.disk_total_bytes as f64) * 100.0
         } else {
             0.0
         };
-        
+
         Ok(SystemHealth {
             status: health_status,
             cpu_usage: system_metrics.cpu_usage_percent,
@@ -305,21 +355,81 @@ impl SystemService {
     pub async fn generate_daily_report(&self) -> Result<DailyReport> {
         let now = Utc::now();
         let start_of_day = now.date_naive().and_hms_opt(0, 0, 0).unwrap().and_utc();
-        
+
         let time_period = TimePeriod {
             start_time: start_of_day,
             end_time: now,
             period_type: "day".to_string(),
         };
-        
+
         let summary = self.get_metrics_summary(time_period.clone()).await?;
         let system_health = self.get_system_health().await?;
-        
+
         Ok(DailyReport {
             date: now.date_naive(),
             metrics_summary: summary,
             system_health,
             generated_at: now,
+        })
+    }
+
+    pub async fn browse_directory(&self, path: Option<&str>) -> Result<BrowseDirectoryResponse> {
+        use std::fs;
+
+        let browse_path = match path {
+            Some(p) if !p.is_empty() => PathBuf::from(p),
+            _ => std::env::current_dir().map_err(|e| CoreError::FileSystem(e.to_string()))?,
+        };
+
+        // Canonicalize the path to get absolute path
+        let canonical_path = browse_path
+            .canonicalize()
+            .map_err(|e| CoreError::FileSystem(format!("Invalid path: {}", e)))?;
+
+        // Read directory entries
+        let read_dir = fs::read_dir(&canonical_path)
+            .map_err(|e| CoreError::FileSystem(format!("Cannot read directory: {}", e)))?;
+
+        let mut entries = Vec::new();
+        for entry_result in read_dir {
+            let entry = match entry_result {
+                Ok(e) => e,
+                Err(_) => continue, // Skip entries that can't be read
+            };
+
+            let path = entry.path();
+            let metadata = match entry.metadata() {
+                Ok(m) => m,
+                Err(_) => continue, // Skip if we can't get metadata
+            };
+
+            let name = entry.file_name().to_string_lossy().to_string();
+            let is_hidden = name.starts_with('.');
+            let is_directory = metadata.is_dir();
+
+            entries.push(DirectoryEntry {
+                name,
+                path: path.to_string_lossy().to_string(),
+                is_directory,
+                is_hidden,
+            });
+        }
+
+        // Sort: directories first, then alphabetically
+        entries.sort_by(|a, b| match (a.is_directory, b.is_directory) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+        });
+
+        let parent_path = canonical_path
+            .parent()
+            .map(|p| p.to_string_lossy().to_string());
+
+        Ok(BrowseDirectoryResponse {
+            current_path: canonical_path.to_string_lossy().to_string(),
+            parent_path,
+            entries,
         })
     }
 }
@@ -349,4 +459,19 @@ pub struct DailyReport {
     pub metrics_summary: MetricsSummary,
     pub system_health: SystemHealth,
     pub generated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DirectoryEntry {
+    pub name: String,
+    pub path: String,
+    pub is_directory: bool,
+    pub is_hidden: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BrowseDirectoryResponse {
+    pub current_path: String,
+    pub parent_path: Option<String>,
+    pub entries: Vec<DirectoryEntry>,
 }

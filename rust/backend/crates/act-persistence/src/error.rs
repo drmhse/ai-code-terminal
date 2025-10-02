@@ -25,8 +25,12 @@ pub enum PersistenceError {
 impl From<PersistenceError> for CoreError {
     fn from(err: PersistenceError) -> Self {
         match err {
-            PersistenceError::DatabaseConnection(e) => CoreError::Database(format!("Database error: {}", e)),
-            PersistenceError::WorkspaceNotFound(id) => CoreError::NotFound(format!("Workspace {}", id)),
+            PersistenceError::DatabaseConnection(e) => {
+                CoreError::Database(format!("Database error: {}", e))
+            }
+            PersistenceError::WorkspaceNotFound(id) => {
+                CoreError::NotFound(format!("Workspace {}", id))
+            }
             PersistenceError::SessionNotFound(id) => CoreError::NotFound(format!("Session {}", id)),
             PersistenceError::Serialization(e) => CoreError::Serialization(e.to_string()),
             PersistenceError::SerializationError(msg) => CoreError::Serialization(msg),

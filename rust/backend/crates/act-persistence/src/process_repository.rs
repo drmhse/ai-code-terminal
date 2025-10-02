@@ -1,16 +1,17 @@
-use act_core::repository::{ProcessRepository, CreateProcessRequest, UpdateProcessRequest};
 use act_core::models::UserProcess;
+use act_core::repository::{CreateProcessRequest, ProcessRepository, UpdateProcessRequest};
 use async_trait::async_trait;
-use sqlx::SqlitePool;
-use sqlx::Row;
 use chrono::Utc;
-
+use sqlx::Row;
+use sqlx::SqlitePool;
 
 use super::error::PersistenceError;
 
 macro_rules! handle_db_error {
     ($expr:expr) => {
-        $expr.await.map_err(|e| PersistenceError::DatabaseConnection(e))?
+        $expr
+            .await
+            .map_err(|e| PersistenceError::DatabaseConnection(e))?
     };
 }
 
@@ -24,30 +25,43 @@ impl SqlProcessRepository {
         Self { pool }
     }
 
-    async fn map_row_to_process(row: sqlx::sqlite::SqliteRow) -> Result<UserProcess, PersistenceError> {
+    async fn map_row_to_process(
+        row: sqlx::sqlite::SqliteRow,
+    ) -> Result<UserProcess, PersistenceError> {
         let args_json: Option<String> = row.get("args");
         let args = args_json
             .map(|json| serde_json::from_str(&json))
             .transpose()
-            .map_err(|e| PersistenceError::SerializationError(format!("Failed to parse args: {}", e)))?;
+            .map_err(|e| {
+                PersistenceError::SerializationError(format!("Failed to parse args: {}", e))
+            })?;
 
         let env_vars_json: Option<String> = row.get("environment_variables");
         let environment_variables = env_vars_json
             .map(|json| serde_json::from_str(&json))
             .transpose()
-            .map_err(|e| PersistenceError::SerializationError(format!("Failed to parse environment variables: {}", e)))?;
+            .map_err(|e| {
+                PersistenceError::SerializationError(format!(
+                    "Failed to parse environment variables: {}",
+                    e
+                ))
+            })?;
 
         let tags_json: Option<String> = row.get("tags");
         let tags = tags_json
             .map(|json| serde_json::from_str(&json))
             .transpose()
-            .map_err(|e| PersistenceError::SerializationError(format!("Failed to parse tags: {}", e)))?;
+            .map_err(|e| {
+                PersistenceError::SerializationError(format!("Failed to parse tags: {}", e))
+            })?;
 
         let data_json: Option<String> = row.get("data");
         let data = data_json
             .map(|json| serde_json::from_str(&json))
             .transpose()
-            .map_err(|e| PersistenceError::SerializationError(format!("Failed to parse data: {}", e)))?;
+            .map_err(|e| {
+                PersistenceError::SerializationError(format!("Failed to parse data: {}", e))
+            })?;
 
         let status_str: String = row.get("status");
         let status = match status_str.as_str() {
@@ -66,7 +80,8 @@ impl SqlProcessRepository {
             .unwrap_or_else(Utc::now)
             .with_timezone(&Utc);
 
-        let end_time = row.get::<Option<i64>, _>("end_time")
+        let end_time = row
+            .get::<Option<i64>, _>("end_time")
             .and_then(|et| chrono::DateTime::from_timestamp(et, 0))
             .map(|dt| dt.with_timezone(&Utc));
 
@@ -100,19 +115,32 @@ impl SqlProcessRepository {
 
 #[async_trait]
 impl ProcessRepository for SqlProcessRepository {
-    async fn create(&self, user_id: &str, request: CreateProcessRequest) -> Result<UserProcess, act_core::error::CoreError> {
+    async fn create(
+        &self,
+        user_id: &str,
+        request: CreateProcessRequest,
+    ) -> Result<UserProcess, act_core::error::CoreError> {
         let process_id = uuid::Uuid::new_v4().to_string();
         let now = Utc::now();
         let start_time = now.timestamp();
-        
-        let args_json = serde_json::to_string(&request.args.unwrap_or_default())
-            .map_err(|e| act_core::error::CoreError::Serialization(format!("Failed to serialize args: {}", e)))?;
-        
-        let env_vars_json = serde_json::to_string(&request.environment_variables.unwrap_or_default())
-            .map_err(|e| act_core::error::CoreError::Serialization(format!("Failed to serialize environment variables: {}", e)))?;
-        
-        let tags_json = serde_json::to_string(&request.tags.unwrap_or_default())
-            .map_err(|e| act_core::error::CoreError::Serialization(format!("Failed to serialize tags: {}", e)))?;
+
+        let args_json = serde_json::to_string(&request.args.unwrap_or_default()).map_err(|e| {
+            act_core::error::CoreError::Serialization(format!("Failed to serialize args: {}", e))
+        })?;
+
+        let env_vars_json = serde_json::to_string(
+            &request.environment_variables.unwrap_or_default(),
+        )
+        .map_err(|e| {
+            act_core::error::CoreError::Serialization(format!(
+                "Failed to serialize environment variables: {}",
+                e
+            ))
+        })?;
+
+        let tags_json = serde_json::to_string(&request.tags.unwrap_or_default()).map_err(|e| {
+            act_core::error::CoreError::Serialization(format!("Failed to serialize tags: {}", e))
+        })?;
 
         let row = handle_db_error!(
             sqlx::query(
@@ -147,40 +175,46 @@ impl ProcessRepository for SqlProcessRepository {
             .fetch_one(&self.pool)
         );
 
-        let process = Self::map_row_to_process(row).await
+        let process = Self::map_row_to_process(row)
+            .await
             .map_err(|e| act_core::error::CoreError::Repository(e.to_string()))?;
 
         Ok(process)
     }
 
-    async fn get_by_id(&self, user_id: &str, id: &str) -> Result<UserProcess, act_core::error::CoreError> {
-        let row = handle_db_error!(
-            sqlx::query(
-                "SELECT * FROM process_info WHERE id = ?1 AND user_id = ?2"
-            )
-            .bind(id)
-            .bind(user_id)
-            .fetch_one(&self.pool)
-        );
+    async fn get_by_id(
+        &self,
+        user_id: &str,
+        id: &str,
+    ) -> Result<UserProcess, act_core::error::CoreError> {
+        let row = handle_db_error!(sqlx::query(
+            "SELECT * FROM process_info WHERE id = ?1 AND user_id = ?2"
+        )
+        .bind(id)
+        .bind(user_id)
+        .fetch_one(&self.pool));
 
-        let process = Self::map_row_to_process(row).await
+        let process = Self::map_row_to_process(row)
+            .await
             .map_err(|e| act_core::error::CoreError::Repository(e.to_string()))?;
 
         Ok(process)
     }
 
-    async fn list_for_user(&self, user_id: &str) -> Result<Vec<UserProcess>, act_core::error::CoreError> {
-        let rows = handle_db_error!(
-            sqlx::query(
-                "SELECT * FROM process_info WHERE user_id = ?1 ORDER BY created_at DESC"
-            )
-            .bind(user_id)
-            .fetch_all(&self.pool)
-        );
+    async fn list_for_user(
+        &self,
+        user_id: &str,
+    ) -> Result<Vec<UserProcess>, act_core::error::CoreError> {
+        let rows = handle_db_error!(sqlx::query(
+            "SELECT * FROM process_info WHERE user_id = ?1 ORDER BY created_at DESC"
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool));
 
         let mut processes = Vec::new();
         for row in rows {
-            let process = Self::map_row_to_process(row).await
+            let process = Self::map_row_to_process(row)
+                .await
                 .map_err(|e| act_core::error::CoreError::Repository(e.to_string()))?;
             processes.push(process);
         }
@@ -188,7 +222,11 @@ impl ProcessRepository for SqlProcessRepository {
         Ok(processes)
     }
 
-    async fn list_for_workspace(&self, user_id: &str, workspace_id: &String) -> Result<Vec<UserProcess>, act_core::error::CoreError> {
+    async fn list_for_workspace(
+        &self,
+        user_id: &str,
+        workspace_id: &String,
+    ) -> Result<Vec<UserProcess>, act_core::error::CoreError> {
         let rows = handle_db_error!(
             sqlx::query(
                 "SELECT * FROM process_info WHERE workspace_id = ?1 AND user_id = ?2 ORDER BY created_at DESC"
@@ -200,7 +238,8 @@ impl ProcessRepository for SqlProcessRepository {
 
         let mut processes = Vec::new();
         for row in rows {
-            let process = Self::map_row_to_process(row).await
+            let process = Self::map_row_to_process(row)
+                .await
                 .map_err(|e| act_core::error::CoreError::Repository(e.to_string()))?;
             processes.push(process);
         }
@@ -208,7 +247,11 @@ impl ProcessRepository for SqlProcessRepository {
         Ok(processes)
     }
 
-    async fn list_for_session(&self, user_id: &str, session_id: &str) -> Result<Vec<UserProcess>, act_core::error::CoreError> {
+    async fn list_for_session(
+        &self,
+        user_id: &str,
+        session_id: &str,
+    ) -> Result<Vec<UserProcess>, act_core::error::CoreError> {
         let rows = handle_db_error!(
             sqlx::query(
                 "SELECT * FROM process_info WHERE session_id = ?1 AND user_id = ?2 ORDER BY created_at DESC"
@@ -220,7 +263,8 @@ impl ProcessRepository for SqlProcessRepository {
 
         let mut processes = Vec::new();
         for row in rows {
-            let process = Self::map_row_to_process(row).await
+            let process = Self::map_row_to_process(row)
+                .await
                 .map_err(|e| act_core::error::CoreError::Repository(e.to_string()))?;
             processes.push(process);
         }
@@ -228,7 +272,11 @@ impl ProcessRepository for SqlProcessRepository {
         Ok(processes)
     }
 
-    async fn list_by_status(&self, user_id: &str, status: &str) -> Result<Vec<UserProcess>, act_core::error::CoreError> {
+    async fn list_by_status(
+        &self,
+        user_id: &str,
+        status: &str,
+    ) -> Result<Vec<UserProcess>, act_core::error::CoreError> {
         let rows = handle_db_error!(
             sqlx::query(
                 "SELECT * FROM process_info WHERE status = ?1 AND user_id = ?2 ORDER BY created_at DESC"
@@ -240,7 +288,8 @@ impl ProcessRepository for SqlProcessRepository {
 
         let mut processes = Vec::new();
         for row in rows {
-            let process = Self::map_row_to_process(row).await
+            let process = Self::map_row_to_process(row)
+                .await
                 .map_err(|e| act_core::error::CoreError::Repository(e.to_string()))?;
             processes.push(process);
         }
@@ -248,33 +297,49 @@ impl ProcessRepository for SqlProcessRepository {
         Ok(processes)
     }
 
-    async fn update(&self, user_id: &str, id: &str, request: UpdateProcessRequest) -> Result<UserProcess, act_core::error::CoreError> {
+    async fn update(
+        &self,
+        user_id: &str,
+        id: &str,
+        request: UpdateProcessRequest,
+    ) -> Result<UserProcess, act_core::error::CoreError> {
         let now = Utc::now();
-        
+
         let args_json = if let Some(args) = &request.args {
-            Some(serde_json::to_string(args)
-                .map_err(|e| act_core::error::CoreError::Serialization(format!("Failed to serialize args: {}", e)))?)
-        } else {
-            None
-        };
-        
-        let env_vars_json = if let Some(env_vars) = &request.environment_variables {
-            Some(serde_json::to_string(env_vars)
-                .map_err(|e| act_core::error::CoreError::Serialization(format!("Failed to serialize environment variables: {}", e)))?)
-        } else {
-            None
-        };
-        
-        let tags_json = if let Some(tags) = &request.tags {
-            Some(serde_json::to_string(tags)
-                .map_err(|e| act_core::error::CoreError::Serialization(format!("Failed to serialize tags: {}", e)))?)
+            Some(serde_json::to_string(args).map_err(|e| {
+                act_core::error::CoreError::Serialization(format!(
+                    "Failed to serialize args: {}",
+                    e
+                ))
+            })?)
         } else {
             None
         };
 
-        let row = handle_db_error!(
-            sqlx::query(
-                r#"
+        let env_vars_json = if let Some(env_vars) = &request.environment_variables {
+            Some(serde_json::to_string(env_vars).map_err(|e| {
+                act_core::error::CoreError::Serialization(format!(
+                    "Failed to serialize environment variables: {}",
+                    e
+                ))
+            })?)
+        } else {
+            None
+        };
+
+        let tags_json = if let Some(tags) = &request.tags {
+            Some(serde_json::to_string(tags).map_err(|e| {
+                act_core::error::CoreError::Serialization(format!(
+                    "Failed to serialize tags: {}",
+                    e
+                ))
+            })?)
+        } else {
+            None
+        };
+
+        let row = handle_db_error!(sqlx::query(
+            r#"
                 UPDATE process_info 
                 SET name = COALESCE(?1, name),
                     command = COALESCE(?2, command),
@@ -288,45 +353,52 @@ impl ProcessRepository for SqlProcessRepository {
                 WHERE id = ?10 AND user_id = ?11 
                 RETURNING *
                 "#,
-            )
-            .bind(&request.name)
-            .bind(&request.command)
-            .bind(&args_json)
-            .bind(&request.working_directory)
-            .bind(&env_vars_json)
-            .bind(request.max_restarts)
-            .bind(request.auto_restart)
-            .bind(&tags_json)
-            .bind(now)
-            .bind(id)
-            .bind(user_id)
-            .fetch_one(&self.pool)
-        );
+        )
+        .bind(&request.name)
+        .bind(&request.command)
+        .bind(&args_json)
+        .bind(&request.working_directory)
+        .bind(&env_vars_json)
+        .bind(request.max_restarts)
+        .bind(request.auto_restart)
+        .bind(&tags_json)
+        .bind(now)
+        .bind(id)
+        .bind(user_id)
+        .fetch_one(&self.pool));
 
-        let process = Self::map_row_to_process(row).await
+        let process = Self::map_row_to_process(row)
+            .await
             .map_err(|e| act_core::error::CoreError::Repository(e.to_string()))?;
 
         Ok(process)
     }
 
     async fn delete(&self, user_id: &str, id: &str) -> Result<(), act_core::error::CoreError> {
-        let result = handle_db_error!(
-            sqlx::query(
-                "DELETE FROM process_info WHERE id = ?1 AND user_id = ?2"
-            )
-            .bind(id)
-            .bind(user_id)
-            .execute(&self.pool)
-        );
+        let result = handle_db_error!(sqlx::query(
+            "DELETE FROM process_info WHERE id = ?1 AND user_id = ?2"
+        )
+        .bind(id)
+        .bind(user_id)
+        .execute(&self.pool));
 
         if result.rows_affected() == 0 {
-            return Err(act_core::error::CoreError::NotFound(format!("Process with id {} not found", id)));
+            return Err(act_core::error::CoreError::NotFound(format!(
+                "Process with id {} not found",
+                id
+            )));
         }
 
         Ok(())
     }
 
-    async fn update_status(&self, user_id: &str, id: &str, status: &str, exit_code: Option<i32>) -> Result<(), act_core::error::CoreError> {
+    async fn update_status(
+        &self,
+        user_id: &str,
+        id: &str,
+        status: &str,
+        exit_code: Option<i32>,
+    ) -> Result<(), act_core::error::CoreError> {
         let now = Utc::now();
         let end_time = if status == "Terminated" || status == "Failed" || status == "Crashed" {
             Some(now.timestamp())
@@ -334,72 +406,72 @@ impl ProcessRepository for SqlProcessRepository {
             None
         };
 
-        let result = handle_db_error!(
-            sqlx::query(
-                r#"
+        let result = handle_db_error!(sqlx::query(
+            r#"
                 UPDATE process_info 
                 SET status = ?1, exit_code = ?2, end_time = ?3, updated_at = ?4
                 WHERE id = ?5 AND user_id = ?6
                 "#,
-            )
-            .bind(status)
-            .bind(exit_code)
-            .bind(end_time)
-            .bind(now)
-            .bind(id)
-            .bind(user_id)
-            .execute(&self.pool)
-        );
+        )
+        .bind(status)
+        .bind(exit_code)
+        .bind(end_time)
+        .bind(now)
+        .bind(id)
+        .bind(user_id)
+        .execute(&self.pool));
 
         if result.rows_affected() == 0 {
-            return Err(act_core::error::CoreError::NotFound(format!("Process with id {} not found", id)));
+            return Err(act_core::error::CoreError::NotFound(format!(
+                "Process with id {} not found",
+                id
+            )));
         }
 
         Ok(())
     }
 
-    async fn increment_restart_count(&self, user_id: &str, id: &str) -> Result<i32, act_core::error::CoreError> {
-        let row = handle_db_error!(
-            sqlx::query(
-                r#"
+    async fn increment_restart_count(
+        &self,
+        user_id: &str,
+        id: &str,
+    ) -> Result<i32, act_core::error::CoreError> {
+        let row = handle_db_error!(sqlx::query(
+            r#"
                 UPDATE process_info 
                 SET restart_count = restart_count + 1, updated_at = ?1
                 WHERE id = ?2 AND user_id = ?3
                 RETURNING restart_count
                 "#,
-            )
-            .bind(Utc::now())
-            .bind(id)
-            .bind(user_id)
-            .fetch_one(&self.pool)
-        );
+        )
+        .bind(Utc::now())
+        .bind(id)
+        .bind(user_id)
+        .fetch_one(&self.pool));
 
         let new_count: i32 = row.get("restart_count");
         Ok(new_count)
     }
 
     async fn count_active_processes(&self) -> Result<u64, act_core::error::CoreError> {
-        let count = handle_db_error!(
-            sqlx::query_scalar::<_, Option<i64>>(
-                "SELECT COUNT(*) FROM process_info WHERE status IN ('Running', 'Starting')"
-            )
-            .fetch_one(&self.pool)
-        );
+        let count = handle_db_error!(sqlx::query_scalar::<_, Option<i64>>(
+            "SELECT COUNT(*) FROM process_info WHERE status IN ('Running', 'Starting')"
+        )
+        .fetch_one(&self.pool));
 
         Ok(count.unwrap_or(0) as u64)
     }
 
     async fn list_all_processes(&self) -> act_core::Result<Vec<act_core::models::UserProcess>> {
-        let rows = handle_db_error!(
-            sqlx::query(
-                "SELECT * FROM process_info ORDER BY created_at DESC"
-            )
-            .fetch_all(&self.pool)
-        );
+        let rows = handle_db_error!(sqlx::query(
+            "SELECT * FROM process_info ORDER BY created_at DESC"
+        )
+        .fetch_all(&self.pool));
 
         let mut processes = Vec::new();
         for row in rows {
-            let process = Self::map_row_to_process(row).await
+            let process = Self::map_row_to_process(row)
+                .await
                 .map_err(|e| act_core::error::CoreError::Repository(e.to_string()))?;
             processes.push(process);
         }
@@ -407,7 +479,9 @@ impl ProcessRepository for SqlProcessRepository {
         Ok(processes)
     }
 
-    async fn list_all_running_processes(&self) -> act_core::Result<Vec<act_core::models::UserProcess>> {
+    async fn list_all_running_processes(
+        &self,
+    ) -> act_core::Result<Vec<act_core::models::UserProcess>> {
         let rows = handle_db_error!(
             sqlx::query(
                 "SELECT * FROM process_info WHERE status IN ('Running', 'Starting') ORDER BY created_at DESC"
@@ -417,7 +491,8 @@ impl ProcessRepository for SqlProcessRepository {
 
         let mut processes = Vec::new();
         for row in rows {
-            let process = Self::map_row_to_process(row).await
+            let process = Self::map_row_to_process(row)
+                .await
                 .map_err(|e| act_core::error::CoreError::Repository(e.to_string()))?;
             processes.push(process);
         }
@@ -425,18 +500,20 @@ impl ProcessRepository for SqlProcessRepository {
         Ok(processes)
     }
 
-    async fn list_all_by_status(&self, status: &str) -> act_core::Result<Vec<act_core::models::UserProcess>> {
-        let rows = handle_db_error!(
-            sqlx::query(
-                "SELECT * FROM process_info WHERE status = ?1 ORDER BY created_at DESC"
-            )
-            .bind(status)
-            .fetch_all(&self.pool)
-        );
+    async fn list_all_by_status(
+        &self,
+        status: &str,
+    ) -> act_core::Result<Vec<act_core::models::UserProcess>> {
+        let rows = handle_db_error!(sqlx::query(
+            "SELECT * FROM process_info WHERE status = ?1 ORDER BY created_at DESC"
+        )
+        .bind(status)
+        .fetch_all(&self.pool));
 
         let mut processes = Vec::new();
         for row in rows {
-            let process = Self::map_row_to_process(row).await
+            let process = Self::map_row_to_process(row)
+                .await
                 .map_err(|e| act_core::error::CoreError::Repository(e.to_string()))?;
             processes.push(process);
         }

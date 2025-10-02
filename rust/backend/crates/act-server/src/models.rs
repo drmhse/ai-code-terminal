@@ -1,10 +1,13 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
 // Import domain models for conversion
-use act_core::pty::{SessionInfo as DomainSessionInfo, SessionStatus as DomainSessionStatus, PtySize as DomainTerminalSize};
+use act_core::pty::{
+    PtySize as DomainTerminalSize, SessionInfo as DomainSessionInfo,
+    SessionStatus as DomainSessionStatus,
+};
 
 // JSON field types for proper handling
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,7 +47,6 @@ pub struct TerminalSize {
 
 // Settings model has been removed - replaced by user-scoped user_settings table
 
-
 // Terminal layout model
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct TerminalLayout {
@@ -69,12 +71,12 @@ pub struct Session {
     pub last_activity_at: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
     pub ended_at: Option<DateTime<Utc>>,
-    
+
     // Session identification
     pub session_name: String,
     pub session_type: String,
     pub is_default_session: bool,
-    
+
     // Session state
     pub current_working_dir: Option<String>,
     pub environment_vars: Option<String>,
@@ -82,7 +84,7 @@ pub struct Session {
     pub terminal_size: Option<String>,
     pub last_command: Option<String>,
     pub session_timeout: Option<i32>,
-    
+
     // Relations
     pub layout_id: Option<String>,
     pub workspace_id: Option<String>,
@@ -200,13 +202,16 @@ pub fn session_info_from_domain(domain: DomainSessionInfo) -> Session {
         current_working_dir: None, // Not available in SessionInfo
         environment_vars: None, // Not available in SessionInfo
         shell_history: None, // Not available in SessionInfo
-        terminal_size: Some(serde_json::to_string(&TerminalSize {
-            cols: domain.size.cols,
-            rows: domain.size.rows,
-        }).unwrap_or_default()),
-        last_command: None, // Not available in SessionInfo
+        terminal_size: Some(
+            serde_json::to_string(&TerminalSize {
+                cols: domain.size.cols,
+                rows: domain.size.rows,
+            })
+            .unwrap_or_default(),
+        ),
+        last_command: None,    // Not available in SessionInfo
         session_timeout: None, // Not available in SessionInfo
-        layout_id: None, // Not available in SessionInfo
+        layout_id: None,       // Not available in SessionInfo
         workspace_id: Some(domain.workspace_id),
         user_id: "".to_string(), // Will need to be set by caller
     }
@@ -220,7 +225,6 @@ pub fn session_status_to_string(status: DomainSessionStatus) -> String {
         DomainSessionStatus::Error(_) => "error".to_string(),
     }
 }
-
 
 #[allow(dead_code)]
 pub fn terminal_size_from_domain(domain: DomainTerminalSize) -> TerminalSize {
@@ -238,7 +242,10 @@ impl TerminalLayout {
     }
 
     #[allow(dead_code)]
-    pub fn set_configuration(&mut self, config: &TerminalLayoutConfig) -> Result<(), serde_json::Error> {
+    pub fn set_configuration(
+        &mut self,
+        config: &TerminalLayoutConfig,
+    ) -> Result<(), serde_json::Error> {
         self.configuration = serde_json::to_string(config)?;
         Ok(())
     }
@@ -246,7 +253,9 @@ impl TerminalLayout {
 
 impl Session {
     #[allow(dead_code)]
-    pub fn get_environment_vars(&self) -> Result<Option<HashMap<String, String>>, serde_json::Error> {
+    pub fn get_environment_vars(
+        &self,
+    ) -> Result<Option<HashMap<String, String>>, serde_json::Error> {
         match &self.environment_vars {
             Some(env_vars) => Ok(Some(serde_json::from_str(env_vars)?)),
             None => Ok(None),
@@ -254,7 +263,10 @@ impl Session {
     }
 
     #[allow(dead_code)]
-    pub fn set_environment_vars(&mut self, env_vars: Option<&HashMap<String, String>>) -> Result<(), serde_json::Error> {
+    pub fn set_environment_vars(
+        &mut self,
+        env_vars: Option<&HashMap<String, String>>,
+    ) -> Result<(), serde_json::Error> {
         self.environment_vars = match env_vars {
             Some(env) => Some(serde_json::to_string(env)?),
             None => None,
@@ -271,7 +283,10 @@ impl Session {
     }
 
     #[allow(dead_code)]
-    pub fn set_terminal_size(&mut self, size: Option<&TerminalSize>) -> Result<(), serde_json::Error> {
+    pub fn set_terminal_size(
+        &mut self,
+        size: Option<&TerminalSize>,
+    ) -> Result<(), serde_json::Error> {
         self.terminal_size = match size {
             Some(s) => Some(serde_json::to_string(s)?),
             None => None,
@@ -288,7 +303,10 @@ impl Session {
     }
 
     #[allow(dead_code)]
-    pub fn set_shell_history(&mut self, history: Option<&Vec<String>>) -> Result<(), serde_json::Error> {
+    pub fn set_shell_history(
+        &mut self,
+        history: Option<&Vec<String>>,
+    ) -> Result<(), serde_json::Error> {
         self.shell_history = match history {
             Some(h) => Some(serde_json::to_string(h)?),
             None => None,

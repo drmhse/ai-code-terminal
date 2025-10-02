@@ -1,14 +1,16 @@
-use act_core::repository::{WorkspaceRepository, CreateWorkspaceRequest, UpdateWorkspaceRequest};
+use act_core::repository::{CreateWorkspaceRequest, UpdateWorkspaceRequest, WorkspaceRepository};
 use async_trait::async_trait;
-use sqlx::SqlitePool;
-use sqlx::Row;
 use chrono::Utc;
+use sqlx::Row;
+use sqlx::SqlitePool;
 
 use super::error::PersistenceError;
 
 macro_rules! handle_db_error {
     ($expr:expr) => {
-        $expr.await.map_err(|e| PersistenceError::DatabaseConnection(e))?
+        $expr
+            .await
+            .map_err(|e| PersistenceError::DatabaseConnection(e))?
     };
 }
 
@@ -21,7 +23,9 @@ impl SqlWorkspaceRepository {
         Self { pool }
     }
 
-    async fn map_row_to_workspace(row: sqlx::sqlite::SqliteRow) -> Result<act_core::repository::Workspace, PersistenceError> {
+    async fn map_row_to_workspace(
+        row: sqlx::sqlite::SqliteRow,
+    ) -> Result<act_core::repository::Workspace, PersistenceError> {
         Ok(act_core::repository::Workspace {
             id: row.get("id"),
             name: row.get("name"),
@@ -39,11 +43,15 @@ impl SqlWorkspaceRepository {
 
 #[async_trait]
 impl WorkspaceRepository for SqlWorkspaceRepository {
-    async fn create(&self, user_id: &str, request: CreateWorkspaceRequest) -> Result<act_core::repository::Workspace, act_core::error::CoreError> {
+    async fn create(
+        &self,
+        user_id: &str,
+        request: CreateWorkspaceRequest,
+    ) -> Result<act_core::repository::Workspace, act_core::error::CoreError> {
         let workspace_id = uuid::Uuid::new_v4().to_string();
         let now = Utc::now();
         let local_path = request.local_path.unwrap_or_else(|| workspace_id.clone());
-        
+
         let row = handle_db_error!(
             sqlx::query(
                 r#"
@@ -67,7 +75,11 @@ impl WorkspaceRepository for SqlWorkspaceRepository {
         Self::map_row_to_workspace(row).await.map_err(Into::into)
     }
 
-    async fn get_by_id(&self, user_id: &str, id: &String) -> Result<act_core::repository::Workspace, act_core::error::CoreError> {
+    async fn get_by_id(
+        &self,
+        user_id: &str,
+        id: &String,
+    ) -> Result<act_core::repository::Workspace, act_core::error::CoreError> {
         let row = handle_db_error!(
             sqlx::query(
                 r#"
@@ -84,7 +96,33 @@ impl WorkspaceRepository for SqlWorkspaceRepository {
         Self::map_row_to_workspace(row).await.map_err(Into::into)
     }
 
-    async fn get_by_github_repo(&self, user_id: &str, repo: &str) -> Result<Option<act_core::repository::Workspace>, act_core::error::CoreError> {
+    async fn get_by_id_system(
+        &self,
+        id: &String,
+    ) -> Result<Option<act_core::repository::Workspace>, act_core::error::CoreError> {
+        let row = handle_db_error!(
+            sqlx::query(
+                r#"
+                SELECT id, name, github_repo, github_url, local_path, is_active, last_sync_at, created_at, updated_at, user_id
+                FROM workspaces
+                WHERE id = ?1
+                "#
+            )
+            .bind(id)
+            .fetch_optional(&self.pool)
+        );
+
+        match row {
+            Some(r) => Ok(Some(Self::map_row_to_workspace(r).await?)),
+            None => Ok(None),
+        }
+    }
+
+    async fn get_by_github_repo(
+        &self,
+        user_id: &str,
+        repo: &str,
+    ) -> Result<Option<act_core::repository::Workspace>, act_core::error::CoreError> {
         let row = handle_db_error!(
             sqlx::query(
                 r#"
@@ -99,12 +137,18 @@ impl WorkspaceRepository for SqlWorkspaceRepository {
         );
 
         match row {
-            Some(row) => Self::map_row_to_workspace(row).await.map(Some).map_err(Into::into),
+            Some(row) => Self::map_row_to_workspace(row)
+                .await
+                .map(Some)
+                .map_err(Into::into),
             None => Ok(None),
         }
     }
 
-    async fn list_all(&self, user_id: &str) -> Result<Vec<act_core::repository::Workspace>, act_core::error::CoreError> {
+    async fn list_all(
+        &self,
+        user_id: &str,
+    ) -> Result<Vec<act_core::repository::Workspace>, act_core::error::CoreError> {
         let rows = handle_db_error!(
             sqlx::query(
                 r#"
@@ -126,7 +170,10 @@ impl WorkspaceRepository for SqlWorkspaceRepository {
         Ok(workspaces)
     }
 
-    async fn list_active(&self, user_id: &str) -> Result<Vec<act_core::repository::Workspace>, act_core::error::CoreError> {
+    async fn list_active(
+        &self,
+        user_id: &str,
+    ) -> Result<Vec<act_core::repository::Workspace>, act_core::error::CoreError> {
         let rows = handle_db_error!(
             sqlx::query(
                 r#"
@@ -148,10 +195,16 @@ impl WorkspaceRepository for SqlWorkspaceRepository {
         Ok(workspaces)
     }
 
-    async fn update(&self, user_id: &str, id: &String, request: UpdateWorkspaceRequest) -> Result<act_core::repository::Workspace, act_core::error::CoreError> {
+    async fn update(
+        &self,
+        user_id: &str,
+        id: &String,
+        request: UpdateWorkspaceRequest,
+    ) -> Result<act_core::repository::Workspace, act_core::error::CoreError> {
         let current = self.get_by_id(user_id, id).await?;
-        
-        let mut query = sqlx::QueryBuilder::new("UPDATE workspaces SET updated_at = CURRENT_TIMESTAMP");
+
+        let mut query =
+            sqlx::QueryBuilder::new("UPDATE workspaces SET updated_at = CURRENT_TIMESTAMP");
         let mut has_updates = false;
 
         if let Some(name) = &request.name {
@@ -198,7 +251,12 @@ impl WorkspaceRepository for SqlWorkspaceRepository {
         Ok(())
     }
 
-    async fn set_active(&self, user_id: &str, id: &String, active: bool) -> Result<(), act_core::error::CoreError> {
+    async fn set_active(
+        &self,
+        user_id: &str,
+        id: &String,
+        active: bool,
+    ) -> Result<(), act_core::error::CoreError> {
         handle_db_error!(
             sqlx::query(
                 "UPDATE workspaces SET is_active = ?3, updated_at = CURRENT_TIMESTAMP WHERE id = ?1 AND user_id = ?2"

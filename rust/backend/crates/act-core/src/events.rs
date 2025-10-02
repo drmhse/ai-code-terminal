@@ -269,9 +269,9 @@ impl InMemoryEventPublisher {
 #[async_trait]
 impl EventPublisher for InMemoryEventPublisher {
     async fn publish(&self, event: ProcessEvent) -> crate::Result<()> {
-        self.sender
-            .send(event)
-            .map_err(|e| crate::error::CoreError::Internal(format!("Failed to publish event: {}", e)))?;
+        self.sender.send(event).map_err(|e| {
+            crate::error::CoreError::Internal(format!("Failed to publish event: {}", e))
+        })?;
         Ok(())
     }
 

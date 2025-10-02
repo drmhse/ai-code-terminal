@@ -1,13 +1,11 @@
-use std::sync::Arc;
-use async_trait::async_trait;
-use jsonwebtoken::{encode, decode, EncodingKey, DecodingKey, Header, Validation};
-use act_core::{
-    Result, CoreError,
-    AuthenticatedUser, AuthToken, JwtClaims,
-    GitHubAuthService, JwtService,
-};
 use crate::config::Config;
 use crate::services::GitHubService;
+use act_core::{
+    AuthToken, AuthenticatedUser, CoreError, GitHubAuthService, JwtClaims, JwtService, Result,
+};
+use async_trait::async_trait;
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use std::sync::Arc;
 
 pub struct ServerGitHubAuthService {
     github_service: GitHubService,
@@ -15,9 +13,9 @@ pub struct ServerGitHubAuthService {
 
 impl ServerGitHubAuthService {
     pub fn new(config: Arc<Config>) -> Result<Self> {
-        let github_service = GitHubService::new(config)
-            .map_err(|e| CoreError::Configuration(e.to_string()))?;
-        
+        let github_service =
+            GitHubService::new(config).map_err(|e| CoreError::Configuration(e.to_string()))?;
+
         Ok(Self { github_service })
     }
 }
@@ -25,12 +23,15 @@ impl ServerGitHubAuthService {
 #[async_trait]
 impl GitHubAuthService for ServerGitHubAuthService {
     async fn get_authorization_url(&self, state: &str) -> Result<String> {
-        self.github_service.get_authorization_url(state)
+        self.github_service
+            .get_authorization_url(state)
             .map_err(|e| CoreError::Configuration(e.to_string()))
     }
 
     async fn exchange_code_for_token(&self, code: &str, state: &str) -> Result<AuthToken> {
-        let result = self.github_service.exchange_code_for_token(code, state)
+        let result = self
+            .github_service
+            .exchange_code_for_token(code, state)
             .await
             .map_err(|e| CoreError::External(e.to_string()))?;
 
@@ -48,7 +49,9 @@ impl GitHubAuthService for ServerGitHubAuthService {
     }
 
     async fn refresh_access_token(&self, refresh_token: &str) -> Result<AuthToken> {
-        let result = self.github_service.refresh_access_token(refresh_token)
+        let result = self
+            .github_service
+            .refresh_access_token(refresh_token)
             .await
             .map_err(|e| CoreError::External(e.to_string()))?;
 
@@ -70,7 +73,9 @@ impl GitHubAuthService for ServerGitHubAuthService {
     }
 
     async fn get_user_info(&self, token: &str) -> Result<AuthenticatedUser> {
-        let user = self.github_service.get_user_info(token)
+        let user = self
+            .github_service
+            .get_user_info(token)
             .await
             .map_err(|e| CoreError::External(e.to_string()))?;
 
@@ -83,7 +88,8 @@ impl GitHubAuthService for ServerGitHubAuthService {
     }
 
     async fn revoke_token(&self, token: &str) -> Result<()> {
-        self.github_service.revoke_token(token)
+        self.github_service
+            .revoke_token(token)
             .await
             .map_err(|e| CoreError::External(e.to_string()))
     }
@@ -112,7 +118,7 @@ impl JwtService for ServerJwtService {
     fn generate_token(&self, user: &AuthenticatedUser) -> Result<String> {
         let now = chrono::Utc::now();
         let exp = now + chrono::Duration::days(7);
-        
+
         let claims = JwtClaims {
             sub: user.user_id.clone(),
             github_username: user.username.clone(),
@@ -124,16 +130,18 @@ impl JwtService for ServerJwtService {
         encode(
             &Header::default(),
             &claims,
-            &EncodingKey::from_secret(self.jwt_secret.as_ref())
-        ).map_err(|e| CoreError::Configuration(e.to_string()))
+            &EncodingKey::from_secret(self.jwt_secret.as_ref()),
+        )
+        .map_err(|e| CoreError::Configuration(e.to_string()))
     }
 
     fn validate_token(&self, token: &str) -> Result<JwtClaims> {
         let token_data = decode::<JwtClaims>(
             token,
             &DecodingKey::from_secret(self.jwt_secret.as_ref()),
-            &Validation::default()
-        ).map_err(|_| CoreError::Authorization("Invalid JWT token".to_string()))?;
+            &Validation::default(),
+        )
+        .map_err(|_| CoreError::Authorization("Invalid JWT token".to_string()))?;
 
         Ok(token_data.claims)
     }
@@ -143,4 +151,3 @@ impl JwtService for ServerJwtService {
         claims.exp < now
     }
 }
-

@@ -2,7 +2,7 @@ use aes_gcm::{
     aead::{Aead, AeadCore, KeyInit, OsRng},
     Aes256Gcm, Key, Nonce,
 };
-use base64::{Engine as _, engine::general_purpose};
+use base64::{engine::general_purpose, Engine as _};
 use rand::RngCore;
 use thiserror::Error;
 use tracing::{debug, error};
@@ -50,9 +50,10 @@ impl EncryptionService {
         debug!("Initializing encryption service");
 
         if key_hex.len() != 64 {
-            return Err(EncryptionError::InvalidKey(
-                format!("Key must be 64 hex characters, got {}", key_hex.len())
-            ));
+            return Err(EncryptionError::InvalidKey(format!(
+                "Key must be 64 hex characters, got {}",
+                key_hex.len()
+            )));
         }
 
         let key_bytes = hex::decode(key_hex)
@@ -60,7 +61,7 @@ impl EncryptionService {
 
         if key_bytes.len() != 32 {
             return Err(EncryptionError::InvalidKey(
-                "Key must be exactly 32 bytes".to_string()
+                "Key must be exactly 32 bytes".to_string(),
             ));
         }
 
@@ -86,11 +87,15 @@ impl EncryptionService {
         let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
 
         // Encrypt with user_id as AAD
-        let ciphertext = self.cipher
-            .encrypt(&nonce, aes_gcm::aead::Payload {
-                msg: token.as_bytes(),
-                aad: user_id.as_bytes(),
-            })
+        let ciphertext = self
+            .cipher
+            .encrypt(
+                &nonce,
+                aes_gcm::aead::Payload {
+                    msg: token.as_bytes(),
+                    aad: user_id.as_bytes(),
+                },
+            )
             .map_err(|e| EncryptionError::EncryptionFailed(e.to_string()))?;
 
         // Combine nonce + ciphertext for storage
@@ -113,7 +118,11 @@ impl EncryptionService {
     ///
     /// # Returns
     /// Original plaintext token
-    pub fn decrypt_token(&self, encrypted_base64: &str, user_id: &str) -> Result<String, EncryptionError> {
+    pub fn decrypt_token(
+        &self,
+        encrypted_base64: &str,
+        user_id: &str,
+    ) -> Result<String, EncryptionError> {
         debug!("Decrypting token for user: {}", user_id);
 
         // Decode from base64
@@ -129,11 +138,15 @@ impl EncryptionService {
         let nonce = Nonce::from_slice(nonce_bytes);
 
         // Decrypt with user_id validation
-        let plaintext = self.cipher
-            .decrypt(nonce, aes_gcm::aead::Payload {
-                msg: ciphertext,
-                aad: user_id.as_bytes(),
-            })
+        let plaintext = self
+            .cipher
+            .decrypt(
+                nonce,
+                aes_gcm::aead::Payload {
+                    msg: ciphertext,
+                    aad: user_id.as_bytes(),
+                },
+            )
             .map_err(|e| {
                 error!("Decryption failed for user {}: {}", user_id, e);
                 EncryptionError::DecryptionFailed(e.to_string())
@@ -161,7 +174,11 @@ impl EncryptionService {
 #[async_trait::async_trait]
 pub trait TokenEncryption: Send + Sync {
     async fn encrypt_token(&self, token: &str, user_id: &str) -> Result<String, EncryptionError>;
-    async fn decrypt_token(&self, encrypted_base64: &str, user_id: &str) -> Result<String, EncryptionError>;
+    async fn decrypt_token(
+        &self,
+        encrypted_base64: &str,
+        user_id: &str,
+    ) -> Result<String, EncryptionError>;
 }
 
 #[async_trait::async_trait]
@@ -170,7 +187,11 @@ impl TokenEncryption for EncryptionService {
         self.encrypt_token(token, user_id)
     }
 
-    async fn decrypt_token(&self, encrypted_base64: &str, user_id: &str) -> Result<String, EncryptionError> {
+    async fn decrypt_token(
+        &self,
+        encrypted_base64: &str,
+        user_id: &str,
+    ) -> Result<String, EncryptionError> {
         self.decrypt_token(encrypted_base64, user_id)
     }
 }
@@ -229,7 +250,10 @@ mod tests {
         assert!(EncryptionService::new("abc").is_err());
 
         // Invalid hex
-        assert!(EncryptionService::new("gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg").is_err());
+        assert!(EncryptionService::new(
+            "gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg"
+        )
+        .is_err());
     }
 
     #[test]
@@ -237,7 +261,9 @@ mod tests {
         let service = EncryptionService::new(&test_key())?;
 
         // Invalid base64
-        assert!(service.decrypt_token("invalid base64!", "user_123").is_err());
+        assert!(service
+            .decrypt_token("invalid base64!", "user_123")
+            .is_err());
 
         // Too short data
         let short_data = general_purpose::STANDARD.encode(&[1, 2, 3]);

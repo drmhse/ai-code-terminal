@@ -108,14 +108,15 @@ const handleConnect = async () => {
     const popup = window.open(auth_url, 'microsoft-oauth', 'width=600,height=700,scrollbars=yes,resizable=yes')
 
     // Listen for messages from the popup
-    const messageHandler = (event: MessageEvent) => {
+    const messageHandler = async (event: MessageEvent) => {
       // Verify origin for security
       if (event.origin !== window.location.origin) return
 
       if (event.data.type === 'MICROSOFT_AUTH_SUCCESS') {
         console.log('✅ Received Microsoft auth success message from popup')
-        // Refresh auth status after successful authentication
-        todoStore.checkAuthStatus()
+        // Refresh auth status after successful authentication - await it to ensure state updates
+        await todoStore.checkAuthStatus()
+        console.log('✅ Auth status refreshed, authenticated:', todoStore.isAuthenticated)
         window.removeEventListener('message', messageHandler)
         clearInterval(checkClosed)
       } else if (event.data.type === 'MICROSOFT_AUTH_ERROR') {

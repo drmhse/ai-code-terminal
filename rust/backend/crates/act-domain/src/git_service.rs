@@ -1,12 +1,12 @@
 use std::path::Path;
 
-use act_core::{Result, CoreError};
+use act_core::{CoreError, Result};
 
 use async_trait::async_trait;
 use tokio::process::Command;
-use tracing::{info, error, debug};
+use tracing::{debug, error, info};
 
-use crate::workspace_service::{GitStatus, GitCommit, GitService};
+use crate::workspace_service::{GitCommit, GitService, GitStatus};
 
 pub struct LocalGitService;
 
@@ -32,13 +32,14 @@ impl GitService for LocalGitService {
         token: Option<&str>,
     ) -> Result<GitCommit> {
         let mut cmd = Command::new("git");
-        cmd.arg("clone")
-            .arg("--progress")
-            .arg("--verbose");
+        cmd.arg("clone").arg("--progress").arg("--verbose");
 
         let authenticated_url = if let Some(token) = token {
             if git_url.starts_with("https://github.com/") {
-                git_url.replace("https://github.com/", &format!("https://token:{}@github.com/", token))
+                git_url.replace(
+                    "https://github.com/",
+                    &format!("https://token:{}@github.com/", token),
+                )
             } else {
                 git_url.to_string()
             }
@@ -52,15 +53,24 @@ impl GitService for LocalGitService {
             cmd.args(["-b", branch]);
         }
 
-        info!("Starting git clone: git clone {} {}", authenticated_url, target_path.display());
+        info!(
+            "Starting git clone: git clone {} {}",
+            authenticated_url,
+            target_path.display()
+        );
 
-        let output = cmd.output().await
+        let output = cmd
+            .output()
+            .await
             .map_err(|e| CoreError::Process(format!("Failed to execute git clone: {}", e)))?;
 
         if !output.status.success() {
             let error_msg = String::from_utf8_lossy(&output.stderr);
             error!("Git clone failed: {}", error_msg);
-            return Err(CoreError::Process(format!("Git clone failed: {}", error_msg)));
+            return Err(CoreError::Process(format!(
+                "Git clone failed: {}",
+                error_msg
+            )));
         }
 
         let clone_output = String::from_utf8_lossy(&output.stderr);
@@ -71,12 +81,13 @@ impl GitService for LocalGitService {
 
     async fn get_git_status(&self, repo_path: &Path) -> Result<GitStatus> {
         let current_branch = self.get_current_branch(repo_path).await?;
-        
+
         let status_output = Command::new("git")
             .arg("status")
             .arg("--porcelain")
             .current_dir(repo_path)
-            .output().await
+            .output()
+            .await
             .map_err(|e| CoreError::Process(format!("Failed to execute git status: {}", e)))?;
 
         if !status_output.status.success() {
@@ -98,17 +109,24 @@ impl GitService for LocalGitService {
             match status {
                 "??" => untracked_files.push(file.to_string()),
                 status if !status.starts_with(' ') => staged_files.push(file.to_string()),
-                status if status.chars().nth(1).unwrap() != ' ' => unstaged_files.push(file.to_string()),
+                status if status.chars().nth(1).unwrap() != ' ' => {
+                    unstaged_files.push(file.to_string())
+                }
                 _ => {}
             }
         }
 
-        let (ahead, behind) = self.get_remote_tracking_info(repo_path).await.unwrap_or((0, 0));
+        let (ahead, behind) = self
+            .get_remote_tracking_info(repo_path)
+            .await
+            .unwrap_or((0, 0));
         let remote = self.get_remote_url(repo_path).await.ok();
 
         Ok(GitStatus {
             branch: current_branch,
-            is_clean: staged_files.is_empty() && unstaged_files.is_empty() && untracked_files.is_empty(),
+            is_clean: staged_files.is_empty()
+                && unstaged_files.is_empty()
+                && untracked_files.is_empty(),
             staged_files,
             unstaged_files,
             untracked_files,
@@ -120,9 +138,14 @@ impl GitService for LocalGitService {
 
     async fn get_git_history(&self, repo_path: &Path, limit: usize) -> Result<Vec<GitCommit>> {
         let output = Command::new("git")
-            .args(["log", "--format=%H|%h|%an|%ae|%s|%ct", &format!("-{}", limit)])
+            .args([
+                "log",
+                "--format=%H|%h|%an|%ae|%s|%ct",
+                &format!("-{}", limit),
+            ])
             .current_dir(repo_path)
-            .output().await
+            .output()
+            .await
             .map_err(|e| CoreError::Process(format!("Failed to execute git log: {}", e)))?;
 
         if !output.status.success() {
@@ -155,13 +178,16 @@ impl GitService for LocalGitService {
         let output = Command::new("git")
             .args(["branch", "--show-current"])
             .current_dir(repo_path)
-            .output().await
+            .output()
+            .await
             .map_err(|e| CoreError::Process(format!("Failed to execute git branch: {}", e)))?;
 
         if output.status.success() {
             Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
         } else {
-            Err(CoreError::Process("Failed to get current branch".to_string()))
+            Err(CoreError::Process(
+                "Failed to get current branch".to_string(),
+            ))
         }
     }
 
@@ -169,7 +195,8 @@ impl GitService for LocalGitService {
         let output = Command::new("git")
             .args(["log", "-1", "--format=%H|%h|%an|%ae|%s|%ct"])
             .current_dir(repo_path)
-            .output().await
+            .output()
+            .await
             .map_err(|e| CoreError::Process(format!("Failed to execute git log: {}", e)))?;
 
         if !output.status.success() {
@@ -201,7 +228,8 @@ impl LocalGitService {
         let output = Command::new("git")
             .args(["rev-list", "--count", "--left-right", "@{upstream}...HEAD"])
             .current_dir(repo_path)
-            .output().await
+            .output()
+            .await
             .map_err(|e| CoreError::Process(format!("Failed to execute git rev-list: {}", e)))?;
 
         if output.status.success() {
@@ -221,7 +249,8 @@ impl LocalGitService {
         let output = Command::new("git")
             .args(["remote", "get-url", "origin"])
             .current_dir(repo_path)
-            .output().await
+            .output()
+            .await
             .map_err(|e| CoreError::Process(format!("Failed to execute git remote: {}", e)))?;
 
         if output.status.success() {

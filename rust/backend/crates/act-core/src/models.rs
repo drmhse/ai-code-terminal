@@ -1,23 +1,21 @@
 pub use crate::repository::{
-    Workspace,
-    CreateWorkspaceRequest, UpdateWorkspaceRequest,
-    CreateLayoutRequest, UpdateLayoutRequest,
-    CreateProcessRequest, UpdateProcessRequest,
-    WorkspaceId, LayoutId, UserId
+    CreateLayoutRequest, CreateProcessRequest, CreateWorkspaceRequest, LayoutId,
+    UpdateLayoutRequest, UpdateProcessRequest, UpdateWorkspaceRequest, UserId, Workspace,
+    WorkspaceId,
 };
 
 pub use crate::filesystem::{
-    FileItem, FilePermissions, DirectoryListing, FileContent,
-    CreateFileRequest, CreateDirectoryRequest, MoveRequest, CopyRequest
+    CopyRequest, CreateDirectoryRequest, CreateFileRequest, DirectoryListing, FileContent,
+    FileItem, FilePermissions, MoveRequest,
 };
 
 pub use crate::pty::{
-    PtyEvent, PtySize, SessionConfig, SessionInfo,
-    SessionId as PtySessionId, WorkspaceId as PtyWorkspaceId
+    PtyEvent, PtySize, SessionConfig, SessionId as PtySessionId, SessionInfo,
+    WorkspaceId as PtyWorkspaceId,
 };
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
@@ -42,7 +40,6 @@ pub struct TerminalLayout {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
-
 
 // New hierarchical layout models (matching frontend TypeScript interfaces)
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,19 +1,20 @@
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::microsoft_auth_types::{MicrosoftAuthRepository, MicrosoftAuthData, MicrosoftAuthRepositoryError};
+use crate::microsoft_auth_types::{
+    MicrosoftAuthData, MicrosoftAuthRepository, MicrosoftAuthRepositoryError,
+};
 use oauth2::{
-    AuthUrl, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl, Scope,
-    TokenUrl, AuthorizationCode, PkceCodeVerifier, RefreshToken, TokenResponse,
+    AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge,
+    PkceCodeVerifier, RedirectUrl, RefreshToken, Scope, TokenResponse, TokenUrl,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{debug, error, info, warn};
 
 use crate::{
-    TokenEncryption, EncryptionError,
-    GraphClient, GraphApiError,
-    CreateTaskRequest, CreateListRequest, Task, TaskList,
+    CreateListRequest, CreateTaskRequest, EncryptionError, GraphApiError, GraphClient, Task,
+    TaskList, TokenEncryption,
 };
 
 #[derive(Debug, Error)]
@@ -52,11 +53,13 @@ pub struct MicrosoftOAuthConfig {
 impl MicrosoftOAuthConfig {
     /// Create configuration from environment variables
     pub fn from_env() -> Result<Self, MicrosoftAuthError> {
-        let client_id = std::env::var("MICROSOFT_CLIENT_ID")
-            .map_err(|_| MicrosoftAuthError::InvalidConfig("MICROSOFT_CLIENT_ID not set".to_string()))?;
+        let client_id = std::env::var("MICROSOFT_CLIENT_ID").map_err(|_| {
+            MicrosoftAuthError::InvalidConfig("MICROSOFT_CLIENT_ID not set".to_string())
+        })?;
 
-        let client_secret = std::env::var("MICROSOFT_CLIENT_SECRET")
-            .map_err(|_| MicrosoftAuthError::InvalidConfig("MICROSOFT_CLIENT_SECRET not set".to_string()))?;
+        let client_secret = std::env::var("MICROSOFT_CLIENT_SECRET").map_err(|_| {
+            MicrosoftAuthError::InvalidConfig("MICROSOFT_CLIENT_SECRET not set".to_string())
+        })?;
 
         let redirect_uri = std::env::var("MICROSOFT_REDIRECT_URI")
             .unwrap_or_else(|_| "http://localhost:3000/api/microsoft/callback".to_string());
@@ -75,14 +78,18 @@ impl MicrosoftOAuthConfig {
     pub fn get_auth_url(&self) -> String {
         match &self.tenant_id {
             Some(tenant_id) if tenant_id == "common" || tenant_id == "consumers" => {
-                format!("https://login.microsoftonline.com/{}/oauth2/v2.0/authorize", tenant_id)
+                format!(
+                    "https://login.microsoftonline.com/{}/oauth2/v2.0/authorize",
+                    tenant_id
+                )
             }
             Some(tenant_id) => {
-                format!("https://login.microsoftonline.com/{}/oauth2/v2.0/authorize", tenant_id)
+                format!(
+                    "https://login.microsoftonline.com/{}/oauth2/v2.0/authorize",
+                    tenant_id
+                )
             }
-            None => {
-                "https://login.microsoftonline.com/common/oauth2/v2.0/authorize".to_string()
-            }
+            None => "https://login.microsoftonline.com/common/oauth2/v2.0/authorize".to_string(),
         }
     }
 
@@ -90,14 +97,18 @@ impl MicrosoftOAuthConfig {
     pub fn get_token_url(&self) -> String {
         match &self.tenant_id {
             Some(tenant_id) if tenant_id == "common" || tenant_id == "consumers" => {
-                format!("https://login.microsoftonline.com/{}/oauth2/v2.0/token", tenant_id)
+                format!(
+                    "https://login.microsoftonline.com/{}/oauth2/v2.0/token",
+                    tenant_id
+                )
             }
             Some(tenant_id) => {
-                format!("https://login.microsoftonline.com/{}/oauth2/v2.0/token", tenant_id)
+                format!(
+                    "https://login.microsoftonline.com/{}/oauth2/v2.0/token",
+                    tenant_id
+                )
             }
-            None => {
-                "https://login.microsoftonline.com/common/oauth2/v2.0/token".to_string()
-            }
+            None => "https://login.microsoftonline.com/common/oauth2/v2.0/token".to_string(),
         }
     }
 }
@@ -128,7 +139,13 @@ pub struct MicrosoftAuthService {
 }
 
 impl MicrosoftAuthService {
-    const SCOPES: &'static [&'static str] = &["Tasks.ReadWrite", "offline_access", "openid", "profile", "User.Read"];
+    const SCOPES: &'static [&'static str] = &[
+        "Tasks.ReadWrite",
+        "offline_access",
+        "openid",
+        "profile",
+        "User.Read",
+    ];
 
     /// Minimum time before expiry to trigger token refresh (15 minutes)
     const REFRESH_BUFFER_SECONDS: i64 = 15 * 60;
@@ -161,8 +178,10 @@ impl MicrosoftAuthService {
             Some(ClientSecret::new(self.oauth_config.client_secret.clone())),
             AuthUrl::new(self.oauth_config.get_auth_url())
                 .map_err(|e| MicrosoftAuthError::OAuth(e.to_string()))?,
-            Some(TokenUrl::new(self.oauth_config.get_token_url())
-                .map_err(|e| MicrosoftAuthError::OAuth(e.to_string()))?),
+            Some(
+                TokenUrl::new(self.oauth_config.get_token_url())
+                    .map_err(|e| MicrosoftAuthError::OAuth(e.to_string()))?,
+            ),
         )
         .set_redirect_uri(
             RedirectUrl::new(self.oauth_config.redirect_uri.clone())
@@ -202,8 +221,10 @@ impl MicrosoftAuthService {
             Some(ClientSecret::new(self.oauth_config.client_secret.clone())),
             AuthUrl::new(self.oauth_config.get_auth_url())
                 .map_err(|e| MicrosoftAuthError::OAuth(e.to_string()))?,
-            Some(TokenUrl::new(self.oauth_config.get_token_url())
-                .map_err(|e| MicrosoftAuthError::OAuth(e.to_string()))?),
+            Some(
+                TokenUrl::new(self.oauth_config.get_token_url())
+                    .map_err(|e| MicrosoftAuthError::OAuth(e.to_string()))?,
+            ),
         )
         .set_redirect_uri(
             RedirectUrl::new(self.oauth_config.redirect_uri.clone())
@@ -224,21 +245,27 @@ impl MicrosoftAuthService {
             })?;
 
         let access_token = token_result.access_token().secret();
-        let refresh_token = token_result.refresh_token()
+        let refresh_token = token_result
+            .refresh_token()
             .ok_or_else(|| MicrosoftAuthError::OAuth("No refresh token received".to_string()))?
             .secret();
 
-        let expires_in = token_result.expires_in()
-            .ok_or_else(|| MicrosoftAuthError::OAuth("No expiry information received".to_string()))?;
+        let expires_in = token_result.expires_in().ok_or_else(|| {
+            MicrosoftAuthError::OAuth("No expiry information received".to_string())
+        })?;
 
         let expires_at = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
-            .as_secs() as i64 + expires_in.as_secs() as i64;
+            .as_secs() as i64
+            + expires_in.as_secs() as i64;
 
         // Encrypt tokens
         let access_token_encrypted = self.encryption.encrypt_token(access_token, user_id).await?;
-        let refresh_token_encrypted = self.encryption.encrypt_token(refresh_token, user_id).await?;
+        let refresh_token_encrypted = self
+            .encryption
+            .encrypt_token(refresh_token, user_id)
+            .await?;
 
         // Get user info from Microsoft Graph
         let (microsoft_user_id, microsoft_email) = match self.get_user_info(access_token).await {
@@ -250,14 +277,16 @@ impl MicrosoftAuthService {
         };
 
         // Store encrypted tokens
-        self.repository.store_auth_tokens(
-            user_id,
-            access_token_encrypted.as_bytes(),
-            refresh_token_encrypted.as_bytes(),
-            expires_at,
-            microsoft_user_id.as_deref(),
-            microsoft_email.as_deref(),
-        ).await?;
+        self.repository
+            .store_auth_tokens(
+                user_id,
+                access_token_encrypted.as_bytes(),
+                refresh_token_encrypted.as_bytes(),
+                expires_at,
+                microsoft_user_id.as_deref(),
+                microsoft_email.as_deref(),
+            )
+            .await?;
 
         info!("Microsoft authentication completed for user: {}", user_id);
         Ok(())
@@ -267,7 +296,10 @@ impl MicrosoftAuthService {
     pub async fn get_access_token(&self, user_id: &str) -> Result<String, MicrosoftAuthError> {
         debug!("Getting access token for user: {}", user_id);
 
-        let auth_data = self.repository.get_auth_data(user_id).await?
+        let auth_data = self
+            .repository
+            .get_auth_data(user_id)
+            .await?
             .ok_or(MicrosoftAuthError::NotAuthenticated)?;
 
         let now = SystemTime::now()
@@ -283,33 +315,48 @@ impl MicrosoftAuthService {
             match self.refresh_token_internal(&auth_data).await {
                 Ok(()) => {
                     // Get updated auth data
-                    let auth_data = self.repository.get_auth_data(user_id).await?
+                    let auth_data = self
+                        .repository
+                        .get_auth_data(user_id)
+                        .await?
                         .ok_or(MicrosoftAuthError::NotAuthenticated)?;
 
-                    let access_token = self.encryption.decrypt_token(
-                        &String::from_utf8_lossy(&auth_data.access_token_encrypted),
-                        user_id,
-                    ).await?;
+                    let access_token = self
+                        .encryption
+                        .decrypt_token(
+                            &String::from_utf8_lossy(&auth_data.access_token_encrypted),
+                            user_id,
+                        )
+                        .await?;
 
                     debug!("Successfully refreshed access token for user: {}", user_id);
                     Ok(access_token)
                 }
                 Err(refresh_error) => {
-                    error!("Failed to refresh token for user {}: {}", user_id, refresh_error);
+                    error!(
+                        "Failed to refresh token for user {}: {}",
+                        user_id, refresh_error
+                    );
 
                     // If refresh fails, remove the auth data to force re-authentication
                     if let Err(remove_error) = self.repository.remove_auth(user_id).await {
-                        error!("Failed to remove invalid auth for user {}: {}", user_id, remove_error);
+                        error!(
+                            "Failed to remove invalid auth for user {}: {}",
+                            user_id, remove_error
+                        );
                     }
 
                     Err(MicrosoftAuthError::TokenExpired)
                 }
             }
         } else {
-            let access_token = self.encryption.decrypt_token(
-                &String::from_utf8_lossy(&auth_data.access_token_encrypted),
-                user_id,
-            ).await?;
+            let access_token = self
+                .encryption
+                .decrypt_token(
+                    &String::from_utf8_lossy(&auth_data.access_token_encrypted),
+                    user_id,
+                )
+                .await?;
 
             debug!("Using existing access token for user: {}", user_id);
             Ok(access_token)
@@ -334,7 +381,6 @@ impl MicrosoftAuthService {
         }
     }
 
-
     /// Proactively refresh expiring tokens for all users
     pub async fn refresh_expiring_tokens(&self) -> Result<(), MicrosoftAuthError> {
         let now = SystemTime::now()
@@ -344,7 +390,10 @@ impl MicrosoftAuthService {
 
         let expires_before = now + Self::REFRESH_BUFFER_SECONDS;
 
-        let user_ids = self.repository.get_users_with_expiring_tokens(expires_before).await?;
+        let user_ids = self
+            .repository
+            .get_users_with_expiring_tokens(expires_before)
+            .await?;
 
         info!("Found {} users with expiring tokens", user_ids.len());
 
@@ -362,26 +411,41 @@ impl MicrosoftAuthService {
     async fn refresh_user_token(&self, user_id: &str) -> Result<(), MicrosoftAuthError> {
         debug!("Refreshing token for user: {}", user_id);
 
-        let auth_data = self.repository.get_auth_data(user_id).await?
+        let auth_data = self
+            .repository
+            .get_auth_data(user_id)
+            .await?
             .ok_or(MicrosoftAuthError::NotAuthenticated)?;
 
         self.refresh_token_internal(&auth_data).await
     }
 
-    async fn refresh_token_internal(&self, auth_data: &MicrosoftAuthData) -> Result<(), MicrosoftAuthError> {
+    async fn refresh_token_internal(
+        &self,
+        auth_data: &MicrosoftAuthData,
+    ) -> Result<(), MicrosoftAuthError> {
         const LOCK_TIMEOUT_SECONDS: i64 = 30;
 
         // Try to acquire lock for this user's token refresh
-        let lock_acquired = self.repository.acquire_token_refresh_lock(&auth_data.user_id, LOCK_TIMEOUT_SECONDS).await?;
+        let lock_acquired = self
+            .repository
+            .acquire_token_refresh_lock(&auth_data.user_id, LOCK_TIMEOUT_SECONDS)
+            .await?;
 
         if !lock_acquired {
             // Another process is already refreshing this token
             // Wait a bit and check if token was refreshed by the other process
-            debug!("Token refresh for user {} is already in progress, waiting...", auth_data.user_id);
+            debug!(
+                "Token refresh for user {} is already in progress, waiting...",
+                auth_data.user_id
+            );
             tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
             // Check if token was refreshed
-            let updated_auth = self.repository.get_auth_data(&auth_data.user_id).await?
+            let updated_auth = self
+                .repository
+                .get_auth_data(&auth_data.user_id)
+                .await?
                 .ok_or(MicrosoftAuthError::NotAuthenticated)?;
 
             let now = SystemTime::now()
@@ -391,14 +455,22 @@ impl MicrosoftAuthService {
 
             // If token was refreshed successfully by another process, we're done
             if updated_auth.token_expires_at > now + Self::REFRESH_BUFFER_SECONDS {
-                debug!("Token was refreshed by another process for user: {}", auth_data.user_id);
+                debug!(
+                    "Token was refreshed by another process for user: {}",
+                    auth_data.user_id
+                );
                 return Ok(());
             }
 
             // If still not refreshed, try to acquire lock again
-            let lock_acquired = self.repository.acquire_token_refresh_lock(&auth_data.user_id, LOCK_TIMEOUT_SECONDS).await?;
+            let lock_acquired = self
+                .repository
+                .acquire_token_refresh_lock(&auth_data.user_id, LOCK_TIMEOUT_SECONDS)
+                .await?;
             if !lock_acquired {
-                return Err(MicrosoftAuthError::OAuth("Unable to acquire token refresh lock".to_string()));
+                return Err(MicrosoftAuthError::OAuth(
+                    "Unable to acquire token refresh lock".to_string(),
+                ));
             }
         }
 
@@ -406,26 +478,41 @@ impl MicrosoftAuthService {
         let refresh_result = self.perform_token_refresh(auth_data).await;
 
         // Always release the lock, even if refresh failed
-        if let Err(e) = self.repository.release_token_refresh_lock(&auth_data.user_id).await {
-            error!("Failed to release token refresh lock for user {}: {}", auth_data.user_id, e);
+        if let Err(e) = self
+            .repository
+            .release_token_refresh_lock(&auth_data.user_id)
+            .await
+        {
+            error!(
+                "Failed to release token refresh lock for user {}: {}",
+                auth_data.user_id, e
+            );
         }
 
         refresh_result
     }
 
-    async fn perform_token_refresh(&self, auth_data: &MicrosoftAuthData) -> Result<(), MicrosoftAuthError> {
-        let refresh_token = self.encryption.decrypt_token(
-            &String::from_utf8_lossy(&auth_data.refresh_token_encrypted),
-            &auth_data.user_id,
-        ).await?;
+    async fn perform_token_refresh(
+        &self,
+        auth_data: &MicrosoftAuthData,
+    ) -> Result<(), MicrosoftAuthError> {
+        let refresh_token = self
+            .encryption
+            .decrypt_token(
+                &String::from_utf8_lossy(&auth_data.refresh_token_encrypted),
+                &auth_data.user_id,
+            )
+            .await?;
 
         let client = oauth2::basic::BasicClient::new(
             ClientId::new(self.oauth_config.client_id.clone()),
             Some(ClientSecret::new(self.oauth_config.client_secret.clone())),
             AuthUrl::new(self.oauth_config.get_auth_url())
                 .map_err(|e| MicrosoftAuthError::OAuth(e.to_string()))?,
-            Some(TokenUrl::new(self.oauth_config.get_token_url())
-                .map_err(|e| MicrosoftAuthError::OAuth(e.to_string()))?),
+            Some(
+                TokenUrl::new(self.oauth_config.get_token_url())
+                    .map_err(|e| MicrosoftAuthError::OAuth(e.to_string()))?,
+            ),
         );
 
         let token_result = client
@@ -435,23 +522,33 @@ impl MicrosoftAuthService {
             .map_err(|e| MicrosoftAuthError::OAuth(e.to_string()))?;
 
         let new_access_token = token_result.access_token().secret();
-        let expires_in = token_result.expires_in()
-            .ok_or_else(|| MicrosoftAuthError::OAuth("No expiry information received".to_string()))?;
+        let expires_in = token_result.expires_in().ok_or_else(|| {
+            MicrosoftAuthError::OAuth("No expiry information received".to_string())
+        })?;
 
         let expires_at = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
-            .as_secs() as i64 + expires_in.as_secs() as i64;
+            .as_secs() as i64
+            + expires_in.as_secs() as i64;
 
-        let access_token_encrypted = self.encryption.encrypt_token(new_access_token, &auth_data.user_id).await?;
+        let access_token_encrypted = self
+            .encryption
+            .encrypt_token(new_access_token, &auth_data.user_id)
+            .await?;
 
-        self.repository.update_access_token(
-            &auth_data.user_id,
-            access_token_encrypted.as_bytes(),
-            expires_at,
-        ).await?;
+        self.repository
+            .update_access_token(
+                &auth_data.user_id,
+                access_token_encrypted.as_bytes(),
+                expires_at,
+            )
+            .await?;
 
-        debug!("Token refreshed successfully for user: {}", auth_data.user_id);
+        debug!(
+            "Token refreshed successfully for user: {}",
+            auth_data.user_id
+        );
         Ok(())
     }
 
@@ -475,11 +572,14 @@ impl MicrosoftAuthService {
             });
         }
 
-        let user_info: serde_json::Value = response.json().await
-            .map_err(|e| GraphApiError::RequestFailed {
-                status: 500,
-                message: format!("Failed to parse user info: {}", e),
-            })?;
+        let user_info: serde_json::Value =
+            response
+                .json()
+                .await
+                .map_err(|e| GraphApiError::RequestFailed {
+                    status: 500,
+                    message: format!("Failed to parse user info: {}", e),
+                })?;
 
         let microsoft_user_id = user_info["id"]
             .as_str()
@@ -498,12 +598,18 @@ impl MicrosoftAuthService {
             })?
             .to_string();
 
-        debug!("Retrieved user info: ID={}, Email={}", microsoft_user_id, microsoft_email);
+        debug!(
+            "Retrieved user info: ID={}, Email={}",
+            microsoft_user_id, microsoft_email
+        );
         Ok((microsoft_user_id, microsoft_email))
     }
 
     /// Get all task lists for the user (including default and workspace-specific lists)
-    pub async fn get_all_task_lists(&self, user_id: &str) -> Result<Vec<TaskList>, MicrosoftAuthError> {
+    pub async fn get_all_task_lists(
+        &self,
+        user_id: &str,
+    ) -> Result<Vec<TaskList>, MicrosoftAuthError> {
         debug!("Getting all task lists for user: {}", user_id);
 
         let access_token = self.get_access_token(user_id).await?;
@@ -514,32 +620,47 @@ impl MicrosoftAuthService {
     }
 
     /// Get tasks from any specific list ID (not just workspace lists)
-    pub async fn get_list_tasks(&self, user_id: &str, list_id: &str) -> Result<Vec<Task>, MicrosoftAuthError> {
+    pub async fn get_list_tasks(
+        &self,
+        user_id: &str,
+        list_id: &str,
+    ) -> Result<Vec<Task>, MicrosoftAuthError> {
         debug!("Getting tasks from list {} for user: {}", list_id, user_id);
 
         let access_token = self.get_access_token(user_id).await?;
         let tasks = self.graph_client.get_tasks(&access_token, list_id).await?;
 
-        debug!("Retrieved {} tasks from list {} for user {}", tasks.len(), list_id, user_id);
+        debug!(
+            "Retrieved {} tasks from list {} for user {}",
+            tasks.len(),
+            list_id,
+            user_id
+        );
         Ok(tasks)
     }
 
     /// Get the user's default "Tasks" list (wellknown list)
-    pub async fn get_default_task_list(&self, user_id: &str) -> Result<Option<TaskList>, MicrosoftAuthError> {
+    pub async fn get_default_task_list(
+        &self,
+        user_id: &str,
+    ) -> Result<Option<TaskList>, MicrosoftAuthError> {
         debug!("Getting default task list for user: {}", user_id);
 
         match self.get_all_task_lists(user_id).await {
             Ok(all_lists) => {
                 // Look for the default "Tasks" list - it's marked with wellknown_list_name
-                let default_list = all_lists.into_iter()
-                    .find(|list| {
-                        list.wellknown_list_name.as_ref()
-                            .is_some_and(|name| name == "defaultList")
-                            || list.display_name == "Tasks"
-                    });
+                let default_list = all_lists.into_iter().find(|list| {
+                    list.wellknown_list_name
+                        .as_ref()
+                        .is_some_and(|name| name == "defaultList")
+                        || list.display_name == "Tasks"
+                });
 
                 if let Some(ref list) = default_list {
-                    debug!("Found default task list '{}' ({}) for user {}", list.display_name, list.id, user_id);
+                    debug!(
+                        "Found default task list '{}' ({}) for user {}",
+                        list.display_name, list.id, user_id
+                    );
                 } else {
                     debug!("No default task list found for user {}", user_id);
                 }
@@ -550,22 +671,35 @@ impl MicrosoftAuthService {
                 warn!("Task lists not found for user {}: {}", user_id, resource);
                 Ok(None)
             }
-            Err(e) => Err(e)
+            Err(e) => Err(e),
         }
     }
 
     /// Create a new task list for the user
-    pub async fn create_task_list(&self, user_id: &str, display_name: &str) -> Result<TaskList, MicrosoftAuthError> {
-        debug!("Creating task list '{}' for user: {}", display_name, user_id);
+    pub async fn create_task_list(
+        &self,
+        user_id: &str,
+        display_name: &str,
+    ) -> Result<TaskList, MicrosoftAuthError> {
+        debug!(
+            "Creating task list '{}' for user: {}",
+            display_name, user_id
+        );
 
         let access_token = self.get_access_token(user_id).await?;
         let create_request = CreateListRequest {
             display_name: display_name.to_string(),
         };
 
-        let task_list = self.graph_client.create_task_list(&access_token, create_request).await?;
+        let task_list = self
+            .graph_client
+            .create_task_list(&access_token, create_request)
+            .await?;
 
-        info!("Created task list '{}' ({}) for user {}", task_list.display_name, task_list.id, user_id);
+        info!(
+            "Created task list '{}' ({}) for user {}",
+            task_list.display_name, task_list.id, user_id
+        );
         Ok(task_list)
     }
 
@@ -576,12 +710,21 @@ impl MicrosoftAuthService {
         list_id: &str,
         task_request: CreateTaskRequest,
     ) -> Result<Task, MicrosoftAuthError> {
-        debug!("Creating task '{}' in list {} for user {}", task_request.title, list_id, user_id);
+        debug!(
+            "Creating task '{}' in list {} for user {}",
+            task_request.title, list_id, user_id
+        );
 
         let access_token = self.get_access_token(user_id).await?;
-        let task = self.graph_client.create_task(&access_token, list_id, task_request).await?;
+        let task = self
+            .graph_client
+            .create_task(&access_token, list_id, task_request)
+            .await?;
 
-        info!("Created task '{}' ({}) in list {} for user {}", task.title, task.id, list_id, user_id);
+        info!(
+            "Created task '{}' ({}) in list {} for user {}",
+            task.title, task.id, list_id, user_id
+        );
         Ok(task)
     }
 
@@ -593,12 +736,21 @@ impl MicrosoftAuthService {
         task_id: &str,
         task_request: CreateTaskRequest,
     ) -> Result<Task, MicrosoftAuthError> {
-        debug!("Updating task '{}' in list {} for user {}", task_request.title, list_id, user_id);
+        debug!(
+            "Updating task '{}' in list {} for user {}",
+            task_request.title, list_id, user_id
+        );
 
         let access_token = self.get_access_token(user_id).await?;
-        let task = self.graph_client.update_task(&access_token, list_id, task_id, task_request).await?;
+        let task = self
+            .graph_client
+            .update_task(&access_token, list_id, task_id, task_request)
+            .await?;
 
-        info!("Updated task '{}' ({}) in list {} for user {}", task.title, task.id, list_id, user_id);
+        info!(
+            "Updated task '{}' ({}) in list {} for user {}",
+            task.title, task.id, list_id, user_id
+        );
         Ok(task)
     }
 
@@ -609,13 +761,46 @@ impl MicrosoftAuthService {
         list_id: &str,
         task_id: &str,
     ) -> Result<(), MicrosoftAuthError> {
-        debug!("Deleting task {} from list {} for user {}", task_id, list_id, user_id);
+        debug!(
+            "Deleting task {} from list {} for user {}",
+            task_id, list_id, user_id
+        );
 
         let access_token = self.get_access_token(user_id).await?;
-        self.graph_client.delete_task(&access_token, list_id, task_id).await?;
+        self.graph_client
+            .delete_task(&access_token, list_id, task_id)
+            .await?;
 
-        info!("Deleted task {} from list {} for user {}", task_id, list_id, user_id);
+        info!(
+            "Deleted task {} from list {} for user {}",
+            task_id, list_id, user_id
+        );
         Ok(())
+    }
+
+    /// Get a specific task from any list
+    pub async fn get_task(
+        &self,
+        user_id: &str,
+        list_id: &str,
+        task_id: &str,
+    ) -> Result<Task, MicrosoftAuthError> {
+        debug!(
+            "Getting task {} from list {} for user {}",
+            task_id, list_id, user_id
+        );
+
+        let access_token = self.get_access_token(user_id).await?;
+        let task = self
+            .graph_client
+            .get_task(&access_token, list_id, task_id)
+            .await?;
+
+        debug!(
+            "Retrieved task '{}' ({}) from list {} for user {}",
+            task.title, task.id, list_id, user_id
+        );
+        Ok(task)
     }
 
     /// Perform a health check on the Microsoft Graph integration
@@ -624,8 +809,14 @@ impl MicrosoftAuthService {
     /// - Configuration is valid
     /// - Graph API is accessible
     /// - Authentication is working for the specified user
-    pub async fn health_check(&self, user_id: &str) -> Result<MicrosoftHealthStatus, MicrosoftAuthError> {
-        debug!("Performing Microsoft Graph health check for user: {}", user_id);
+    pub async fn health_check(
+        &self,
+        user_id: &str,
+    ) -> Result<MicrosoftHealthStatus, MicrosoftAuthError> {
+        debug!(
+            "Performing Microsoft Graph health check for user: {}",
+            user_id
+        );
 
         // Check if user is authenticated
         let is_auth = self.is_authenticated(user_id).await?;

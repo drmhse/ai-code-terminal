@@ -1,9 +1,16 @@
-use crate::{AppState, models::ApiResponse, error::ServerError, middleware::{csrf::CsrfProtection, auth::AuthenticatedUser}, utils::extract_bearer_token};
+use crate::{
+    error::ServerError,
+    middleware::{auth::AuthenticatedUser, csrf::CsrfProtection},
+    models::ApiResponse,
+    utils::extract_bearer_token,
+    AppState,
+};
 use act_core::CoreError;
 use axum::{
     extract::{Query, State},
+    http::HeaderMap,
     response::{Redirect, Result},
-    Json, http::HeaderMap,
+    Json,
 };
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
@@ -41,9 +48,14 @@ pub struct GitHubCallbackResponse {
 
 pub async fn start_authorization(
     State(state): State<AppState>,
-    auth_user: AuthenticatedUser
+    auth_user: AuthenticatedUser,
 ) -> Result<Redirect> {
-    match state.domain_services.auth_service.get_authorization_url(&auth_user.user_id).await {
+    match state
+        .domain_services
+        .auth_service
+        .get_authorization_url(&auth_user.user_id)
+        .await
+    {
         Ok(auth_url) => Ok(Redirect::temporary(&auth_url)),
         Err(e) => {
             error!("Failed to get authorization URL: {}", e);
@@ -52,11 +64,9 @@ pub async fn start_authorization(
     }
 }
 
-
-
 pub async fn handle_github_callback(
     Query(params): Query<AuthCallbackQuery>,
-    State(state): State<AppState>
+    State(state): State<AppState>,
 ) -> Result<Json<GitHubCallbackResponse>> {
     if let Some(oauth_error) = params.error {
         return Ok(Json(GitHubCallbackResponse {
@@ -67,10 +77,19 @@ pub async fn handle_github_callback(
         }));
     }
 
-    let code = params.code.ok_or_else(|| ServerError(CoreError::Validation("Missing code parameter".to_string())))?;
-    let state_param = params.state.ok_or_else(|| ServerError(CoreError::Validation("Missing state parameter".to_string())))?;
+    let code = params
+        .code
+        .ok_or_else(|| ServerError(CoreError::Validation("Missing code parameter".to_string())))?;
+    let state_param = params
+        .state
+        .ok_or_else(|| ServerError(CoreError::Validation("Missing state parameter".to_string())))?;
 
-    match state.domain_services.auth_service.handle_oauth_callback(&code, &state_param).await {
+    match state
+        .domain_services
+        .auth_service
+        .handle_oauth_callback(&code, &state_param)
+        .await
+    {
         Ok(auth_result) => {
             let user_json = serde_json::to_value(&auth_result.user)
                 .map_err(|e| ServerError(CoreError::Serialization(e.to_string())))?;
@@ -80,20 +99,20 @@ pub async fn handle_github_callback(
                 user: Some(user_json),
                 message: None,
             }))
-        },
+        }
         Err(e) => Ok(Json(GitHubCallbackResponse {
             success: false,
             access_token: String::new(),
             user: None,
             message: Some(e.to_string()),
-        }))
+        })),
     }
 }
 
 pub async fn get_csrf_token(State(state): State<AppState>) -> Result<Json<ApiResponse<String>>> {
     let csrf = CsrfProtection::new(state.config.auth.jwt_secret.clone());
     let token = csrf.generate_token();
-    
+
     Ok(Json(ApiResponse {
         success: true,
         data: Some(token),
@@ -103,11 +122,18 @@ pub async fn get_csrf_token(State(state): State<AppState>) -> Result<Json<ApiRes
 
 pub async fn get_auth_status(
     State(state): State<AppState>,
-    auth_user: AuthenticatedUser
+    auth_user: AuthenticatedUser,
 ) -> Result<Json<AuthStatusResponse>> {
-    match state.domain_services.auth_service.get_auth_status(&auth_user.user_id).await {
+    match state
+        .domain_services
+        .auth_service
+        .get_auth_status(&auth_user.user_id)
+        .await
+    {
         Ok(status) => {
-            let user_info = status.user_info.map(|u| serde_json::to_value(u).unwrap_or(serde_json::Value::Null));
+            let user_info = status
+                .user_info
+                .map(|u| serde_json::to_value(u).unwrap_or(serde_json::Value::Null));
             Ok(Json(AuthStatusResponse {
                 success: true,
                 authorized: status.is_authenticated,
@@ -115,7 +141,7 @@ pub async fn get_auth_status(
                 github_configured: status.github_configured,
                 message: None,
             }))
-        },
+        }
         Err(e) => {
             error!("Failed to get auth status: {}", e);
             Ok(Json(AuthStatusResponse {
@@ -131,60 +157,84 @@ pub async fn get_auth_status(
 
 pub async fn logout(
     State(state): State<AppState>,
-    auth_user: AuthenticatedUser
+    auth_user: AuthenticatedUser,
 ) -> Result<Json<serde_json::Value>> {
-    match state.domain_services.auth_service.logout(&auth_user.user_id).await {
+    match state
+        .domain_services
+        .auth_service
+        .logout(&auth_user.user_id)
+        .await
+    {
         Ok(_) => {
             info!("User logged out successfully");
-            Ok(Json(serde_json::json!({"success": true, "message": "Logged out successfully"})))
-        },
+            Ok(Json(
+                serde_json::json!({"success": true, "message": "Logged out successfully"}),
+            ))
+        }
         Err(e) => {
             error!("Logout failed: {}", e);
-            Ok(Json(serde_json::json!({"success": false, "message": format!("Logout failed: {}", e)})))
+            Ok(Json(
+                serde_json::json!({"success": false, "message": format!("Logout failed: {}", e)}),
+            ))
         }
     }
 }
 
 pub async fn get_current_user(
     State(state): State<AppState>,
-    headers: HeaderMap
+    headers: HeaderMap,
 ) -> Result<Json<ApiResponse<serde_json::Value>>> {
     let token = extract_bearer_token(&headers)?;
-    
-    match state.domain_services.auth_service.get_current_user(&token).await {
+
+    match state
+        .domain_services
+        .auth_service
+        .get_current_user(&token)
+        .await
+    {
         Ok(user) => {
             let user_json = serde_json::to_value(user)
                 .map_err(|e| ServerError(CoreError::Serialization(e.to_string())))?;
             Ok(Json(ApiResponse::success(user_json)))
-        },
-        Err(e) => Err(ServerError(CoreError::Auth(e.to_string())).into())
+        }
+        Err(e) => Err(ServerError(CoreError::Auth(e.to_string())).into()),
     }
 }
 
 pub async fn validate_auth(
     State(state): State<AppState>,
-    headers: HeaderMap
+    headers: HeaderMap,
 ) -> Result<Json<AuthValidationResponse>> {
     let token = match extract_bearer_token(&headers) {
         Ok(token) => token,
-        Err(_) => return Ok(Json(AuthValidationResponse {
-            valid: false,
-            reason: Some("no_token".to_string()),
-            message: Some("No authentication token provided".to_string()),
-        }))
+        Err(_) => {
+            return Ok(Json(AuthValidationResponse {
+                valid: false,
+                reason: Some("no_token".to_string()),
+                message: Some("No authentication token provided".to_string()),
+            }))
+        }
     };
 
-    match state.domain_services.auth_service.validate_auth(&token).await {
+    match state
+        .domain_services
+        .auth_service
+        .validate_auth(&token)
+        .await
+    {
         Ok(valid) => Ok(Json(AuthValidationResponse {
             valid,
             reason: None,
-            message: if valid { Some("Authentication is valid".to_string()) } else { Some("Authentication is invalid".to_string()) },
+            message: if valid {
+                Some("Authentication is valid".to_string())
+            } else {
+                Some("Authentication is invalid".to_string())
+            },
         })),
         Err(e) => Ok(Json(AuthValidationResponse {
             valid: false,
             reason: Some("validation_error".to_string()),
             message: Some(e.to_string()),
-        }))
+        })),
     }
 }
-

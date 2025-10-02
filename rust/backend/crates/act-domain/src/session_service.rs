@@ -1,11 +1,11 @@
-use std::sync::Arc;
-use std::collections::{HashMap, VecDeque};
-use tokio::sync::{RwLock, Mutex};
 use act_core::{
-    Result, CoreError,
-    pty::{PtyService, SessionConfig, SessionInfo, PtySize, PtyEvent, SessionId},
+    pty::{PtyEvent, PtyService, PtySize, SessionConfig, SessionId, SessionInfo},
+    CoreError, Result,
 };
-use tracing::{info, error, debug, warn};
+use std::collections::{HashMap, VecDeque};
+use std::sync::Arc;
+use tokio::sync::{Mutex, RwLock};
+use tracing::{debug, error, info, warn};
 
 // Type aliases for clarity
 pub type UserId = String;
@@ -14,9 +14,9 @@ pub type ConnectionId = String;
 /// Line-based rolling buffer for terminal output persistence (tmux/screen approach)
 #[derive(Debug, Clone)]
 pub struct RollingBuffer {
-    complete_lines: VecDeque<String>,  // Only complete lines (ending with \n)
-    pending_line: String,              // Accumulates until newline arrives
-    max_lines: usize,                  // Maximum number of complete lines to keep
+    complete_lines: VecDeque<String>, // Only complete lines (ending with \n)
+    pending_line: String,             // Accumulates until newline arrives
+    max_lines: usize,                 // Maximum number of complete lines to keep
 }
 
 impl RollingBuffer {
@@ -144,11 +144,16 @@ impl SessionService {
         let mut live_state = self.live_state.write().await;
 
         // Get or create user state
-        let user_state = live_state.entry(user_id.to_string()).or_insert_with(UserLiveState::new);
+        let user_state = live_state
+            .entry(user_id.to_string())
+            .or_insert_with(UserLiveState::new);
 
         // Check if PTY session already exists
         if user_state.pty_sessions.contains_key(session_id) {
-            info!("🔗 PTY session {} already exists for user {}, sharing across devices", session_id, user_id);
+            info!(
+                "🔗 PTY session {} already exists for user {}, sharing across devices",
+                session_id, user_id
+            );
 
             // Send existing buffer content to newly connected client
             self.send_buffer_to_handlers(session_id).await?;
@@ -157,7 +162,10 @@ impl SessionService {
         }
 
         // Create new PTY session
-        info!("🆕 Creating new PTY session {} for user {}", session_id, user_id);
+        info!(
+            "🆕 Creating new PTY session {} for user {}",
+            session_id, user_id
+        );
 
         let config = SessionConfig {
             session_id: session_id.to_string(),
@@ -177,10 +185,9 @@ impl SessionService {
         let (event_receiver, session_info) = self.pty_service.create_session(config).await?;
 
         // Store session info in live state
-        user_state.pty_sessions.insert(
-            session_id.to_string(),
-            session_info.clone()
-        );
+        user_state
+            .pty_sessions
+            .insert(session_id.to_string(), session_info.clone());
 
         // Initialize terminal buffer for this session
         self.initialize_terminal_buffer(session_id).await?;
@@ -191,11 +198,13 @@ impl SessionService {
         let session_id_clone = session_id.to_string();
 
         tokio::spawn(async move {
-            service_clone.pty_output_broadcaster(
-                user_id_clone,
-                session_id_clone,
-                Arc::new(Mutex::new(event_receiver))
-            ).await;
+            service_clone
+                .pty_output_broadcaster(
+                    user_id_clone,
+                    session_id_clone,
+                    Arc::new(Mutex::new(event_receiver)),
+                )
+                .await;
         });
 
         Ok(true) // New session was created
@@ -206,9 +215,12 @@ impl SessionService {
         &self,
         user_id: String,
         session_id: String,
-        event_receiver: Arc<Mutex<tokio::sync::mpsc::UnboundedReceiver<PtyEvent>>>
+        event_receiver: Arc<Mutex<tokio::sync::mpsc::UnboundedReceiver<PtyEvent>>>,
     ) {
-        info!("🎯 Starting PTY output broadcaster for session {}", session_id);
+        info!(
+            "🎯 Starting PTY output broadcaster for session {}",
+            session_id
+        );
 
         let mut receiver = event_receiver.lock().await;
         while let Some(event) = receiver.recv().await {
@@ -254,11 +266,7 @@ impl SessionService {
     }
 
     /// Check if a PTY session exists for a user
-    pub async fn has_pty_session(
-        &self,
-        user_id: &str,
-        session_id: &str,
-    ) -> Result<bool> {
+    pub async fn has_pty_session(&self, user_id: &str, session_id: &str) -> Result<bool> {
         let live_state = self.live_state.read().await;
 
         if let Some(user_state) = live_state.get(user_id) {
@@ -269,16 +277,12 @@ impl SessionService {
     }
 
     /// Remove a PTY session from live state
-    pub async fn remove_pty_session(
-        &self,
-        user_id: &str,
-        session_id: &str,
-    ) -> Result<()> {
+    pub async fn remove_pty_session(&self, user_id: &str, session_id: &str) -> Result<()> {
         let mut live_state = self.live_state.write().await;
 
         if let Some(user_state) = live_state.get_mut(user_id) {
             user_state.pty_sessions.remove(session_id);
-            info!("🗑️ Removed PTY session {} for user {}", session_id, user_id);
+            info!("Removed PTY session {} for user {}", session_id, user_id);
         }
 
         // Also remove terminal buffer
@@ -296,10 +300,15 @@ impl SessionService {
     ) -> Result<()> {
         // Check if session exists for this user
         if !self.has_pty_session(user_id, session_id).await? {
-            return Err(CoreError::NotFound(format!("Session {} not found for user {}", session_id, user_id)));
+            return Err(CoreError::NotFound(format!(
+                "Session {} not found for user {}",
+                session_id, user_id
+            )));
         }
 
-        self.pty_service.send_input(&session_id.to_string(), input).await
+        self.pty_service
+            .send_input(&session_id.to_string(), input)
+            .await
     }
 
     /// Resize a PTY session
@@ -312,7 +321,10 @@ impl SessionService {
     ) -> Result<()> {
         // Check if session exists for this user
         if !self.has_pty_session(user_id, session_id).await? {
-            return Err(CoreError::NotFound(format!("Session {} not found for user {}", session_id, user_id)));
+            return Err(CoreError::NotFound(format!(
+                "Session {} not found for user {}",
+                session_id, user_id
+            )));
         }
 
         let size = PtySize {
@@ -322,22 +334,25 @@ impl SessionService {
             pixel_height: 0,
         };
 
-        self.pty_service.resize_session(&session_id.to_string(), size).await
+        self.pty_service
+            .resize_session(&session_id.to_string(), size)
+            .await
     }
 
     /// Terminate a PTY session
-    pub async fn terminate_session(
-        &self,
-        user_id: &str,
-        session_id: &str,
-    ) -> Result<()> {
+    pub async fn terminate_session(&self, user_id: &str, session_id: &str) -> Result<()> {
         // Check if session exists for this user
         if !self.has_pty_session(user_id, session_id).await? {
-            return Err(CoreError::NotFound(format!("Session {} not found for user {}", session_id, user_id)));
+            return Err(CoreError::NotFound(format!(
+                "Session {} not found for user {}",
+                session_id, user_id
+            )));
         }
 
         // Destroy the PTY session
-        self.pty_service.destroy_session(&session_id.to_string()).await?;
+        self.pty_service
+            .destroy_session(&session_id.to_string())
+            .await?;
 
         // Remove from live state and buffers
         self.remove_pty_session(user_id, session_id).await?;
@@ -357,11 +372,16 @@ impl SessionService {
     }
 
     /// List active sessions for a user in a specific workspace
-    pub async fn list_workspace_sessions(&self, user_id: &str, workspace_id: &str) -> Result<Vec<SessionInfo>> {
+    pub async fn list_workspace_sessions(
+        &self,
+        user_id: &str,
+        workspace_id: &str,
+    ) -> Result<Vec<SessionInfo>> {
         let live_state = self.live_state.read().await;
 
         if let Some(user_state) = live_state.get(user_id) {
-            let workspace_sessions: Vec<SessionInfo> = user_state.pty_sessions
+            let workspace_sessions: Vec<SessionInfo> = user_state
+                .pty_sessions
                 .values()
                 .filter(|session| session.workspace_id == workspace_id)
                 .cloned()
@@ -413,15 +433,22 @@ impl SessionService {
         let buffer_content = self.get_terminal_buffer(session_id).await?;
 
         if !buffer_content.is_empty() {
-            info!("📤 Sending {} characters of buffered content for session {}", buffer_content.len(), session_id);
+            info!(
+                "📤 Sending {} characters of buffered content for session {}",
+                buffer_content.len(),
+                session_id
+            );
 
             // Send buffer content to all registered output handlers
             let handlers = self.output_handlers.read().await;
             for handler in &*handlers {
-                handler.handle_output(session_id, TerminalOutputEvent {
-                    session_id: session_id.to_string(),
-                    output: buffer_content.clone(),
-                });
+                handler.handle_output(
+                    session_id,
+                    TerminalOutputEvent {
+                        session_id: session_id.to_string(),
+                        output: buffer_content.clone(),
+                    },
+                );
             }
         } else {
             debug!("📭 No buffered content to send for session {}", session_id);
@@ -451,7 +478,8 @@ impl SessionService {
     pub async fn count_all_active_sessions(&self) -> Result<usize> {
         let live_state = self.live_state.read().await;
 
-        let total_sessions = live_state.values()
+        let total_sessions = live_state
+            .values()
             .map(|user_state| user_state.pty_sessions.len())
             .sum();
 
@@ -471,7 +499,11 @@ impl SessionService {
                 match self.pty_service.get_session_info(session_id).await {
                     Ok(current_info) => {
                         // If session is terminated, mark for removal
-                        if matches!(current_info.status, act_core::pty::SessionStatus::Terminated | act_core::pty::SessionStatus::Error(_)) {
+                        if matches!(
+                            current_info.status,
+                            act_core::pty::SessionStatus::Terminated
+                                | act_core::pty::SessionStatus::Error(_)
+                        ) {
                             sessions_to_remove.push(session_id.clone());
                         }
                     }
@@ -505,7 +537,10 @@ impl SessionService {
     ) -> Result<()> {
         // Check if session exists for this user
         if !self.has_pty_session(user_id, session_id).await? {
-            return Err(CoreError::NotFound(format!("Session {} not found for user {}", session_id, user_id)));
+            return Err(CoreError::NotFound(format!(
+                "Session {} not found for user {}",
+                session_id, user_id
+            )));
         }
 
         let mut live_state = self.live_state.write().await;
@@ -513,18 +548,31 @@ impl SessionService {
         if let Some(user_state) = live_state.get_mut(user_id) {
             if let Some(session_info) = user_state.pty_sessions.get_mut(session_id) {
                 session_info.pane_id = Some(new_pane_id.clone());
-                info!("Updated pane association for session {} to pane {}", session_id, new_pane_id);
+                info!(
+                    "Updated pane association for session {} to pane {}",
+                    session_id, new_pane_id
+                );
 
                 // Also update the PTY service to keep it synchronized
                 drop(live_state); // Release the lock before calling PTY service
-                if let Err(e) = self.pty_service.update_session_pane_id(&session_id.to_string(), Some(new_pane_id)).await {
-                    warn!("Failed to update pane_id in PTY service for session {}: {}", session_id, e);
+                if let Err(e) = self
+                    .pty_service
+                    .update_session_pane_id(&session_id.to_string(), Some(new_pane_id))
+                    .await
+                {
+                    warn!(
+                        "Failed to update pane_id in PTY service for session {}: {}",
+                        session_id, e
+                    );
                 }
 
                 return Ok(());
             }
         }
 
-        Err(CoreError::NotFound(format!("Session {} not found for user {}", session_id, user_id)))
+        Err(CoreError::NotFound(format!(
+            "Session {} not found for user {}",
+            session_id, user_id
+        )))
     }
 }

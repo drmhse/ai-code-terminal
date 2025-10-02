@@ -1,16 +1,8 @@
 use crate::{
-    models::ApiResponse,
-    middleware::auth::AuthenticatedUser,
-    AppState,
-    error::ServerError,
+    error::ServerError, middleware::auth::AuthenticatedUser, models::ApiResponse, AppState,
 };
 use act_core::theme::ThemePreference;
-use axum::{
-    extract::State,
-    response::Json,
-    routing::get,
-    Router,
-};
+use axum::{extract::State, response::Json, routing::get, Router};
 use tracing::info;
 
 pub fn routes() -> Router<AppState> {

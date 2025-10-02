@@ -1,5 +1,5 @@
 use act_core::error::Result;
-use act_core::theme::{ThemeRepository, ThemePreference};
+use act_core::theme::{ThemePreference, ThemeRepository};
 use std::sync::Arc;
 
 pub struct ThemeService {
@@ -15,7 +15,13 @@ impl ThemeService {
         self.theme_repo.get_theme_preference(user_id).await
     }
 
-    pub async fn save_theme_preference(&self, user_id: &str, preference: &ThemePreference) -> Result<()> {
-        self.theme_repo.save_theme_preference(user_id, preference).await
+    pub async fn save_theme_preference(
+        &self,
+        user_id: &str,
+        preference: &ThemePreference,
+    ) -> Result<()> {
+        self.theme_repo
+            .save_theme_preference(user_id, preference)
+            .await
     }
 }

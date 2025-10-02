@@ -1,49 +1,48 @@
+#![warn(clippy::clone_on_copy)]
+
+pub mod auth;
 pub mod db;
 pub mod error;
-pub mod pty;
+pub mod events;
 pub mod filesystem;
-pub mod repository;
 pub mod models;
-pub mod auth;
+pub mod pty;
+pub mod repository;
+pub mod security;
 pub mod theme;
 pub mod user_preferences;
-pub mod events;
-pub mod security;
 
-pub use error::{CoreError, Error, Result};
 pub use db::Database;
+pub use error::{CoreError, Error, Result};
 
-pub use pty::{PtyService, PtyEvent, PtySize, SessionConfig, SessionInfo};
-pub use filesystem::{
-    FileSystem, FileItem, FilePermissions, DirectoryListing, FileContent,
-    CreateFileRequest, CreateDirectoryRequest, MoveRequest, CopyRequest
+pub use auth::{
+    AuthConfig, AuthRepository, AuthToken, AuthenticatedUser, GitHubAuthService, GitHubRepository,
+    GitHubRepositoryOwner, GitHubRepositoryService, GitHubUser, JwtClaims, JwtService,
+    RepositoryListOptions,
 };
-pub use repository::{
-    WorkspaceRepository, Workspace,
-    CreateWorkspaceRequest, UpdateWorkspaceRequest,
-    WorkspaceId, LayoutId, UserId
+pub use events::{
+    create_process_created_event, create_process_output_received_event,
+    create_process_started_event, create_process_status_changed_event, DomainEvent, EventPublisher,
+    InMemoryEventPublisher, ProcessCreatedEvent, ProcessDeletedEvent, ProcessEvent,
+    ProcessFailedEvent, ProcessOutputReceivedEvent, ProcessResourceLimitExceededEvent,
+    ProcessRestartedEvent, ProcessStartedEvent, ProcessStatusChangedEvent, ProcessStoppedEvent,
+};
+pub use filesystem::{
+    CopyRequest, CreateDirectoryRequest, CreateFileRequest, DirectoryListing, FileContent,
+    FileItem, FilePermissions, FileSystem, MoveRequest,
 };
 pub use models::{
-    Settings, TerminalLayout, UserProcess, ProcessStatus, SystemMetrics, ApiResponse,
-    HierarchicalLayout, PaneNode, PaneNodeType, SplitDirection, TerminalTabConfig, TerminalTabSize
+    ApiResponse, HierarchicalLayout, PaneNode, PaneNodeType, ProcessStatus, Settings,
+    SplitDirection, SystemMetrics, TerminalLayout, TerminalTabConfig, TerminalTabSize, UserProcess,
 };
-pub use auth::{
-    AuthenticatedUser, AuthToken, JwtClaims, AuthConfig,
-    GitHubAuthService, JwtService, AuthRepository,
-    GitHubRepository, GitHubRepositoryOwner, GitHubUser, GitHubRepositoryService, RepositoryListOptions
+pub use pty::{PtyEvent, PtyService, PtySize, SessionConfig, SessionInfo};
+pub use repository::{
+    CreateWorkspaceRequest, LayoutId, UpdateWorkspaceRequest, UserId, Workspace, WorkspaceId,
+    WorkspaceRepository,
+};
+pub use security::{
+    InMemorySecurityAuditLogger, ProcessSecurityAuditEntry, ProcessSecurityConfig,
+    ProcessSecurityValidator, RiskLevel, SecurityAction, SecurityAuditLogger, SecurityResult,
 };
 pub use theme::{ThemePreference, ThemeRepository};
 pub use user_preferences::{UserPreferences, UserPreferencesRepository};
-pub use events::{
-    DomainEvent, ProcessEvent, EventPublisher, InMemoryEventPublisher,
-    ProcessCreatedEvent, ProcessStartedEvent, ProcessStoppedEvent,
-    ProcessFailedEvent, ProcessStatusChangedEvent, ProcessOutputReceivedEvent,
-    ProcessResourceLimitExceededEvent, ProcessRestartedEvent, ProcessDeletedEvent,
-    create_process_created_event, create_process_started_event,
-    create_process_status_changed_event, create_process_output_received_event
-};
-pub use security::{
-    ProcessSecurityConfig, ProcessSecurityValidator, ProcessSecurityAuditEntry,
-    SecurityAction, SecurityResult, RiskLevel, SecurityAuditLogger,
-    InMemorySecurityAuditLogger
-};

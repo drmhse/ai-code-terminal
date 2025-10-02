@@ -1,23 +1,23 @@
 use crate::config::Config;
+use act_core::{
+    GitHubRepository, GitHubRepositoryOwner, GitHubRepositoryService, GitHubUser,
+    RepositoryListOptions, Result as CoreResult,
+};
 use aes_gcm::{
     aead::{Aead, KeyInit},
-    Aes256Gcm, Nonce, Key
+    Aes256Gcm, Key, Nonce,
 };
-use base64::{Engine as _, engine::general_purpose};
+use base64::{engine::general_purpose, Engine as _};
 use chrono::{DateTime, Utc};
 use oauth2::{
-    AuthUrl, ClientId, ClientSecret, CsrfToken, RedirectUrl, Scope,
-    TokenUrl, basic::BasicClient,
+    basic::BasicClient, AuthUrl, ClientId, ClientSecret, CsrfToken, RedirectUrl, Scope, TokenUrl,
 };
-use rand::{RngCore, rngs::OsRng};
+use rand::{rngs::OsRng, RngCore};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::{error, info, warn};
 use uuid::Uuid;
-use act_core::{GitHubRepository, GitHubRepositoryOwner, GitHubUser, GitHubRepositoryService, RepositoryListOptions, Result as CoreResult};
-
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenResult {
@@ -77,7 +77,9 @@ impl GitHubService {
             ClientId::new(config.auth.github_client_id.clone()),
             Some(ClientSecret::new(config.auth.github_client_secret.clone())),
             AuthUrl::new("https://github.com/login/oauth/authorize".to_string())?,
-            Some(TokenUrl::new("https://github.com/login/oauth/access_token".to_string())?)
+            Some(TokenUrl::new(
+                "https://github.com/login/oauth/access_token".to_string(),
+            )?),
         )
         .set_redirect_uri(RedirectUrl::new(config.auth.github_redirect_url.clone())?);
 
@@ -89,7 +91,7 @@ impl GitHubService {
     }
 
     pub fn is_configured(&self) -> bool {
-        !self.config.auth.github_client_id.is_empty() 
+        !self.config.auth.github_client_id.is_empty()
             && !self.config.auth.github_client_secret.is_empty()
             && !self.config.auth.github_redirect_url.is_empty()
     }
@@ -100,7 +102,8 @@ impl GitHubService {
         }
 
         let state = self.generate_state(user_id)?;
-        let (auth_url, _csrf_token) = self.oauth_client
+        let (auth_url, _csrf_token) = self
+            .oauth_client
             .authorize_url(|| CsrfToken::new(state))
             .add_scope(Scope::new("user:email".to_string()))
             .add_scope(Scope::new("repo".to_string()))
@@ -111,16 +114,21 @@ impl GitHubService {
         Ok(auth_url.to_string())
     }
 
-    pub async fn exchange_code_for_token(&self, code: &str, state: &str) -> anyhow::Result<TokenResult> {
+    pub async fn exchange_code_for_token(
+        &self,
+        code: &str,
+        state: &str,
+    ) -> anyhow::Result<TokenResult> {
         if !self.is_configured() {
             return Err(anyhow::anyhow!("GitHub OAuth is not configured"));
         }
 
         // Verify state parameter (for CSRF protection)
         self.verify_state_csrf_protection(state)?;
-        
+
         // Exchange code for access token using reqwest directly for better control
-        let response = self.client
+        let response = self
+            .client
             .post("https://github.com/login/oauth/access_token")
             .header("Accept", "application/json")
             .header("Content-Type", "application/json")
@@ -136,19 +144,33 @@ impl GitHubService {
 
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             error!("GitHub token exchange failed: {} - {}", status, error_text);
-            return Err(anyhow::anyhow!("GitHub token exchange failed: {} - {}", status, error_text));
+            return Err(anyhow::anyhow!(
+                "GitHub token exchange failed: {} - {}",
+                status,
+                error_text
+            ));
         }
 
         let response_text = response.text().await?;
         info!("GitHub OAuth response: {}", response_text);
 
-        let token_data: TokenResponse = serde_json::from_str(&response_text)
-            .map_err(|e| anyhow::anyhow!("Failed to parse GitHub OAuth response: {} - Response: {}", e, response_text))?;
+        let token_data: TokenResponse = serde_json::from_str(&response_text).map_err(|e| {
+            anyhow::anyhow!(
+                "Failed to parse GitHub OAuth response: {} - Response: {}",
+                e,
+                response_text
+            )
+        })?;
 
         if let Some(error) = token_data.error {
-            let desc = token_data.error_description.unwrap_or_else(|| error.clone());
+            let desc = token_data
+                .error_description
+                .unwrap_or_else(|| error.clone());
             return Err(anyhow::anyhow!("GitHub OAuth error: {}", desc));
         }
 
@@ -159,13 +181,18 @@ impl GitHubService {
         // Get user information
         let user_info = self.get_user_info(&token_data.access_token).await?;
 
-        info!("Successfully exchanged OAuth code for user: {} (ID: {})", user_info.login, user_info.id);
+        info!(
+            "Successfully exchanged OAuth code for user: {} (ID: {})",
+            user_info.login, user_info.id
+        );
 
         Ok(TokenResult {
             access_token: token_data.access_token,
             refresh_token: token_data.refresh_token,
             expires_at,
-            token_type: token_data.token_type.unwrap_or_else(|| "bearer".to_string()),
+            token_type: token_data
+                .token_type
+                .unwrap_or_else(|| "bearer".to_string()),
             scope: token_data.scope.unwrap_or_default(),
             user: user_info.clone(),
             user_id: user_info.id.to_string(),
@@ -173,7 +200,8 @@ impl GitHubService {
     }
 
     pub async fn get_user_info(&self, access_token: &str) -> anyhow::Result<GitHubUser> {
-        let user_response = self.client
+        let user_response = self
+            .client
             .get("https://api.github.com/user")
             .header("Authorization", format!("token {}", access_token))
             .header("User-Agent", "ai-coding-terminal")
@@ -181,13 +209,17 @@ impl GitHubService {
             .await?;
 
         if !user_response.status().is_success() {
-            return Err(anyhow::anyhow!("Failed to get GitHub user info: {}", user_response.status()));
+            return Err(anyhow::anyhow!(
+                "Failed to get GitHub user info: {}",
+                user_response.status()
+            ));
         }
 
         let user: GitHubUserResponse = user_response.json().await?;
 
         // Get user's primary email
-        let emails_response = self.client
+        let emails_response = self
+            .client
             .get("https://api.github.com/user/emails")
             .header("Authorization", format!("token {}", access_token))
             .header("User-Agent", "ai-coding-terminal")
@@ -196,7 +228,8 @@ impl GitHubService {
 
         let primary_email = if emails_response.status().is_success() {
             let emails: Vec<GitHubEmail> = emails_response.json().await.unwrap_or_default();
-            emails.iter()
+            emails
+                .iter()
                 .find(|email| email.primary)
                 .map(|email| email.email.clone())
                 .or_else(|| user.email.clone())
@@ -220,7 +253,8 @@ impl GitHubService {
     }
 
     pub async fn validate_token(&self, access_token: &str) -> bool {
-        let response = self.client
+        let response = self
+            .client
             .get("https://api.github.com/user")
             .header("Authorization", format!("token {}", access_token))
             .header("User-Agent", "ai-coding-terminal")
@@ -234,17 +268,24 @@ impl GitHubService {
     }
 
     pub fn validate_tenant_user(&self, github_username: &str) -> bool {
-        self.config.auth.tenant_github_usernames.contains(&github_username.to_string())
+        self.config
+            .auth
+            .tenant_github_usernames
+            .contains(&github_username.to_string())
     }
 
     pub async fn revoke_token(&self, access_token: &str) -> anyhow::Result<()> {
         // GitHub OAuth application revocation endpoint
         let client_id = &self.config.auth.github_client_id;
         let client_secret = &self.config.auth.github_client_secret;
-        
+
         // Use the GitHub API to delete the authorization
-        let response = self.client
-            .delete(format!("https://api.github.com/applications/{}/token", client_id))
+        let response = self
+            .client
+            .delete(format!(
+                "https://api.github.com/applications/{}/token",
+                client_id
+            ))
             .basic_auth(client_id, Some(client_secret))
             .header("User-Agent", "ai-coding-terminal")
             .json(&serde_json::json!({
@@ -258,7 +299,10 @@ impl GitHubService {
             Ok(())
         } else {
             let status = response.status();
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             warn!("Failed to revoke GitHub token: {} - {}", status, error_text);
             // Don't return error for logout flow - we still want to clear local tokens
             Ok(())
@@ -269,12 +313,12 @@ impl GitHubService {
     pub fn encrypt_token(&self, token: &str) -> anyhow::Result<String> {
         // Use JWT secret as key material
         let key_material = self.config.auth.jwt_secret.as_bytes();
-        
+
         // Create a 32-byte key using HKDF-like approach (simple version)
         let mut key_bytes = [0u8; 32];
         let len = std::cmp::min(key_material.len(), 32);
         key_bytes[..len].copy_from_slice(&key_material[..len]);
-        
+
         let key = Key::<Aes256Gcm>::from_slice(&key_bytes);
         let cipher = Aes256Gcm::new(key);
 
@@ -284,13 +328,14 @@ impl GitHubService {
         let nonce = Nonce::from_slice(&nonce_bytes);
 
         // Encrypt the token
-        let ciphertext = cipher.encrypt(nonce, token.as_bytes())
+        let ciphertext = cipher
+            .encrypt(nonce, token.as_bytes())
             .map_err(|e| anyhow::anyhow!("Failed to encrypt token: {}", e))?;
 
         // Combine nonce and ciphertext
         let mut result = nonce_bytes.to_vec();
         result.extend(ciphertext);
-        
+
         Ok(general_purpose::STANDARD.encode(&result))
     }
 
@@ -298,7 +343,7 @@ impl GitHubService {
     pub fn decrypt_token(&self, encrypted_token: &str) -> anyhow::Result<String> {
         // Decode from base64
         let data = general_purpose::STANDARD.decode(encrypted_token)?;
-        
+
         if data.len() < 12 {
             return Err(anyhow::anyhow!("Invalid encrypted token format"));
         }
@@ -312,12 +357,13 @@ impl GitHubService {
         let mut key_bytes = [0u8; 32];
         let len = std::cmp::min(key_material.len(), 32);
         key_bytes[..len].copy_from_slice(&key_material[..len]);
-        
+
         let key = Key::<Aes256Gcm>::from_slice(&key_bytes);
         let cipher = Aes256Gcm::new(key);
 
         // Decrypt the token
-        let plaintext = cipher.decrypt(nonce, ciphertext)
+        let plaintext = cipher
+            .decrypt(nonce, ciphertext)
             .map_err(|e| anyhow::anyhow!("Failed to decrypt token: {}", e))?;
 
         Ok(String::from_utf8(plaintext)?)
@@ -326,7 +372,7 @@ impl GitHubService {
     fn generate_state(&self, user_id: &str) -> anyhow::Result<String> {
         let timestamp = chrono::Utc::now().timestamp();
         let random = Uuid::new_v4().to_string();
-        
+
         let payload = serde_json::json!({
             "user_id": user_id,
             "timestamp": timestamp,
@@ -366,7 +412,6 @@ impl GitHubService {
         Err(anyhow::anyhow!("Invalid state parameter"))
     }
 
-  
     /// Get user repositories with pagination
     pub async fn get_user_repositories(
         &self,
@@ -374,7 +419,7 @@ impl GitHubService {
         page: Option<u32>,
         per_page: Option<u32>,
         sort: Option<&str>,
-        type_filter: Option<&str>
+        type_filter: Option<&str>,
     ) -> anyhow::Result<Vec<GitHubRepository>> {
         let page = page.unwrap_or(1);
         let per_page = per_page.unwrap_or(30).min(100); // GitHub API max is 100
@@ -386,7 +431,8 @@ impl GitHubService {
             page, per_page, sort, type_filter
         );
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .header("Authorization", format!("token {}", access_token))
             .header("User-Agent", "ai-coding-terminal")
@@ -394,7 +440,10 @@ impl GitHubService {
             .await?;
 
         if !response.status().is_success() {
-            return Err(anyhow::anyhow!("Failed to get repositories: {}", response.status()));
+            return Err(anyhow::anyhow!(
+                "Failed to get repositories: {}",
+                response.status()
+            ));
         }
 
         #[derive(Deserialize)]
@@ -428,42 +477,46 @@ impl GitHubService {
 
         let repos: Vec<GitHubRepoResponse> = response.json().await?;
 
-        Ok(repos.into_iter().map(|repo| GitHubRepository {
-            id: repo.id,
-            name: repo.name,
-            full_name: repo.full_name,
-            owner: GitHubRepositoryOwner {
-                id: repo.owner.id,
-                login: repo.owner.login,
-                avatar_url: repo.owner.avatar_url,
-                html_url: repo.owner.html_url,
-            },
-            description: repo.description,
-            html_url: repo.html_url,
-            clone_url: repo.clone_url,
-            ssh_url: repo.ssh_url,
-            private: repo.private,
-            fork: repo.fork,
-            language: repo.language,
-            stargazers_count: repo.stargazers_count,
-            forks_count: repo.forks_count,
-            updated_at: repo.updated_at,
-            pushed_at: repo.pushed_at,
-            size: repo.size,
-            default_branch: repo.default_branch,
-        }).collect())
+        Ok(repos
+            .into_iter()
+            .map(|repo| GitHubRepository {
+                id: repo.id,
+                name: repo.name,
+                full_name: repo.full_name,
+                owner: GitHubRepositoryOwner {
+                    id: repo.owner.id,
+                    login: repo.owner.login,
+                    avatar_url: repo.owner.avatar_url,
+                    html_url: repo.owner.html_url,
+                },
+                description: repo.description,
+                html_url: repo.html_url,
+                clone_url: repo.clone_url,
+                ssh_url: repo.ssh_url,
+                private: repo.private,
+                fork: repo.fork,
+                language: repo.language,
+                stargazers_count: repo.stargazers_count,
+                forks_count: repo.forks_count,
+                updated_at: repo.updated_at,
+                pushed_at: repo.pushed_at,
+                size: repo.size,
+                default_branch: repo.default_branch,
+            })
+            .collect())
     }
 
     /// Get specific repository information
     pub async fn get_repository_info(
-        &self, 
-        access_token: &str, 
-        owner: &str, 
-        repo: &str
+        &self,
+        access_token: &str,
+        owner: &str,
+        repo: &str,
     ) -> anyhow::Result<GitHubRepository> {
         let url = format!("https://api.github.com/repos/{}/{}", owner, repo);
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .header("Authorization", format!("token {}", access_token))
             .header("User-Agent", "ai-coding-terminal")
@@ -471,7 +524,10 @@ impl GitHubService {
             .await?;
 
         if !response.status().is_success() {
-            return Err(anyhow::anyhow!("Failed to get repository info: {}", response.status()));
+            return Err(anyhow::anyhow!(
+                "Failed to get repository info: {}",
+                response.status()
+            ));
         }
 
         #[derive(Deserialize)]
@@ -532,13 +588,11 @@ impl GitHubService {
     }
 
     /// Refresh an expired access token using the stored refresh token
-    pub async fn refresh_access_token(
-        &self,
-        refresh_token: &str
-    ) -> anyhow::Result<TokenResult> {
+    pub async fn refresh_access_token(&self, refresh_token: &str) -> anyhow::Result<TokenResult> {
         info!("GitHub access token expired or invalid. Attempting to refresh...");
 
-        let response = self.client
+        let response = self
+            .client
             .post("https://github.com/login/oauth/access_token")
             .header("Accept", "application/json")
             .header("Content-Type", "application/json")
@@ -555,9 +609,14 @@ impl GitHubService {
         let token_data: TokenResponse = response.json().await?;
 
         if let Some(error) = token_data.error {
-            let desc = token_data.error_description.unwrap_or_else(|| error.clone());
+            let desc = token_data
+                .error_description
+                .unwrap_or_else(|| error.clone());
             error!("Failed to refresh GitHub token: {}", desc);
-            return Err(anyhow::anyhow!("Could not refresh GitHub token: {}. Please re-authenticate.", desc));
+            return Err(anyhow::anyhow!(
+                "Could not refresh GitHub token: {}. Please re-authenticate.",
+                desc
+            ));
         }
 
         let expires_in = token_data.expires_in.unwrap_or(28800);
@@ -572,7 +631,9 @@ impl GitHubService {
             access_token: token_data.access_token,
             refresh_token: token_data.refresh_token,
             expires_at,
-            token_type: token_data.token_type.unwrap_or_else(|| "bearer".to_string()),
+            token_type: token_data
+                .token_type
+                .unwrap_or_else(|| "bearer".to_string()),
             scope: token_data.scope.unwrap_or_default(),
             user: user_info.clone(),
             user_id: user_info.id.to_string(),
@@ -586,7 +647,7 @@ impl GitHubRepositoryService for GitHubService {
     async fn list_repositories(
         &self,
         access_token: &str,
-        options: RepositoryListOptions
+        options: RepositoryListOptions,
     ) -> CoreResult<Vec<GitHubRepository>> {
         self.get_user_repositories(
             access_token,
@@ -603,7 +664,7 @@ impl GitHubRepositoryService for GitHubService {
         &self,
         access_token: &str,
         owner: &str,
-        repo: &str
+        repo: &str,
     ) -> CoreResult<GitHubRepository> {
         self.get_repository_info(access_token, owner, repo)
             .await

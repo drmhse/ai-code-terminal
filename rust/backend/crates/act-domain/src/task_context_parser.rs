@@ -1,7 +1,7 @@
+use base64::{engine::general_purpose, Engine as _};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use regex::Regex;
-use base64::{Engine as _, engine::general_purpose};
 
 #[derive(Debug, Error)]
 pub enum TaskContextError {
@@ -83,8 +83,10 @@ impl TaskContextParser {
 
     pub fn new() -> Result<Self, TaskContextError> {
         // Regex to extract context JSON from HTML comments
-        let context_regex = Regex::new(r"<!--\s*DEV-CONTEXT\s*\n([\s\S]*?)\n\s*-->")
-            .map_err(|e| TaskContextError::ParsingFailed(format!("Failed to compile regex: {}", e)))?;
+        let context_regex =
+            Regex::new(r"<!--\s*DEV-CONTEXT\s*\n([\s\S]*?)\n\s*-->").map_err(|e| {
+                TaskContextError::ParsingFailed(format!("Failed to compile regex: {}", e))
+            })?;
 
         Ok(Self { context_regex })
     }
@@ -108,7 +110,11 @@ impl TaskContextParser {
     }
 
     /// Inject context metadata into a human-readable description
-    pub fn inject_context(&self, description: &str, context: &TaskContext) -> Result<String, TaskContextError> {
+    pub fn inject_context(
+        &self,
+        description: &str,
+        context: &TaskContext,
+    ) -> Result<String, TaskContextError> {
         let context_json = serde_json::to_string_pretty(context)?;
 
         let formatted_note = format!(
@@ -147,7 +153,8 @@ impl TaskContextParser {
     /// Extract human-readable description by removing context section
     fn extract_description(&self, note_content: &str) -> String {
         // Find the separator line that precedes the context
-        if let Some(separator_pos) = note_content.rfind(&format!("\n{}\n", Self::SECTION_SEPARATOR)) {
+        if let Some(separator_pos) = note_content.rfind(&format!("\n{}\n", Self::SECTION_SEPARATOR))
+        {
             note_content[..separator_pos].to_string()
         } else if let Some(context_start) = note_content.find(Self::CONTEXT_START_MARKER) {
             // Fallback: look for context start marker
@@ -167,10 +174,14 @@ impl TaskContextParser {
         // Validate line numbers if present
         if let Some([start, end]) = context.lines {
             if start == 0 {
-                return Err(TaskContextError::ParsingFailed("Line numbers must be >= 1".to_string()));
+                return Err(TaskContextError::ParsingFailed(
+                    "Line numbers must be >= 1".to_string(),
+                ));
             }
             if start > end {
-                return Err(TaskContextError::ParsingFailed("Start line must be <= end line".to_string()));
+                return Err(TaskContextError::ParsingFailed(
+                    "Start line must be <= end line".to_string(),
+                ));
             }
         }
 
@@ -193,7 +204,10 @@ impl TaskContextParser {
     }
 
     /// Decode error log from base64 if present
-    pub fn decode_error_log(&self, context: &TaskContext) -> Result<Option<String>, TaskContextError> {
+    pub fn decode_error_log(
+        &self,
+        context: &TaskContext,
+    ) -> Result<Option<String>, TaskContextError> {
         if let Some(ref encoded_log) = context.error_log {
             let decoded_bytes = general_purpose::STANDARD.decode(encoded_log)?;
             let decoded_string = String::from_utf8_lossy(&decoded_bytes).to_string();
