@@ -46,6 +46,7 @@ pub struct CorsConfig {
 pub struct WorkspaceConfig {
     pub root_path: PathBuf,
     pub auto_create: bool,
+    pub allow_access_to_parent_dirs: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -89,6 +90,7 @@ impl Default for Config {
                     .unwrap_or_else(|_| PathBuf::from("."))
                     .join("workspaces"),
                 auto_create: true,
+                allow_access_to_parent_dirs: false,
             },
             microsoft: MicrosoftConfig {
                 client_id: None,
@@ -161,6 +163,12 @@ impl Config {
         // Handle workspace configuration
         if let Ok(workspace_root) = std::env::var("ACT_WORKSPACE_ROOT_PATH") {
             config.workspace.root_path = PathBuf::from(&workspace_root);
+        }
+
+        // Handle parent directory access flag
+        if let Ok(allow_parent_dirs) = std::env::var("ALLOW_ACCESS_TO_PARENT_DIRS") {
+            config.workspace.allow_access_to_parent_dirs =
+                allow_parent_dirs.to_lowercase() == "true" || allow_parent_dirs == "1";
         }
 
         // Handle Microsoft configuration

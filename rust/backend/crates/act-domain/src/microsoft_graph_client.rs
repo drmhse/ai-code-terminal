@@ -34,7 +34,7 @@ pub enum GraphApiError {
 
 // Microsoft Graph API Data Models
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskList {
     pub id: String,
     #[serde(rename = "displayName")]
@@ -160,10 +160,41 @@ impl MicrosoftGraphClient {
     }
 
     /// Get all task lists for the authenticated user
-    pub async fn get_task_lists(&self, access_token: &str) -> Result<Vec<TaskList>, GraphApiError> {
+    pub async fn get_task_lists(
+        &self,
+        access_token: &str,
+        pagination: Option<&act_core::PaginationParams>,
+    ) -> Result<(Vec<TaskList>, Option<String>), GraphApiError> {
         debug!("Fetching task lists");
 
-        let url = self.base_url.join("me/todo/lists")?;
+        let mut url = self.base_url.join("me/todo/lists")?;
+
+        // Add pagination parameters if provided
+        if let Some(pagination) = pagination {
+            let mut query_pairs = url.query_pairs_mut();
+
+            if let Some(limit) = pagination.limit {
+                query_pairs.append_pair("$top", &limit.to_string());
+            }
+
+            // If offset is provided, use $skip
+            if let Some(offset) = pagination.offset {
+                query_pairs.append_pair("$skip", &offset.to_string());
+            }
+
+            // If page is provided, calculate offset from page_size
+            if let Some(page) = pagination.page {
+                if let Some(page_size) = pagination.page_size {
+                    let offset = (page - 1) * page_size;
+                    query_pairs.append_pair("$skip", &offset.to_string());
+                    query_pairs.append_pair("$top", &page_size.to_string());
+                }
+            }
+
+            // Add ordering for consistent pagination
+            query_pairs.append_pair("$orderby", "displayName");
+        }
+
         debug!("Request URL: {}", url);
         debug!(
             "Access token (first 20 chars): {}",
@@ -184,7 +215,7 @@ impl MicrosoftGraphClient {
                 // Check if the response is successful but empty
                 if response_text.is_empty() {
                     debug!("Empty response body received");
-                    return Ok(vec![]);
+                    return Ok((vec![], None));
                 }
 
                 let api_response: GraphApiResponse<TaskList> = serde_json::from_str(&response_text)
@@ -206,7 +237,8 @@ impl MicrosoftGraphClient {
                     );
                 }
 
-                Ok(api_response.value)
+                let next_link = api_response.next_link.clone();
+                Ok((api_response.value, next_link))
             }
             Err(GraphApiError::NotFound { resource }) => {
                 // This should NOT happen if user has valid authentication and lists exist
@@ -268,12 +300,40 @@ impl MicrosoftGraphClient {
         &self,
         access_token: &str,
         list_id: &str,
-    ) -> Result<Vec<Task>, GraphApiError> {
+        pagination: Option<&act_core::PaginationParams>,
+    ) -> Result<(Vec<Task>, Option<String>), GraphApiError> {
         debug!("Fetching tasks for list: {}", list_id);
 
-        let url = self
+        let mut url = self
             .base_url
             .join(&format!("me/todo/lists/{}/tasks", list_id))?;
+
+        // Add pagination parameters if provided
+        if let Some(pagination) = pagination {
+            let mut query_pairs = url.query_pairs_mut();
+
+            if let Some(limit) = pagination.limit {
+                query_pairs.append_pair("$top", &limit.to_string());
+            }
+
+            // If offset is provided, use $skip
+            if let Some(offset) = pagination.offset {
+                query_pairs.append_pair("$skip", &offset.to_string());
+            }
+
+            // If page is provided, calculate offset from page_size
+            if let Some(page) = pagination.page {
+                if let Some(page_size) = pagination.page_size {
+                    let offset = (page - 1) * page_size;
+                    query_pairs.append_pair("$skip", &offset.to_string());
+                    query_pairs.append_pair("$top", &page_size.to_string());
+                }
+            }
+
+            // Add ordering for consistent pagination
+            query_pairs.append_pair("$orderby", "createdDateTime");
+        }
+
         let response = self.make_authenticated_request(access_token, &url).await?;
 
         let api_response: GraphApiResponse<Task> = response.json().await?;
@@ -283,7 +343,9 @@ impl MicrosoftGraphClient {
             api_response.value.len(),
             list_id
         );
-        Ok(api_response.value)
+
+        let next_link = api_response.next_link.clone();
+        Ok((api_response.value, next_link))
     }
 
     /// Get a single task by ID from a specific list
@@ -667,7 +729,11 @@ impl MicrosoftGraphClient {
 /// Trait for dependency injection and testing
 #[async_trait::async_trait]
 pub trait GraphClient: Send + Sync {
-    async fn get_task_lists(&self, access_token: &str) -> Result<Vec<TaskList>, GraphApiError>;
+    async fn get_task_lists(
+        &self,
+        access_token: &str,
+        pagination: Option<&act_core::PaginationParams>,
+    ) -> Result<(Vec<TaskList>, Option<String>), GraphApiError>;
     async fn create_task_list(
         &self,
         access_token: &str,
@@ -677,7 +743,8 @@ pub trait GraphClient: Send + Sync {
         &self,
         access_token: &str,
         list_id: &str,
-    ) -> Result<Vec<Task>, GraphApiError>;
+        pagination: Option<&act_core::PaginationParams>,
+    ) -> Result<(Vec<Task>, Option<String>), GraphApiError>;
     async fn get_task(
         &self,
         access_token: &str,
@@ -727,8 +794,12 @@ pub trait GraphClient: Send + Sync {
 
 #[async_trait::async_trait]
 impl GraphClient for MicrosoftGraphClient {
-    async fn get_task_lists(&self, access_token: &str) -> Result<Vec<TaskList>, GraphApiError> {
-        self.get_task_lists(access_token).await
+    async fn get_task_lists(
+        &self,
+        access_token: &str,
+        pagination: Option<&act_core::PaginationParams>,
+    ) -> Result<(Vec<TaskList>, Option<String>), GraphApiError> {
+        self.get_task_lists(access_token, pagination).await
     }
 
     async fn create_task_list(
@@ -743,8 +814,9 @@ impl GraphClient for MicrosoftGraphClient {
         &self,
         access_token: &str,
         list_id: &str,
-    ) -> Result<Vec<Task>, GraphApiError> {
-        self.get_tasks(access_token, list_id).await
+        pagination: Option<&act_core::PaginationParams>,
+    ) -> Result<(Vec<Task>, Option<String>), GraphApiError> {
+        self.get_tasks(access_token, list_id, pagination).await
     }
 
     async fn get_task(

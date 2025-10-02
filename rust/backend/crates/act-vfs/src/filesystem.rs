@@ -12,6 +12,7 @@ use chrono::{DateTime, Utc};
 #[derive(Debug, Clone)]
 pub struct SandboxedFileSystem {
     workspace_root: PathBuf,
+    allow_access_to_parent_dirs: bool,
     max_file_size: Option<u64>,
     allowed_extensions: Option<Vec<String>>,
     blocked_paths: Vec<PathBuf>,
@@ -21,6 +22,7 @@ impl SandboxedFileSystem {
     pub fn new(workspace_root: PathBuf) -> Self {
         Self {
             workspace_root,
+            allow_access_to_parent_dirs: false,
             max_file_size: Some(100 * 1024 * 1024), // 100MB default
             allowed_extensions: None,
             blocked_paths: vec![
@@ -30,6 +32,11 @@ impl SandboxedFileSystem {
                 PathBuf::from(".env.local"),
             ],
         }
+    }
+
+    pub fn with_allow_access_to_parent_dirs(mut self, allow: bool) -> Self {
+        self.allow_access_to_parent_dirs = allow;
+        self
     }
 
     pub async fn initialize(&mut self) -> Result<()> {
@@ -104,13 +111,16 @@ impl SandboxedFileSystem {
         };
 
         // Ensure the path is within the workspace (compare normalized paths)
-        let canonical_str = canonical.to_string_lossy();
-        let workspace_str = canonical_workspace.to_string_lossy();
-        
-        if !canonical_str.starts_with(&*workspace_str) {
-            return Err(CoreError::PermissionDenied(format!(
-                "Path {:?} is outside workspace {:?}", canonical, canonical_workspace
-            )));
+        // unless access to parent directories is allowed
+        if !self.allow_access_to_parent_dirs {
+            let canonical_str = canonical.to_string_lossy();
+            let workspace_str = canonical_workspace.to_string_lossy();
+
+            if !canonical_str.starts_with(&*workspace_str) {
+                return Err(CoreError::PermissionDenied(format!(
+                    "Path {:?} is outside workspace {:?}", canonical, canonical_workspace
+                )));
+            }
         }
 
         Ok(canonical)
@@ -505,9 +515,10 @@ impl FileSystem for SandboxedFileSystem {
         // Normalize paths for comparison by converting to string
         let path_str = path.to_string_lossy();
         let workspace_str = self.workspace_root.to_string_lossy();
-        
+
         // Already resolved path should be within workspace
-        if !path_str.starts_with(&*workspace_str) {
+        // unless access to parent directories is allowed
+        if !self.allow_access_to_parent_dirs && !path_str.starts_with(&*workspace_str) {
             return false;
         }
 
@@ -517,6 +528,10 @@ impl FileSystem for SandboxedFileSystem {
 
     fn get_workspace_root(&self) -> &PathBuf {
         &self.workspace_root
+    }
+
+    fn allows_parent_directory_access(&self) -> bool {
+        self.allow_access_to_parent_dirs
     }
 }
 

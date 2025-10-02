@@ -613,7 +613,7 @@ impl MicrosoftAuthService {
         debug!("Getting all task lists for user: {}", user_id);
 
         let access_token = self.get_access_token(user_id).await?;
-        let lists = self.graph_client.get_task_lists(&access_token).await?;
+        let (lists, _next_link) = self.graph_client.get_task_lists(&access_token, None).await?;
 
         debug!("Retrieved {} task lists for user {}", lists.len(), user_id);
         Ok(lists)
@@ -628,7 +628,7 @@ impl MicrosoftAuthService {
         debug!("Getting tasks from list {} for user: {}", list_id, user_id);
 
         let access_token = self.get_access_token(user_id).await?;
-        let tasks = self.graph_client.get_tasks(&access_token, list_id).await?;
+        let (tasks, _next_link) = self.graph_client.get_tasks(&access_token, list_id, None).await?;
 
         debug!(
             "Retrieved {} tasks from list {} for user {}",
@@ -637,6 +637,50 @@ impl MicrosoftAuthService {
             user_id
         );
         Ok(tasks)
+    }
+
+    /// Get tasks from any specific list ID with pagination
+    pub async fn get_list_tasks_paginated(
+        &self,
+        user_id: &str,
+        list_id: &str,
+        pagination: &act_core::PaginationParams,
+    ) -> Result<(Vec<Task>, u64), MicrosoftAuthError> {
+        debug!(
+            "Getting paginated tasks from list {} for user: {} with pagination: {:?}",
+            list_id, user_id, pagination
+        );
+
+        let access_token = self.get_access_token(user_id).await?;
+
+        // First, get the total count by fetching a small page (just 1 item)
+        let (_, _next_link) = self.graph_client.get_tasks(&access_token, list_id, Some(&act_core::PaginationParams::with_limit(1))).await?;
+
+        // For Microsoft Graph API, we need to estimate total count since it doesn't provide exact counts
+        // We'll use the next_link to determine if there are more items, but for simplicity we'll
+        // fetch the requested page and return the actual count + whether there might be more
+        let (tasks, _) = self.graph_client.get_tasks(&access_token, list_id, Some(pagination)).await?;
+
+        debug!(
+            "Retrieved {} paginated tasks from list {} for user {}",
+            tasks.len(),
+            list_id,
+            user_id
+        );
+
+        // For now, we'll return the count of items retrieved plus an estimate based on whether we got a full page
+        let total_count = if tasks.len() < pagination.get_limit() as usize {
+            // If we got fewer items than requested, this is likely the last page
+            let offset = pagination.get_offset();
+            (offset + tasks.len() as u32) as u64
+        } else {
+            // If we got a full page, there might be more items
+            // We'll conservatively estimate there could be more
+            let offset = pagination.get_offset();
+            (offset + tasks.len() as u32 + 1) as u64 // +1 to indicate there might be more
+        };
+
+        Ok((tasks, total_count))
     }
 
     /// Get the user's default "Tasks" list (wellknown list)

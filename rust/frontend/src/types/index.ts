@@ -96,6 +96,28 @@ export interface ApiResponse<T = unknown> {
   error?: string
 }
 
+// Pagination support types
+export interface PaginationParams {
+  page?: number
+  page_size?: number
+  offset?: number
+  limit?: number
+}
+
+export interface PaginationInfo {
+  page: number
+  page_size: number
+  total_count: number
+  total_pages: number
+  has_next: boolean
+  has_prev: boolean
+}
+
+export interface PaginatedResponse<T> {
+  data: T[]
+  pagination: PaginationInfo
+}
+
 export interface AuthState {
   user: User | null
   token: string | null

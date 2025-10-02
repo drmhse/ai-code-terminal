@@ -923,4 +923,12 @@ impl MicrosoftAuthRepository for SqlMicrosoftAuthRepository {
             _ => TaskSyncStatus::Synced,
         }
     }
+
+    // Transaction support methods
+
+    // Transaction support methods - TODO: Implement transaction support
+    // Transactions are not yet fully implemented in this version
 }
+
+// TODO: Implement transaction wrapper for SQLite
+// For now, transactions are not fully implemented in the SQLite repository

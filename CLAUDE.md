@@ -1,1 +1,2 @@
-- NEVER force database migrations, NEVER do direct database updates, only rely on prisma
+- NEVER force database migrations, NEVER do direct database updates, only rely on the app startup applying the database migrations automatically.
+- NEVER use git restore, git reset, or any git commands that discard changes without explicit user confirmation. These commands can lose uncommitted work. Always use Edit/Write tools to fix mistakes instead.

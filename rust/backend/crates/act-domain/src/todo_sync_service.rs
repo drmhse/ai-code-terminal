@@ -212,7 +212,7 @@ impl TodoSyncService {
             .await?;
 
         // Fetch all lists from Graph API
-        let lists = self.graph_client.get_task_lists(&access_token).await?;
+        let (lists, _) = self.graph_client.get_task_lists(&access_token, None).await?;
 
         // Strategy 1: Check for explicit mapping (cache/database)
         if let Some(list_id) = self.get_workspace_list_id(workspace_id).await? {
@@ -222,7 +222,7 @@ impl TodoSyncService {
             );
 
             // Find the matching list by ID
-            let task_list = lists.into_iter().find(|list| list.id == list_id);
+            let task_list = lists.iter().find(|list| list.id == list_id).cloned();
 
             return Ok(task_list);
         }

@@ -91,4 +91,6 @@ pub trait FileSystem: Send + Sync {
     fn is_path_allowed(&self, path: &Path) -> bool;
 
     fn get_workspace_root(&self) -> &PathBuf;
+
+    fn allows_parent_directory_access(&self) -> bool;
 }

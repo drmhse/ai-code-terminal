@@ -11,6 +11,7 @@ import type {
   CreateTaskRequest,
   CodeContext
 } from '@/services/microsoft-auth'
+import type { PaginationParams, PaginatedResponse, PaginationInfo } from '@/types'
 import { logger } from '@/utils/logger'
 import { socketService } from '@/services/socket'
 
@@ -36,6 +37,12 @@ export const useTodoStore = defineStore('todo', () => {
   const tasks = ref<TodoTask[]>([])
   const tasksLoading = ref(false)
   const tasksError = ref<string | null>(null)
+
+  // Pagination state
+  const pagination = ref<PaginationInfo | null>(null)
+  const currentPage = ref(1)
+  const pageSize = ref(20)
+  const totalCount = ref(0)
 
 
   // Task creation state
@@ -85,6 +92,12 @@ export const useTodoStore = defineStore('todo', () => {
       return execution && (execution.status === 'queued' || execution.status === 'running')
     }
   })
+
+  // Pagination computed properties
+  const hasNextPage = computed(() => pagination.value?.has_next || false)
+  const hasPrevPage = computed(() => pagination.value?.has_prev || false)
+  const totalPages = computed(() => pagination.value?.total_pages || 1)
+  const canShowPagination = computed(() => (pagination.value?.total_count || 0) > pageSize.value)
 
   // Check authentication status
   const checkAuthStatus = async () => {
@@ -238,7 +251,7 @@ export const useTodoStore = defineStore('todo', () => {
   }
 
   // Load tasks from the currently selected list
-  const loadSelectedListTasks = async () => {
+  const loadSelectedListTasks = async (page?: number, reset?: boolean) => {
     if (!hasValidAuth.value) {
       logger.warn('⚠️ Cannot load tasks - Microsoft authentication required')
       return
@@ -253,10 +266,29 @@ export const useTodoStore = defineStore('todo', () => {
     tasksError.value = null
 
     try {
-      logger.log(`🔄 Loading tasks from list: ${selectedList.value.displayName}`)
-      const listTasks = await microsoftAuthService.getListTasks(selectedList.value.id)
-      tasks.value = listTasks
-      logger.log(`✅ Loaded ${listTasks.length} tasks from list`)
+      // Update page number if provided
+      if (page !== undefined) {
+        currentPage.value = page
+      }
+
+      // Reset to first page if requested
+      if (reset) {
+        currentPage.value = 1
+      }
+
+      const paginationParams: PaginationParams = {
+        page: currentPage.value,
+        page_size: pageSize.value
+      }
+
+      logger.log(`🔄 Loading tasks from list: ${selectedList.value.displayName} (page ${currentPage.value}, size ${pageSize.value})`)
+      const paginatedResponse = await microsoftAuthService.getListTasksPaginated(selectedList.value.id, paginationParams)
+
+      tasks.value = paginatedResponse.data
+      pagination.value = paginatedResponse.pagination
+      totalCount.value = paginatedResponse.pagination.total_count
+
+      logger.log(`✅ Loaded ${paginatedResponse.data.length} tasks from list (total: ${totalCount.value})`)
     } catch (error) {
       tasksError.value = error instanceof Error ? error.message : 'Failed to load tasks'
       logger.error('❌ Failed to load tasks from list:', error)
@@ -331,7 +363,8 @@ export const useTodoStore = defineStore('todo', () => {
       }
 
       const task = await microsoftAuthService.createTaskInList(selectedList.value.id, request)
-      tasks.value.unshift(task)
+      // Refresh current page to include the new task
+      await loadSelectedListTasks(currentPage.value)
 
       logger.log(`✅ Task created successfully: ${task.title}`)
       return task
@@ -418,11 +451,8 @@ export const useTodoStore = defineStore('todo', () => {
 
       await microsoftAuthService.deleteTask(selectedList.value.id, taskId)
 
-      // Remove the task from the local array
-      const index = tasks.value.findIndex(t => t.id === taskId)
-      if (index !== -1) {
-        tasks.value.splice(index, 1)
-      }
+      // Refresh current page to reflect the deletion
+      await loadSelectedListTasks(currentPage.value)
 
       logger.log(`✅ Task deleted successfully`)
     } catch (error) {
@@ -840,6 +870,38 @@ export const useTodoStore = defineStore('todo', () => {
     })
   }
 
+  // Pagination navigation methods
+  const goToPage = async (page: number) => {
+    if (page < 1 || page > totalPages.value) return
+    await loadSelectedListTasks(page)
+  }
+
+  const nextPage = async () => {
+    if (hasNextPage.value) {
+      await goToPage(currentPage.value + 1)
+    }
+  }
+
+  const prevPage = async () => {
+    if (hasPrevPage.value) {
+      await goToPage(currentPage.value - 1)
+    }
+  }
+
+  const setPageSize = async (newPageSize: number) => {
+    if (newPageSize < 1 || newPageSize > 100) return // Validate reasonable bounds
+    pageSize.value = newPageSize
+    currentPage.value = 1 // Reset to first page when changing page size
+    await loadSelectedListTasks(1, true)
+  }
+
+  const resetPagination = async () => {
+    currentPage.value = 1
+    pagination.value = null
+    totalCount.value = 0
+    await loadSelectedListTasks(1, true)
+  }
+
   return {
     // State
     isAuthenticated,
@@ -873,6 +935,16 @@ export const useTodoStore = defineStore('todo', () => {
     isDefaultListSelected,
     getExecutionByTaskId,
     isTaskExecuting,
+
+    // Pagination state
+    pagination,
+    currentPage,
+    pageSize,
+    totalCount,
+    hasNextPage,
+    hasPrevPage,
+    totalPages,
+    canShowPagination,
 
     // Execution state
     activeExecutions,
@@ -908,5 +980,12 @@ export const useTodoStore = defineStore('todo', () => {
     cancelTaskExecution,
     getExecutionStatus,
     refreshTask,
+
+    // Pagination actions
+    goToPage,
+    nextPage,
+    prevPage,
+    setPageSize,
+    resetPagination,
   }
 })

@@ -1,5 +1,7 @@
 #![warn(clippy::clone_on_copy)]
 
+use std::path::PathBuf;
+
 pub mod auth_service;
 pub mod encryption_service;
 pub mod git_service;
@@ -25,6 +27,7 @@ pub mod workspace_service;
 pub use workspace_service::{
     CloneRequest, GitCommit, GitService, GitStatus, WorkspaceService, WorkspaceSettings,
 };
+pub use system_service::{SystemServiceConfig};
 
 pub use session_service::{
     ConnectionId, OutputEventHandler, RollingBuffer, SessionService, TerminalOutputEvent, UserId,
@@ -131,6 +134,7 @@ impl DomainServices {
         security_audit_logger: Arc<dyn SecurityAuditLogger>,
         process_recovery_config: ProcessRecoveryConfig,
         workspace_root: String,
+        allow_access_to_parent_dirs: bool,
         // Microsoft auth service dependencies
         microsoft_auth_repository: Arc<dyn MicrosoftAuthRepository>,
         encryption_service: Arc<dyn TokenEncryption>,
@@ -141,12 +145,16 @@ impl DomainServices {
             workspace_repository.clone(),
             filesystem,
             git_service,
-            workspace_root,
+            workspace_root.clone(),
         );
 
         let session_service = SessionService::new(pty_service);
 
-        let system_service = SystemService::new(metrics_repository, system_monitor);
+        let system_service_config = SystemServiceConfig {
+            workspace_root: PathBuf::from(workspace_root),
+            allow_access_to_parent_dirs,
+        };
+        let system_service = SystemService::new(metrics_repository, system_monitor, system_service_config);
 
         let auth_service =
             AuthService::new(github_auth_service, jwt_service, auth_repository.clone());

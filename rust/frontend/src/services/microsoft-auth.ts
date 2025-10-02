@@ -1,5 +1,5 @@
 import axios, { type AxiosInstance, type AxiosResponse } from 'axios'
-import type { ApiResponse } from '@/types'
+import type { ApiResponse, PaginationParams, PaginatedResponse } from '@/types'
 
 // Microsoft Auth types
 export interface MicrosoftAuthStatus {
@@ -142,8 +142,39 @@ class MicrosoftAuthService {
     return response.data.data
   }
 
-  async getListTasks(listId: string): Promise<TodoTask[]> {
-    const response: AxiosResponse<ApiResponse<TodoTask[]>> = await this.client.get(`/api/v1/microsoft/lists/${listId}/tasks`)
+  async getListTasks(listId: string, pagination?: PaginationParams): Promise<TodoTask[]> {
+    const params = new URLSearchParams()
+
+    if (pagination) {
+      if (pagination.page) params.append('page', pagination.page.toString())
+      if (pagination.page_size) params.append('page_size', pagination.page_size.toString())
+      if (pagination.offset) params.append('offset', pagination.offset.toString())
+      if (pagination.limit) params.append('limit', pagination.limit.toString())
+    }
+
+    const url = params.toString()
+      ? `/api/v1/microsoft/lists/${listId}/tasks?${params.toString()}`
+      : `/api/v1/microsoft/lists/${listId}/tasks`
+
+    const response: AxiosResponse<ApiResponse<PaginatedResponse<TodoTask>>> = await this.client.get(url)
+    return response.data.data.data
+  }
+
+  async getListTasksPaginated(listId: string, pagination?: PaginationParams): Promise<PaginatedResponse<TodoTask>> {
+    const params = new URLSearchParams()
+
+    if (pagination) {
+      if (pagination.page) params.append('page', pagination.page.toString())
+      if (pagination.page_size) params.append('page_size', pagination.page_size.toString())
+      if (pagination.offset) params.append('offset', pagination.offset.toString())
+      if (pagination.limit) params.append('limit', pagination.limit.toString())
+    }
+
+    const url = params.toString()
+      ? `/api/v1/microsoft/lists/${listId}/tasks?${params.toString()}`
+      : `/api/v1/microsoft/lists/${listId}/tasks`
+
+    const response: AxiosResponse<ApiResponse<PaginatedResponse<TodoTask>>> = await this.client.get(url)
     return response.data.data
   }
 

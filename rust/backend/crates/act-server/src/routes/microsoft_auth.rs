@@ -1,10 +1,11 @@
 use crate::{middleware::auth::AuthenticatedUser, models::ApiResponse, AppState};
+use act_core::PaginationParams;
 use act_domain::{
     microsoft_auth_types::OAuthState, CreateListRequest,
     CreateTaskRequest as DomainCreateTaskRequest, MicrosoftAuthError, TaskBody, TaskImportance,
 };
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     response::Result,
     Json,
 };
@@ -404,21 +405,38 @@ pub async fn get_list_tasks(
     State(state): State<AppState>,
     auth_user: AuthenticatedUser,
     Path(list_id): Path<String>,
-) -> Result<Json<ApiResponse<Vec<act_domain::Task>>>> {
+    Query(pagination): Query<PaginationParams>,
+) -> Result<Json<ApiResponse<act_core::PaginatedResponse<act_domain::Task>>>> {
+    // Validate pagination parameters
+    if let Err(err) = pagination.validate() {
+        return Ok(Json(ApiResponse::error(err)));
+    }
+
     match state
         .domain_services
         .microsoft_auth_service
-        .get_list_tasks(&auth_user.user_id, &list_id)
+        .get_list_tasks_paginated(&auth_user.user_id, &list_id, &pagination)
         .await
     {
-        Ok(tasks) => {
+        Ok((tasks, total_count)) => {
             info!(
-                "Retrieved {} tasks from list {} for user: {}",
+                "Retrieved {} tasks from list {} for user: {} (total: {})",
                 tasks.len(),
                 list_id,
-                auth_user.user_id
+                auth_user.user_id,
+                total_count
             );
-            Ok(Json(ApiResponse::success(tasks)))
+
+            let page = pagination.page.unwrap_or(1);
+            let page_size = pagination.get_limit();
+            let pagination_info = act_core::PaginationInfo::new(page, page_size, total_count);
+
+            let paginated_response = act_core::PaginatedResponse {
+                data: tasks,
+                pagination: pagination_info,
+            };
+
+            Ok(Json(ApiResponse::success(paginated_response)))
         }
         Err(MicrosoftAuthError::NotAuthenticated) => {
             warn!(

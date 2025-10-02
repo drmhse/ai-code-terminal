@@ -93,19 +93,39 @@ pub trait SystemMonitor: Send + Sync {
     async fn get_network_stats(&self) -> Result<(u64, u64)>; // (rx, tx)
 }
 
+#[derive(Debug, Clone)]
+pub struct SystemServiceConfig {
+    pub workspace_root: PathBuf,
+    pub allow_access_to_parent_dirs: bool,
+}
+
+impl Default for SystemServiceConfig {
+    fn default() -> Self {
+        Self {
+            workspace_root: std::env::current_dir()
+                .unwrap_or_else(|_| PathBuf::from("."))
+                .join("workspaces"),
+            allow_access_to_parent_dirs: false,
+        }
+    }
+}
+
 pub struct SystemService {
     metrics_repository: Arc<dyn MetricsRepository>,
     system_monitor: Arc<dyn SystemMonitor>,
+    config: SystemServiceConfig,
 }
 
 impl SystemService {
     pub fn new(
         metrics_repository: Arc<dyn MetricsRepository>,
         system_monitor: Arc<dyn SystemMonitor>,
+        config: SystemServiceConfig,
     ) -> Self {
         Self {
             metrics_repository,
             system_monitor,
+            config,
         }
     }
 
@@ -373,7 +393,12 @@ impl SystemService {
         })
     }
 
-    pub async fn browse_directory(&self, path: Option<&str>) -> Result<BrowseDirectoryResponse> {
+    pub async fn browse_directory(
+        &self,
+        path: Option<&str>,
+        _user_id: Option<&str>,
+        workspace_id: Option<&str>,
+    ) -> Result<BrowseDirectoryResponse> {
         use std::fs;
 
         let browse_path = match path {
@@ -385,6 +410,37 @@ impl SystemService {
         let canonical_path = browse_path
             .canonicalize()
             .map_err(|e| CoreError::FileSystem(format!("Invalid path: {}", e)))?;
+
+        // Validate path against workspace restrictions
+        if !self.config.allow_access_to_parent_dirs {
+            // If workspace_id is provided, restrict to that specific workspace
+            if let Some(workspace_id) = workspace_id {
+                let workspace_path = self.config.workspace_root.join(workspace_id);
+                let workspace_canonical = workspace_path
+                    .canonicalize()
+                    .unwrap_or_else(|_| workspace_path);
+
+                if !canonical_path.starts_with(&workspace_canonical) {
+                    return Err(CoreError::FileSystem(
+                        format!("Access denied: path {} is not within workspace {}",
+                               canonical_path.to_string_lossy(), workspace_id)
+                    ));
+                }
+            } else {
+                // If no workspace_id, restrict to workspace root
+                let workspace_root_canonical = self.config.workspace_root
+                    .canonicalize()
+                    .unwrap_or_else(|_| self.config.workspace_root.clone());
+
+                if !canonical_path.starts_with(&workspace_root_canonical) {
+                    return Err(CoreError::FileSystem(
+                        format!("Access denied: path {} is not within workspace directory. \
+                                Set ALLOW_ACCESS_TO_PARENT_DIRS=true to allow parent directory access.",
+                               canonical_path.to_string_lossy())
+                    ));
+                }
+            }
+        }
 
         // Read directory entries
         let read_dir = fs::read_dir(&canonical_path)
@@ -475,3 +531,4 @@ pub struct BrowseDirectoryResponse {
     pub parent_path: Option<String>,
     pub entries: Vec<DirectoryEntry>,
 }
+

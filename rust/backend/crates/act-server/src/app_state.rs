@@ -75,7 +75,8 @@ impl AppState {
 
         // Create filesystem service
         let workspace_root = config.workspace.root_path.clone();
-        let mut sandboxed_fs = SandboxedFileSystem::new(workspace_root.clone());
+        let mut sandboxed_fs = SandboxedFileSystem::new(workspace_root.clone())
+            .with_allow_access_to_parent_dirs(config.workspace.allow_access_to_parent_dirs);
 
         // Initialize the filesystem (create workspace directory if needed)
         sandboxed_fs.initialize().await?;
@@ -166,6 +167,7 @@ impl AppState {
             security_audit_logger,
             process_recovery_config,
             workspace_root.to_string_lossy().to_string(),
+            config.workspace.allow_access_to_parent_dirs,
             // Microsoft auth service dependencies
             microsoft_auth_repository,
             encryption_service,

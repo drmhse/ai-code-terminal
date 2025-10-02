@@ -1,7 +1,7 @@
 use crate::{
     error::ServerError, middleware::auth::AuthenticatedUser, models::ApiResponse, AppState,
 };
-use act_domain::BrowseDirectoryResponse;
+use act_core::CoreError;
 use axum::{
     extract::{Query, State},
     response::Json,
@@ -38,6 +38,7 @@ pub fn routes() -> Router<AppState> {
 #[derive(Debug, Deserialize)]
 pub struct BrowseDirectoryQuery {
     pub path: Option<String>,
+    pub workspace_id: Option<String>,
 }
 
 pub async fn get_system_stats(
@@ -104,15 +105,74 @@ pub async fn get_system_stats(
 pub async fn browse_directory(
     Query(params): Query<BrowseDirectoryQuery>,
     State(state): State<AppState>,
-    _user: AuthenticatedUser,
-) -> Result<Json<ApiResponse<BrowseDirectoryResponse>>, ServerError> {
-    debug!("Browse directory requested: {:?}", params.path);
+    user: AuthenticatedUser,
+) -> Result<Json<ApiResponse<act_domain::BrowseDirectoryResponse>>, ServerError> {
+    debug!("Browse directory requested: {:?} for user: {} in workspace: {:?}",
+           params.path, user.user_id, params.workspace_id);
 
-    let response = state
-        .domain_services
-        .system_service
-        .browse_directory(params.path.as_deref())
-        .await?;
+    // Determine the path to browse
+    let browse_path = if let Some(workspace_id) = &params.workspace_id {
+        // If workspace_id is provided, verify user has access to this workspace
+        let workspace = state
+            .domain_services
+            .workspace_service
+            .get_workspace(&user.user_id, workspace_id)
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to access workspace {}: {}", workspace_id, e);
+                ServerError::from(CoreError::NotFound(format!("Workspace not found: {}", workspace_id)))
+            })?;
+
+        debug!("User {} accessing workspace {} at path: {}",
+               user.user_id, workspace_id, workspace.local_path);
+
+        // Resolve path within workspace
+        match &params.path {
+            Some(path) if !path.is_empty() => {
+                let workspace_base = std::path::Path::new(&workspace.local_path);
+                workspace_base.join(path)
+            }
+            _ => std::path::Path::new(&workspace.local_path).to_path_buf(),
+        }
+    } else {
+        // No workspace_id, use the path directly or current directory
+        match &params.path {
+            Some(path) if !path.is_empty() => std::path::Path::new(path).to_path_buf(),
+            _ => std::env::current_dir().map_err(|e| {
+                tracing::error!("Failed to get current directory: {}", e);
+                ServerError::from(CoreError::FileSystem(e.to_string()))
+            })?,
+        }
+    };
+
+    // Use the filesystem abstraction to list directory
+    let directory_listing = state.filesystem
+        .list_directory(&browse_path)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to list directory {}: {}", browse_path.display(), e);
+            ServerError::from(e)
+        })?;
+
+    // Convert to the expected response format
+    let current_path_str = browse_path.to_string_lossy().to_string();
+    let parent_path = browse_path.parent().map(|p| p.to_string_lossy().to_string());
+
+    let entries = directory_listing.items.into_iter().map(|item| {
+        let is_hidden = item.name.starts_with('.');
+        act_domain::DirectoryEntry {
+            name: item.name,
+            path: item.path.to_string_lossy().to_string(),
+            is_directory: item.is_directory,
+            is_hidden,
+        }
+    }).collect();
+
+    let response = act_domain::BrowseDirectoryResponse {
+        current_path: current_path_str,
+        parent_path,
+        entries,
+    };
 
     Ok(Json(ApiResponse::success(response)))
 }

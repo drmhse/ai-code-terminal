@@ -196,7 +196,7 @@ impl WorkspaceService {
     /// Opens an existing folder as a workspace without creating or modifying it
     ///
     /// This enables users to work with any existing directory on their system,
-    /// with proper security validation to prevent access to system directories.
+    /// but only when ALLOW_ACCESS_TO_PARENT_DIRS is enabled.
     pub async fn open_existing_folder(
         &self,
         user_id: &str,
@@ -208,11 +208,18 @@ impl WorkspaceService {
             name, folder_path
         );
 
+        // Check if parent directory access is allowed
+        if !self.filesystem.allows_parent_directory_access() {
+            return Err(CoreError::Validation(
+                "Opening existing folders as workspaces is not allowed when ALLOW_ACCESS_TO_PARENT_DIRS is false".to_string(),
+            ));
+        }
+
         let path = Path::new(&folder_path);
         info!("Checking path: {}", path.display());
 
-        // Validate the path exists
-        if !path.exists() {
+        // Validate the path exists using filesystem abstraction
+        if !self.filesystem.exists(path).await? {
             error!("Path does not exist: {}", folder_path);
             return Err(CoreError::Validation(format!(
                 "Path does not exist: {}",
@@ -221,8 +228,8 @@ impl WorkspaceService {
         }
         info!("Path exists: {}", folder_path);
 
-        // Validate it's a directory
-        if !path.is_dir() {
+        // Validate it's a directory using filesystem abstraction
+        if !self.filesystem.is_directory(path).await? {
             error!("Path is not a directory: {}", folder_path);
             return Err(CoreError::Validation(format!(
                 "Path is not a directory: {}",
@@ -231,62 +238,22 @@ impl WorkspaceService {
         }
         info!("Path is directory: {}", folder_path);
 
-        // Canonicalize the path to resolve symlinks and get absolute path
-        let canonical_path = std::fs::canonicalize(path).map_err(|e| {
-            error!("Failed to canonicalize path '{}': {}", folder_path, e);
-            CoreError::Validation(format!("Failed to resolve path '{}': {}", folder_path, e))
-        })?;
-        info!("Canonicalized path: {}", canonical_path.display());
+        // Get canonical path using filesystem abstraction
+        let file_info = self.filesystem.get_file_info(path).await?;
+        let canonical_path = file_info.path;
+        info!("Resolved path using filesystem abstraction: {}", canonical_path.display());
 
-        // Validate it's not a system directory
-        info!(
-            "Checking if path is a system directory: {}",
-            canonical_path.display()
-        );
-        let blocked_paths = vec![
-            Path::new("/bin"),
-            Path::new("/sbin"),
-            Path::new("/usr/bin"),
-            Path::new("/usr/sbin"),
-            Path::new("/etc"),
-            Path::new("/sys"),
-            Path::new("/proc"),
-            Path::new("/dev"),
-            Path::new("/boot"),
-            Path::new("/root"),
-            Path::new("/System"),
-            Path::new("/Library"),
-            Path::new("/Applications"),
-            Path::new("C:\\Windows"),
-            Path::new("C:\\Program Files"),
-            Path::new("C:\\Program Files (x86)"),
-        ];
-
-        // Block exact matches and direct subdirectories of system directories
-        for blocked in &blocked_paths {
-            if canonical_path == *blocked || canonical_path.starts_with(blocked.join("")) {
-                error!(
-                    "Path is a blocked system directory: {} matches {}",
-                    canonical_path.display(),
-                    blocked.display()
-                );
-                return Err(CoreError::Validation(format!(
-                    "Cannot open system directory as workspace: {}",
-                    folder_path
-                )));
-            }
-        }
-
-        // Special case: also block the root directory itself but not user directories under it
-        if canonical_path == Path::new("/") {
-            error!("Cannot open root directory as workspace");
-            return Err(CoreError::Validation(
-                "Cannot open root directory as workspace".to_string(),
-            ));
+        // Additional validation using filesystem abstraction - check if path is allowed
+        if !self.filesystem.is_path_allowed(&canonical_path) {
+            error!("Path is not allowed by filesystem security policy: {}", canonical_path.display());
+            return Err(CoreError::Validation(format!(
+                "Cannot open this directory as workspace: {}",
+                folder_path
+            )));
         }
 
         info!(
-            "Path is not a system directory: {}",
+            "Path passed security validation: {}",
             canonical_path.display()
         );
 
@@ -302,12 +269,13 @@ impl WorkspaceService {
                 "Checking existing workspace: {} at {}",
                 ws.name, ws.local_path
             );
-            if let Ok(existing_canonical) = std::fs::canonicalize(&ws.local_path) {
+            let existing_path = Path::new(&ws.local_path);
+            if let Ok(existing_info) = self.filesystem.get_file_info(existing_path).await {
                 info!(
-                    "Existing workspace canonical path: {}",
-                    existing_canonical.display()
+                    "Existing workspace resolved path: {}",
+                    existing_info.path.display()
                 );
-                if existing_canonical == canonical_path {
+                if existing_info.path == canonical_path {
                     error!(
                         "Duplicate workspace found: '{}' already exists at path {}",
                         ws.name,
@@ -320,7 +288,7 @@ impl WorkspaceService {
                 }
             } else {
                 warn!(
-                    "Failed to canonicalize existing workspace path: {}",
+                    "Failed to resolve existing workspace path: {}",
                     ws.local_path
                 );
             }
@@ -330,13 +298,12 @@ impl WorkspaceService {
             canonical_path.display()
         );
 
-        // Test read/write permissions by attempting to read the directory using std::fs
-        // This bypasses the sandboxed filesystem for open folder validation
+        // Test read access by attempting to list the directory using filesystem abstraction
         info!(
             "Testing read access to directory: {}",
             canonical_path.display()
         );
-        match std::fs::read_dir(&canonical_path) {
+        match self.filesystem.list_directory(&canonical_path).await {
             Ok(_) => {
                 // Successfully listed directory, user has at least read access
                 info!("Validated read access to {}", canonical_path.display());

@@ -17,6 +17,111 @@ pub use crate::pty::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+// Pagination support models
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaginationParams {
+    pub page: Option<u32>,
+    pub page_size: Option<u32>,
+    pub offset: Option<u32>,
+    pub limit: Option<u32>,
+}
+
+impl Default for PaginationParams {
+    fn default() -> Self {
+        Self {
+            page: Some(1),
+            page_size: Some(20),
+            offset: None,
+            limit: None,
+        }
+    }
+}
+
+impl PaginationParams {
+    pub fn new(page: u32, page_size: u32) -> Self {
+        Self {
+            page: Some(page),
+            page_size: Some(page_size),
+            offset: None,
+            limit: None,
+        }
+    }
+
+    pub fn with_limit(limit: u32) -> Self {
+        Self {
+            page: None,
+            page_size: None,
+            offset: None,
+            limit: Some(limit),
+        }
+    }
+
+    pub fn get_offset(&self) -> u32 {
+        if let Some(offset) = self.offset {
+            return offset;
+        }
+
+        match (self.page, self.page_size) {
+            (Some(page), Some(page_size)) => (page - 1) * page_size,
+            _ => 0,
+        }
+    }
+
+    pub fn get_limit(&self) -> u32 {
+        self.limit.or(self.page_size).unwrap_or(20)
+    }
+
+    pub fn validate(&self) -> Result<(), String> {
+        let page_size = self.get_limit();
+        if page_size > 100 {
+            return Err("Page size cannot exceed 100".to_string());
+        }
+        if page_size == 0 {
+            return Err("Page size must be greater than 0".to_string());
+        }
+
+        if let Some(page) = self.page {
+            if page == 0 {
+                return Err("Page number must be greater than 0".to_string());
+            }
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaginatedResponse<T> {
+    pub data: Vec<T>,
+    pub pagination: PaginationInfo,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaginationInfo {
+    pub page: u32,
+    pub page_size: u32,
+    pub total_count: u64,
+    pub total_pages: u32,
+    pub has_next: bool,
+    pub has_prev: bool,
+}
+
+impl PaginationInfo {
+    pub fn new(page: u32, page_size: u32, total_count: u64) -> Self {
+        let total_pages = ((total_count as f64) / (page_size as f64)).ceil() as u32;
+        let total_pages = if total_pages == 0 { 1 } else { total_pages };
+
+        Self {
+            page,
+            page_size,
+            total_count,
+            total_pages,
+            has_next: page < total_pages,
+            has_prev: page > 1,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     pub id: String,

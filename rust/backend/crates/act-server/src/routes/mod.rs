@@ -9,6 +9,7 @@ pub mod microsoft_auth;
 pub mod processes;
 pub mod sessions;
 pub mod system;
+pub mod task_executions;
 pub mod themes;
 pub mod todo_sync;
 pub mod user_preferences;
@@ -31,6 +32,7 @@ pub fn api_routes() -> Router<AppState> {
         .nest("/processes", processes::routes())
         .nest("/metrics", metrics::routes())
         .nest("/system", system::routes())
+        .nest("/tasks", task_executions::routes())
         .nest("/themes", themes::routes())
         .nest("/user/preferences", user_preferences::routes())
         .nest("/microsoft", microsoft_auth_routes())

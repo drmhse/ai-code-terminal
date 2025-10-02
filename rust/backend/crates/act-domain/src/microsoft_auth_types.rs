@@ -296,6 +296,9 @@ pub trait MicrosoftAuthRepository: Send + Sync {
         workspace_id: &str,
     ) -> Result<(), MicrosoftAuthRepositoryError>;
 
+    // Transaction support methods - TODO: Implement transaction support
+    // Transactions are not yet fully implemented in this version
+
     // Helper methods for enum conversion
     fn task_status_to_string(&self, status: &TaskStatus) -> String;
     fn task_importance_to_string(&self, importance: &TaskImportance) -> String;
@@ -304,3 +307,4 @@ pub trait MicrosoftAuthRepository: Send + Sync {
     fn string_to_task_importance(&self, s: String) -> TaskImportance;
     fn string_to_task_sync_status(&self, s: String) -> TaskSyncStatus;
 }
+

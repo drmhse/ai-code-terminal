@@ -381,7 +381,7 @@ impl TaskSyncService {
         let access_token = self.microsoft_auth.get_access_token(&user_id).await?;
 
         // Fetch tasks from Microsoft
-        let microsoft_tasks = self.graph_client.get_tasks(&access_token, &list_id).await?;
+        let (microsoft_tasks, _) = self.graph_client.get_tasks(&access_token, &list_id, None).await?;
 
         // Get local tasks
         let local_tasks = self.repository.get_workspace_tasks(workspace_id).await?;

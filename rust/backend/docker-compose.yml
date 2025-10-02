@@ -33,6 +33,7 @@ services:
 
       # Logging Configuration
       - RUST_LOG=${LOG_LEVEL:-act_server=info,act_core=info}
+      - ALLOW_ACCESS_TO_PARENT_DIRS=false
 
       # Additional environment indicators
       - RUST_ENV=${NODE_ENV:-development}
