@@ -1,5 +1,6 @@
 import { io, type Socket } from 'socket.io-client'
 import { Subject, BehaviorSubject, type Subscription } from '@/utils/reactive'
+import { getWsUrl } from '@/utils/backendPort'
 import {
   ConnectionState,
   type TerminalOutputEvent,
@@ -69,14 +70,19 @@ class SocketService {
   public readonly workspaceSessions$ = new Subject<WorkspaceSessionsEvent>()
   public readonly sessionRecovered$ = new Subject<SessionRecoveredEvent>()
   public readonly reconnectionFailed$ = new Subject<ReconnectionFailedEvent>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public readonly taskExecutionStarted$ = new Subject<any>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public readonly taskExecutionOutput$ = new Subject<any>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public readonly taskExecutionStatus$ = new Subject<any>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public readonly taskExecutionError$ = new Subject<any>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public readonly taskExecutionCancelled$ = new Subject<any>()
 
-  connect(): Promise<void> {
-    return new Promise((resolve, reject) => {
+  async connect(): Promise<void> {
+    return new Promise(async (resolve, reject) => {
       // Prevent multiple simultaneous connections
       if (this.isConnecting || this.isConnected) {
         console.log('Socket already connecting or connected, skipping')
@@ -93,11 +99,10 @@ class SocketService {
 
       this.isConnecting = true
       this.connectionState$.next(ConnectionState.CONNECTING)
-      // Use current origin for WebSocket connection to go through Caddy proxy
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      const host = window.location.host
-      const wsUrl = import.meta.env.VITE_WS_URL || `${protocol}//${host}`
-      
+
+      // Use WebSocket URL - tries Tauri first, then falls back to environment
+      const wsUrl = await getWsUrl()
+
       this.socket = io(wsUrl, {
         auth: {
           token,

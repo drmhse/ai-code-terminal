@@ -23,20 +23,29 @@ export interface AppStats {
 }
 
 
+export interface Subscription {
+  plan: string
+  features: string[]
+  status: string
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const token = ref<string | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
-  
+
   // Enhanced authentication state from original app
   const username = ref<string | null>(null)
   const errorMessage = ref<string | null>(null)
-  
+
+  // SSO-specific state
+  const subscription = ref<Subscription | null>(null)
+
   // System stats
   const stats = ref<AppStats | null>(null)
   const statsListener = ref<((event: Event) => void) | null>(null)
-  
+
   // Initialization state
   const isAppInitialized = ref(false)
   const isInitializing = ref(false)
@@ -153,12 +162,76 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const getGitHubAuthUrl = () => {
-    // Frontend generates GitHub OAuth URL with redirect to frontend callback
+    // Frontend generates GitHub OAuth URL with environment-aware redirect URI
     const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID
-    const redirectUri = `${window.location.origin}/auth/callback`
+
+    // Check if we're in Tauri desktop app
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const isTauriApp = !!(window as any).__TAURI__
+
+    // GitHub OAuth doesn't support custom URL schemes
+    // Desktop mode: Use fixed port 3001 with loopback URL (GitHub supports this)
+    // Web mode: Use current origin
+    const redirectUri = isTauriApp
+      ? 'http://127.0.0.1:3001/api/v1/auth/github/callback'
+      : `${window.location.origin}/auth/callback`
+
     const state = crypto.randomUUID()
     localStorage.setItem('oauth_state', state)
-    return `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=user:email repo read:org&state=${state}`
+
+    console.log(`[Auth] Generating GitHub OAuth URL`)
+    console.log(`  Mode: ${isTauriApp ? 'Desktop (Tauri)' : 'Web (Browser)'}`)
+    console.log(`  Redirect URI: ${redirectUri}`)
+
+    const fullUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=user:email repo read:org&state=${state}`
+    console.log(`  Full OAuth URL: ${fullUrl}`)
+
+    return fullUrl
+  }
+
+  // SSO Authentication Methods
+  const getSsoAuthUrl = (provider: 'github' | 'microsoft' | 'google') => {
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
+    return `${apiBaseUrl}/api/v1/auth/${provider}/start`
+  }
+
+  const startDeviceFlow = async () => {
+    try {
+      const response = await apiService.startDeviceFlow()
+      return response
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to start device flow'
+      throw err
+    }
+  }
+
+  const pollDeviceToken = async (deviceCode: string) => {
+    try {
+      const response = await apiService.pollDeviceToken(deviceCode)
+      if (response.access_token) {
+        await setToken(response.access_token)
+      }
+      return response
+    } catch (err) {
+      // Don't set error for pending states
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+      if (!errorMsg.includes('pending')) {
+        error.value = errorMsg
+      }
+      throw err
+    }
+  }
+
+  const fetchSubscription = async () => {
+    if (!token.value) return
+
+    try {
+      const sub = await apiService.getSubscription()
+      subscription.value = sub
+    } catch (err) {
+      logger.error('Failed to fetch subscription:', err)
+      // Don't throw - subscription is optional
+    }
   }
 
   const checkAuthStatus = async () => {
@@ -194,8 +267,9 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = authToken
     localStorage.setItem('jwt_token', authToken)
     await fetchCurrentUser()
+    await fetchSubscription()  // Fetch subscription info for SSO
     await connectWebSocket()
-    
+
     // Initialize app after authentication
     if (user.value) {
       username.value = user.value.login || null
@@ -361,20 +435,21 @@ export const useAuthStore = defineStore('auth', () => {
     token: readonly(token),
     loading: readonly(loading),
     isAuthenticated,
-    
+
     // Enhanced state
     error: readonly(error),
     username: readonly(username),
     errorMessage: readonly(errorMessage),
     stats: readonly(stats),
+    subscription: readonly(subscription),
     isAppInitialized: readonly(isAppInitialized),
     isInitializing: readonly(isInitializing),
     isFetchingUser: readonly(isFetchingUser),
-    
+
     // Computed
     hasStats,
     systemLoad,
-    
+
     // Original actions
     initializeAuth,
     checkAuthStatus,
@@ -384,7 +459,13 @@ export const useAuthStore = defineStore('auth', () => {
     connectWebSocket,
     logout,
     getGitHubAuthUrl,
-    
+
+    // SSO actions
+    getSsoAuthUrl,
+    startDeviceFlow,
+    pollDeviceToken,
+    fetchSubscription,
+
     // Enhanced actions
     clearError,
     tryInitializeApp,

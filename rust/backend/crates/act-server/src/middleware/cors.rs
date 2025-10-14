@@ -19,7 +19,6 @@ pub fn setup_cors(allowed_origins: Vec<String>) -> CorsLayer {
             axum::http::header::AUTHORIZATION,
             axum::http::header::HeaderName::from_static("x-requested-with"),
         ])
-        .allow_credentials(true)
         .max_age(std::time::Duration::from_secs(86400)); // 24 hours
 
     // Configure allowed origins based on environment

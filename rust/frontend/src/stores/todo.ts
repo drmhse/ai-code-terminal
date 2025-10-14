@@ -11,7 +11,7 @@ import type {
   CreateTaskRequest,
   CodeContext
 } from '@/services/microsoft-auth'
-import type { PaginationParams, PaginatedResponse, PaginationInfo } from '@/types'
+import type { PaginationParams, PaginationInfo } from '@/types'
 import { logger } from '@/utils/logger'
 import { socketService } from '@/services/socket'
 
@@ -298,7 +298,7 @@ export const useTodoStore = defineStore('todo', () => {
   }
 
   // Smart list selection based on workspace (backend-driven)
-  const selectListForWorkspace = async (workspaceId: string, workspaceName?: string) => {
+  const selectListForWorkspace = async (workspaceId: string) => {
     if (!hasValidAuth.value) return
 
     try {
@@ -334,7 +334,7 @@ export const useTodoStore = defineStore('todo', () => {
       }
     } else {
       // Workspace selected, try to find appropriate list
-      await selectListForWorkspace(workspace.id, workspace.name)
+      await selectListForWorkspace(workspace.id)
     }
   }
 
@@ -655,6 +655,7 @@ export const useTodoStore = defineStore('todo', () => {
         }
 
         // Set up one-time listeners using the socket service observables
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const startedSubscription = socketService.taskExecutionStarted$.subscribe((event: any) => {
           logger.log('Task execution started:', event)
 
@@ -674,6 +675,7 @@ export const useTodoStore = defineStore('todo', () => {
           errorSubscription.unsubscribe()
         })
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const errorSubscription = socketService.taskExecutionError$.subscribe((event: any) => {
           logger.error('Task execution error:', event)
           reject(new Error(event.error))
@@ -735,6 +737,7 @@ export const useTodoStore = defineStore('todo', () => {
           errorSubscription.unsubscribe()
         })
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const errorSubscription = socketService.taskExecutionError$.subscribe((event: any) => {
           logger.error('Cancel execution error:', event)
           reject(new Error(event.error))
@@ -783,6 +786,7 @@ export const useTodoStore = defineStore('todo', () => {
 
   const setupExecutionListeners = () => {
     // Subscribe to task execution events from socket service
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     socketService.taskExecutionOutput$.subscribe((event: any) => {
       const execution = activeExecutions.value.get(event.executionId)
       if (execution) {
@@ -790,6 +794,7 @@ export const useTodoStore = defineStore('todo', () => {
       }
     })
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     socketService.taskExecutionStatus$.subscribe((event: any) => {
       const execution = activeExecutions.value.get(event.executionId)
       if (execution) {
@@ -810,6 +815,7 @@ export const useTodoStore = defineStore('todo', () => {
       }
     })
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     socketService.taskExecutionError$.subscribe((event: any) => {
       logger.error('Task execution error:', event)
     })
@@ -848,7 +854,7 @@ export const useTodoStore = defineStore('todo', () => {
 
           if (newWorkspace) {
             logger.log(`🔄 Workspace changed to: ${newWorkspace.name}, auto-switching list`)
-            await selectListForWorkspace(newWorkspace.id, newWorkspace.name)
+            await selectListForWorkspace(newWorkspace.id)
           }
         },
         { immediate: false } // Don't run on initial mount, only on changes
@@ -862,7 +868,7 @@ export const useTodoStore = defineStore('todo', () => {
           if (newLength > 0 && oldLength === 0 && hasValidAuth.value) {
             if (workspaceStore.currentWorkspace) {
               logger.log(`🔄 Lists loaded, selecting for workspace: ${workspaceStore.currentWorkspace.name}`)
-              await selectListForWorkspace(workspaceStore.currentWorkspace.id, workspaceStore.currentWorkspace.name)
+              await selectListForWorkspace(workspaceStore.currentWorkspace.id)
             }
           }
         }

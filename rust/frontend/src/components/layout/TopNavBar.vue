@@ -162,7 +162,6 @@ import {
   CpuChipIcon,
   ClipboardDocumentListIcon,
   SunIcon,
-  MoonIcon,
   Cog6ToothIcon,
   ArrowRightOnRectangleIcon,
 } from '@heroicons/vue/24/outline'

@@ -69,6 +69,7 @@ aes-gcm = { workspace = true, features = ["std"] }
 base64.workspace = true
 rand = { workspace = true }
 constant_time_eq = "0.3"
+sha2 = "0.10"
 
 # URL encoding
 urlencoding = { workspace = true }

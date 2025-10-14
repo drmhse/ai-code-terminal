@@ -77,7 +77,7 @@ import TaskListSidebar from './TaskListSidebar.vue'
 import TasksList from './TasksList.vue'
 import TaskDetailPanel from './TaskDetailPanel.vue'
 import { ClipboardDocumentListIcon, PlusCircleIcon } from '@heroicons/vue/24/outline'
-import type { TodoTask, TaskList, CreateTaskRequest } from '@/services/microsoft-auth'
+import type { CreateTaskRequest } from '@/services/microsoft-auth'
 import { logger } from '@/utils/logger'
 
 // Stores

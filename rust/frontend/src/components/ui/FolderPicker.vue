@@ -121,9 +121,9 @@ const loadDirectory = async (path?: string) => {
     parentPath.value = response.parent_path
     entries.value = response.entries
     console.log('📂 Parsed entries:', entries.value.length, 'items')
-  } catch (err: any) {
+  } catch (err) {
     console.error('❌ Failed to load directory:', err)
-    error.value = err.message || 'Failed to load directory'
+    error.value = (err as Error).message || 'Failed to load directory'
   } finally {
     loading.value = false
   }

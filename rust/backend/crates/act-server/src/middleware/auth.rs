@@ -3,10 +3,11 @@ use axum::{
     extract::FromRequestParts,
     http::{request::Parts, StatusCode},
 };
-use jsonwebtoken::{decode, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use tracing::{debug, warn};
 
+// Legacy JWT claims (kept for backward compatibility during migration)
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
     pub sub: String,             // GitHub user ID
@@ -22,6 +23,9 @@ pub struct Claims {
 pub struct AuthenticatedUser {
     pub user_id: String,
     pub username: String,
+    pub org: Option<String>,
+    pub service: Option<String>,
+    pub features: Vec<String>,
 }
 
 #[axum::async_trait]
@@ -55,21 +59,67 @@ impl FromRequestParts<AppState> for AuthenticatedUser {
 
         debug!("JWT token received: {}", &token[..20.min(token.len())]);
 
-        // Verify JWT with secret from config
-        let secret = DecodingKey::from_secret(state.config.auth.jwt_secret.as_ref());
-        let validation = Validation::default();
-        let token_data = decode::<Claims>(&token, &secret, &validation).map_err(|e| {
-            warn!("JWT verification failed: {}", e);
+        // Validate token with SSO
+        let claims = state.sso_client.validate_token(&token).await.map_err(|e| {
+            warn!("SSO token validation failed: {}", e);
             StatusCode::UNAUTHORIZED
         })?;
 
-        let claims = token_data.claims;
-        debug!("JWT verification successful for user: {}", claims.username);
+        // Hash the token for session lookup
+        let token_hash = hash_token(&token);
 
-        // Return authenticated user info
+        // Check if session exists in local database
+        let session = sqlx::query_as::<_, SsoSession>(
+            "SELECT * FROM sso_sessions WHERE sso_token_hash = ? AND expires_at > datetime('now')",
+        )
+        .bind(&token_hash)
+        .fetch_optional(state.db.pool())
+        .await
+        .map_err(|e| {
+            warn!("Failed to query SSO session: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+        if session.is_none() {
+            warn!("No valid SSO session found for token");
+            return Err(StatusCode::UNAUTHORIZED);
+        }
+
+        debug!("SSO authentication successful for user: {}", claims.sub);
+
+        // Return authenticated user info with SSO claims
         Ok(AuthenticatedUser {
             user_id: claims.sub.clone(),
-            username: claims.github_username.clone(),
+            username: claims.sub.clone(), // Use sub as username for now
+            org: Some(claims.org),
+            service: Some(claims.service),
+            features: claims.features,
         })
     }
+}
+
+// Helper struct for SSO session
+#[derive(Debug, sqlx::FromRow)]
+struct SsoSession {
+    #[allow(dead_code)]
+    id: String,
+    #[allow(dead_code)]
+    user_id: String,
+    #[allow(dead_code)]
+    sso_token: String,
+    #[allow(dead_code)]
+    sso_token_hash: String,
+    #[allow(dead_code)]
+    provider: String,
+    #[allow(dead_code)]
+    expires_at: String,
+    #[allow(dead_code)]
+    created_at: String,
+}
+
+// Hash token for storage
+fn hash_token(token: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(token.as_bytes());
+    format!("{:x}", hasher.finalize())
 }

@@ -1,6 +1,7 @@
 use crate::config::Config;
 use crate::metrics::RealSystemMonitor;
 use crate::services::{GitHubService, ServerGitHubAuthService, ServerJwtService};
+use crate::sso::SsoClient;
 use act_core::events::InMemoryEventPublisher;
 use act_core::security::{InMemorySecurityAuditLogger, ProcessSecurityValidator};
 use act_core::{
@@ -35,6 +36,8 @@ pub struct AppState {
     pub filesystem: Arc<dyn FileSystem>,
     /// Task execution service (initialized separately with Socket.IO)
     pub task_execution_service: Arc<RwLock<Option<act_domain::TaskExecutionService>>>,
+    /// SSO client for authentication
+    pub sso_client: Arc<SsoClient>,
 }
 
 impl AppState {
@@ -175,6 +178,18 @@ impl AppState {
             microsoft_oauth_config,
         ));
 
+        // Create SSO client
+        let sso_client = Arc::new(
+            SsoClient::new(
+                config.sso.base_url.clone(),
+                config.sso.client_id.clone(),
+                config.sso.client_secret.clone(),
+                config.sso.org_slug.clone(),
+                config.sso.service_slug.clone(),
+            )
+            .map_err(|e| CoreError::Configuration(format!("Failed to create SSO client: {}", e)))?,
+        );
+
         Ok(Self {
             db: database,
             config,
@@ -182,6 +197,7 @@ impl AppState {
             pty_service,
             filesystem,
             task_execution_service: Arc::new(RwLock::new(None)),
+            sso_client,
         })
     }
 }

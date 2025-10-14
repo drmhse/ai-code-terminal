@@ -298,14 +298,17 @@ const priorities = [
 
 // Computed
 const hasCodeContext = computed(() => {
-  return localTask.value.body_content?.includes('<!-- DEV-CONTEXT') || false
+  // Use string concatenation to avoid Vue template parser confusion with HTML comments
+  return localTask.value.body_content?.includes('<!' + '-- DEV-CONTEXT') || false
 })
 
 const codeContext = computed(() => {
   if (!hasCodeContext.value) return null
 
   try {
-    const match = localTask.value.body_content?.match(/<!--\s*DEV-CONTEXT\s*\n([\s\S]*?)\n\s*-->/)
+    // Use RegExp constructor to avoid Vue template parser confusion with HTML comments
+    const commentPattern = new RegExp('<!' + '--\\s*DEV-CONTEXT\\s*\\n([\\s\\S]*?)\\n\\s*--' + '>', 'g')
+    const match = localTask.value.body_content?.match(commentPattern)
     if (!match) return null
 
     const contextData = JSON.parse(match[1].trim())

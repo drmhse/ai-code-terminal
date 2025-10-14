@@ -474,8 +474,7 @@ const clearPreviewError = () => {
 
   // Soft refresh - only reload a specific directory in the tree
   const refreshParentDirectory = async (dirPath: string) => {
-    const workspace = getWorkspaceContext()
-    const workspaceId = workspace?.id
+    getWorkspaceContext()
 
     try {
       // If it's the root, refresh the whole tree

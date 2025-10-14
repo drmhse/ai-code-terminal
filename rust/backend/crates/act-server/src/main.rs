@@ -9,6 +9,7 @@ mod models;
 mod routes;
 mod services;
 mod socket_handlers;
+mod sso;
 mod utils;
 
 use app_state::AppState;

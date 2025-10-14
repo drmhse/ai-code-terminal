@@ -9,6 +9,7 @@ pub struct Config {
     pub server: ServerConfig,
     pub database: DatabaseConfig,
     pub auth: AuthConfig,
+    pub sso: SsoConfig,
     pub cors: CorsConfig,
     pub workspace: WorkspaceConfig,
     pub microsoft: MicrosoftConfig,
@@ -47,6 +48,15 @@ pub struct WorkspaceConfig {
     pub root_path: PathBuf,
     pub auto_create: bool,
     pub allow_access_to_parent_dirs: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SsoConfig {
+    pub base_url: String,
+    pub client_id: String,
+    pub client_secret: String,
+    pub org_slug: String,
+    pub service_slug: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -91,6 +101,13 @@ impl Default for Config {
                     .join("workspaces"),
                 auto_create: true,
                 allow_access_to_parent_dirs: false,
+            },
+            sso: SsoConfig {
+                base_url: "http://localhost:3000".to_string(),
+                client_id: String::new(),
+                client_secret: String::new(),
+                org_slug: "ai-code-terminal".to_string(),
+                service_slug: "terminal".to_string(),
             },
             microsoft: MicrosoftConfig {
                 client_id: None,
@@ -192,6 +209,27 @@ impl Config {
             config.microsoft.tenant_id = Some(tenant_id);
         }
 
+        // Handle SSO configuration
+        if let Ok(sso_base_url) = std::env::var("ACT_SSO_BASE_URL") {
+            config.sso.base_url = sso_base_url;
+        }
+
+        if let Ok(sso_client_id) = std::env::var("ACT_SSO_CLIENT_ID") {
+            config.sso.client_id = sso_client_id;
+        }
+
+        if let Ok(sso_client_secret) = std::env::var("ACT_SSO_CLIENT_SECRET") {
+            config.sso.client_secret = sso_client_secret;
+        }
+
+        if let Ok(sso_org_slug) = std::env::var("ACT_SSO_ORG_SLUG") {
+            config.sso.org_slug = sso_org_slug;
+        }
+
+        if let Ok(sso_service_slug) = std::env::var("ACT_SSO_SERVICE_SLUG") {
+            config.sso.service_slug = sso_service_slug;
+        }
+
         Ok(config)
     }
 
@@ -205,6 +243,9 @@ impl Config {
 
         // Validate authentication configuration
         self.validate_auth_config()?;
+
+        // Validate SSO configuration
+        self.validate_sso_config()?;
 
         // Validate CORS configuration
         self.validate_cors_config()?;
@@ -307,6 +348,35 @@ impl Config {
                     username
                 ));
             }
+        }
+
+        Ok(())
+    }
+
+    /// Validate SSO configuration
+    fn validate_sso_config(&self) -> Result<(), String> {
+        if self.sso.base_url.is_empty() {
+            return Err("SSO base URL cannot be empty".to_string());
+        }
+
+        if Url::parse(&self.sso.base_url).is_err() {
+            return Err(format!("Invalid SSO base URL: {}", self.sso.base_url));
+        }
+
+        if self.sso.client_id.is_empty() {
+            return Err("SSO client ID is required".to_string());
+        }
+
+        if self.sso.client_secret.is_empty() {
+            return Err("SSO client secret is required".to_string());
+        }
+
+        if self.sso.org_slug.is_empty() {
+            return Err("SSO organization slug is required".to_string());
+        }
+
+        if self.sso.service_slug.is_empty() {
+            return Err("SSO service slug is required".to_string());
         }
 
         Ok(())

@@ -8,6 +8,7 @@ pub mod metrics;
 pub mod microsoft_auth;
 pub mod processes;
 pub mod sessions;
+pub mod sso_auth;
 pub mod system;
 pub mod task_executions;
 pub mod themes;
@@ -21,7 +22,8 @@ use axum::Router;
 pub fn api_routes() -> Router<AppState> {
     Router::new()
         // Public routes (no authentication required)
-        .nest("/auth", auth_routes())
+        .nest("/auth", sso_auth_routes()) // SSO auth routes (new)
+        .nest("/auth/legacy", auth_routes()) // Legacy GitHub auth routes
         .nest("/github", github_routes())
         .nest("/health", health::routes())
         // Protected routes (authentication required)
@@ -66,6 +68,32 @@ fn github_routes() -> Router<AppState> {
             axum::routing::get(github::get_repository_info),
         )
         .route("/clone", axum::routing::post(github::clone_repository))
+}
+
+fn sso_auth_routes() -> Router<AppState> {
+    Router::new()
+        // Device flow
+        .route("/device/start", axum::routing::post(sso_auth::device_start))
+        .route(
+            "/device/poll/:device_code",
+            axum::routing::get(sso_auth::device_poll),
+        )
+        // Web OAuth flow
+        .route(
+            "/:provider/start",
+            axum::routing::get(sso_auth::provider_start),
+        )
+        .route(
+            "/:provider/callback",
+            axum::routing::get(sso_auth::provider_callback),
+        )
+        // Session management
+        .route("/me", axum::routing::get(sso_auth::get_me))
+        .route("/logout", axum::routing::post(sso_auth::logout))
+        .route(
+            "/subscription",
+            axum::routing::get(sso_auth::get_subscription),
+        )
 }
 
 fn microsoft_auth_routes() -> Router<AppState> {

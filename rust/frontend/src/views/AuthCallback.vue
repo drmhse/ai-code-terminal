@@ -44,58 +44,21 @@ const error = ref<string>('')
 
 onMounted(async () => {
   try {
-    // Get GitHub OAuth callback parameters
-    const code = route.query.code as string
-    const state = route.query.state as string
+    // Get SSO callback parameters
+    // The backend redirects here with the token directly after exchanging the code
+    const token = route.query.token as string
     const errorParam = route.query.error as string
 
     if (errorParam) {
       throw new Error('Authentication was cancelled or failed')
     }
 
-    if (!code) {
-      throw new Error('Invalid authentication response: missing authorization code')
-    }
-
-    // Validate state parameter for security
-    if (state) {
-      const storedState = localStorage.getItem('oauth_state')
-      if (!storedState || storedState !== state) {
-        throw new Error('Invalid state parameter')
-      }
-      localStorage.removeItem('oauth_state')
-    }
-
-    // Send code and state to backend to exchange for token
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || ''
-    const url = state
-      ? `${apiBaseUrl}/api/v1/auth/github/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`
-      : `${apiBaseUrl}/api/v1/auth/github/callback?code=${encodeURIComponent(code)}`
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || 'Failed to exchange authentication code')
-    }
-
-    const data = await response.json()
-    
-    if (!data.success || !data.access_token) {
-      throw new Error(data.message || 'No access token received from server')
+    if (!token) {
+      throw new Error('No token received from authentication server')
     }
 
     // Set token in auth store
-    await authStore.setToken(data.access_token)
-
-    // Store user info if available
-    if (data.user) {
-      localStorage.setItem('user', JSON.stringify(data.user))
-    }
+    await authStore.setToken(token)
 
     // Short delay for better UX
     setTimeout(() => {
@@ -105,7 +68,7 @@ onMounted(async () => {
         router.push('/dashboard')
       }, 1000)
     }, 500)
-    
+
   } catch (err) {
     loading.value = false
     error.value = err instanceof Error ? err.message : 'An unexpected error occurred'

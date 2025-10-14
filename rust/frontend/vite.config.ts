@@ -4,12 +4,17 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
+// Detect if we're building for Tauri
+const isTauri = process.env.TAURI_ENV_PLATFORM !== undefined
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     vue(),
     vueDevTools(),
   ],
+  // Tauri expects a relative base in production builds
+  base: isTauri ? './' : '/',
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
@@ -18,7 +23,8 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
-    proxy: {
+    // Only use proxy when NOT running in Tauri (web mode)
+    proxy: isTauri ? undefined : {
       '/api': {
         target: 'http://localhost:3001',
         changeOrigin: true,
@@ -43,6 +49,9 @@ export default defineConfig({
             }
             if (id.includes('codemirror')) {
               return 'editor'
+            }
+            if (id.includes('@tauri-apps')) {
+              return 'tauri'
             }
             return 'other-vendor'
           }

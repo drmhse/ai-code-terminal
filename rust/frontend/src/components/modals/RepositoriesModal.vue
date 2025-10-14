@@ -156,9 +156,9 @@ const openFormRef = ref<InstanceType<typeof OpenFolderForm>>()
 
 // Tabs
 const tabs = computed(() => [
-  { value: 'empty', label: 'Empty Workspace', icon: FolderPlusIcon },
-  { value: 'open', label: 'Open Folder', icon: FolderOpenIcon },
-  { value: 'clone', label: 'Clone Repository', icon: ArrowDownTrayIcon }
+  { value: 'empty' as const, label: 'Empty Workspace', icon: FolderPlusIcon },
+  { value: 'open' as const, label: 'Open Folder', icon: FolderOpenIcon },
+  { value: 'clone' as const, label: 'Clone Repository', icon: ArrowDownTrayIcon }
 ])
 
 // Computed

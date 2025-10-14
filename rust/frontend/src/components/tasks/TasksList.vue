@@ -151,7 +151,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import type { TodoTask, CreateTaskRequest } from '@/services/microsoft-auth'
 import TaskItem from './TaskItem.vue'
 import TaskQuickCreate from './TaskQuickCreate.vue'
@@ -278,24 +278,19 @@ const groupedTasks = computed(() => {
 
   filteredTasks.value.forEach(task => {
     let groupKey: string
-    let groupTitle: string
 
     switch (props.groupBy) {
       case 'status':
         groupKey = task.status
-        groupTitle = getStatusLabel(task.status)
         break
       case 'priority':
         groupKey = task.importance
-        groupTitle = getPriorityLabel(task.importance)
         break
       case 'dueDate':
         groupKey = getDueDateGroup(task.due_date_time)
-        groupTitle = groupKey
         break
       default:
         groupKey = 'all'
-        groupTitle = 'All Tasks'
     }
 
     if (!groups.has(groupKey)) {
@@ -341,26 +336,6 @@ const sortTasks = (tasks: TodoTask[], sortBy: Props['sortBy']): TodoTask[] => {
     default:
       return sorted
   }
-}
-
-const getStatusLabel = (status: string): string => {
-  const statusMap: Record<string, string> = {
-    notStarted: 'Not Started',
-    inProgress: 'In Progress',
-    completed: 'Completed',
-    waitingOnOthers: 'Waiting on Others',
-    deferred: 'Deferred'
-  }
-  return statusMap[status] || status
-}
-
-const getPriorityLabel = (priority: string): string => {
-  const priorityMap: Record<string, string> = {
-    high: 'High Priority',
-    normal: 'Normal Priority',
-    low: 'Low Priority'
-  }
-  return priorityMap[priority] || priority
 }
 
 const getDueDateGroup = (dueDate: string | undefined): string => {
