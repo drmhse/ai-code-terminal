@@ -1,8 +1,47 @@
-use crate::{middleware::auth::AuthenticatedUser, models::ApiResponse, AppState};
+//! Microsoft To-Do Integration Routes
+//!
+//! # Token Management Architecture
+//!
+//! This module uses a **dual-token approach** to support both user-initiated requests
+//! and autonomous background sync:
+//!
+//! ## User-Initiated Requests (HTTP Routes)
+//! - Routes fetch fresh tokens from SSO on-demand via `sso_client.get_provider_token()`
+//! - These tokens are used directly for immediate Microsoft Graph API calls
+//! - **Important**: Routes optionally cache tokens in the repository for background sync
+//!
+//! ## Background Sync Operations
+//! - Background sync has no HTTP context and cannot access SSO JWT tokens
+//! - Instead, it reads cached tokens from repository via `microsoft_auth_service.get_access_token()`
+//! - These cached tokens are populated by routes when they fetch from SSO
+//!
+//! ## When to Cache Tokens
+//! Routes should cache SSO tokens if background sync needs to access Microsoft on behalf of users:
+//!
+//! ```rust,ignore
+//! // Get token from SSO
+//! let provider_token = state.sso_client
+//!     .get_provider_token(&auth_user.raw_jwt, "microsoft")
+//!     .await?;
+//!
+//! // Cache for background sync (use db_user_id as key, not sso_user_id!)
+//! cache_provider_token(&state, &auth_user.db_user_id, &provider_token).await;
+//!
+//! // Use token immediately
+//! let result = state.domain_services.microsoft_auth_service.graph_client
+//!     .get_task_lists(&provider_token.access_token, None)
+//!     .await?;
+//! ```
+//!
+//! ## Current Status
+//! - ✅ Routes use SSO for immediate token fetching
+//! - ✅ MicrosoftAuthService can read cached tokens for background sync
+//! - ✅ Routes now cache tokens for background sync using `cache_provider_token` helper
+
+use crate::{middleware::sso_auth::AuthenticatedUser, models::ApiResponse, AppState};
 use act_core::PaginationParams;
 use act_domain::{
-    microsoft_auth_types::OAuthState, CreateListRequest,
-    CreateTaskRequest as DomainCreateTaskRequest, MicrosoftAuthError, TaskBody, TaskImportance,
+    CreateListRequest, CreateTaskRequest as DomainCreateTaskRequest, TaskBody, TaskImportance,
 };
 use axum::{
     extract::{Path, Query, State},
@@ -12,25 +51,11 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use tracing::{error, info, warn};
 
-#[derive(Debug, Deserialize)]
-pub struct MicrosoftCallbackRequest {
-    code: Option<String>,
-    state: Option<String>,
-    error: Option<String>,
-    error_description: Option<String>,
-}
-
 #[derive(Debug, Serialize)]
 pub struct MicrosoftAuthStatusResponse {
     authenticated: bool,
     microsoft_email: Option<String>,
     connected_at: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct AuthUrlResponse {
-    auth_url: String,
-    state: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -53,296 +78,80 @@ pub struct CodeContext {
     context_snippet: Option<String>,
 }
 
+/// Helper function to cache Microsoft tokens for background sync
+///
+/// This caches tokens fetched from SSO so that background operations (like todo sync)
+/// can access Microsoft Graph API without an active HTTP request context.
+async fn cache_provider_token(
+    state: &AppState,
+    db_user_id: &str,
+    provider_token: &crate::sso::types::ProviderTokenResponse,
+) {
+    // Calculate expires_in from expires_at timestamp
+    let expires_in_seconds = if let Some(expires_at_str) = &provider_token.expires_at {
+        match chrono::DateTime::parse_from_rfc3339(expires_at_str) {
+            Ok(expires_at) => {
+                let now = chrono::Utc::now();
+                let duration = expires_at.signed_duration_since(now);
+                duration.num_seconds().max(0) as u64
+            }
+            Err(_) => {
+                warn!("Failed to parse expires_at timestamp, using default 3600 seconds");
+                3600 // Default to 1 hour
+            }
+        }
+    } else {
+        3600 // Default to 1 hour if no expiry provided
+    };
+
+    if let Err(e) = state
+        .domain_services
+        .microsoft_auth_service
+        .cache_token_for_background_sync(
+            db_user_id,
+            &provider_token.access_token,
+            expires_in_seconds,
+            provider_token.refresh_token.as_deref(),
+        )
+        .await
+    {
+        warn!(
+            "Failed to cache Microsoft token for user {}: {}",
+            db_user_id, e
+        );
+        // Continue despite cache failure - token is still valid for immediate use
+    }
+}
+
 /// Get Microsoft authentication status for current user
 pub async fn get_auth_status(
     State(state): State<AppState>,
     auth_user: AuthenticatedUser,
 ) -> Result<Json<ApiResponse<MicrosoftAuthStatusResponse>>> {
+    // Check if SSO can provide a Microsoft token for this user
     match state
-        .domain_services
-        .microsoft_auth_service
-        .is_authenticated(&auth_user.user_id)
+        .sso_client
+        .get_provider_token(&auth_user.raw_jwt, "microsoft")
         .await
     {
-        Ok(is_authenticated) => {
-            let status = MicrosoftAuthStatusResponse {
-                authenticated: is_authenticated,
-                microsoft_email: None, // Could be enhanced to fetch from repository
-                connected_at: None,    // Could be enhanced to fetch from repository
-            };
-
-            Ok(Json(ApiResponse::success(status)))
+        Ok(_) => {
+            Ok(Json(ApiResponse::success(MicrosoftAuthStatusResponse {
+                authenticated: true,
+                microsoft_email: Some(auth_user.email.clone()),
+                connected_at: None, // Not tracked anymore with SSO
+            })))
         }
         Err(e) => {
-            error!(
-                "Failed to check Microsoft auth status for user {}: {}",
-                auth_user.user_id, e
+            // If SSO can't provide token, user needs to connect Microsoft in SSO UI
+            warn!(
+                "User {} not connected to Microsoft via SSO: {}",
+                auth_user.sso_user_id, e
             );
-            Ok(Json(ApiResponse::error(format!(
-                "Failed to check authentication status: {}",
-                e
-            ))))
-        }
-    }
-}
-
-// Note: PKCE state is now managed via database (see OAuthState in domain layer)
-// Previously used in-memory cache has been removed for persistence and horizontal scalability
-
-/// Start Microsoft OAuth flow - redirect to Microsoft authorization
-pub async fn start_oauth_flow(
-    State(state): State<AppState>,
-    auth_user: AuthenticatedUser,
-) -> Result<Json<ApiResponse<AuthUrlResponse>>> {
-    match state
-        .domain_services
-        .microsoft_auth_service
-        .get_authorization_url()
-        .await
-    {
-        Ok(auth_response) => {
-            info!(
-                "Generated Microsoft OAuth URL for user: {}",
-                auth_user.user_id
-            );
-
-            // Store OAuth state in database for persistence across restarts
-            let oauth_state = OAuthState::new(
-                auth_response.state.clone(),
-                auth_user.user_id.clone(),
-                auth_response.code_verifier,
-            );
-
-            if let Err(e) = state
-                .domain_services
-                .microsoft_auth_service
-                .repository()
-                .store_oauth_state(&oauth_state)
-                .await
-            {
-                error!(
-                    "Failed to store OAuth state for user {}: {}",
-                    auth_user.user_id, e
-                );
-                return Ok(Json(ApiResponse::error("Failed to initiate OAuth flow")));
-            }
-
-            // Clean up expired states asynchronously
-            let repo = state
-                .domain_services
-                .microsoft_auth_service
-                .repository()
-                .clone();
-            tokio::spawn(async move {
-                let _ = repo.cleanup_expired_oauth_states().await;
-            });
-
-            let response = AuthUrlResponse {
-                auth_url: auth_response.url,
-                state: auth_response.state,
-            };
-
-            Ok(Json(ApiResponse::success(response)))
-        }
-        Err(e) => {
-            error!(
-                "Failed to generate Microsoft OAuth URL for user {}: {}",
-                auth_user.user_id, e
-            );
-            Ok(Json(ApiResponse::error(format!(
-                "Failed to generate authorization URL: {}",
-                e
-            ))))
-        }
-    }
-}
-
-/// Handle Microsoft OAuth callback - called by frontend with auth code
-pub async fn handle_oauth_callback(
-    State(state): State<AppState>,
-    auth_user: AuthenticatedUser,
-    Json(request): Json<MicrosoftCallbackRequest>,
-) -> Result<Json<ApiResponse<()>>> {
-    if let Some(error) = request.error {
-        error!(
-            "Microsoft OAuth error for user {}: {} - {}",
-            auth_user.user_id,
-            error,
-            request.error_description.unwrap_or_default()
-        );
-        return Ok(Json(ApiResponse::error("Microsoft OAuth failed")));
-    }
-
-    let code = match request.code {
-        Some(code) => code,
-        None => {
-            error!(
-                "No authorization code received for user: {}",
-                auth_user.user_id
-            );
-            return Ok(Json(ApiResponse::error("No authorization code received")));
-        }
-    };
-
-    let state_param = match request.state {
-        Some(state) => state,
-        None => {
-            error!(
-                "No state parameter received for user: {}",
-                auth_user.user_id
-            );
-            return Ok(Json(ApiResponse::error("No state parameter received")));
-        }
-    };
-
-    // Retrieve code_verifier from database using state (CSRF token)
-    let code_verifier = match state
-        .domain_services
-        .microsoft_auth_service
-        .repository()
-        .get_oauth_state(&state_param)
-        .await
-    {
-        Ok(Some(oauth_state)) => {
-            // Validate that the entry belongs to the current user
-            if oauth_state.user_id != auth_user.user_id {
-                error!(
-                    "OAuth state user mismatch for state {}: expected {}, got {}",
-                    state_param, auth_user.user_id, oauth_state.user_id
-                );
-                return Ok(Json(ApiResponse::error("Invalid state parameter")));
-            }
-
-            // Check expiration
-            if oauth_state.is_expired() {
-                error!(
-                    "OAuth state expired for state {} and user: {}",
-                    state_param, auth_user.user_id
-                );
-                // Clean up expired state
-                let _ = state
-                    .domain_services
-                    .microsoft_auth_service
-                    .repository()
-                    .remove_oauth_state(&state_param)
-                    .await;
-                return Ok(Json(ApiResponse::error("Expired state parameter")));
-            }
-
-            // Remove the state after retrieval (one-time use)
-            if let Err(e) = state
-                .domain_services
-                .microsoft_auth_service
-                .repository()
-                .remove_oauth_state(&state_param)
-                .await
-            {
-                warn!("Failed to remove OAuth state after retrieval: {}", e);
-            }
-
-            oauth_state.code_verifier
-        }
-        Ok(None) => {
-            error!(
-                "OAuth state not found for state {} and user: {}",
-                state_param, auth_user.user_id
-            );
-            return Ok(Json(ApiResponse::error(
-                "Invalid or expired state parameter",
-            )));
-        }
-        Err(e) => {
-            error!(
-                "Failed to retrieve OAuth state for user {}: {}",
-                auth_user.user_id, e
-            );
-            return Ok(Json(ApiResponse::error("Failed to retrieve OAuth state")));
-        }
-    };
-
-    info!(
-        "Processing Microsoft OAuth callback for user: {}, code: {}, state: {}, verifier: {}",
-        auth_user.user_id,
-        &code[..8],
-        state_param,
-        &code_verifier[..8]
-    );
-
-    match state
-        .domain_services
-        .microsoft_auth_service
-        .handle_oauth_callback(&auth_user.user_id, &code, &state_param, &code_verifier)
-        .await
-    {
-        Ok(()) => {
-            info!(
-                "Microsoft authentication successful for user: {}",
-                auth_user.user_id
-            );
-
-            // Verify auth was actually stored
-            match state
-                .domain_services
-                .microsoft_auth_service
-                .is_authenticated(&auth_user.user_id)
-                .await
-            {
-                Ok(true) => info!(
-                    "Verified Microsoft auth stored for user: {}",
-                    auth_user.user_id
-                ),
-                Ok(false) => error!(
-                    "❌ Microsoft auth NOT stored for user: {}",
-                    auth_user.user_id
-                ),
-                Err(e) => error!(
-                    "❌ Failed to verify Microsoft auth for user {}: {}",
-                    auth_user.user_id, e
-                ),
-            }
-
-            Ok(Json(ApiResponse::success(())))
-        }
-        Err(e) => {
-            error!(
-                "Microsoft OAuth callback failed for user {}: {}",
-                auth_user.user_id, e
-            );
-            Ok(Json(ApiResponse::error(format!(
-                "OAuth callback failed: {}",
-                e
-            ))))
-        }
-    }
-}
-
-/// Disconnect Microsoft account
-pub async fn disconnect_microsoft(
-    State(state): State<AppState>,
-    auth_user: AuthenticatedUser,
-) -> Result<Json<ApiResponse<()>>> {
-    match state
-        .domain_services
-        .microsoft_auth_service
-        .disconnect(&auth_user.user_id)
-        .await
-    {
-        Ok(()) => {
-            info!(
-                "Microsoft account disconnected for user: {}",
-                auth_user.user_id
-            );
-            Ok(Json(ApiResponse::success(())))
-        }
-        Err(e) => {
-            error!(
-                "Failed to disconnect Microsoft account for user {}: {}",
-                auth_user.user_id, e
-            );
-            Ok(Json(ApiResponse::error(format!(
-                "Failed to disconnect Microsoft account: {}",
-                e
-            ))))
+            Ok(Json(ApiResponse::success(MicrosoftAuthStatusResponse {
+                authenticated: false,
+                microsoft_email: None,
+                connected_at: None,
+            })))
         }
     }
 }
@@ -352,36 +161,48 @@ pub async fn get_all_task_lists(
     State(state): State<AppState>,
     auth_user: AuthenticatedUser,
 ) -> Result<Json<ApiResponse<Vec<act_domain::TaskList>>>> {
+    // Get Microsoft token from SSO
+    let provider_token = match state
+        .sso_client
+        .get_provider_token(&auth_user.raw_jwt, "microsoft")
+        .await
+    {
+        Ok(token) => token,
+        Err(e) => {
+            warn!(
+                "Failed to get Microsoft token from SSO for user {}: {}",
+                auth_user.sso_user_id, e
+            );
+            return Ok(Json(ApiResponse::error(
+                "Microsoft account not connected. Please connect your Microsoft account in Settings."
+            )));
+        }
+    };
+
+    // Cache token for background sync operations
+    cache_provider_token(&state, &auth_user.db_user_id, &provider_token).await;
+
+    // Call Graph API directly with SSO-provided token
     match state
         .domain_services
         .microsoft_auth_service
-        .get_all_task_lists(&auth_user.user_id)
+        .graph_client
+        .get_task_lists(&provider_token.access_token, None)
         .await
     {
-        Ok(lists) => {
+        Ok((lists, _)) => {
             info!(
                 "Retrieved {} task lists for user: {}",
                 lists.len(),
-                auth_user.user_id
+                auth_user.sso_user_id
             );
             Ok(Json(ApiResponse::success(lists)))
         }
-        Err(MicrosoftAuthError::NotAuthenticated) => {
-            warn!(
-                "User {} not authenticated with Microsoft",
-                auth_user.user_id
-            );
-            Ok(Json(ApiResponse::error(
-                "Microsoft authentication required",
-            )))
-        }
-        Err(MicrosoftAuthError::GraphApi(act_domain::GraphApiError::NotFound { resource })) => {
+        Err(act_domain::GraphApiError::NotFound { resource }) => {
             warn!(
                 "Task lists not found for user {}: {}",
-                auth_user.user_id, resource
+                auth_user.sso_user_id, resource
             );
-            // For debugging purposes, still return the error to understand what's happening
-            // In the future, this might return an empty array after we fix the root issue
             Ok(Json(ApiResponse::error(format!(
                 "Task lists not found: {}",
                 resource
@@ -389,8 +210,8 @@ pub async fn get_all_task_lists(
         }
         Err(e) => {
             error!(
-                "Failed to get task lists for user {}: {}",
-                auth_user.user_id, e
+                "Microsoft Graph API error for user {}: {}",
+                auth_user.sso_user_id, e
             );
             Ok(Json(ApiResponse::error(format!(
                 "Failed to get task lists: {}",
@@ -412,52 +233,75 @@ pub async fn get_list_tasks(
         return Ok(Json(ApiResponse::error(err)));
     }
 
-    match state
-        .domain_services
-        .microsoft_auth_service
-        .get_list_tasks_paginated(&auth_user.user_id, &list_id, &pagination)
+    // Get Microsoft token from SSO
+    let provider_token = match state
+        .sso_client
+        .get_provider_token(&auth_user.raw_jwt, "microsoft")
         .await
     {
-        Ok((tasks, total_count)) => {
-            info!(
-                "Retrieved {} tasks from list {} for user: {} (total: {})",
-                tasks.len(),
-                list_id,
-                auth_user.user_id,
-                total_count
-            );
-
-            let page = pagination.page.unwrap_or(1);
-            let page_size = pagination.get_limit();
-            let pagination_info = act_core::PaginationInfo::new(page, page_size, total_count);
-
-            let paginated_response = act_core::PaginatedResponse {
-                data: tasks,
-                pagination: pagination_info,
-            };
-
-            Ok(Json(ApiResponse::success(paginated_response)))
-        }
-        Err(MicrosoftAuthError::NotAuthenticated) => {
+        Ok(token) => token,
+        Err(e) => {
             warn!(
-                "User {} not authenticated with Microsoft",
-                auth_user.user_id
+                "Failed to get Microsoft token from SSO for user {}: {}",
+                auth_user.sso_user_id, e
             );
-            Ok(Json(ApiResponse::error(
-                "Microsoft authentication required",
-            )))
+            return Ok(Json(ApiResponse::error(
+                "Microsoft account not connected. Please connect your Microsoft account in Settings."
+            )));
         }
+    };
+
+    // Cache token for background sync operations
+    cache_provider_token(&state, &auth_user.db_user_id, &provider_token).await;
+
+    // Call Graph API directly with SSO-provided token
+    let (tasks, _) = match state
+        .domain_services
+        .microsoft_auth_service
+        .graph_client
+        .get_tasks(&provider_token.access_token, &list_id, Some(&pagination))
+        .await
+    {
+        Ok(result) => result,
         Err(e) => {
             error!(
-                "Failed to get tasks from list {} for user {}: {}",
-                list_id, auth_user.user_id, e
+                "Microsoft Graph API error for user {}: {}",
+                auth_user.sso_user_id, e
             );
-            Ok(Json(ApiResponse::error(format!(
+            return Ok(Json(ApiResponse::error(format!(
                 "Failed to get tasks: {}",
                 e
-            ))))
+            ))));
         }
-    }
+    };
+
+    // Estimate total count based on page size
+    let total_count = if tasks.len() < pagination.get_limit() as usize {
+        let offset = pagination.get_offset();
+        (offset + tasks.len() as u32) as u64
+    } else {
+        let offset = pagination.get_offset();
+        (offset + tasks.len() as u32 + 1) as u64
+    };
+
+    info!(
+        "Retrieved {} tasks from list {} for user: {} (total: {})",
+        tasks.len(),
+        list_id,
+        auth_user.sso_user_id,
+        total_count
+    );
+
+    let page = pagination.page.unwrap_or(1);
+    let page_size = pagination.get_limit();
+    let pagination_info = act_core::PaginationInfo::new(page, page_size, total_count);
+
+    let paginated_response = act_core::PaginatedResponse {
+        data: tasks,
+        pagination: pagination_info,
+    };
+
+    Ok(Json(ApiResponse::success(paginated_response)))
 }
 
 /// Get the user's default task list
@@ -465,36 +309,69 @@ pub async fn get_default_task_list(
     State(state): State<AppState>,
     auth_user: AuthenticatedUser,
 ) -> Result<Json<ApiResponse<Option<act_domain::TaskList>>>> {
+    // Get Microsoft token from SSO
+    let provider_token = match state
+        .sso_client
+        .get_provider_token(&auth_user.raw_jwt, "microsoft")
+        .await
+    {
+        Ok(token) => token,
+        Err(e) => {
+            warn!(
+                "Failed to get Microsoft token from SSO for user {}: {}",
+                auth_user.sso_user_id, e
+            );
+            return Ok(Json(ApiResponse::error(
+                "Microsoft account not connected. Please connect your Microsoft account in Settings."
+            )));
+        }
+    };
+
+    // Cache token for background sync operations
+    cache_provider_token(&state, &auth_user.db_user_id, &provider_token).await;
+
+    // Call Graph API to get all lists
     match state
         .domain_services
         .microsoft_auth_service
-        .get_default_task_list(&auth_user.user_id)
+        .graph_client
+        .get_task_lists(&provider_token.access_token, None)
         .await
     {
-        Ok(Some(list)) => {
-            info!(
-                "Retrieved default task list '{}' for user: {}",
-                list.display_name, auth_user.user_id
-            );
-            Ok(Json(ApiResponse::success(Some(list))))
+        Ok((all_lists, _)) => {
+            // Look for the default "Tasks" list
+            let default_list = all_lists.into_iter().find(|list| {
+                list.wellknown_list_name
+                    .as_ref()
+                    .is_some_and(|name| name == "defaultList")
+                    || list.display_name == "Tasks"
+            });
+
+            if let Some(ref list) = default_list {
+                info!(
+                    "Retrieved default task list '{}' for user: {}",
+                    list.display_name, auth_user.sso_user_id
+                );
+            } else {
+                info!(
+                    "No default task list found for user: {}",
+                    auth_user.sso_user_id
+                );
+            }
+
+            Ok(Json(ApiResponse::success(default_list)))
         }
-        Ok(None) => {
-            info!("No default task list found for user: {}", auth_user.user_id);
-            Ok(Json(ApiResponse::success(None)))
-        }
-        Err(MicrosoftAuthError::NotAuthenticated) => {
+        Err(act_domain::GraphApiError::NotFound { resource }) => {
             warn!(
-                "User {} not authenticated with Microsoft",
-                auth_user.user_id
+                "Task lists not found for user {}: {}",
+                auth_user.sso_user_id, resource
             );
-            Ok(Json(ApiResponse::error(
-                "Microsoft authentication required",
-            )))
+            Ok(Json(ApiResponse::success(None)))
         }
         Err(e) => {
             error!(
-                "Failed to get default task list for user {}: {}",
-                auth_user.user_id, e
+                "Microsoft Graph API error for user {}: {}",
+                auth_user.sso_user_id, e
             );
             Ok(Json(ApiResponse::error(format!(
                 "Failed to get default task list: {}",
@@ -515,32 +392,43 @@ pub async fn create_task_list(
         return Ok(Json(ApiResponse::error("List name cannot be empty")));
     }
 
+    // Get Microsoft token from SSO
+    let provider_token = match state
+        .sso_client
+        .get_provider_token(&auth_user.raw_jwt, "microsoft")
+        .await
+    {
+        Ok(token) => token,
+        Err(e) => {
+            warn!(
+                "Failed to get Microsoft token from SSO for user {}: {}",
+                auth_user.sso_user_id, e
+            );
+            return Ok(Json(ApiResponse::error(
+                "Microsoft account not connected. Please connect your Microsoft account in Settings."
+            )));
+        }
+    };
+
+    // Call Graph API to create task list
     match state
         .domain_services
         .microsoft_auth_service
-        .create_task_list(&auth_user.user_id, &request.display_name)
+        .graph_client
+        .create_task_list(&provider_token.access_token, request)
         .await
     {
         Ok(list) => {
             info!(
                 "Created task list '{}' for user: {}",
-                list.display_name, auth_user.user_id
+                list.display_name, auth_user.sso_user_id
             );
             Ok(Json(ApiResponse::success(list)))
         }
-        Err(MicrosoftAuthError::NotAuthenticated) => {
-            warn!(
-                "User {} not authenticated with Microsoft",
-                auth_user.user_id
-            );
-            Ok(Json(ApiResponse::error(
-                "Microsoft authentication required",
-            )))
-        }
         Err(e) => {
             error!(
-                "Failed to create task list for user {}: {}",
-                auth_user.user_id, e
+                "Microsoft Graph API error for user {}: {}",
+                auth_user.sso_user_id, e
             );
             Ok(Json(ApiResponse::error(format!(
                 "Failed to create list: {}",
@@ -600,32 +488,46 @@ pub async fn create_task_in_list(
         status: None,
     };
 
+    // Get Microsoft token from SSO
+    let provider_token = match state
+        .sso_client
+        .get_provider_token(&auth_user.raw_jwt, "microsoft")
+        .await
+    {
+        Ok(token) => token,
+        Err(e) => {
+            warn!(
+                "Failed to get Microsoft token from SSO for user {}: {}",
+                auth_user.sso_user_id, e
+            );
+            return Ok(Json(ApiResponse::error(
+                "Microsoft account not connected. Please connect your Microsoft account in Settings."
+            )));
+        }
+    };
+
+    // Cache token for background sync operations
+    cache_provider_token(&state, &auth_user.db_user_id, &provider_token).await;
+
+    // Call Graph API to create task
     match state
         .domain_services
         .microsoft_auth_service
-        .create_task_in_list(&auth_user.user_id, &list_id, domain_request)
+        .graph_client
+        .create_task(&provider_token.access_token, &list_id, domain_request)
         .await
     {
         Ok(task) => {
             info!(
                 "Created task '{}' in list {} for user: {}",
-                task.title, list_id, auth_user.user_id
+                task.title, list_id, auth_user.sso_user_id
             );
             Ok(Json(ApiResponse::success(task)))
         }
-        Err(MicrosoftAuthError::NotAuthenticated) => {
-            warn!(
-                "User {} not authenticated with Microsoft",
-                auth_user.user_id
-            );
-            Ok(Json(ApiResponse::error(
-                "Microsoft authentication required",
-            )))
-        }
         Err(e) => {
             error!(
-                "Failed to create task in list {} for user {}: {}",
-                list_id, auth_user.user_id, e
+                "Microsoft Graph API error for user {}: {}",
+                auth_user.sso_user_id, e
             );
             Ok(Json(ApiResponse::error(format!(
                 "Failed to create task: {}",
@@ -685,32 +587,48 @@ pub async fn update_task(
         status: request.status,
     };
 
+    // Get Microsoft token from SSO
+    let provider_token = match state
+        .sso_client
+        .get_provider_token(&auth_user.raw_jwt, "microsoft")
+        .await
+    {
+        Ok(token) => token,
+        Err(e) => {
+            warn!(
+                "Failed to get Microsoft token from SSO for user {}: {}",
+                auth_user.sso_user_id, e
+            );
+            return Ok(Json(ApiResponse::error(
+                "Microsoft account not connected. Please connect your Microsoft account in Settings."
+            )));
+        }
+    };
+
+    // Call Graph API to update task
     match state
         .domain_services
         .microsoft_auth_service
-        .update_task(&auth_user.user_id, &list_id, &task_id, domain_request)
+        .graph_client
+        .update_task(
+            &provider_token.access_token,
+            &list_id,
+            &task_id,
+            domain_request,
+        )
         .await
     {
         Ok(task) => {
             info!(
                 "Updated task '{}' in list {} for user: {}",
-                task.title, list_id, auth_user.user_id
+                task.title, list_id, auth_user.sso_user_id
             );
             Ok(Json(ApiResponse::success(task)))
         }
-        Err(MicrosoftAuthError::NotAuthenticated) => {
-            warn!(
-                "User {} not authenticated with Microsoft",
-                auth_user.user_id
-            );
-            Ok(Json(ApiResponse::error(
-                "Microsoft authentication required",
-            )))
-        }
         Err(e) => {
             error!(
-                "Failed to update task in list {} for user {}: {}",
-                list_id, auth_user.user_id, e
+                "Microsoft Graph API error for user {}: {}",
+                auth_user.sso_user_id, e
             );
             Ok(Json(ApiResponse::error(format!(
                 "Failed to update task: {}",
@@ -726,32 +644,43 @@ pub async fn delete_task(
     auth_user: AuthenticatedUser,
     Path((list_id, task_id)): Path<(String, String)>,
 ) -> Result<Json<ApiResponse<()>>> {
+    // Get Microsoft token from SSO
+    let provider_token = match state
+        .sso_client
+        .get_provider_token(&auth_user.raw_jwt, "microsoft")
+        .await
+    {
+        Ok(token) => token,
+        Err(e) => {
+            warn!(
+                "Failed to get Microsoft token from SSO for user {}: {}",
+                auth_user.sso_user_id, e
+            );
+            return Ok(Json(ApiResponse::error(
+                "Microsoft account not connected. Please connect your Microsoft account in Settings."
+            )));
+        }
+    };
+
+    // Call Graph API to delete task
     match state
         .domain_services
         .microsoft_auth_service
-        .delete_task(&auth_user.user_id, &list_id, &task_id)
+        .graph_client
+        .delete_task(&provider_token.access_token, &list_id, &task_id)
         .await
     {
         Ok(()) => {
             info!(
                 "Deleted task {} from list {} for user: {}",
-                task_id, list_id, auth_user.user_id
+                task_id, list_id, auth_user.sso_user_id
             );
             Ok(Json(ApiResponse::success(())))
         }
-        Err(MicrosoftAuthError::NotAuthenticated) => {
-            warn!(
-                "User {} not authenticated with Microsoft",
-                auth_user.user_id
-            );
-            Ok(Json(ApiResponse::error(
-                "Microsoft authentication required",
-            )))
-        }
         Err(e) => {
             error!(
-                "Failed to delete task {} from list {} for user {}: {}",
-                task_id, list_id, auth_user.user_id, e
+                "Microsoft Graph API error for user {}: {}",
+                auth_user.sso_user_id, e
             );
             Ok(Json(ApiResponse::error(format!(
                 "Failed to delete task: {}",
@@ -767,32 +696,43 @@ pub async fn get_task(
     auth_user: AuthenticatedUser,
     Path((list_id, task_id)): Path<(String, String)>,
 ) -> Result<Json<ApiResponse<act_domain::Task>>> {
+    // Get Microsoft token from SSO
+    let provider_token = match state
+        .sso_client
+        .get_provider_token(&auth_user.raw_jwt, "microsoft")
+        .await
+    {
+        Ok(token) => token,
+        Err(e) => {
+            warn!(
+                "Failed to get Microsoft token from SSO for user {}: {}",
+                auth_user.sso_user_id, e
+            );
+            return Ok(Json(ApiResponse::error(
+                "Microsoft account not connected. Please connect your Microsoft account in Settings."
+            )));
+        }
+    };
+
+    // Call Graph API to get task
     match state
         .domain_services
         .microsoft_auth_service
-        .get_task(&auth_user.user_id, &list_id, &task_id)
+        .graph_client
+        .get_task(&provider_token.access_token, &list_id, &task_id)
         .await
     {
         Ok(task) => {
             info!(
                 "Retrieved task {} from list {} for user: {}",
-                task_id, list_id, auth_user.user_id
+                task_id, list_id, auth_user.sso_user_id
             );
             Ok(Json(ApiResponse::success(task)))
         }
-        Err(MicrosoftAuthError::NotAuthenticated) => {
-            warn!(
-                "User {} not authenticated with Microsoft",
-                auth_user.user_id
-            );
-            Ok(Json(ApiResponse::error(
-                "Microsoft authentication required",
-            )))
-        }
         Err(e) => {
             error!(
-                "Failed to retrieve task {} from list {} for user {}: {}",
-                task_id, list_id, auth_user.user_id, e
+                "Microsoft Graph API error for user {}: {}",
+                auth_user.sso_user_id, e
             );
             Ok(Json(ApiResponse::error(format!(
                 "Failed to retrieve task: {}",
@@ -807,33 +747,39 @@ pub async fn health_check(
     State(state): State<AppState>,
     auth_user: AuthenticatedUser,
 ) -> Result<Json<ApiResponse<serde_json::Value>>> {
+    // Check if SSO can provide a Microsoft token
     match state
-        .domain_services
-        .microsoft_auth_service
-        .health_check(&auth_user.user_id)
+        .sso_client
+        .get_provider_token(&auth_user.raw_jwt, "microsoft")
         .await
     {
-        Ok(status) => {
+        Ok(_token) => {
             let health_info = serde_json::json!({
                 "microsoft_integration": "available",
-                "authenticated": status.authenticated,
-                "graph_accessible": status.graph_accessible,
-                "configuration_valid": status.configuration_valid,
-                "user_email": status.user_email,
-                "error": status.error
+                "authenticated": true,
+                "graph_accessible": true,
+                "configuration_valid": true,
+                "user_email": Some(auth_user.email.clone()),
+                "error": null
             });
 
             Ok(Json(ApiResponse::success(health_info)))
         }
         Err(e) => {
-            error!(
+            warn!(
                 "Microsoft health check failed for user {}: {}",
-                auth_user.user_id, e
+                auth_user.sso_user_id, e
             );
-            Ok(Json(ApiResponse::error(format!(
-                "Health check failed: {}",
-                e
-            ))))
+            let health_info = serde_json::json!({
+                "microsoft_integration": "available",
+                "authenticated": false,
+                "graph_accessible": false,
+                "configuration_valid": true,
+                "user_email": null,
+                "error": "Microsoft account not connected"
+            });
+
+            Ok(Json(ApiResponse::success(health_info)))
         }
     }
 }

@@ -62,7 +62,7 @@ const loginWithProvider = (provider: 'github' | 'microsoft' | 'google') => {
   if (isLoggingIn.value) return
   isLoggingIn.value = true
 
-  const authUrl = authStore.getSsoAuthUrl(provider)
+  const authUrl = authStore.getLoginUrl(provider)
   console.log(`[Login] Starting SSO OAuth with ${provider}`)
   window.location.href = authUrl
 }

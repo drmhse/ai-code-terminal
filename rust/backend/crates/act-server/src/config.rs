@@ -8,7 +8,6 @@ use url::Url;
 pub struct Config {
     pub server: ServerConfig,
     pub database: DatabaseConfig,
-    pub auth: AuthConfig,
     pub sso: SsoConfig,
     pub cors: CorsConfig,
     pub workspace: WorkspaceConfig,
@@ -29,15 +28,6 @@ pub struct DatabaseConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AuthConfig {
-    pub jwt_secret: String,
-    pub github_client_id: String,
-    pub github_client_secret: String,
-    pub github_redirect_url: String,
-    pub tenant_github_usernames: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CorsConfig {
     pub allowed_origins: Vec<String>,
     pub allowed_headers: Vec<String>,
@@ -53,19 +43,16 @@ pub struct WorkspaceConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SsoConfig {
     pub base_url: String,
-    pub client_id: String,
-    pub client_secret: String,
     pub org_slug: String,
     pub service_slug: String,
+    pub jwks_url: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MicrosoftConfig {
-    pub client_id: Option<String>,
-    pub client_secret: Option<String>,
-    pub redirect_uri: Option<String>,
+    /// Encryption key for caching provider tokens from SSO
+    /// Used to store Microsoft tokens securely for background sync operations
     pub encryption_key: Option<String>,
-    pub tenant_id: Option<String>,
 }
 
 impl Default for Config {
@@ -79,13 +66,6 @@ impl Default for Config {
             database: DatabaseConfig {
                 url: "sqlite:./data/act.db".to_string(),
                 max_connections: 10,
-            },
-            auth: AuthConfig {
-                jwt_secret: "your-secret-key-change-in-production".to_string(),
-                github_client_id: String::new(),
-                github_client_secret: String::new(),
-                github_redirect_url: "http://localhost:3001/auth/callback".to_string(),
-                tenant_github_usernames: Vec::new(),
             },
             cors: CorsConfig {
                 allowed_origins: vec!["http://localhost:5173".to_string()],
@@ -103,18 +83,13 @@ impl Default for Config {
                 allow_access_to_parent_dirs: false,
             },
             sso: SsoConfig {
-                base_url: "http://localhost:3000".to_string(),
-                client_id: String::new(),
-                client_secret: String::new(),
-                org_slug: "ai-code-terminal".to_string(),
-                service_slug: "terminal".to_string(),
+                base_url: String::new(),
+                org_slug: String::new(),
+                service_slug: String::new(),
+                jwks_url: String::new(),
             },
             microsoft: MicrosoftConfig {
-                client_id: None,
-                client_secret: None,
-                redirect_uri: None,
                 encryption_key: None,
-                tenant_id: None,
             },
         }
     }
@@ -147,30 +122,6 @@ impl Config {
             config.server.port = port.parse().unwrap_or(config.server.port);
         }
 
-        if let Ok(jwt_secret) = std::env::var("ACT_AUTH_JWT_SECRET") {
-            config.auth.jwt_secret = jwt_secret;
-        }
-
-        if let Ok(github_client_id) = std::env::var("ACT_AUTH_GITHUB_CLIENT_ID") {
-            config.auth.github_client_id = github_client_id;
-        }
-
-        if let Ok(github_client_secret) = std::env::var("ACT_AUTH_GITHUB_CLIENT_SECRET") {
-            config.auth.github_client_secret = github_client_secret;
-        }
-
-        if let Ok(github_redirect_url) = std::env::var("ACT_AUTH_GITHUB_REDIRECT_URL") {
-            config.auth.github_redirect_url = github_redirect_url;
-        }
-
-        if let Ok(tenant_github_usernames) = std::env::var("ACT_AUTH_TENANT_GITHUB_USERNAME") {
-            config.auth.tenant_github_usernames = tenant_github_usernames
-                .split(',')
-                .map(|s| s.trim().to_string())
-                .filter(|s| !s.is_empty())
-                .collect();
-        }
-
         // Handle CORS origins (could be multiple)
         if let Ok(origins) = std::env::var("ACT_CORS_ALLOWED_ORIGINS") {
             config.cors.allowed_origins =
@@ -188,38 +139,16 @@ impl Config {
                 allow_parent_dirs.to_lowercase() == "true" || allow_parent_dirs == "1";
         }
 
-        // Handle Microsoft configuration
-        if let Ok(client_id) = std::env::var("MS_CLIENT_ID") {
-            config.microsoft.client_id = Some(client_id);
-        }
-
-        if let Ok(client_secret) = std::env::var("MS_CLIENT_SECRET") {
-            config.microsoft.client_secret = Some(client_secret);
-        }
-
-        if let Ok(redirect_uri) = std::env::var("MS_REDIRECT_URI") {
-            config.microsoft.redirect_uri = Some(redirect_uri);
-        }
-
+        // Handle Microsoft token encryption configuration
+        // Note: OAuth is handled by SSO, but we still need encryption for token caching
         if let Ok(encryption_key) = std::env::var("MS_ENCRYPTION_KEY") {
             config.microsoft.encryption_key = Some(encryption_key);
         }
 
-        if let Ok(tenant_id) = std::env::var("MS_TENANT_ID") {
-            config.microsoft.tenant_id = Some(tenant_id);
-        }
-
         // Handle SSO configuration
+        // Note: SSO server handles client identification automatically via org and service slugs
         if let Ok(sso_base_url) = std::env::var("ACT_SSO_BASE_URL") {
             config.sso.base_url = sso_base_url;
-        }
-
-        if let Ok(sso_client_id) = std::env::var("ACT_SSO_CLIENT_ID") {
-            config.sso.client_id = sso_client_id;
-        }
-
-        if let Ok(sso_client_secret) = std::env::var("ACT_SSO_CLIENT_SECRET") {
-            config.sso.client_secret = sso_client_secret;
         }
 
         if let Ok(sso_org_slug) = std::env::var("ACT_SSO_ORG_SLUG") {
@@ -228,6 +157,10 @@ impl Config {
 
         if let Ok(sso_service_slug) = std::env::var("ACT_SSO_SERVICE_SLUG") {
             config.sso.service_slug = sso_service_slug;
+        }
+
+        if let Ok(sso_jwks_url) = std::env::var("ACT_SSO_JWKS_URL") {
+            config.sso.jwks_url = sso_jwks_url;
         }
 
         Ok(config)
@@ -240,9 +173,6 @@ impl Config {
 
         // Validate database configuration
         self.validate_database_config()?;
-
-        // Validate authentication configuration
-        self.validate_auth_config()?;
 
         // Validate SSO configuration
         self.validate_sso_config()?;
@@ -306,53 +236,6 @@ impl Config {
         Ok(())
     }
 
-    /// Validate authentication configuration
-    fn validate_auth_config(&self) -> Result<(), String> {
-        if self.auth.jwt_secret.is_empty() {
-            return Err("JWT secret cannot be empty".to_string());
-        }
-
-        if self.auth.jwt_secret.len() < 32 {
-            return Err("JWT secret must be at least 32 characters long".to_string());
-        }
-
-        if self.auth.jwt_secret == "your-secret-key-change-in-production" {
-            tracing::warn!("Using default JWT secret - change this in production!");
-        }
-
-        if self.auth.github_client_id.is_empty() {
-            return Err("GitHub client ID is required".to_string());
-        }
-
-        if self.auth.github_client_secret.is_empty() {
-            return Err("GitHub client secret is required".to_string());
-        }
-
-        if self.auth.tenant_github_usernames.is_empty() {
-            return Err("At least one tenant GitHub username is required".to_string());
-        }
-
-        // Validate GitHub redirect URL is a valid URL
-        if Url::parse(&self.auth.github_redirect_url).is_err() {
-            return Err(format!(
-                "Invalid GitHub redirect URL: {}",
-                self.auth.github_redirect_url
-            ));
-        }
-
-        // Validate each GitHub username format (alphanumeric and hyphens only)
-        for username in &self.auth.tenant_github_usernames {
-            if !username.chars().all(|c| c.is_alphanumeric() || c == '-') {
-                return Err(format!(
-                    "GitHub username '{}' can only contain alphanumeric characters and hyphens",
-                    username
-                ));
-            }
-        }
-
-        Ok(())
-    }
-
     /// Validate SSO configuration
     fn validate_sso_config(&self) -> Result<(), String> {
         if self.sso.base_url.is_empty() {
@@ -363,20 +246,20 @@ impl Config {
             return Err(format!("Invalid SSO base URL: {}", self.sso.base_url));
         }
 
-        if self.sso.client_id.is_empty() {
-            return Err("SSO client ID is required".to_string());
-        }
-
-        if self.sso.client_secret.is_empty() {
-            return Err("SSO client secret is required".to_string());
-        }
-
         if self.sso.org_slug.is_empty() {
             return Err("SSO organization slug is required".to_string());
         }
 
         if self.sso.service_slug.is_empty() {
             return Err("SSO service slug is required".to_string());
+        }
+
+        if self.sso.jwks_url.is_empty() {
+            return Err("SSO JWKS URL is required".to_string());
+        }
+
+        if Url::parse(&self.sso.jwks_url).is_err() {
+            return Err(format!("Invalid SSO JWKS URL: {}", self.sso.jwks_url));
         }
 
         Ok(())

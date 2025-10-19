@@ -1,5 +1,5 @@
 use crate::{
-    error::ServerError, middleware::auth::AuthenticatedUser, models::ApiResponse, AppState,
+    error::ServerError, middleware::sso_auth::AuthenticatedUser, models::ApiResponse, AppState,
 };
 
 use axum::{
@@ -121,25 +121,25 @@ async fn list_processes(
     user: AuthenticatedUser,
     Query(params): Query<ListProcessesQuery>,
 ) -> Result<Json<ApiResponse<Vec<ProcessResponse>>>, ServerError> {
-    info!("Listing processes for user {}", user.user_id);
+    info!("Listing processes for user {}", user.sso_user_id);
 
     let processes = if let Some(workspace_id) = &params.workspace_id {
         state
             .domain_services
             .process_service
-            .list_workspace_processes(&user.user_id, workspace_id)
+            .list_workspace_processes(&user.db_user_id, workspace_id)
             .await
     } else if let Some(session_id) = &params.session_id {
         state
             .domain_services
             .process_service
-            .list_session_processes(&user.user_id, session_id)
+            .list_session_processes(&user.db_user_id, session_id)
             .await
     } else {
         state
             .domain_services
             .process_service
-            .list_user_processes(&user.user_id)
+            .list_user_processes(&user.db_user_id)
             .await
     }?;
 
@@ -156,7 +156,7 @@ async fn create_process(
 ) -> Result<Json<ApiResponse<ProcessResponse>>, ServerError> {
     info!(
         "Creating process '{}' for user {}",
-        request.name, user.user_id
+        request.name, user.sso_user_id
     );
 
     // Fetch workspace_root if workspace_id is provided
@@ -164,7 +164,7 @@ async fn create_process(
         match state
             .domain_services
             .workspace_service
-            .get_workspace(&user.user_id, workspace_id)
+            .get_workspace(&user.db_user_id, workspace_id)
             .await
         {
             Ok(workspace) => Some(workspace.local_path),
@@ -197,7 +197,7 @@ async fn create_process(
     let process = state
         .domain_services
         .process_service
-        .create_process(&user.user_id, domain_request)
+        .create_process(&user.db_user_id, domain_request)
         .await?;
 
     Ok(Json(ApiResponse::success(ProcessResponse::from(process))))
@@ -208,12 +208,12 @@ async fn get_process(
     user: AuthenticatedUser,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<ProcessResponse>>, ServerError> {
-    info!("Getting process {} for user {}", id, user.user_id);
+    info!("Getting process {} for user {}", id, user.sso_user_id);
 
     let process = state
         .domain_services
         .process_service
-        .get_process(&user.user_id, &id)
+        .get_process(&user.db_user_id, &id)
         .await?;
 
     Ok(Json(ApiResponse::success(ProcessResponse::from(process))))
@@ -225,7 +225,7 @@ async fn update_process(
     Path(id): Path<String>,
     Json(request): Json<UpdateProcessRequest>,
 ) -> Result<Json<ApiResponse<ProcessResponse>>, ServerError> {
-    info!("Updating process {} for user {}", id, user.user_id);
+    info!("Updating process {} for user {}", id, user.sso_user_id);
 
     let domain_request = act_core::repository::UpdateProcessRequest {
         name: request.name,
@@ -241,7 +241,7 @@ async fn update_process(
     let process = state
         .domain_services
         .process_service
-        .update_process(&user.user_id, &id, domain_request)
+        .update_process(&user.db_user_id, &id, domain_request)
         .await?;
 
     Ok(Json(ApiResponse::success(ProcessResponse::from(process))))
@@ -252,12 +252,12 @@ async fn delete_process(
     user: AuthenticatedUser,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
-    info!("Deleting process {} for user {}", id, user.user_id);
+    info!("Deleting process {} for user {}", id, user.sso_user_id);
 
     state
         .domain_services
         .process_service
-        .delete_process(&user.user_id, &id)
+        .delete_process(&user.db_user_id, &id)
         .await?;
 
     Ok(Json(ApiResponse::success(())))
@@ -268,12 +268,12 @@ async fn stop_process(
     user: AuthenticatedUser,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
-    info!("Stopping process {} for user {}", id, user.user_id);
+    info!("Stopping process {} for user {}", id, user.sso_user_id);
 
     state
         .domain_services
         .process_service
-        .stop_process(&user.user_id, &id)
+        .stop_process(&user.db_user_id, &id)
         .await?;
 
     Ok(Json(ApiResponse::success(())))
@@ -284,12 +284,12 @@ async fn restart_process(
     user: AuthenticatedUser,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
-    info!("Restarting process {} for user {}", id, user.user_id);
+    info!("Restarting process {} for user {}", id, user.sso_user_id);
 
     state
         .domain_services
         .process_service
-        .restart_process(&user.user_id, &id)
+        .restart_process(&user.db_user_id, &id)
         .await?;
 
     Ok(Json(ApiResponse::success(())))
@@ -302,13 +302,13 @@ async fn get_process_output(
 ) -> Result<Json<ApiResponse<String>>, ServerError> {
     info!(
         "Getting output for process {} for user {}",
-        id, user.user_id
+        id, user.sso_user_id
     );
 
     let (stdout, stderr) = state
         .domain_services
         .process_service
-        .get_process_output(&user.user_id, &id)
+        .get_process_output(&user.db_user_id, &id)
         .await?;
 
     let combined_output = format!("STDOUT:\n{}\n\nSTDERR:\n{}", stdout, stderr);

@@ -7,26 +7,25 @@
 --  Users & Authentication
 -- =============================================================================
 
--- Stores core user information, linked to their GitHub identity.
+-- Stores core user information, linked to their SSO identity.
 CREATE TABLE users (
     id TEXT PRIMARY KEY,                            -- Internal unique UUID for the user
-    github_id TEXT NOT NULL UNIQUE,                 -- GitHub's unique user ID
-    username TEXT NOT NULL,                         -- GitHub username
-    email TEXT,
-    avatar_url TEXT,
+    sso_user_id TEXT UNIQUE,                        -- SSO's unique user ID (sub claim)
+    username TEXT,                                  -- Username (derived from SSO)
+    email TEXT,                                     -- Email (derived from SSO)
+    avatar_url TEXT,                                -- Avatar URL (derived from SSO)
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX idx_users_sso_user_id ON users(sso_user_id);
 
 -- Stores user-specific settings, including sensitive tokens and preferences.
 CREATE TABLE user_settings (
     user_id TEXT PRIMARY KEY,
-    github_token TEXT,                              -- Encrypted GitHub OAuth access token
-    github_refresh_token TEXT,                      -- Encrypted GitHub OAuth refresh token
-    github_token_expires_at DATETIME,
     theme TEXT,                                     -- JSON string of user's ThemePreference
     current_workspace_id TEXT,                      -- Current workspace preference
     layout_preferences TEXT,                        -- JSON storage for layout preferences
+    default_provider TEXT,                          -- User's primary login provider from SSO (github, microsoft, google)
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -35,6 +34,7 @@ CREATE TABLE user_settings (
 CREATE INDEX idx_user_settings_user_id ON user_settings(user_id);
 CREATE INDEX idx_user_settings_current_workspace ON user_settings(current_workspace_id);
 CREATE INDEX idx_user_settings_layout_preferences ON user_settings(user_id) WHERE layout_preferences IS NOT NULL;
+CREATE INDEX idx_user_settings_default_provider ON user_settings(default_provider) WHERE default_provider IS NOT NULL;
 
 -- =============================================================================
 --  Workspaces & Layouts
@@ -216,33 +216,24 @@ CREATE INDEX idx_task_sync_metadata_next_sync ON task_sync_metadata(next_sync_at
 CREATE INDEX idx_task_sync_metadata_error_state ON task_sync_metadata(sync_errors, is_sync_enabled);
 
 -- =============================================================================
---  OAuth & Token Management
+--  SSO Session Management
 -- =============================================================================
 
--- Table to store OAuth PKCE verifiers and state tokens
-CREATE TABLE oauth_states (
-    state TEXT PRIMARY KEY,                     -- OAuth state parameter (CSRF token)
-    user_id TEXT NOT NULL,                      -- User ID who initiated the OAuth flow
-    code_verifier TEXT NOT NULL,                -- PKCE code verifier
-    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-    expires_at INTEGER NOT NULL,                -- Expiration timestamp (10 minutes from creation)
+-- Stores SSO session information for authenticated users
+CREATE TABLE sso_sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    sso_token_hash TEXT NOT NULL,       -- Hash of the token for lookup
+    provider TEXT NOT NULL,              -- 'github', 'microsoft', 'google'
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Index for cleanup of expired states
-CREATE INDEX idx_oauth_states_expires_at ON oauth_states(expires_at);
-CREATE INDEX idx_oauth_states_user_id ON oauth_states(user_id);
+CREATE INDEX idx_sso_sessions_user_id ON sso_sessions(user_id);
+CREATE INDEX idx_sso_sessions_expires_at ON sso_sessions(expires_at);
+CREATE INDEX idx_sso_sessions_token_hash ON sso_sessions(sso_token_hash);
 
--- Table to manage token refresh locks across multiple server instances
-CREATE TABLE token_refresh_locks (
-    user_id TEXT PRIMARY KEY,                      -- User ID being locked
-    acquired_at INTEGER NOT NULL DEFAULT (unixepoch()),
-    expires_at INTEGER NOT NULL,                   -- Lock expiration (30 seconds default)
-    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
--- Index for cleanup of expired locks
-CREATE INDEX idx_token_refresh_locks_expires_at ON token_refresh_locks(expires_at);
 
 -- =============================================================================
 --  Triggers for Timestamp Management

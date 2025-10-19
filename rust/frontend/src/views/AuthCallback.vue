@@ -3,10 +3,10 @@
     <div class="callback-card">
       <div v-if="loading" class="loading-state">
         <div class="spinner"></div>
-        <h2>Completing Authentication...</h2>
-        <p>Please wait while we log you in.</p>
+        <h2>{{ loadingMessage }}</h2>
+        <p>{{ loadingSubtext }}</p>
       </div>
-      
+
       <div v-else-if="error" class="error-state">
         <div class="error-icon">
           <XCircleIcon class="icon-2xl" />
@@ -17,12 +17,12 @@
           Try Again
         </router-link>
       </div>
-      
+
       <div v-else class="success-state">
         <div class="success-icon">
           <CheckCircleIcon class="icon-2xl" />
         </div>
-        <h2>Authentication Successful</h2>
+        <h2>{{ successMessage }}</h2>
         <p>Redirecting to dashboard...</p>
       </div>
     </div>
@@ -41,29 +41,63 @@ const authStore = useAuthStore()
 
 const loading = ref(true)
 const error = ref<string>('')
+const loadingMessage = ref('Completing Authentication...')
+const loadingSubtext = ref('Please wait while we log you in.')
+const successMessage = ref('Authentication Successful')
 
+/**
+ * OAuth Callback Handler
+ *
+ * This component handles callbacks from the SSO service for both:
+ * 1. Initial sign-in: Receives JWT tokens and establishes session
+ * 2. Identity linking: Confirms provider account has been linked
+ *
+ * Query Parameters:
+ * - Sign-in flow:
+ *   ?access_token=xxx&refresh_token=xxx
+ * - Linking flow:
+ *   ?status=success&provider=microsoft&action=link
+ * - Error flow:
+ *   ?error={message}[&action=link]
+ */
 onMounted(async () => {
   try {
-    // Get SSO callback parameters
-    // The backend redirects here with the token directly after exchanging the code
-    const token = route.query.token as string
+    const accessToken = route.query.access_token as string
+    const refreshToken = route.query.refresh_token as string
     const errorParam = route.query.error as string
+    const action = route.query.action as string
+    const status = route.query.status as string
+    const provider = route.query.provider as string
 
+    // Check if this is an error response
     if (errorParam) {
-      throw new Error('Authentication was cancelled or failed')
+      throw new Error(errorParam || 'Authentication was cancelled or failed')
     }
 
-    if (!token) {
-      throw new Error('No token received from authentication server')
+    // Check if this is an identity linking callback
+    if (action === 'link' && status === 'success') {
+      // Identity linking completed successfully
+      loadingMessage.value = 'Account Linked Successfully'
+      loadingSubtext.value = `Your ${provider} account has been connected.`
+      successMessage.value = `${provider.charAt(0).toUpperCase() + provider.slice(1)} Account Linked`
+      loading.value = false
+      setTimeout(() => {
+        // TODO: Show success notification/toast
+        console.log(`Successfully linked ${provider} account`)
+        router.push('/dashboard')
+      }, 1500)
+      return
     }
 
-    // Set token in auth store
-    await authStore.setToken(token)
+    // Otherwise, this is a normal sign-in flow
+    if (!accessToken || !refreshToken) {
+      throw new Error('No tokens received from authentication server')
+    }
 
-    // Short delay for better UX
+    await authStore.setToken(accessToken, refreshToken)
+
     setTimeout(() => {
       loading.value = false
-      // Redirect to dashboard after a brief success message
       setTimeout(() => {
         router.push('/dashboard')
       }, 1000)

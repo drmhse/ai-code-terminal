@@ -8,7 +8,7 @@ use serde::Serialize;
 use tracing::{debug, error, info};
 
 use crate::{
-    error::ServerError, middleware::auth::AuthenticatedUser, models::ApiResponse, AppState,
+    error::ServerError, middleware::sso_auth::AuthenticatedUser, models::ApiResponse, AppState,
 };
 use act_core::CoreError;
 use act_domain::{CacheStats, TaskList, TodoSyncStatus, WorkspaceSyncStatus};
@@ -83,12 +83,12 @@ pub async fn get_sync_status(
     State(app_state): State<AppState>,
     user: AuthenticatedUser,
 ) -> Result<Json<ApiResponse<TodoSyncStatusResponse>>, ServerError> {
-    debug!("Getting todo sync status for user: {}", user.user_id);
+    debug!("Getting todo sync status for user: {}", user.sso_user_id);
 
     let status = app_state
         .domain_services
         .todo_sync_service
-        .get_sync_status(&user.user_id)
+        .get_sync_status(&user.db_user_id)
         .await
         .map_err(|e| {
             error!("Failed to get sync status: {}", e);
@@ -100,7 +100,7 @@ pub async fn get_sync_status(
 
     info!(
         "Retrieved sync status for user {}: {} total workspaces, {} synced",
-        user.user_id, status.total_workspaces, status.synced_workspaces
+        user.sso_user_id, status.total_workspaces, status.synced_workspaces
     );
 
     Ok(Json(ApiResponse::success(TodoSyncStatusResponse::from(
@@ -116,14 +116,14 @@ pub async fn sync_workspace(
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
     info!(
         "Syncing workspace {} for user: {}",
-        workspace_id, user.user_id
+        workspace_id, user.sso_user_id
     );
 
     // Get the workspace first to ensure it exists and belongs to the user
     let workspace = app_state
         .domain_services
         .workspace_service
-        .get_workspace(&user.user_id, &workspace_id)
+        .get_workspace(&user.db_user_id, &workspace_id)
         .await
         .map_err(|e| {
             error!("Failed to get workspace {}: {}", workspace_id, e);
@@ -137,7 +137,7 @@ pub async fn sync_workspace(
     app_state
         .domain_services
         .todo_sync_service
-        .ensure_project_list(&user.user_id, &workspace)
+        .ensure_project_list(&user.db_user_id, &workspace)
         .await
         .map_err(|e| {
             error!("Failed to sync workspace {}: {}", workspace_id, e);
@@ -149,7 +149,7 @@ pub async fn sync_workspace(
 
     info!(
         "Successfully synced workspace {} for user: {}",
-        workspace_id, user.user_id
+        workspace_id, user.sso_user_id
     );
 
     Ok(Json(ApiResponse::success(())))
@@ -160,17 +160,17 @@ pub async fn sync_all_workspaces(
     State(app_state): State<AppState>,
     user: AuthenticatedUser,
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
-    info!("Syncing all workspaces for user: {}", user.user_id);
+    info!("Syncing all workspaces for user: {}", user.sso_user_id);
 
     let mappings = app_state
         .domain_services
         .todo_sync_service
-        .sync_all_workspace_lists(&user.user_id)
+        .sync_all_workspace_lists(&user.db_user_id)
         .await
         .map_err(|e| {
             error!(
                 "Failed to sync all workspaces for user {}: {}",
-                user.user_id, e
+                user.sso_user_id, e
             );
             ServerError(CoreError::Internal(format!(
                 "Failed to sync all workspaces: {}",
@@ -181,7 +181,7 @@ pub async fn sync_all_workspaces(
     info!(
         "Successfully synced {} workspaces for user: {}",
         mappings.len(),
-        user.user_id
+        user.sso_user_id
     );
 
     Ok(Json(ApiResponse::success(())))
@@ -192,7 +192,7 @@ pub async fn refresh_cache(
     State(app_state): State<AppState>,
     user: AuthenticatedUser,
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
-    info!("Refreshing todo sync cache for user: {}", user.user_id);
+    info!("Refreshing todo sync cache for user: {}", user.sso_user_id);
 
     app_state
         .domain_services
@@ -223,13 +223,13 @@ pub async fn get_workspace_list(
 ) -> Result<Json<ApiResponse<Option<TaskList>>>, ServerError> {
     debug!(
         "Getting list for workspace {} for user: {}",
-        workspace_id, user.user_id
+        workspace_id, user.sso_user_id
     );
 
     let list = app_state
         .domain_services
         .todo_sync_service
-        .get_workspace_list(&user.user_id, &workspace_id)
+        .get_workspace_list(&user.db_user_id, &workspace_id)
         .await
         .map_err(|e| {
             error!("Failed to get workspace list: {}", e);

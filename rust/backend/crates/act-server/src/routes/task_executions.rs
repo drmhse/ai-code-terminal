@@ -1,5 +1,5 @@
 use crate::{
-    error::ServerError, middleware::auth::AuthenticatedUser, models::ApiResponse, AppState,
+    error::ServerError, middleware::sso_auth::AuthenticatedUser, models::ApiResponse, AppState,
 };
 
 use act_core::CoreError;
@@ -46,7 +46,7 @@ pub async fn create_task_execution(
     info!("Creating task execution for task: {}", request.task_id);
 
     // Determine workspace_id from working directory or user context
-    let workspace_id = user.user_id.clone(); // For now, use user_id as workspace_id
+    let workspace_id = user.sso_user_id.clone(); // For now, use user_id as workspace_id
 
     // Convert permission_mode string to enum
     let permission_mode = match request.permission_mode.as_str() {
@@ -61,7 +61,7 @@ pub async fn create_task_execution(
     };
 
     let execution_request = TaskExecutionRequest {
-        user_id: user.user_id.clone(),
+        user_id: user.sso_user_id.clone(),
         task_id: request.task_id.clone(),
         workspace_id: workspace_id.clone(),
         task_title: request.task_title.clone(),
@@ -119,7 +119,7 @@ pub async fn retry_task_execution(
     };
 
     if let Some(execution) = execution {
-        if execution.user_id != user.user_id {
+        if execution.user_id != user.sso_user_id {
             return Err(ServerError::from(CoreError::PermissionDenied(
                 "You can only retry your own executions".to_string(),
             )));

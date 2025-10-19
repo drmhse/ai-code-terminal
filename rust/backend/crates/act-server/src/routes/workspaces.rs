@@ -1,5 +1,5 @@
 use crate::{
-    error::ServerError, middleware::auth::AuthenticatedUser, models::ApiResponse, AppState,
+    error::ServerError, middleware::sso_auth::AuthenticatedUser, models::ApiResponse, AppState,
 };
 use act_core::{CoreError, DirectoryListing, FileItem, FilePermissions};
 
@@ -89,12 +89,15 @@ pub async fn list_workspaces(
     Query(_params): Query<ListWorkspacesQuery>,
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<Vec<act_core::repository::Workspace>>>, ServerError> {
-    info!("Workspace list requested for user {}", auth_user.user_id);
+    info!(
+        "Workspace list requested for user {}",
+        auth_user.sso_user_id
+    );
 
     let workspaces = state
         .domain_services
         .workspace_service
-        .list_workspaces(&auth_user.user_id, true) // active_only
+        .list_workspaces(&auth_user.db_user_id, true) // active_only
         .await?;
 
     Ok(Json(ApiResponse::success(workspaces)))
@@ -109,14 +112,14 @@ pub async fn create_workspace(
     // This handler only executes if CSRF validation passes
     info!(
         "Workspace creation requested: {} for user {}",
-        request.name, auth_user.user_id
+        request.name, auth_user.sso_user_id
     );
 
     let workspace = state
         .domain_services
         .workspace_service
         .create_workspace(
-            &auth_user.user_id,
+            &auth_user.db_user_id,
             request.name,
             request.github_repo,
             request.github_url,
@@ -136,13 +139,13 @@ pub async fn create_empty_workspace(
     // This handler only executes if CSRF validation passes
     info!(
         "Empty workspace creation requested: {} for user {}",
-        request.name, auth_user.user_id
+        request.name, auth_user.sso_user_id
     );
 
     let workspace = state
         .domain_services
         .workspace_service
-        .create_empty_workspace(&auth_user.user_id, request.name, request.path)
+        .create_empty_workspace(&auth_user.db_user_id, request.name, request.path)
         .await?;
 
     info!("Empty workspace created successfully: {}", workspace.id);
@@ -158,13 +161,13 @@ pub async fn open_folder(
     // This handler only executes if CSRF validation passes
     info!(
         "Open folder requested: {} at {} for user {}",
-        request.name, request.path, auth_user.user_id
+        request.name, request.path, auth_user.sso_user_id
     );
 
     let workspace = state
         .domain_services
         .workspace_service
-        .open_existing_folder(&auth_user.user_id, request.name, request.path)
+        .open_existing_folder(&auth_user.db_user_id, request.name, request.path)
         .await?;
 
     info!("Folder opened successfully as workspace: {}", workspace.id);
@@ -178,13 +181,13 @@ pub async fn get_workspace(
 ) -> Result<Json<ApiResponse<act_core::repository::Workspace>>, ServerError> {
     info!(
         "Workspace details requested: {} for user {}",
-        workspace_id, auth_user.user_id
+        workspace_id, auth_user.sso_user_id
     );
 
     let workspace = state
         .domain_services
         .workspace_service
-        .get_workspace(&auth_user.user_id, &workspace_id)
+        .get_workspace(&auth_user.db_user_id, &workspace_id)
         .await?;
 
     Ok(Json(ApiResponse::success(workspace)))
@@ -200,14 +203,14 @@ pub async fn update_workspace(
     // This handler only executes if CSRF validation passes
     info!(
         "Workspace update requested: {} for user {}",
-        workspace_id, auth_user.user_id
+        workspace_id, auth_user.sso_user_id
     );
 
     let workspace = state
         .domain_services
         .workspace_service
         .update_workspace(
-            &auth_user.user_id,
+            &auth_user.db_user_id,
             &workspace_id,
             request.name,
             request.is_active,
@@ -227,13 +230,13 @@ pub async fn delete_workspace(
     // This handler only executes if CSRF validation passes
     info!(
         "Workspace deletion requested: {} for user {}",
-        workspace_id, auth_user.user_id
+        workspace_id, auth_user.sso_user_id
     );
 
     state
         .domain_services
         .workspace_service
-        .delete_workspace(&auth_user.user_id, &workspace_id)
+        .delete_workspace(&auth_user.db_user_id, &workspace_id)
         .await?;
 
     info!("Workspace deleted successfully: {}", workspace_id);
@@ -247,20 +250,20 @@ pub async fn get_workspace_sessions(
 ) -> Result<Json<ApiResponse<Vec<Session>>>, ServerError> {
     info!(
         "Workspace sessions requested: {} for user {}",
-        workspace_id, auth_user.user_id
+        workspace_id, auth_user.sso_user_id
     );
 
     let domain_sessions = state
         .domain_services
         .session_service
-        .list_workspace_sessions(&auth_user.user_id, &workspace_id)
+        .list_workspace_sessions(&auth_user.db_user_id, &workspace_id)
         .await?;
 
     let sessions: Vec<Session> = domain_sessions
         .into_iter()
         .map(|session_info| {
             let mut session = session_info_from_domain(session_info);
-            session.user_id = auth_user.user_id.clone();
+            session.user_id = auth_user.sso_user_id.clone();
             session
         })
         .collect();
@@ -286,14 +289,14 @@ pub async fn get_workspace_files(
 ) -> Result<Json<ApiResponse<DirectoryListing>>, ServerError> {
     info!(
         "Workspace files requested: {} path: {:?} for user {}",
-        workspace_id, params.path, auth_user.user_id
+        workspace_id, params.path, auth_user.sso_user_id
     );
 
     // Get the workspace to get its local path
     let workspace = state
         .domain_services
         .workspace_service
-        .get_workspace(&auth_user.user_id, &workspace_id)
+        .get_workspace(&auth_user.db_user_id, &workspace_id)
         .await?;
 
     // Handle relative path within the workspace
@@ -495,14 +498,14 @@ pub async fn get_workspace_file_content(
 ) -> Result<Json<ApiResponse<FileContentResponse>>, ServerError> {
     info!(
         "Workspace file content requested: {} path: {} for user {}",
-        workspace_id, params.path, auth_user.user_id
+        workspace_id, params.path, auth_user.sso_user_id
     );
 
     // Get the workspace to get its local path
     let workspace = state
         .domain_services
         .workspace_service
-        .get_workspace(&auth_user.user_id, &workspace_id)
+        .get_workspace(&auth_user.db_user_id, &workspace_id)
         .await?;
 
     // Handle relative path within the workspace
@@ -541,14 +544,14 @@ pub async fn save_workspace_file_content(
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
     info!(
         "Workspace file save requested: {} path: {} for user {}",
-        workspace_id, request.path, auth_user.user_id
+        workspace_id, request.path, auth_user.sso_user_id
     );
 
     // Get the workspace to get its local path
     let workspace = state
         .domain_services
         .workspace_service
-        .get_workspace(&auth_user.user_id, &workspace_id)
+        .get_workspace(&auth_user.db_user_id, &workspace_id)
         .await?;
 
     // Handle relative path within the workspace
@@ -591,14 +594,14 @@ pub async fn create_workspace_file(
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
     info!(
         "Workspace file/directory creation requested: {} path: {} for user {}",
-        workspace_id, request.path, auth_user.user_id
+        workspace_id, request.path, auth_user.sso_user_id
     );
 
     // Get the workspace to get its local path
     let workspace = state
         .domain_services
         .workspace_service
-        .get_workspace(&auth_user.user_id, &workspace_id)
+        .get_workspace(&auth_user.db_user_id, &workspace_id)
         .await?;
 
     // Handle relative path within the workspace
@@ -662,14 +665,14 @@ pub async fn delete_workspace_file(
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
     info!(
         "Workspace file deletion requested: {} path: {} for user {}",
-        workspace_id, params.path, auth_user.user_id
+        workspace_id, params.path, auth_user.sso_user_id
     );
 
     // Get the workspace to get its local path
     let workspace = state
         .domain_services
         .workspace_service
-        .get_workspace(&auth_user.user_id, &workspace_id)
+        .get_workspace(&auth_user.db_user_id, &workspace_id)
         .await?;
 
     // Handle relative path within the workspace
@@ -722,14 +725,14 @@ pub async fn rename_workspace_file(
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
     info!(
         "Workspace file rename requested: {} from {} to {} for user {}",
-        workspace_id, request.from_path, request.to_path, auth_user.user_id
+        workspace_id, request.from_path, request.to_path, auth_user.sso_user_id
     );
 
     // Get the workspace to get its local path
     let workspace = state
         .domain_services
         .workspace_service
-        .get_workspace(&auth_user.user_id, &workspace_id)
+        .get_workspace(&auth_user.db_user_id, &workspace_id)
         .await?;
 
     // Handle relative paths within the workspace
@@ -778,14 +781,14 @@ pub async fn move_workspace_file(
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
     info!(
         "Workspace file move requested: {} from {} to {} for user {}",
-        workspace_id, request.from_path, request.to_path, auth_user.user_id
+        workspace_id, request.from_path, request.to_path, auth_user.sso_user_id
     );
 
     // Get the workspace to get its local path
     let workspace = state
         .domain_services
         .workspace_service
-        .get_workspace(&auth_user.user_id, &workspace_id)
+        .get_workspace(&auth_user.db_user_id, &workspace_id)
         .await?;
 
     // Handle relative paths within the workspace
@@ -834,14 +837,14 @@ pub async fn copy_workspace_file(
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
     info!(
         "Workspace file copy requested: {} from {} to {} for user {}",
-        workspace_id, request.from_path, request.to_path, auth_user.user_id
+        workspace_id, request.from_path, request.to_path, auth_user.sso_user_id
     );
 
     // Get the workspace to get its local path
     let workspace = state
         .domain_services
         .workspace_service
-        .get_workspace(&auth_user.user_id, &workspace_id)
+        .get_workspace(&auth_user.db_user_id, &workspace_id)
         .await?;
 
     // Handle relative paths within the workspace

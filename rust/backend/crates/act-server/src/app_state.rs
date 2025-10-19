@@ -1,17 +1,17 @@
 use crate::config::Config;
 use crate::metrics::RealSystemMonitor;
-use crate::services::{GitHubService, ServerGitHubAuthService, ServerJwtService};
+use crate::services::GitHubService;
 use crate::sso::SsoClient;
 use act_core::events::InMemoryEventPublisher;
 use act_core::security::{InMemorySecurityAuditLogger, ProcessSecurityValidator};
 use act_core::{
     filesystem::FileSystem, pty::PtyService, repository::ProcessRunner, CoreError, Database,
-    GitHubAuthService, GitHubRepositoryService, JwtService, Result,
+    GitHubRepositoryService, Result,
 };
 use act_core::{EventPublisher, SecurityAuditLogger};
 use act_domain::{
     git_service::LocalGitService, DomainServices, EncryptionService, GitService, GraphClient,
-    MicrosoftGraphClient, MicrosoftOAuthConfig, ProcessRecoveryConfig, TokenEncryption,
+    MicrosoftGraphClient, ProcessRecoveryConfig, TokenEncryption,
 };
 use act_persistence::create_repositories;
 use act_persistence::SqlxMetricsRepository;
@@ -26,7 +26,8 @@ use tokio::sync::RwLock;
 pub struct AppState {
     /// Database connection
     pub db: Database,
-    /// Application configuration
+    /// Application configuration (available for future use)
+    #[allow(dead_code)]
     pub config: Config,
     /// Domain services container
     pub domain_services: Arc<DomainServices>,
@@ -93,13 +94,6 @@ impl AppState {
         let system_monitor: Arc<dyn act_domain::system_service::SystemMonitor> =
             Arc::new(RealSystemMonitor::new());
 
-        // Create auth services
-        let github_auth_service: Arc<dyn GitHubAuthService> =
-            Arc::new(ServerGitHubAuthService::new(Arc::new(config.clone()))?);
-        let jwt_service: Arc<dyn JwtService> =
-            Arc::new(ServerJwtService::new(config.auth.jwt_secret.clone()));
-        let auth_repository = repositories.auth_repo();
-
         // Create GitHub service for repository operations
         let github_service = Arc::new(
             GitHubService::new(Arc::new(config.clone()))
@@ -120,7 +114,7 @@ impl AppState {
             Arc::new(InMemorySecurityAuditLogger::new());
         let process_recovery_config = ProcessRecoveryConfig::default();
 
-        // Create Microsoft auth service dependencies
+        // Create Microsoft Graph client and token encryption for To-Do integration
         let encryption_key = config.microsoft.encryption_key.clone().ok_or_else(|| {
             CoreError::Configuration("Microsoft encryption key not configured".to_string())
         })?;
@@ -133,19 +127,6 @@ impl AppState {
             Arc::new(MicrosoftGraphClient::new().map_err(|e| {
                 CoreError::Configuration(format!("Failed to create Graph client: {}", e))
             })?);
-
-        let microsoft_oauth_config = MicrosoftOAuthConfig {
-            client_id: config.microsoft.client_id.clone().ok_or_else(|| {
-                CoreError::Configuration("Microsoft client ID not configured".to_string())
-            })?,
-            client_secret: config.microsoft.client_secret.clone().ok_or_else(|| {
-                CoreError::Configuration("Microsoft client secret not configured".to_string())
-            })?,
-            redirect_uri: config.microsoft.redirect_uri.clone().ok_or_else(|| {
-                CoreError::Configuration("Microsoft redirect URI not configured".to_string())
-            })?,
-            tenant_id: config.microsoft.tenant_id.clone(), // Optional field
-        };
 
         let microsoft_auth_repository = repositories.microsoft_auth_repo();
 
@@ -161,9 +142,6 @@ impl AppState {
             git_service,
             metrics_repository,
             system_monitor,
-            github_auth_service,
-            jwt_service,
-            auth_repository,
             github_repository_service,
             event_publisher,
             security_validator,
@@ -171,21 +149,20 @@ impl AppState {
             process_recovery_config,
             workspace_root.to_string_lossy().to_string(),
             config.workspace.allow_access_to_parent_dirs,
-            // Microsoft auth service dependencies
+            // Microsoft Graph client for To-Do integration
+            graph_client,
             microsoft_auth_repository,
             encryption_service,
-            graph_client,
-            microsoft_oauth_config,
         ));
 
         // Create SSO client
+        // Note: SSO server handles client identification automatically via org and service slugs
         let sso_client = Arc::new(
             SsoClient::new(
                 config.sso.base_url.clone(),
-                config.sso.client_id.clone(),
-                config.sso.client_secret.clone(),
                 config.sso.org_slug.clone(),
                 config.sso.service_slug.clone(),
+                config.sso.jwks_url.clone(),
             )
             .map_err(|e| CoreError::Configuration(format!("Failed to create SSO client: {}", e)))?,
         );

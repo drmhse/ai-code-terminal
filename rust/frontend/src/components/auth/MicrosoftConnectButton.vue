@@ -82,8 +82,7 @@
 import { computed } from 'vue'
 import { useTodoStore } from '@/stores/todo'
 import { logger } from '@/utils/logger'
-import { startOAuthFlow } from '@/utils/oauth'
-import { isDesktopApp } from '@/utils/backendPort'
+import ssoClient from '@/services/sso'
 
 const todoStore = useTodoStore()
 
@@ -104,83 +103,12 @@ const hasRecentSync = computed(() => {
 // Actions
 const handleConnect = async () => {
   try {
-    // Check if user authenticated via Microsoft SSO - if so, they already have access
-    // In that case, we could skip the OAuth flow, but for now we'll keep it for explicit consent
-
-    const { auth_url } = await todoStore.startOAuthFlow()
-
-    if (isDesktopApp()) {
-      // Desktop mode: Use OAuth utility with deep link handler
-      console.log('🖥️ Using desktop OAuth flow')
-      await startOAuthFlow(
-        'microsoft',
-        auth_url,
-        async (code: string, state: string) => {
-          console.log('✅ Received Microsoft authorization code in desktop mode')
-          try {
-            // Complete OAuth flow by sending code to backend
-            await todoStore.handleOAuthCallback(code, state)
-            // Refresh auth status
-            await todoStore.checkAuthStatus()
-            console.log('✅ Auth status refreshed, authenticated:', todoStore.isAuthenticated)
-          } catch (error) {
-            logger.error('Failed to complete Microsoft OAuth:', error)
-            throw error
-          }
-        },
-        (error: string) => {
-          logger.error('Microsoft OAuth error:', error)
-        }
-      )
-    } else {
-      // Web mode: Use existing popup flow
-      console.log('🌐 Using web OAuth flow')
-      const popup = window.open(auth_url, 'microsoft-oauth', 'width=600,height=700,scrollbars=yes,resizable=yes')
-
-      // Listen for messages from the popup
-      const messageHandler = async (event: MessageEvent) => {
-        // Verify origin for security
-        if (event.origin !== window.location.origin) return
-
-        if (event.data.type === 'MICROSOFT_AUTH_SUCCESS') {
-          console.log('✅ Received Microsoft auth success message from popup')
-          // Refresh auth status after successful authentication - await it to ensure state updates
-          await todoStore.checkAuthStatus()
-          console.log('✅ Auth status refreshed, authenticated:', todoStore.isAuthenticated)
-          window.removeEventListener('message', messageHandler)
-          clearInterval(checkClosed)
-        } else if (event.data.type === 'MICROSOFT_AUTH_ERROR') {
-          console.log('❌ Received Microsoft auth error message from popup:', event.data.error)
-          logger.error('Microsoft OAuth error:', event.data.error)
-          window.removeEventListener('message', messageHandler)
-          clearInterval(checkClosed)
-        }
-      }
-
-      window.addEventListener('message', messageHandler)
-
-      // Clean up listener if popup is closed manually (handle COOP errors)
-      const checkClosed = setInterval(() => {
-        try {
-          if (popup?.closed) {
-            window.removeEventListener('message', messageHandler)
-            clearInterval(checkClosed)
-          }
-        } catch {
-          // COOP policy blocks window.closed access - this is expected
-          // We'll rely on the message-based communication instead
-        }
-      }, 1000)
-
-      // Clean up after a reasonable timeout (5 minutes)
-      setTimeout(() => {
-        window.removeEventListener('message', messageHandler)
-        clearInterval(checkClosed)
-      }, 5 * 60 * 1000)
-    }
-
+    logger.log('🔄 Starting Microsoft identity linking via SSO...')
+    const { authorization_url } = await ssoClient.user.identities.startLink('microsoft')
+    logger.log('✅ Redirecting to SSO for Microsoft linking...')
+    window.location.href = authorization_url
   } catch (error) {
-    logger.error('Failed to start Microsoft OAuth flow:', error)
+    logger.error('Failed to start Microsoft identity linking:', error)
   }
 }
 

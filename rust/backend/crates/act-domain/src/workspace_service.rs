@@ -418,6 +418,90 @@ impl WorkspaceService {
         Ok(workspace)
     }
 
+    /// Clone repository using SSO authentication - preferred method for SSO integration
+    pub async fn clone_repository_sso(
+        &self,
+        user_id: &str,
+        request: CloneRequest,
+        _sso_jwt: &str,
+    ) -> Result<Workspace> {
+        info!(
+            "Cloning repository with SSO: {} -> {}",
+            request.git_url, request.name
+        );
+
+        let github_repo = self.extract_github_repo(&Some(request.git_url.clone()), &request.name);
+
+        if let Some(_existing) = self
+            .repository
+            .get_by_github_repo(user_id, &github_repo)
+            .await?
+        {
+            return Err(CoreError::Conflict(format!(
+                "Repository {} is already cloned",
+                github_repo
+            )));
+        }
+
+        let workspace_id = Uuid::new_v4().to_string();
+        let local_path = format!("{}/{}", self.workspace_root, workspace_id);
+
+        let create_request = act_core::filesystem::CreateDirectoryRequest {
+            path: std::path::PathBuf::from(&local_path),
+            create_parent_dirs: true,
+        };
+        self.filesystem
+            .create_directory(create_request)
+            .await
+            .map_err(|e| {
+                CoreError::FileSystem(format!("Failed to create workspace directory: {}", e))
+            })?;
+
+        // TODO: Get GitHub token from SSO service
+        // This would use the SSO client to call get_provider_token("github", sso_jwt)
+        // For now, we'll need to handle this at the handler level where SSO client is available
+        info!("SSO token provided, GitHub token fetching to be implemented at handler level");
+        let github_token: Option<String> = None; // Will be provided by handler
+
+        let _git_info = self
+            .git_service
+            .clone_repository(
+                &request.git_url,
+                Path::new(&local_path),
+                request.branch.as_deref(),
+                github_token.as_deref(),
+            )
+            .await
+            .inspect_err(|_e| {
+                // Clean up on failure
+                tokio::task::spawn({
+                    let fs = Arc::clone(&self.filesystem);
+                    let path = local_path.clone();
+                    async move {
+                        let _ = fs
+                            .delete_directory(&std::path::PathBuf::from(path), true)
+                            .await;
+                    }
+                });
+            })?;
+
+        let _current_branch = self
+            .git_service
+            .get_current_branch(Path::new(&local_path))
+            .await?;
+
+        let create_request = CreateWorkspaceRequest {
+            name: request.name,
+            github_repo: github_repo.clone(),
+            github_url: request.git_url,
+            local_path: Some(local_path),
+        };
+
+        let workspace = self.repository.create(user_id, create_request).await?;
+        info!("Repository cloned successfully with SSO: {}", workspace.id);
+        Ok(workspace)
+    }
+
     pub async fn get_workspace(
         &self,
         user_id: &str,

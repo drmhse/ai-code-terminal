@@ -1,11 +1,12 @@
 import axios, { type AxiosInstance, type AxiosResponse } from 'axios'
-import type { ApiResponse, User, Workspace, Session } from '@/types'
+import type { ApiResponse, Workspace, Session } from '@/types'
 import type { Repository } from '@/stores/workspace'
 import type { FileItem } from '@/stores/file'
 import type { ThemePreference } from '@/types/theme'
 import type { AppStats } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 import { getApiBaseUrl } from '@/utils/backendPort'
+import { authStorage } from '@/utils/auth-storage'
 
 // User preferences types (imported to match backend structure)
 import type { UserPreferences } from '@/types/layout'
@@ -162,9 +163,9 @@ class ApiService {
     // Initialize base URL
     this.initializeBaseUrl()
 
-    // Request interceptor to add JWT token
+    // Request interceptor to add SSO token
     this.client.interceptors.request.use((config) => {
-      const token = localStorage.getItem('jwt_token')
+      const token = authStorage.getToken()
       if (token) {
         config.headers.Authorization = `Bearer ${token}`
       }
@@ -469,7 +470,8 @@ details?: Record<string, unknown>
 
   // Handle authentication error
   private handleAuthenticationError(): void {
-    localStorage.removeItem('jwt_token')
+    authStorage.removeToken()
+    localStorage.removeItem('sso_refresh_token')
     localStorage.removeItem('user')
 
     this.getUIStore().addResourceAlert({
@@ -484,66 +486,6 @@ details?: Record<string, unknown>
     }, 1500)
   }
 
-
-  // Auth endpoints
-  async getCurrentUser(): Promise<User> {
-    await this.ensureBaseUrl();
-    interface BackendUser {
-      user_id: string
-      username: string
-      name?: string
-      email?: string
-      avatar_url: string
-    }
-    const response: AxiosResponse<ApiResponse<BackendUser>> = await this.client.get('/api/v1/auth/me');
-    const backendUser = response.data.data;
-    const frontendUser: User = {
-      id: backendUser.user_id,
-      login: backendUser.username,
-      name: backendUser.name || null,
-      email: backendUser.email,
-      avatar_url: backendUser.avatar_url
-    };
-    return frontendUser;
-  }
-
-  // SSO Auth endpoints
-  async startDeviceFlow(): Promise<{
-    device_code: string
-    user_code: string
-    verification_uri: string
-    expires_in: number
-    interval: number
-  }> {
-    await this.ensureBaseUrl();
-    const response = await this.client.post('/api/v1/auth/device/start');
-    return response.data;
-  }
-
-  async pollDeviceToken(deviceCode: string): Promise<{
-    access_token: string
-    token_type: string
-    expires_in: number
-    refresh_token?: string
-  }> {
-    await this.ensureBaseUrl();
-    const response = await this.client.get(`/api/v1/auth/device/poll/${deviceCode}`);
-    return response.data;
-  }
-
-  async getSubscription(): Promise<{
-    plan: string
-    features: string[]
-    status: string
-  }> {
-    await this.ensureBaseUrl();
-    const response: AxiosResponse<ApiResponse<{
-      plan: string
-      features: string[]
-      status: string
-    }>> = await this.client.get('/api/v1/auth/subscription');
-    return response.data.data;
-  }
 
   // Workspace endpoints
   async getWorkspaces(): Promise<Workspace[]> {

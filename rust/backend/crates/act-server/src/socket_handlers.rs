@@ -1,4 +1,3 @@
-use jsonwebtoken::{decode, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 use socketioxide::{
     extract::{Data, SocketRef},
@@ -8,6 +7,7 @@ use std::sync::Arc;
 use tracing::{debug, error, info, warn};
 
 use crate::AppState;
+use sqlx;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 
@@ -232,8 +232,6 @@ impl StatsSubscription {
     }
 }
 
-use crate::middleware::auth::Claims;
-
 pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
     let stats_subscriptions = Arc::new(RwLock::new(HashMap::<String, StatsSubscription>::new()));
 
@@ -251,24 +249,24 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
         let stats_subs = stats_subscriptions.clone();
         info!("New socket connection: {}", socket.id);
 
-        // Authentication handler (for backward compatibility and primary auth method)
+        // Authentication handler - validates SSO JWT tokens
         socket.on("authenticate", {
             let state = state.clone();
             move |socket: SocketRef, Data::<AuthenticateRequest>(data)| {
-                let _state = state.clone();
+                let state = state.clone();
                 async move {
-                    match authenticate_user(&data.token).await {
-                        Ok(claims) => {
-                            info!("User {} authenticated via socket", claims.username);
+                    match authenticate_user_with_sso(&state, &data.token).await {
+                        Ok((user_id, email)) => {
+                            info!("User {} authenticated via socket with SSO", user_id);
                             // Store user_id in socket extensions for future use
-                            socket.extensions.insert(claims.sub.clone());
+                            socket.extensions.insert(user_id.clone());
                             socket.emit("authenticated", AuthenticatedEvent {
-                                user_id: claims.sub,
-                                username: claims.username,
+                                user_id: user_id.clone(),
+                                username: email, // Use email as username for display
                             }).ok();
                         }
                         Err(err) => {
-                            error!("Socket authentication failed: {}", err);
+                            error!("Socket SSO authentication failed: {}", err);
                             socket.emit("auth_error", ErrorEvent {
                                 error: format!("Authentication failed: {}", err),
                             }).ok();
@@ -869,17 +867,81 @@ pub fn setup_socket_handlers(io: SocketIo, state: Arc<AppState>) {
     });
 }
 
-async fn authenticate_user(
+/// Authenticate user via SSO JWT token validation
+async fn authenticate_user_with_sso(
+    state: &AppState,
     token: &str,
-) -> Result<Claims, Box<dyn std::error::Error + Send + Sync>> {
-    // Validate the JWT token using the proper environment variable
-    let validation = Validation::new(jsonwebtoken::Algorithm::HS256);
-    let secret =
-        std::env::var("ACT_AUTH_JWT_SECRET").unwrap_or_else(|_| "default-secret".to_string());
-    let key = DecodingKey::from_secret(secret.as_bytes());
+) -> Result<(String, String), Box<dyn std::error::Error + Send + Sync>> {
+    // Validate token using SSO client with RS256 verification
+    let claims = state
+        .sso_client
+        .validate_token(token)
+        .await
+        .map_err(|e| format!("SSO token validation failed: {}", e))?;
 
-    let token_data = decode::<Claims>(token, &key, &validation)?;
-    Ok(token_data.claims)
+    // Check if token is expired
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as usize;
+
+    if claims.exp < now {
+        return Err("SSO token has expired".into());
+    }
+
+    // Find or create user in local database to ensure consistency
+    let pool = state.db.pool();
+
+    // Try to find user by SSO user ID
+    let user =
+        sqlx::query_as::<_, (String, String)>("SELECT id, email FROM users WHERE sso_user_id = ?")
+            .bind(&claims.sub)
+            .fetch_optional(pool)
+            .await?;
+
+    let (db_user_id, email) = if let Some((id, email)) = user {
+        // Update email if changed
+        if email != claims.email {
+            sqlx::query("UPDATE users SET email = ? WHERE id = ?")
+                .bind(&claims.email)
+                .bind(&id)
+                .execute(pool)
+                .await?;
+        }
+        (id, claims.email)
+    } else {
+        // Check if user exists by email (migration case)
+        let user_by_email =
+            sqlx::query_as::<_, (String, String)>("SELECT id, email FROM users WHERE email = ?")
+                .bind(&claims.email)
+                .fetch_optional(pool)
+                .await?;
+
+        if let Some((id, email)) = user_by_email {
+            // Update existing user with SSO user ID
+            sqlx::query("UPDATE users SET sso_user_id = ? WHERE id = ?")
+                .bind(&claims.sub)
+                .bind(&id)
+                .execute(pool)
+                .await?;
+            (id, email)
+        } else {
+            // Create new user
+            let user_id = uuid::Uuid::new_v4().to_string();
+            sqlx::query(
+                "INSERT INTO users (id, email, sso_user_id, created_at) VALUES (?, ?, ?, datetime('now'))"
+            )
+            .bind(&user_id)
+            .bind(&claims.email)
+            .bind(&claims.sub)
+            .execute(pool)
+            .await?;
+            (user_id, claims.email)
+        }
+    };
+
+    // Return database user_id and email for socket authentication
+    Ok((db_user_id, email))
 }
 
 // Helper function to extract user_id from socket extensions - returns Result for proper error handling

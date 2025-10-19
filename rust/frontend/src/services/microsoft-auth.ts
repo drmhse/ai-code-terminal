@@ -1,5 +1,6 @@
 import axios, { type AxiosInstance, type AxiosResponse } from 'axios'
 import type { ApiResponse, PaginationParams, PaginatedResponse } from '@/types'
+import { authStorage } from '@/utils/auth-storage'
 
 // Microsoft Auth types
 export interface MicrosoftAuthStatus {
@@ -96,9 +97,9 @@ class MicrosoftAuthService {
       },
     })
 
-    // Request interceptor to add JWT token
+    // Request interceptor to add SSO token
     this.client.interceptors.request.use((config) => {
-      const token = localStorage.getItem('jwt_token')
+      const token = authStorage.getToken()
       if (token) {
         config.headers.Authorization = `Bearer ${token}`
       }

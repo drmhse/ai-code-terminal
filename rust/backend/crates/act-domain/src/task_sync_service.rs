@@ -720,7 +720,7 @@ impl TaskSyncService {
             .microsoft_auth
             .get_access_token(user_id)
             .await
-            .map_err(|e| TaskSyncError::MicrosoftAuth(e))?;
+            .map_err(TaskSyncError::MicrosoftAuth)?;
 
         let current_task = self
             .graph_client
@@ -774,7 +774,7 @@ impl TaskSyncService {
             .microsoft_auth
             .get_access_token(user_id)
             .await
-            .map_err(|e| TaskSyncError::MicrosoftAuth(e))?;
+            .map_err(TaskSyncError::MicrosoftAuth)?;
 
         match self
             .graph_client
@@ -823,7 +823,7 @@ impl TaskSyncService {
             .microsoft_auth
             .get_access_token(user_id)
             .await
-            .map_err(|e| TaskSyncError::MicrosoftAuth(e))?;
+            .map_err(TaskSyncError::MicrosoftAuth)?;
 
         // Get current task to preserve other fields
         let current_task = self

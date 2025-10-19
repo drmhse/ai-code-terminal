@@ -2,8 +2,6 @@ import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import { microsoftAuthService } from '@/services/microsoft-auth'
 import type {
-  MicrosoftAuthStatus,
-  AuthUrlResponse,
   TodoTask,
   TaskList,
   TodoSyncStatus,
@@ -14,6 +12,8 @@ import type {
 import type { PaginationParams, PaginationInfo } from '@/types'
 import { logger } from '@/utils/logger'
 import { socketService } from '@/services/socket'
+import ssoClient from '@/services/sso'
+import { useAuthStore } from '@/stores/auth'
 
 export interface TaskExecution {
   executionId: string
@@ -29,7 +29,6 @@ export interface TaskExecution {
 export const useTodoStore = defineStore('todo', () => {
   // Microsoft authentication state
   const isAuthenticated = ref(false)
-  const authStatus = ref<MicrosoftAuthStatus | null>(null)
   const authLoading = ref(false)
   const authError = ref<string | null>(null)
 
@@ -66,8 +65,13 @@ export const useTodoStore = defineStore('todo', () => {
   const executionHistory = ref<TaskExecution[]>([])
 
   // Computed properties
-  const hasValidAuth = computed(() => isAuthenticated.value && authStatus.value?.authenticated)
-  const microsoftEmail = computed(() => authStatus.value?.microsoft_email)
+  const hasValidAuth = computed(() => isAuthenticated.value)
+  const microsoftEmail = computed(() => {
+    // Get email from main auth store user profile
+    // If user is authenticated with SSO, their email is in the auth store
+    const authStore = useAuthStore()
+    return authStore.user?.email || null
+  })
   const hasTasks = computed(() => tasks.value.length > 0)
   const completedTasks = computed(() => tasks.value.filter(task => task.status === 'completed'))
   const pendingTasks = computed(() => tasks.value.filter(task => task.status !== 'completed'))
@@ -99,64 +103,39 @@ export const useTodoStore = defineStore('todo', () => {
   const totalPages = computed(() => pagination.value?.total_pages || 1)
   const canShowPagination = computed(() => (pagination.value?.total_count || 0) > pageSize.value)
 
-  // Check authentication status
+  const checkMicrosoftIdentity = async (): Promise<boolean> => {
+    try {
+      const identities = await ssoClient.user.identities.list()
+      const hasMicrosoft = identities.some(identity => identity.provider === 'microsoft')
+      return hasMicrosoft
+    } catch (error) {
+      logger.error('❌ Failed to check Microsoft identity:', error)
+      return false
+    }
+  }
+
   const checkAuthStatus = async () => {
     authLoading.value = true
     authError.value = null
 
     try {
-      logger.log('🔍 Checking Microsoft authentication status...')
-      const status = await microsoftAuthService.getAuthStatus()
-      authStatus.value = status
-      isAuthenticated.value = status.authenticated
+      logger.log('🔍 Checking Microsoft identity via SSO...')
+      const hasMicrosoft = await checkMicrosoftIdentity()
+      isAuthenticated.value = hasMicrosoft
 
-      if (status.authenticated) {
-        logger.log('✅ Microsoft authentication is active')
+      if (hasMicrosoft) {
+        logger.log('✅ Microsoft identity linked via SSO')
+        // Identity is linked - we can now make Microsoft Graph API calls
+        // No need for separate auth status endpoint - the identity check is sufficient
         await loadTaskLists()
       } else {
-        logger.log('❌ Microsoft authentication not active')
+        logger.log('❌ Microsoft identity not linked')
+        isAuthenticated.value = false
       }
     } catch (error) {
       authError.value = error instanceof Error ? error.message : 'Failed to check auth status'
       logger.error('❌ Failed to check Microsoft auth status:', error)
-    } finally {
-      authLoading.value = false
-    }
-  }
-
-  // Start OAuth flow
-  const startOAuthFlow = async (): Promise<AuthUrlResponse> => {
-    authLoading.value = true
-    authError.value = null
-
-    try {
-      logger.log('🚀 Starting Microsoft OAuth flow...')
-      const authUrl = await microsoftAuthService.startOAuthFlow()
-      logger.log('✅ OAuth URL generated successfully')
-      return authUrl
-    } catch (error) {
-      authError.value = error instanceof Error ? error.message : 'Failed to start OAuth flow'
-      logger.error('❌ Failed to start OAuth flow:', error)
-      throw error
-    } finally {
-      authLoading.value = false
-    }
-  }
-
-  // Handle OAuth callback
-  const handleOAuthCallback = async (code: string, state: string) => {
-    authLoading.value = true
-    authError.value = null
-
-    try {
-      logger.log('🔄 Handling OAuth callback...')
-      await microsoftAuthService.handleOAuthCallback(code, state)
-      await checkAuthStatus()
-      logger.log('✅ OAuth callback handled successfully')
-    } catch (error) {
-      authError.value = error instanceof Error ? error.message : 'Failed to handle OAuth callback'
-      logger.error('❌ Failed to handle OAuth callback:', error)
-      throw error
+      isAuthenticated.value = false
     } finally {
       authLoading.value = false
     }
@@ -168,21 +147,19 @@ export const useTodoStore = defineStore('todo', () => {
     authError.value = null
 
     try {
-      logger.log('🔄 Disconnecting Microsoft account...')
-      await microsoftAuthService.disconnect()
+      logger.log('🔄 Unlinking Microsoft identity...')
+      await ssoClient.user.identities.unlink('microsoft')
 
-      // Clear local state
       isAuthenticated.value = false
-      authStatus.value = null
       tasks.value = []
       availableLists.value = []
       selectedList.value = null
       defaultList.value = null
 
-      logger.log('✅ Microsoft account disconnected')
+      logger.log('✅ Microsoft identity unlinked')
     } catch (error) {
-      authError.value = error instanceof Error ? error.message : 'Failed to disconnect'
-      logger.error('❌ Failed to disconnect Microsoft account:', error)
+      authError.value = error instanceof Error ? error.message : 'Failed to unlink Microsoft identity'
+      logger.error('❌ Failed to unlink Microsoft identity:', error)
       throw error
     } finally {
       authLoading.value = false
@@ -911,7 +888,6 @@ export const useTodoStore = defineStore('todo', () => {
   return {
     // State
     isAuthenticated,
-    authStatus,
     authLoading,
     authError,
     tasks,
@@ -958,8 +934,7 @@ export const useTodoStore = defineStore('todo', () => {
 
     // Actions
     checkAuthStatus,
-    startOAuthFlow,
-    handleOAuthCallback,
+    checkMicrosoftIdentity,
     disconnect,
     // List management
     loadTaskLists,

@@ -364,7 +364,7 @@ impl TaskExecutionService {
 
         let timeout_duration = request
             .timeout_seconds
-            .map(|s| tokio::time::Duration::from_secs(s))
+            .map(tokio::time::Duration::from_secs)
             .unwrap_or(tokio::time::Duration::from_secs(1800));
 
         let wait_result =

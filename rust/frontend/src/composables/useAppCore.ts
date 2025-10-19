@@ -6,6 +6,7 @@ import { useFileStore } from '@/stores/file'
 import { useUIStore } from '@/stores/ui'
 import { socketService } from '@/services/socket'
 import { logger } from '@/utils/logger'
+import { authStorage } from '@/utils/auth-storage'
 
 /**
  * Core application initialization and management composable
@@ -50,12 +51,12 @@ export function useAppCore() {
       }
 
       if (token) {
-        localStorage.setItem('jwt_token', token)
+        authStorage.setToken(token)
         window.history.replaceState({}, document.title, '/')
       }
 
       // 3. Try to initialize authentication
-      const existingToken = localStorage.getItem('jwt_token')
+      const existingToken = authStorage.getToken()
       if (existingToken) {
         try {
           await authStore.tryInitializeApp()
@@ -85,7 +86,7 @@ export function useAppCore() {
         logger.error('Workspace error details:', {
           error: wsError,
           user: authStore.user,
-          hasToken: !!localStorage.getItem('jwt_token')
+          hasToken: authStorage.hasToken()
         })
       }
 

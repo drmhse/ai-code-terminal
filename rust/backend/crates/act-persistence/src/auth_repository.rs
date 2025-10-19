@@ -1,9 +1,9 @@
 use act_core::auth::{AuthRepository, AuthenticatedUser, UserSettings};
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use sqlx::Row;
 use sqlx::SqlitePool;
-use tracing::{info, warn};
+use tracing::info;
 
 use super::error::PersistenceError;
 
@@ -27,66 +27,6 @@ impl SqlAuthRepository {
 
 #[async_trait]
 impl AuthRepository for SqlAuthRepository {
-    async fn find_user_by_github_id(
-        &self,
-        github_id: &str,
-    ) -> Result<Option<AuthenticatedUser>, act_core::error::CoreError> {
-        let row = handle_db_error!(sqlx::query(
-            r#"
-                SELECT id, github_id, username, email, avatar_url
-                FROM users
-                WHERE github_id = ?1
-                "#
-        )
-        .bind(github_id)
-        .fetch_optional(&self.pool));
-
-        match row {
-            Some(row) => Ok(Some(AuthenticatedUser {
-                user_id: row.get("id"),
-                username: row.get("username"),
-                email: row.get("email"),
-                avatar_url: row.get("avatar_url"),
-            })),
-            None => Ok(None),
-        }
-    }
-
-    async fn create_user(
-        &self,
-        github_id: &str,
-        username: &str,
-        email: Option<String>,
-        avatar_url: Option<String>,
-    ) -> Result<AuthenticatedUser, act_core::error::CoreError> {
-        let user_id = uuid::Uuid::new_v4().to_string();
-        let now = Utc::now();
-
-        handle_db_error!(
-            sqlx::query(
-                r#"
-                INSERT INTO users (id, github_id, username, email, avatar_url, created_at, updated_at)
-                VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
-                "#
-            )
-            .bind(&user_id)
-            .bind(github_id)
-            .bind(username)
-            .bind(&email)
-            .bind(&avatar_url)
-            .bind(now)
-            .bind(now)
-            .execute(&self.pool)
-        );
-
-        Ok(AuthenticatedUser {
-            user_id,
-            username: username.to_string(),
-            email,
-            avatar_url,
-        })
-    }
-
     async fn update_user(
         &self,
         user_id: &str,
@@ -118,145 +58,13 @@ impl AuthRepository for SqlAuthRepository {
         })
     }
 
-    async fn store_github_token(
-        &self,
-        user_id: &str,
-        token: &str,
-        refresh_token: Option<String>,
-        expires_at: DateTime<Utc>,
-    ) -> Result<(), act_core::error::CoreError> {
-        info!("Storing github token for user_id: {}", user_id);
-        // Insert or replace user_settings for this user
-        handle_db_error!(
-            sqlx::query(
-                r#"
-                INSERT INTO user_settings (user_id, github_token, github_refresh_token, github_token_expires_at)
-                VALUES (?1, ?2, ?3, ?4)
-                ON CONFLICT(user_id) DO UPDATE SET
-                    github_token = excluded.github_token,
-                    github_refresh_token = excluded.github_refresh_token,
-                    github_token_expires_at = excluded.github_token_expires_at
-                "#
-            )
-            .bind(user_id)
-            .bind(token)
-            .bind(&refresh_token)
-            .bind(expires_at)
-            .execute(&self.pool)
-        );
-
-        Ok(())
-    }
-
-    async fn get_github_token(
-        &self,
-        user_id: &str,
-    ) -> Result<Option<String>, act_core::error::CoreError> {
-        info!("Getting github token for user_id: {}", user_id);
-        let row = handle_db_error!(sqlx::query(
-            r#"
-                SELECT github_token
-                FROM user_settings
-                WHERE user_id = ?1
-                "#
-        )
-        .bind(user_id)
-        .fetch_optional(&self.pool));
-
-        match row {
-            Some(row) => {
-                let token: Option<String> = row.get("github_token");
-                if token.is_some() {
-                    info!("Found github token for user_id: {}", user_id);
-                } else {
-                    warn!("No github token found for user_id: {}", user_id);
-                }
-                Ok(token)
-            }
-            None => {
-                warn!("No user_settings row found for user_id: {}", user_id);
-                Ok(None)
-            }
-        }
-    }
-
-    async fn get_github_refresh_token(
-        &self,
-        user_id: &str,
-    ) -> Result<Option<String>, act_core::error::CoreError> {
-        let row = handle_db_error!(sqlx::query(
-            r#"
-                SELECT github_refresh_token
-                FROM user_settings
-                WHERE user_id = ?1
-                "#
-        )
-        .bind(user_id)
-        .fetch_optional(&self.pool));
-
-        match row {
-            Some(row) => Ok(row.get("github_refresh_token")),
-            None => Ok(None),
-        }
-    }
-
-    async fn is_github_token_expired(
-        &self,
-        user_id: &str,
-    ) -> Result<bool, act_core::error::CoreError> {
-        let row = handle_db_error!(sqlx::query(
-            r#"
-                SELECT github_token_expires_at
-                FROM user_settings
-                WHERE user_id = ?1
-                "#
-        )
-        .bind(user_id)
-        .fetch_optional(&self.pool));
-
-        match row {
-            Some(row) => {
-                let expires_at: Option<DateTime<Utc>> = row.get("github_token_expires_at");
-                match expires_at {
-                    Some(expires_at) => Ok(expires_at <= Utc::now()),
-                    None => Ok(true), // No expiration date means expired
-                }
-            }
-            None => Ok(true), // No settings means expired
-        }
-    }
-
-    async fn clear_github_tokens(&self, user_id: &str) -> Result<(), act_core::error::CoreError> {
-        handle_db_error!(sqlx::query(
-            r#"
-                UPDATE user_settings 
-                SET github_token = NULL, github_refresh_token = NULL, github_token_expires_at = NULL
-                WHERE user_id = ?1
-                "#
-        )
-        .bind(user_id)
-        .execute(&self.pool));
-
-        Ok(())
-    }
-
-    async fn is_github_authenticated(
-        &self,
-        user_id: &str,
-    ) -> Result<bool, act_core::error::CoreError> {
-        let has_token = self.get_github_token(user_id).await?.is_some();
-        let is_expired = self.is_github_token_expired(user_id).await?;
-
-        Ok(has_token && !is_expired)
-    }
-
     async fn get_user_settings(
         &self,
         user_id: &str,
     ) -> Result<Option<UserSettings>, act_core::error::CoreError> {
         let row = handle_db_error!(sqlx::query(
             r#"
-                SELECT user_id, github_token, github_refresh_token, github_token_expires_at, theme
+                SELECT user_id, theme
                 FROM user_settings
                 WHERE user_id = ?1
                 "#
@@ -267,9 +75,6 @@ impl AuthRepository for SqlAuthRepository {
         match row {
             Some(row) => Ok(Some(UserSettings {
                 user_id: row.get("user_id"),
-                github_token: row.get("github_token"),
-                github_refresh_token: row.get("github_refresh_token"),
-                github_token_expires_at: row.get("github_token_expires_at"),
                 theme: row.get("theme"),
             })),
             None => Ok(None),
@@ -281,20 +86,15 @@ impl AuthRepository for SqlAuthRepository {
         user_id: &str,
         settings: &UserSettings,
     ) -> Result<(), act_core::error::CoreError> {
-        handle_db_error!(
-            sqlx::query(
-                r#"
-                INSERT OR REPLACE INTO user_settings (user_id, github_token, github_refresh_token, github_token_expires_at, theme)
-                VALUES (?1, ?2, ?3, ?4, ?5)
+        handle_db_error!(sqlx::query(
+            r#"
+                INSERT OR REPLACE INTO user_settings (user_id, theme)
+                VALUES (?1, ?2)
                 "#
-            )
-            .bind(user_id)
-            .bind(&settings.github_token)
-            .bind(&settings.github_refresh_token)
-            .bind(settings.github_token_expires_at)
-            .bind(&settings.theme)
-            .execute(&self.pool)
-        );
+        )
+        .bind(user_id)
+        .bind(&settings.theme)
+        .execute(&self.pool));
 
         Ok(())
     }
@@ -322,6 +122,114 @@ impl AuthRepository for SqlAuthRepository {
         }
 
         Ok(users)
+    }
+
+    /// Find or create user by SSO ID and email - primary method for SSO authentication
+    async fn find_or_create_user_by_sso_id_and_email(
+        &self,
+        sso_id: &str,
+        email: &str,
+    ) -> Result<act_core::auth::AuthenticatedUser, act_core::error::CoreError> {
+        // Try to find user by SSO user ID first
+        let row = handle_db_error!(sqlx::query(
+            r#"
+                SELECT id, username, email, avatar_url
+                FROM users
+                WHERE sso_user_id = ?1
+                "#
+        )
+        .bind(sso_id)
+        .fetch_optional(&self.pool));
+
+        if let Some(row) = row {
+            // User exists, return their info
+            info!("Found existing user by SSO ID: {}", sso_id);
+            return Ok(act_core::auth::AuthenticatedUser {
+                user_id: row.get("id"),
+                username: row.get("username"),
+                email: row.get("email"),
+                avatar_url: row.get("avatar_url"),
+            });
+        }
+
+        // Check if user exists by email (migration case)
+        let row = handle_db_error!(sqlx::query(
+            r#"
+                SELECT id, username, email, avatar_url
+                FROM users
+                WHERE email = ?1
+                "#
+        )
+        .bind(email)
+        .fetch_optional(&self.pool));
+
+        if let Some(row) = row {
+            let user_id: String = row.get("id");
+
+            // Update existing user with SSO user ID
+            info!(
+                "Found existing user by email, updating with SSO ID: {}",
+                sso_id
+            );
+            handle_db_error!(sqlx::query(
+                r#"
+                    UPDATE users
+                    SET sso_user_id = ?2, updated_at = datetime('now')
+                    WHERE id = ?1
+                    "#
+            )
+            .bind(&user_id)
+            .bind(sso_id)
+            .execute(&self.pool));
+
+            return Ok(act_core::auth::AuthenticatedUser {
+                user_id,
+                username: row.get("username"),
+                email: Some(email.to_string()),
+                avatar_url: row.get("avatar_url"),
+            });
+        }
+
+        // Create new user
+        info!("Creating new user for SSO ID: {}", sso_id);
+        let user_id = uuid::Uuid::new_v4().to_string();
+        let username = sso_id.split('@').next().unwrap_or(sso_id); // Use part before @ or full ID as username
+
+        handle_db_error!(sqlx::query(
+            r#"
+                INSERT INTO users (id, username, email, sso_user_id, created_at, updated_at)
+                VALUES (?1, ?2, ?3, ?4, datetime('now'), datetime('now'))
+                "#
+        )
+        .bind(&user_id)
+        .bind(username)
+        .bind(email)
+        .bind(sso_id)
+        .execute(&self.pool));
+
+        Ok(act_core::auth::AuthenticatedUser {
+            user_id,
+            username: username.to_string(),
+            email: Some(email.to_string()),
+            avatar_url: None,
+        })
+    }
+
+    /// Delete all SSO sessions for a user (used for logout)
+    async fn delete_sso_sessions(&self, user_id: &str) -> Result<(), act_core::error::CoreError> {
+        info!("Deleting all SSO sessions for user: {}", user_id);
+
+        handle_db_error!(sqlx::query(
+            r#"
+                DELETE FROM sso_sessions
+                WHERE user_id = ?1
+                "#
+        )
+        .bind(user_id)
+        .execute(&self.pool));
+
+        info!("Successfully deleted SSO sessions for user: {}", user_id);
+        Ok(())
     }
 }
 

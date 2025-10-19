@@ -16,9 +16,8 @@ pub use db::Database;
 pub use error::{CoreError, Error, Result};
 
 pub use auth::{
-    AuthConfig, AuthRepository, AuthToken, AuthenticatedUser, GitHubAuthService, GitHubRepository,
-    GitHubRepositoryOwner, GitHubRepositoryService, GitHubUser, JwtClaims, JwtService,
-    RepositoryListOptions,
+    AuthRepository, AuthToken, AuthenticatedUser, GitHubRepository, GitHubRepositoryOwner,
+    GitHubRepositoryService, GitHubUser, RepositoryListOptions, UserSettings,
 };
 pub use events::{
     create_process_created_event, create_process_output_received_event,

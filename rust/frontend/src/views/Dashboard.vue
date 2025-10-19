@@ -15,18 +15,6 @@
       <button @click="tryInitializeApp" class="retry-button">Retry</button>
     </div>
 
-    <!-- Unauthenticated State -->
-    <div v-else-if="appStatus === 'unauthenticated'" class="app-login">
-      <div class="login-container">
-        <h2>AI Code Terminal</h2>
-        <p>Please log in to continue</p>
-        <a :href="getGitHubAuthUrl()" class="github-login-button">
-          <ArrowRightOnRectangleIcon class="icon-base" />
-          Login with GitHub
-        </a>
-      </div>
-    </div>
-
     <!-- Main Application -->
     <template v-else-if="appStatus === 'ready'">
       <MainLayout />
@@ -76,7 +64,6 @@ import { useWorkspaceStore } from '@/stores/workspace'
 import { useFileStore } from '@/stores/file'
 import { useUIStore } from '@/stores/ui'
 import { useLayoutStore } from '@/stores/layout'
-import { ArrowRightOnRectangleIcon } from '@heroicons/vue/24/outline'
 import { useAppCore } from '@/composables/useAppCore'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { useTheme } from '@/composables/useTheme'
@@ -120,9 +107,6 @@ useKeyboardShortcuts()
 
 // Initialize theme system (automatically handled by useTheme composable)
 useTheme()
-
-// GitHub auth URL
-const getGitHubAuthUrl = () => authStore.getGitHubAuthUrl()
 
 // Modal handlers
 const handleCreateItem = async (data: { name: string; type: 'file' | 'directory'; content?: string | undefined }) => {
@@ -308,65 +292,5 @@ onBeforeUnmount(() => {
 
 .retry-button:hover {
   background: var(--primary-hover);
-}
-
-/* Login State */
-.app-login {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
-}
-
-.login-container {
-  text-align: center;
-  padding: 48px;
-  background: var(--bg-secondary);
-  border-radius: 16px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px var(--border-color);
-  backdrop-filter: blur(20px);
-  max-width: 420px;
-  transform: translateY(0);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.login-container:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2), 0 0 0 1px var(--border-color);
-}
-
-.login-container h2 {
-  margin: 0 0 10px 0;
-  font-size: 28px;
-  color: var(--text-primary);
-}
-
-.login-container p {
-  margin: 0 0 30px 0;
-  color: var(--text-secondary);
-  font-size: 16px;
-}
-
-.github-login-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--primary);
-  color: white;
-  text-decoration: none;
-  padding: 14px 24px;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: 500;
-  transition: background-color 0.2s;
-}
-
-.github-login-button:hover {
-  background: var(--primary-hover);
-}
-
-.github-login-button svg {
-  flex-shrink: 0;
 }
 </style>

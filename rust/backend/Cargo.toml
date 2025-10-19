@@ -44,8 +44,8 @@ sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite", "migrate
 # Terminal emulation
 portable-pty = "0.8"
 
-# Authentication
-jsonwebtoken = "9.3"
+# Authentication (SSO JWT validation requires jsonwebtoken for RS256)
+jsonwebtoken = { version = "9.3", features = ["use_pem"] }
 oauth2 = "4.4"
 
 # Configuration

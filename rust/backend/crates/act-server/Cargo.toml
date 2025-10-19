@@ -37,7 +37,7 @@ sqlx = { workspace = true }
 # Terminal emulation
 portable-pty = { workspace = true }
 
-# Authentication
+# Authentication (SSO JWT validation requires jsonwebtoken for RS256)
 jsonwebtoken = { workspace = true }
 oauth2 = { workspace = true }
 

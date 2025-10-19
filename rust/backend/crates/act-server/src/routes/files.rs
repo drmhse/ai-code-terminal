@@ -1,5 +1,5 @@
 use crate::{
-    error::ServerError, middleware::auth::AuthenticatedUser, models::ApiResponse, AppState,
+    error::ServerError, middleware::sso_auth::AuthenticatedUser, models::ApiResponse, AppState,
 };
 use act_core::{
     CopyRequest, CreateDirectoryRequest, CreateFileRequest, DirectoryListing, FileContent,

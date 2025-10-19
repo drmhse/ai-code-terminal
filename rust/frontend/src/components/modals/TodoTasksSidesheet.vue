@@ -65,6 +65,7 @@ import { useTodoStore } from '@/stores/todo'
 import { useUIStore } from '@/stores/ui'
 import TasksBoard from '@/components/tasks/TasksBoard.vue'
 import { logger } from '@/utils/logger'
+import ssoClient from '@/services/sso'
 import {
   ClipboardDocumentListIcon,
   UserPlusIcon,
@@ -83,10 +84,12 @@ const close = () => {
 
 const connectMicrosoft = async () => {
   try {
-    const authUrl = await todoStore.startOAuthFlow()
-    window.open(authUrl.auth_url, '_blank')
+    logger.log('🔄 Starting Microsoft identity linking via SSO...')
+    const { authorization_url } = await ssoClient.user.identities.startLink('microsoft')
+    logger.log('✅ Redirecting to SSO for Microsoft linking...')
+    window.location.href = authorization_url
   } catch (error) {
-    logger.error('Failed to start Microsoft OAuth:', error)
+    logger.error('Failed to start Microsoft identity linking:', error)
   }
 }
 

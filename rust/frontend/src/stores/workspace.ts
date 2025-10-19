@@ -6,6 +6,7 @@ import { useLayoutStore } from '@/stores/layout'
 import { useUIStore } from '@/stores/ui'
 import { apiService } from '@/services/api'
 import { logger } from '@/utils/logger'
+import { authStorage } from '@/utils/auth-storage'
 
 export interface Repository {
   id: number | string
@@ -162,7 +163,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       logger.error('❌ Failed to fetch workspaces:', err)
       logger.error('Error details:', {
         error: err,
-        hasToken: !!localStorage.getItem('jwt_token'),
+        hasToken: authStorage.hasToken(),
         apiUrl: import.meta.env.VITE_API_BASE_URL
       })
     } finally {

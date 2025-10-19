@@ -20,16 +20,20 @@ services:
       - ACT_DATABASE_URL=${ACT_DATABASE_URL:-sqlite:./data/act.db}
       - ACT_DATABASE_MAX_CONNECTIONS=10
 
-      # Authentication Configuration (mapping Node convention to Rust)
-      - ACT_AUTH_JWT_SECRET=${ACT_AUTH_JWT_SECRET}
-      - ACT_AUTH_GITHUB_CLIENT_ID=${ACT_AUTH_GITHUB_CLIENT_ID}
-      - ACT_AUTH_GITHUB_CLIENT_SECRET=${ACT_AUTH_GITHUB_CLIENT_SECRET}
-      - ACT_AUTH_GITHUB_REDIRECT_URL=${ACT_AUTH_GITHUB_REDIRECT_URL}
-      - ACT_AUTH_TENANT_GITHUB_USERNAME=${ACT_AUTH_TENANT_GITHUB_USERNAME}
+      # SSO Configuration (all authentication is now handled via SSO)
+      # SSO server handles client identification automatically via org and service slugs
+      - ACT_SSO_BASE_URL=${ACT_SSO_BASE_URL}
+      - ACT_SSO_ORG_SLUG=${ACT_SSO_ORG_SLUG}
+      - ACT_SSO_SERVICE_SLUG=${ACT_SSO_SERVICE_SLUG}
+      - ACT_SSO_JWKS_URL=${ACT_SSO_JWKS_URL}
 
       # CORS Configuration
       - ACT_CORS_ALLOWED_ORIGINS=${ACT_CORS_ALLOWED_ORIGINS:-https://localhost:3002,http://localhost:3002,https://waterproof-outsourcing-spies-even.trycloudflare.com}
       - ACT_CORS_ALLOWED_HEADERS=content-type,authorization,x-requested-with
+
+      # Microsoft To-Do Integration (Token Caching)
+      # OAuth is handled by SSO - this key is only for caching provider tokens
+      - MS_ENCRYPTION_KEY=${MS_ENCRYPTION_KEY}
 
       # Logging Configuration
       - RUST_LOG=${LOG_LEVEL:-act_server=info,act_core=info}

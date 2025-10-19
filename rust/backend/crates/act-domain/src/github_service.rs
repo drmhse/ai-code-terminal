@@ -1,11 +1,8 @@
-use act_core::{
-    AuthRepository, GitHubRepository, GitHubRepositoryService, RepositoryListOptions, Result,
-};
+use act_core::{GitHubRepository, GitHubRepositoryService, RepositoryListOptions, Result};
 use std::sync::Arc;
 
 pub struct GitHubService {
     github_repo_service: Arc<dyn GitHubRepositoryService>,
-    auth_repository: Arc<dyn AuthRepository>,
 }
 
 #[derive(Debug)]
@@ -18,30 +15,19 @@ pub struct RepositoryQuery {
 }
 
 impl GitHubService {
-    pub fn new(
-        github_repo_service: Arc<dyn GitHubRepositoryService>,
-        auth_repository: Arc<dyn AuthRepository>,
-    ) -> Self {
+    pub fn new(github_repo_service: Arc<dyn GitHubRepositoryService>) -> Self {
         Self {
             github_repo_service,
-            auth_repository,
         }
     }
 
+    /// List repositories using a GitHub access token (from SSO session)
     pub async fn list_user_repositories(
         &self,
-        user_id: &str,
+        access_token: &str,
         query: RepositoryQuery,
     ) -> Result<Vec<GitHubRepository>> {
-        tracing::debug!("Looking up GitHub token for user_id: {}", user_id);
-        // Get the user's GitHub access token
-        let access_token = self
-            .auth_repository
-            .get_github_token(user_id)
-            .await?
-            .ok_or_else(|| {
-                act_core::CoreError::Auth("GitHub authentication required".to_string())
-            })?;
+        tracing::debug!("Listing GitHub repositories with SSO token");
 
         let options = RepositoryListOptions {
             page: query.page,
@@ -52,7 +38,7 @@ impl GitHubService {
 
         let mut repositories = self
             .github_repo_service
-            .list_repositories(&access_token, options)
+            .list_repositories(access_token, options)
             .await?;
 
         // Apply search filter if provided
@@ -71,23 +57,15 @@ impl GitHubService {
         Ok(repositories)
     }
 
+    /// Get repository info using a GitHub access token (from SSO session)
     pub async fn get_repository_info(
         &self,
-        user_id: &str,
+        access_token: &str,
         owner: &str,
         repo: &str,
     ) -> Result<GitHubRepository> {
-        // Get the user's GitHub access token
-        let access_token = self
-            .auth_repository
-            .get_github_token(user_id)
-            .await?
-            .ok_or_else(|| {
-                act_core::CoreError::Auth("GitHub authentication required".to_string())
-            })?;
-
         self.github_repo_service
-            .get_repository(&access_token, owner, repo)
+            .get_repository(access_token, owner, repo)
             .await
     }
 }

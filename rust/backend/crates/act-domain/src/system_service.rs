@@ -416,9 +416,7 @@ impl SystemService {
             // If workspace_id is provided, restrict to that specific workspace
             if let Some(workspace_id) = workspace_id {
                 let workspace_path = self.config.workspace_root.join(workspace_id);
-                let workspace_canonical = workspace_path
-                    .canonicalize()
-                    .unwrap_or_else(|_| workspace_path);
+                let workspace_canonical = workspace_path.canonicalize().unwrap_or(workspace_path);
 
                 if !canonical_path.starts_with(&workspace_canonical) {
                     return Err(CoreError::FileSystem(format!(

@@ -2,9 +2,11 @@ import { defineStore } from 'pinia'
 import { ref, computed, readonly } from 'vue'
 import type { User } from '@/types'
 import { socketService } from '@/services/socket'
-import { apiService } from '@/services/api'
 import { ConnectionState } from '@/types/socket'
 import { logger } from '@/utils/logger'
+import ssoClient from '@/services/sso'
+import type { UserProfile, OAuthProvider } from '@drmhse/sso-sdk'
+import { authStorage } from '@/utils/auth-storage'
 
 export interface AppStats {
   system: {
@@ -29,9 +31,20 @@ export interface Subscription {
   status: string
 }
 
+const mapProfileToUser = (profile: UserProfile): User => {
+  return {
+    id: profile.id,
+    login: profile.email.split('@')[0],
+    name: null,
+    email: profile.email,
+    avatar_url: '',
+  }
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const token = ref<string | null>(null)
+  const refreshToken = ref<string | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
 
@@ -59,16 +72,22 @@ export const useAuthStore = defineStore('auth', () => {
   })
 
   const initializeAuth = () => {
-    const storedToken = localStorage.getItem('jwt_token')
+    const storedToken = authStorage.getToken()
+    const storedRefreshToken = localStorage.getItem('sso_refresh_token')
     const storedUser = localStorage.getItem('user')
 
-    if (storedToken && storedUser) {
+    if (storedToken) {
       token.value = storedToken
-      try {
-        user.value = JSON.parse(storedUser)
-      } catch (error) {
-        logger.error('Failed to parse stored user:', error)
-        logout()
+      refreshToken.value = storedRefreshToken
+      ssoClient.setAuthToken(storedToken)
+
+      if (storedUser) {
+        try {
+          user.value = JSON.parse(storedUser)
+        } catch (error) {
+          logger.error('Failed to parse stored user:', error)
+          logout()
+        }
       }
     }
   }
@@ -76,7 +95,7 @@ export const useAuthStore = defineStore('auth', () => {
   const setAuthData = (authToken: string, userData: User) => {
     token.value = authToken
     user.value = userData
-    localStorage.setItem('jwt_token', authToken)
+    authStorage.setToken(authToken)
     localStorage.setItem('user', JSON.stringify(userData))
   }
 
@@ -99,10 +118,11 @@ export const useAuthStore = defineStore('auth', () => {
 
     isFetchingUser.value = true
     loading.value = true
-    
+
     try {
       logger.log('🔍 Fetching current user data...')
-      const userData = await apiService.getCurrentUser()
+      const profile = await ssoClient.user.getProfile()
+      const userData = mapProfileToUser(profile)
       user.value = userData
       username.value = userData.login || null
       localStorage.setItem('user', JSON.stringify(userData))
@@ -136,18 +156,26 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await ssoClient.auth.logout()
+    } catch (err) {
+      logger.error('Failed to logout from SSO:', err)
+    }
+
+    ssoClient.setAuthToken(null)
     user.value = null
     token.value = null
+    refreshToken.value = null
     username.value = null
     error.value = null
     errorMessage.value = null
-    
+
     // Reset initialization state
     isAppInitialized.value = false
     isInitializing.value = false
     isFetchingUser.value = false
-    
+
     // Unsubscribe from WebSocket stats and clean up listener
     if (statsListener.value) {
       window.removeEventListener('stats:data', statsListener.value)
@@ -155,49 +183,42 @@ export const useAuthStore = defineStore('auth', () => {
     }
     socketService.unsubscribeFromStats()
     stats.value = null
-    
-    localStorage.removeItem('jwt_token')
+
+    authStorage.removeToken()
+    localStorage.removeItem('sso_refresh_token')
     localStorage.removeItem('user')
     socketService.disconnect()
   }
 
-  const getGitHubAuthUrl = () => {
-    // Frontend generates GitHub OAuth URL with environment-aware redirect URI
-    const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID
+  const getLoginUrl = (provider: OAuthProvider) => {
+    const orgSlug = import.meta.env.VITE_SSO_ORG_SLUG
+    const serviceSlug = import.meta.env.VITE_SSO_SERVICE_SLUG
+    const redirectUri = `${window.location.origin}/auth/callback`
 
-    // Check if we're in Tauri desktop app
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const isTauriApp = !!(window as any).__TAURI__
+    logger.log(`[Auth] Generating ${provider} login URL`)
+    logger.log(`  Org: ${orgSlug}, Service: ${serviceSlug}`)
+    logger.log(`  Redirect URI: ${redirectUri}`)
 
-    // GitHub OAuth doesn't support custom URL schemes
-    // Desktop mode: Use fixed port 3001 with loopback URL (GitHub supports this)
-    // Web mode: Use current origin
-    const redirectUri = isTauriApp
-      ? 'http://127.0.0.1:3001/api/v1/auth/github/callback'
-      : `${window.location.origin}/auth/callback`
+    const url = ssoClient.auth.getLoginUrl(provider, {
+      org: orgSlug,
+      service: serviceSlug,
+      redirect_uri: redirectUri,
+    })
 
-    const state = crypto.randomUUID()
-    localStorage.setItem('oauth_state', state)
-
-    console.log(`[Auth] Generating GitHub OAuth URL`)
-    console.log(`  Mode: ${isTauriApp ? 'Desktop (Tauri)' : 'Web (Browser)'}`)
-    console.log(`  Redirect URI: ${redirectUri}`)
-
-    const fullUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=user:email repo read:org&state=${state}`
-    console.log(`  Full OAuth URL: ${fullUrl}`)
-
-    return fullUrl
-  }
-
-  // SSO Authentication Methods
-  const getSsoAuthUrl = (provider: 'github' | 'microsoft' | 'google') => {
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
-    return `${apiBaseUrl}/api/v1/auth/${provider}/start`
+    logger.log(`  Full OAuth URL: ${url}`)
+    return url
   }
 
   const startDeviceFlow = async () => {
     try {
-      const response = await apiService.startDeviceFlow()
+      const orgSlug = import.meta.env.VITE_SSO_ORG_SLUG
+      const serviceSlug = import.meta.env.VITE_SSO_SERVICE_SLUG
+
+      const response = await ssoClient.auth.deviceCode.request({
+        client_id: serviceSlug,
+        org: orgSlug,
+        service: serviceSlug,
+      })
       return response
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to start device flow'
@@ -207,15 +228,21 @@ export const useAuthStore = defineStore('auth', () => {
 
   const pollDeviceToken = async (deviceCode: string) => {
     try {
-      const response = await apiService.pollDeviceToken(deviceCode)
-      if (response.access_token) {
-        await setToken(response.access_token)
+      const serviceSlug = import.meta.env.VITE_SSO_SERVICE_SLUG
+
+      const response = await ssoClient.auth.deviceCode.exchangeToken({
+        grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+        device_code: deviceCode,
+        client_id: serviceSlug,
+      }) as { access_token: string; refresh_token: string; token_type: string; expires_in: number }
+
+      if (response.access_token && response.refresh_token) {
+        await setToken(response.access_token, response.refresh_token)
       }
       return response
     } catch (err) {
-      // Don't set error for pending states
       const errorMsg = err instanceof Error ? err.message : 'Unknown error'
-      if (!errorMsg.includes('pending')) {
+      if (!errorMsg.includes('pending') && !errorMsg.includes('authorization_pending')) {
         error.value = errorMsg
       }
       throw err
@@ -226,51 +253,71 @@ export const useAuthStore = defineStore('auth', () => {
     if (!token.value) return
 
     try {
-      const sub = await apiService.getSubscription()
-      subscription.value = sub
+      const sub = await ssoClient.user.getSubscription()
+      subscription.value = {
+        plan: sub.plan,
+        features: sub.features,
+        status: sub.status,
+      }
     } catch (err) {
       logger.error('Failed to fetch subscription:', err)
-      // Don't throw - subscription is optional
     }
   }
 
   const checkAuthStatus = async () => {
-    // Initialize from localStorage first
     initializeAuth()
-    
-    // If we have a token, validate it and establish connections
+
     if (token.value) {
       try {
-        // Only fetch user data if we don't have it or if it's stale
         if (!user.value) {
           await fetchCurrentUser()
         } else {
           logger.log('✅ User data already available from localStorage')
         }
-        
+
         await connectWebSocket()
-        
-        // Initialize app after successful authentication
+
         if (user.value) {
           username.value = user.value.login || null
           await initializeApp()
         }
-      } catch (error) {
-        logger.error('Auth validation failed on reload:', error)
-        // Token is invalid, clear it
-        logout()
+      } catch (error: unknown) {
+        logger.error('Auth validation failed, attempting token refresh:', error)
+
+        if (refreshToken.value) {
+          try {
+            logger.log('🔄 Attempting to refresh token...')
+            const tokens = await ssoClient.auth.refreshToken(refreshToken.value)
+            await setToken(tokens.access_token, tokens.refresh_token)
+            logger.log('✅ Token refreshed successfully')
+
+            await connectWebSocket()
+            if (user.value) {
+              username.value = user.value.login || null
+              await initializeApp()
+            }
+          } catch (refreshError) {
+            logger.error('Token refresh failed:', refreshError)
+            await logout()
+          }
+        } else {
+          await logout()
+        }
       }
     }
   }
 
-  const setToken = async (authToken: string) => {
-    token.value = authToken
-    localStorage.setItem('jwt_token', authToken)
+  const setToken = async (accessToken: string, newRefreshToken: string) => {
+    token.value = accessToken
+    refreshToken.value = newRefreshToken
+    authStorage.setToken(accessToken)
+    localStorage.setItem('sso_refresh_token', newRefreshToken)
+    ssoClient.setAuthToken(accessToken)
+
     await fetchCurrentUser()
-    await fetchSubscription()  // Fetch subscription info for SSO
+    await fetchSubscription()
     await connectWebSocket()
 
-    // Initialize app after authentication
     if (user.value) {
       username.value = user.value.login || null
       await initializeApp()
@@ -288,8 +335,8 @@ export const useAuthStore = defineStore('auth', () => {
       logger.log('✅ Already authenticated, skipping initialization')
       return user.value
     }
-    
-    const existingToken = localStorage.getItem('jwt_token')
+
+    const existingToken = authStorage.getToken()
     if (!existingToken) {
       throw new Error('No authentication token found')
     }
@@ -458,10 +505,9 @@ export const useAuthStore = defineStore('auth', () => {
     fetchCurrentUser,
     connectWebSocket,
     logout,
-    getGitHubAuthUrl,
 
     // SSO actions
-    getSsoAuthUrl,
+    getLoginUrl,
     startDeviceFlow,
     pollDeviceToken,
     fetchSubscription,

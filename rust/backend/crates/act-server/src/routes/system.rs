@@ -1,5 +1,5 @@
 use crate::{
-    error::ServerError, middleware::auth::AuthenticatedUser, models::ApiResponse, AppState,
+    error::ServerError, middleware::sso_auth::AuthenticatedUser, models::ApiResponse, AppState,
 };
 use act_core::CoreError;
 use axum::{
@@ -109,7 +109,7 @@ pub async fn browse_directory(
 ) -> Result<Json<ApiResponse<act_domain::BrowseDirectoryResponse>>, ServerError> {
     debug!(
         "Browse directory requested: {:?} for user: {} in workspace: {:?}",
-        params.path, user.user_id, params.workspace_id
+        params.path, user.sso_user_id, params.workspace_id
     );
 
     // Determine the path to browse
@@ -118,7 +118,7 @@ pub async fn browse_directory(
         let workspace = state
             .domain_services
             .workspace_service
-            .get_workspace(&user.user_id, workspace_id)
+            .get_workspace(&user.db_user_id, workspace_id)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to access workspace {}: {}", workspace_id, e);
@@ -130,7 +130,7 @@ pub async fn browse_directory(
 
         debug!(
             "User {} accessing workspace {} at path: {}",
-            user.user_id, workspace_id, workspace.local_path
+            user.sso_user_id, workspace_id, workspace.local_path
         );
 
         // Resolve path within workspace

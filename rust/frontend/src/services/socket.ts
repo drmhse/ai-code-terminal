@@ -15,6 +15,7 @@ import {
   validateTerminalDestroyedEvent,
   validateStatsDataEvent
 } from '@/types/socket'
+import { authStorage } from '@/utils/auth-storage'
 
 // Session discovery and recovery types
 export interface WorkspaceSession {
@@ -90,7 +91,8 @@ class SocketService {
         return
       }
 
-      const token = localStorage.getItem('jwt_token')
+      // Use SSO token via centralized auth storage
+      const token = authStorage.getToken()
       if (!token) {
         this.connectionState$.next(ConnectionState.ERROR)
         reject(new Error('No authentication token available'))

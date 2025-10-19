@@ -8,7 +8,7 @@ use tracing::{info, warn};
 
 use crate::{
     error::ServerError,
-    middleware::auth::AuthenticatedUser,
+    middleware::sso_auth::AuthenticatedUser,
     models::{session_info_from_domain, ApiResponse, Session},
     AppState,
 };
@@ -38,14 +38,14 @@ pub async fn list_sessions(
     let domain_sessions = state
         .domain_services
         .session_service
-        .list_active_sessions(&auth_user.user_id)
+        .list_active_sessions(&auth_user.db_user_id)
         .await?;
 
     let sessions: Vec<Session> = domain_sessions
         .into_iter()
         .map(|session_info| {
             let mut session = session_info_from_domain(session_info);
-            session.user_id = auth_user.user_id.clone();
+            session.user_id = auth_user.sso_user_id.clone();
             session
         })
         .collect();
@@ -53,7 +53,7 @@ pub async fn list_sessions(
     info!(
         "Retrieved {} active sessions for user {}",
         sessions.len(),
-        auth_user.user_id
+        auth_user.sso_user_id
     );
     Ok(Json(ApiResponse::success(sessions)))
 }
@@ -76,7 +76,7 @@ pub async fn create_session(
     let workspace_path = match state
         .domain_services
         .workspace_service
-        .get_workspace(&auth_user.user_id, &request.workspace_id)
+        .get_workspace(&auth_user.db_user_id, &request.workspace_id)
         .await
     {
         Ok(workspace) => Some(workspace.local_path),
@@ -93,7 +93,7 @@ pub async fn create_session(
         .domain_services
         .session_service
         .get_or_create_pty_session(
-            &auth_user.user_id,
+            &auth_user.db_user_id,
             &session_id,
             &request.workspace_id,
             workspace_path,
@@ -129,7 +129,7 @@ pub async fn create_session(
         session_timeout: Some(30),
         layout_id: None,
         workspace_id: Some(request.workspace_id),
-        user_id: auth_user.user_id,
+        user_id: auth_user.sso_user_id,
     };
 
     info!("Session created successfully: {}", session.id);
@@ -148,7 +148,7 @@ pub async fn terminate_session(
     state
         .domain_services
         .session_service
-        .terminate_session(&auth_user.user_id, &session_id)
+        .terminate_session(&auth_user.db_user_id, &session_id)
         .await?;
 
     info!("Session terminated successfully: {}", session_id);
@@ -177,7 +177,12 @@ pub async fn resize_session(
     state
         .domain_services
         .session_service
-        .resize_session(&auth_user.user_id, &session_id, request.cols, request.rows)
+        .resize_session(
+            &auth_user.db_user_id,
+            &session_id,
+            request.cols,
+            request.rows,
+        )
         .await?;
 
     info!("Session resized successfully: {}", session_id);
@@ -195,12 +200,15 @@ pub async fn cleanup_sessions(
 ) -> Result<Json<ApiResponse<CleanupResult>>, ServerError> {
     // CSRF verification is handled by the middleware layer
     // This handler only executes if CSRF validation passes
-    info!("Session cleanup requested for user {}", auth_user.user_id);
+    info!(
+        "Session cleanup requested for user {}",
+        auth_user.sso_user_id
+    );
 
     let cleaned_count = state
         .domain_services
         .session_service
-        .cleanup_terminated_sessions(&auth_user.user_id)
+        .cleanup_terminated_sessions(&auth_user.db_user_id)
         .await?;
 
     info!(
@@ -217,7 +225,7 @@ pub async fn get_session_buffer(
 ) -> Result<Json<ApiResponse<String>>, ServerError> {
     info!(
         "Session buffer requested: {} for user {}",
-        session_id, auth_user.user_id
+        session_id, auth_user.sso_user_id
     );
 
     // Get terminal buffer from session service

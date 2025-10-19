@@ -2,7 +2,6 @@
 
 use std::path::PathBuf;
 
-pub mod auth_service;
 pub mod encryption_service;
 pub mod git_service;
 pub mod github_service;
@@ -42,16 +41,11 @@ pub use system_service::{
 
 pub use git_service::LocalGitService;
 
-pub use auth_service::{AuthResult, AuthService, AuthStatus};
-
 pub use github_service::{GitHubService, RepositoryQuery};
 
 pub use encryption_service::{EncryptionError, EncryptionService, TokenEncryption};
 pub use layout_service::LayoutService;
-pub use microsoft_auth_service::{
-    AuthorizationUrl, MicrosoftAuthError, MicrosoftAuthService, MicrosoftHealthStatus,
-    MicrosoftOAuthConfig, MicrosoftTokenResponse,
-};
+pub use microsoft_auth_service::{MicrosoftAuthError, MicrosoftAuthService, MicrosoftHealthStatus};
 pub use microsoft_auth_types::{
     MicrosoftAuthData, MicrosoftAuthRepository, MicrosoftAuthRepositoryError, WorkspaceTodoMapping,
 };
@@ -91,14 +85,13 @@ use act_core::{
     security::{ProcessSecurityValidator, SecurityAuditLogger},
     theme::ThemeRepository,
     user_preferences::UserPreferencesRepository,
-    AuthRepository, GitHubAuthService, GitHubRepositoryService, JwtService,
+    GitHubRepositoryService,
 };
 
 pub struct DomainServices {
     pub workspace_service: WorkspaceService,
     pub session_service: SessionService,
     pub system_service: SystemService,
-    pub auth_service: AuthService,
     pub github_service: GitHubService,
     pub layout_service: LayoutService,
     pub process_service: ProcessService,
@@ -125,9 +118,6 @@ impl DomainServices {
         git_service: Arc<dyn GitService>,
         metrics_repository: Arc<dyn MetricsRepository>,
         system_monitor: Arc<dyn SystemMonitor>,
-        github_auth_service: Arc<dyn GitHubAuthService>,
-        jwt_service: Arc<dyn JwtService>,
-        auth_repository: Arc<dyn AuthRepository>,
         github_repository_service: Arc<dyn GitHubRepositoryService>,
         event_publisher: Arc<dyn EventPublisher>,
         security_validator: Arc<ProcessSecurityValidator>,
@@ -135,11 +125,10 @@ impl DomainServices {
         process_recovery_config: ProcessRecoveryConfig,
         workspace_root: String,
         allow_access_to_parent_dirs: bool,
-        // Microsoft auth service dependencies
+        // Microsoft Graph client for To-Do integration
+        graph_client: Arc<dyn GraphClient>,
         microsoft_auth_repository: Arc<dyn MicrosoftAuthRepository>,
         encryption_service: Arc<dyn TokenEncryption>,
-        graph_client: Arc<dyn GraphClient>,
-        microsoft_oauth_config: MicrosoftOAuthConfig,
     ) -> Self {
         let workspace_service = WorkspaceService::new(
             workspace_repository.clone(),
@@ -157,10 +146,7 @@ impl DomainServices {
         let system_service =
             SystemService::new(metrics_repository, system_monitor, system_service_config);
 
-        let auth_service =
-            AuthService::new(github_auth_service, jwt_service, auth_repository.clone());
-
-        let github_service = GitHubService::new(github_repository_service, auth_repository);
+        let github_service = GitHubService::new(github_repository_service);
 
         let layout_service = LayoutService::new(layout_repository);
 
@@ -185,10 +171,9 @@ impl DomainServices {
         let user_preferences_service = UserPreferencesService::new(user_preferences_repository);
 
         let microsoft_auth_service = MicrosoftAuthService::new(
+            graph_client.clone(),
             microsoft_auth_repository.clone(),
             encryption_service,
-            graph_client.clone(),
-            microsoft_oauth_config,
         );
 
         let todo_sync_service = TodoSyncService::new(
@@ -211,7 +196,6 @@ impl DomainServices {
             workspace_service,
             session_service,
             system_service,
-            auth_service,
             github_service,
             layout_service,
             process_service,

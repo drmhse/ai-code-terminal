@@ -2,7 +2,7 @@ use axum::{
     extract::Request,
     http::{Method, StatusCode},
     middleware::Next,
-    response::{IntoResponse, Response},
+    response::Response,
 };
 
 /// CSRF protection middleware using double-submit cookie pattern
@@ -11,20 +11,6 @@ pub struct CsrfProtection {
 }
 
 impl CsrfProtection {
-    pub fn new(secret: String) -> Self {
-        Self { _secret: secret }
-    }
-
-    /// Generate a new CSRF token
-    pub fn generate_token(&self) -> String {
-        use rand::Rng;
-        let mut rng = rand::thread_rng();
-        let token: String = (0..32)
-            .map(|_| rng.sample(rand::distributions::Alphanumeric) as char)
-            .collect();
-        token
-    }
-
     /// Verify CSRF token for state-changing requests
     pub async fn verify_csrf(request: Request, next: Next) -> Result<Response, StatusCode> {
         // Skip CSRF verification for safe methods
@@ -73,27 +59,4 @@ impl CsrfProtection {
 
         Ok(next.run(request).await)
     }
-}
-
-/// Helper to extract CSRF token from request
-#[allow(dead_code)]
-pub fn extract_csrf_token(req: &Request) -> Option<&str> {
-    req.headers()
-        .get("X-CSRF-Token")
-        .and_then(|value| value.to_str().ok())
-}
-
-/// Helper to check if request requires CSRF protection
-#[allow(dead_code)]
-pub fn requires_csrf_protection(method: &Method) -> bool {
-    matches!(
-        method,
-        &Method::POST | &Method::PUT | &Method::DELETE | &Method::PATCH
-    )
-}
-
-/// CSRF error response
-#[allow(dead_code)]
-pub fn csrf_error_response() -> impl IntoResponse {
-    (StatusCode::FORBIDDEN, "CSRF token validation failed")
 }

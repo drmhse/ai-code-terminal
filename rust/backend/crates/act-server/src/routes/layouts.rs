@@ -1,5 +1,5 @@
 use crate::{
-    error::ServerError, middleware::auth::AuthenticatedUser, models::ApiResponse, AppState,
+    error::ServerError, middleware::sso_auth::AuthenticatedUser, models::ApiResponse, AppState,
 };
 
 use axum::{
@@ -86,19 +86,19 @@ async fn list_layouts(
     user: AuthenticatedUser,
     Query(params): Query<ListLayoutsQuery>,
 ) -> Result<Json<ApiResponse<Vec<LayoutResponse>>>, ServerError> {
-    info!("Listing layouts for user {}", user.user_id);
+    info!("Listing layouts for user {}", user.sso_user_id);
 
     let layouts = if let Some(workspace_id) = &params.workspace_id {
         state
             .domain_services
             .layout_service
-            .list_workspace_layouts(&user.user_id, workspace_id)
+            .list_workspace_layouts(&user.db_user_id, workspace_id)
             .await
     } else {
         state
             .domain_services
             .layout_service
-            .list_all_layouts(&user.user_id)
+            .list_all_layouts(&user.db_user_id)
             .await
     }?;
 
@@ -115,7 +115,7 @@ async fn create_layout(
 ) -> Result<Json<ApiResponse<LayoutResponse>>, ServerError> {
     info!(
         "Creating layout '{}' for user {}",
-        request.name, user.user_id
+        request.name, user.sso_user_id
     );
 
     let domain_request = act_core::repository::CreateLayoutRequest {
@@ -129,7 +129,7 @@ async fn create_layout(
     let layout = state
         .domain_services
         .layout_service
-        .create_layout(&user.user_id, domain_request)
+        .create_layout(&user.db_user_id, domain_request)
         .await?;
 
     Ok(Json(ApiResponse::success(LayoutResponse::from(layout))))
@@ -140,12 +140,12 @@ async fn get_layout(
     user: AuthenticatedUser,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<LayoutResponse>>, ServerError> {
-    info!("Getting layout {} for user {}", id, user.user_id);
+    info!("Getting layout {} for user {}", id, user.sso_user_id);
 
     let layout = state
         .domain_services
         .layout_service
-        .get_layout(&user.user_id, &id)
+        .get_layout(&user.db_user_id, &id)
         .await?;
 
     Ok(Json(ApiResponse::success(LayoutResponse::from(layout))))
@@ -157,7 +157,7 @@ async fn update_layout(
     Path(id): Path<String>,
     Json(request): Json<UpdateLayoutRequest>,
 ) -> Result<Json<ApiResponse<LayoutResponse>>, ServerError> {
-    info!("Updating layout {} for user {}", id, user.user_id);
+    info!("Updating layout {} for user {}", id, user.sso_user_id);
 
     let domain_request = act_core::repository::UpdateLayoutRequest {
         name: request.name,
@@ -168,7 +168,7 @@ async fn update_layout(
     let layout = state
         .domain_services
         .layout_service
-        .update_layout(&user.user_id, &id, domain_request)
+        .update_layout(&user.db_user_id, &id, domain_request)
         .await?;
 
     Ok(Json(ApiResponse::success(LayoutResponse::from(layout))))
@@ -179,12 +179,12 @@ async fn delete_layout(
     user: AuthenticatedUser,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
-    info!("Deleting layout {} for user {}", id, user.user_id);
+    info!("Deleting layout {} for user {}", id, user.sso_user_id);
 
     state
         .domain_services
         .layout_service
-        .delete_layout(&user.user_id, &id)
+        .delete_layout(&user.db_user_id, &id)
         .await?;
 
     Ok(Json(ApiResponse::success(())))
@@ -195,19 +195,22 @@ async fn set_default_layout(
     user: AuthenticatedUser,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<()>>, ServerError> {
-    info!("Setting layout {} as default for user {}", id, user.user_id);
+    info!(
+        "Setting layout {} as default for user {}",
+        id, user.sso_user_id
+    );
 
     // First, get the layout to find its workspace_id
     let layout = state
         .domain_services
         .layout_service
-        .get_layout(&user.user_id, &id)
+        .get_layout(&user.db_user_id, &id)
         .await?;
 
     state
         .domain_services
         .layout_service
-        .set_default_layout(&user.user_id, &id, &layout.workspace_id)
+        .set_default_layout(&user.db_user_id, &id, &layout.workspace_id)
         .await?;
 
     Ok(Json(ApiResponse::success(())))
@@ -219,7 +222,7 @@ async fn duplicate_layout(
     Path(id): Path<String>,
     Json(request): Json<serde_json::Value>, // Optional new_name in request body
 ) -> Result<Json<ApiResponse<LayoutResponse>>, ServerError> {
-    info!("Duplicating layout {} for user {}", id, user.user_id);
+    info!("Duplicating layout {} for user {}", id, user.sso_user_id);
 
     let new_name = request
         .get("name")
@@ -229,7 +232,7 @@ async fn duplicate_layout(
     let layout = state
         .domain_services
         .layout_service
-        .duplicate_layout(&user.user_id, &id, new_name)
+        .duplicate_layout(&user.db_user_id, &id, new_name)
         .await?;
 
     Ok(Json(ApiResponse::success(LayoutResponse::from(layout))))
@@ -242,7 +245,7 @@ async fn save_layout_with_buffers(
 ) -> Result<Json<ApiResponse<LayoutResponse>>, ServerError> {
     info!(
         "Saving layout '{}' for user {} (session data will not be persisted)",
-        request.name, user.user_id
+        request.name, user.sso_user_id
     );
 
     // Strip session IDs and buffers from the tree structure - layouts should not persist session data
@@ -274,7 +277,7 @@ async fn save_layout_with_buffers(
     let layout = state
         .domain_services
         .layout_service
-        .create_layout(&user.user_id, domain_request)
+        .create_layout(&user.db_user_id, domain_request)
         .await?;
 
     Ok(Json(ApiResponse::success(LayoutResponse::from(layout))))
@@ -287,13 +290,13 @@ async fn get_layout_with_buffers(
 ) -> Result<Json<ApiResponse<serde_json::Value>>, ServerError> {
     info!(
         "Getting layout {} for user {} (no session data will be restored)",
-        id, user.user_id
+        id, user.sso_user_id
     );
 
     let layout = _state
         .domain_services
         .layout_service
-        .get_layout(&user.user_id, &id)
+        .get_layout(&user.db_user_id, &id)
         .await?;
 
     // Return layout without any session data - sessions are purely in-memory
