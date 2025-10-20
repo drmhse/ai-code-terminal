@@ -1,11 +1,13 @@
 <template>
   <router-view />
+  <FloatingGithubLink />
 </template>
 
 <script setup lang="ts">
 import { onMounted, watch } from 'vue'
 import { useAuthStore } from './stores/auth'
 import { useTheme } from './composables/useTheme'
+import FloatingGithubLink from './components/ui/FloatingGithubLink.vue'
 
 const authStore = useAuthStore()
 const { initialize: initializeTheme, reinitializeForUser } = useTheme()

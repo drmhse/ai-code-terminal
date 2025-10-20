@@ -43,14 +43,22 @@ const getTerminalState = (sessionId: string) => {
   return terminalState.get(sessionId)!
 }
 
+const updatePrompt = (sessionId: string) => {
+  const state = terminalState.get(sessionId)
+  if (state) {
+    state.prompt = `demo@mock-terminal:${currentMockPath}$ `
+  }
+}
+
 // Command interpreter for mock terminal
-const interpretCommand = (command: string): string[] => {
+const interpretCommand = (command: string): { output: string[], dirChanged: boolean } => {
   const trimmedCommand = command.trim()
   const parts = trimmedCommand.split(' ')
   const cmd = parts[0]
   const args = parts.slice(1)
 
   const output: string[] = []
+  let dirChanged = false
 
   switch (cmd) {
     case 'ls':
@@ -85,6 +93,7 @@ const interpretCommand = (command: string): string[] => {
     case 'cd':
       if (args.length === 0) {
         currentMockPath = '/home/demo'
+        dirChanged = true
       } else {
         const targetPath = args[0].startsWith('/') ? args[0] : `${currentMockPath}/${args[0]}`
         const normalizedPath = targetPath.replace(/\/+/g, '/')
@@ -92,7 +101,8 @@ const interpretCommand = (command: string): string[] => {
         const node = findNode(normalizedPath)
         if (node && node.type === 'directory') {
           currentMockPath = normalizedPath
-          output.push(`Changed directory to ${currentMockPath}`)
+          dirChanged = true
+          // Don't output anything for successful cd (like real shells)
         } else {
           output.push(`cd: ${args[0]}: No such file or directory`)
         }
@@ -128,7 +138,7 @@ const interpretCommand = (command: string): string[] => {
 
     case 'clear':
       // Return empty array to simulate clear command
-      return []
+      return { output: [], dirChanged: false }
 
     case 'help':
       output.push('Available commands in mock terminal:')
@@ -184,7 +194,7 @@ const interpretCommand = (command: string): string[] => {
       output.push(`zsh: command not found: ${cmd}`)
   }
 
-  return output
+  return { output, dirChanged }
 }
 
 export const mockSocketService = {
@@ -268,28 +278,58 @@ export const mockSocketService = {
 
     const state = getTerminalState(sessionId)
 
-    // Handle each character
-    for (const char of data) {
-      if (char === '\\r' || char === '\\n') {
+    // Process input data
+    let i = 0
+    while (i < data.length) {
+      const char = data[i]
+
+      // Handle escape sequences (arrow keys, etc.)
+      if (char === '\x1b' && i + 2 < data.length && data[i + 1] === '[') {
+        // This is an ANSI escape sequence
+        const escapeCode = data[i + 2]
+
+        switch (escapeCode) {
+          case 'A': // Up arrow
+          case 'B': // Down arrow
+            // Ignore history navigation for now
+            break
+          case 'C': // Right arrow
+          case 'D': // Left arrow
+            // Ignore cursor movement for now
+            break
+        }
+
+        i += 3
+        continue
+      }
+
+      if (char === '\r' || char === '\n') {
         // Enter/Return key - execute the command
         const command = state.currentLine
-        if (command.trim()) {
-          // Echo the newline
-          this.terminalOutput$.next({
-            sessionId,
-            output: '\\r\\n'
-          })
 
+        // Echo the newline first
+        this.terminalOutput$.next({
+          sessionId,
+          output: '\r\n'
+        })
+
+        if (command.trim()) {
           // Execute the command
-          const outputs = interpretCommand(command)
-          outputs.forEach((output, index) => {
-            setTimeout(() => {
-              this.terminalOutput$.next({
-                sessionId,
-                output: output + '\\r\\n'
-              })
-            }, index * 100) // Simulate typing/output delay
-          })
+          const result = interpretCommand(command)
+
+          // Update prompt if directory changed
+          if (result.dirChanged) {
+            updatePrompt(sessionId)
+          }
+
+          // Output results immediately
+          if (result.output.length > 0) {
+            const commandOutput = result.output.join('\r\n') + '\r\n'
+            this.terminalOutput$.next({
+              sessionId,
+              output: commandOutput
+            })
+          }
 
           // Show new prompt after command completes
           setTimeout(() => {
@@ -297,39 +337,54 @@ export const mockSocketService = {
               sessionId,
               output: state.prompt
             })
-          }, outputs.length * 100 + 100)
+          }, 50)
         } else {
           // Empty command - just show new prompt
           this.terminalOutput$.next({
             sessionId,
-            output: '\\r\\n' + state.prompt
+            output: state.prompt
           })
         }
 
         // Reset current line
         state.currentLine = ''
 
-      } else if (char === '\\u007F') {
+      } else if (char === '\x7F' || char === '\b') {
         // Backspace/Delete
         if (state.currentLine.length > 0) {
           state.currentLine = state.currentLine.slice(0, -1)
-          // Echo backspace (delete character)
+          // Echo backspace sequence: move cursor back, write space, move cursor back again
           this.terminalOutput$.next({
             sessionId,
-            output: '\\b \\b' // Move back, delete, move back
+            output: '\b \b'
           })
         }
-      } else if (char === '\\u001B') {
-        // Escape sequence - handle as needed
-        // For now, just ignore escape sequences
-      } else {
-        // Regular character - add to current line and echo
+      } else if (char === '\x03') {
+        // Ctrl+C - interrupt
+        this.terminalOutput$.next({
+          sessionId,
+          output: '^C\r\n' + state.prompt
+        })
+        state.currentLine = ''
+      } else if (char === '\x04') {
+        // Ctrl+D - EOF
+        if (state.currentLine.length === 0) {
+          this.terminalOutput$.next({
+            sessionId,
+            output: 'exit\r\n'
+          })
+        }
+      } else if (char >= ' ' && char <= '~') {
+        // Printable ASCII character - add to current line and echo
         state.currentLine += char
         this.terminalOutput$.next({
           sessionId,
           output: char
         })
       }
+      // Ignore other control characters
+
+      i++
     }
   },
 

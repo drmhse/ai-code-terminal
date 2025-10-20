@@ -259,18 +259,19 @@ onUnmounted(() => {
 
 
 .btn {
-  padding: 8px 16px;
-  border-radius: 6px;
+  padding: 12px 24px;
+  border-radius: 8px;
   border: 1px solid var(--border-color);
   background: var(--button-bg);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 10px;
 }
 
 .btn:hover {
@@ -296,6 +297,19 @@ onUnmounted(() => {
 .btn-secondary:hover {
   background: var(--button-hover);
   color: var(--text-primary);
+}
+
+/* Icon sizes */
+.icon-base {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.icon-md {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
 }
 
 /* Terminal Tree Container */
