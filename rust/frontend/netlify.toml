@@ -1,0 +1,44 @@
+[build]
+  # Build the mock version for Netlify deployment
+  command = "npm run build:mock"
+  publish = "dist"
+
+[build.environment]
+  # Use mock mode for Netlify deployment (all config comes from .env.mock)
+  # The build:mock command automatically loads .env.mock via Vite's mode flag
+  NODE_VERSION = "20.19.0"
+
+[[headers]]
+  # Handle all API routes to return 200 with mock data
+  for = "/api/*"
+  [headers]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
+    Content-Type = "application/json"
+
+[[redirects]]
+  # Handle client-side routing
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Custom headers for security
+[[headers]]
+  for = "/*"
+  [headers]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "default-src 'self' 'unsafe-inline' 'unsafe-eval'"
+
+# Enable pretty URLs and proper caching
+[[headers]]
+  for = "/*.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2)"
+  [headers]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/index.html"
+  [headers]
+    Cache-Control = "public, max-age=0, must-revalidate"

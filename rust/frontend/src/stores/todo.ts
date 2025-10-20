@@ -72,9 +72,9 @@ export const useTodoStore = defineStore('todo', () => {
     const authStore = useAuthStore()
     return authStore.user?.email || null
   })
-  const hasTasks = computed(() => tasks.value.length > 0)
-  const completedTasks = computed(() => tasks.value.filter(task => task.status === 'completed'))
-  const pendingTasks = computed(() => tasks.value.filter(task => task.status !== 'completed'))
+  const hasTasks = computed(() => Array.isArray(tasks.value) && tasks.value.length > 0)
+  const completedTasks = computed(() => Array.isArray(tasks.value) ? tasks.value.filter(task => task.status === 'completed') : [])
+  const pendingTasks = computed(() => Array.isArray(tasks.value) ? tasks.value.filter(task => task.status !== 'completed') : [])
   const hasLists = computed(() => availableLists.value.length > 0)
   const selectedListName = computed(() => selectedList.value?.displayName || 'No list selected')
   const isDefaultListSelected = computed(() =>
@@ -261,11 +261,13 @@ export const useTodoStore = defineStore('todo', () => {
       logger.log(`🔄 Loading tasks from list: ${selectedList.value.displayName} (page ${currentPage.value}, size ${pageSize.value})`)
       const paginatedResponse = await microsoftAuthService.getListTasksPaginated(selectedList.value.id, paginationParams)
 
-      tasks.value = paginatedResponse.data
-      pagination.value = paginatedResponse.pagination
-      totalCount.value = paginatedResponse.pagination.total_count
+      // Handle both mock (nested) and real (flat) response structures
+      const responseData = paginatedResponse.data
+      tasks.value = responseData?.data || responseData || []
+      pagination.value = responseData?.pagination || paginatedResponse.pagination || {}
+      totalCount.value = pagination.value.total_count || 0
 
-      logger.log(`✅ Loaded ${paginatedResponse.data.length} tasks from list (total: ${totalCount.value})`)
+      logger.log(`✅ Loaded ${tasks.value.length} tasks from list (total: ${totalCount.value})`)
     } catch (error) {
       tasksError.value = error instanceof Error ? error.message : 'Failed to load tasks'
       logger.error('❌ Failed to load tasks from list:', error)

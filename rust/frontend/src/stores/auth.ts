@@ -188,6 +188,11 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('sso_refresh_token')
     localStorage.removeItem('user')
     socketService.disconnect()
+
+    // Navigate to login page
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login'
+    }
   }
 
   const getLoginUrl = (provider: OAuthProvider) => {
@@ -287,7 +292,7 @@ export const useAuthStore = defineStore('auth', () => {
         if (refreshToken.value) {
           try {
             logger.log('🔄 Attempting to refresh token...')
-            const tokens = await ssoClient.auth.refreshToken(refreshToken.value)
+            const tokens = await (ssoClient.auth as any).refreshToken(refreshToken.value)
             await setToken(tokens.access_token, tokens.refresh_token)
             logger.log('✅ Token refreshed successfully')
 

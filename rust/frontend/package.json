@@ -8,9 +8,13 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:mock": "vite --mode mock",
     "build": "run-p type-check \"build-only {@}\" --",
+    "build:mock": "run-p type-check \"build-only:mock {@}\" --",
     "preview": "vite preview",
+    "preview:mock": "vite preview --mode mock",
     "build-only": "vite build",
+    "build-only:mock": "vite build --mode mock",
     "type-check": "vue-tsc --build",
     "lint": "eslint . --fix"
   },

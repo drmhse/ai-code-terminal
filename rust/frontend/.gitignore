@@ -28,3 +28,14 @@ coverage
 *.sw?
 
 *.tsbuildinfo
+
+# Environment files with sensitive data
+.env
+.env.local
+.env.development
+.env.production
+.env.desktop
+
+# Keep example and mock env files for documentation and deployment
+!.env.example
+!.env.mock

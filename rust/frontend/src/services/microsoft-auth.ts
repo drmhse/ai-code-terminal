@@ -1,245 +1,26 @@
-import axios, { type AxiosInstance, type AxiosResponse } from 'axios'
-import type { ApiResponse, PaginationParams, PaginatedResponse } from '@/types'
-import { authStorage } from '@/utils/auth-storage'
+// Microsoft Auth Service Switcher
+// Exports either real or mock service based on environment
 
-// Microsoft Auth types
-export interface MicrosoftAuthStatus {
-  authenticated: boolean
-  microsoft_email?: string
-  connected_at?: string
-}
+// Check if mocks are enabled via environment variable
+const useMocks = import.meta.env.VITE_USE_MOCKS === 'true'
 
-export interface AuthUrlResponse {
-  auth_url: string
-  state: string
-}
+// Import services
+import realMicrosoftAuthService from './realMicrosoftAuthService'
+import mockMicrosoftAuthService from './mockMicrosoftAuthService'
 
-export interface CodeContext {
-  file_path: string
-  line_start?: number
-  line_end?: number
-  branch?: string
-  commit?: string
-  language?: string
-  context_snippet?: string
-}
+// Export types from real service
+export type {
+  MicrosoftAuthStatus,
+  AuthUrlResponse,
+  CodeContext,
+  CreateTaskRequest,
+  CacheStats,
+  WorkspaceSyncStatus,
+  TodoSyncStatus,
+  TaskList,
+  TodoTask
+} from './realMicrosoftAuthService'
 
-export interface CreateTaskRequest {
-  title: string
-  body_content?: string
-  importance?: 'low' | 'normal' | 'high'
-  code_context?: CodeContext
-  status?: 'notStarted' | 'inProgress' | 'completed' | 'waitingOnOthers' | 'deferred'
-}
-
-export interface CacheStats {
-  total_entries: number
-  valid_entries: number
-  expired_entries: number
-  cache_hit_rate: number
-}
-
-export interface WorkspaceSyncStatus {
-  workspace_id: string
-  workspace_name: string
-  has_list: boolean
-  cached: boolean
-  last_sync?: number
-}
-
-export interface TodoSyncStatus {
-  total_workspaces: number
-  synced_workspaces: number
-  cached_workspaces: number
-  workspace_statuses: WorkspaceSyncStatus[]
-  cache_stats: CacheStats
-}
-
-export interface CreateTaskFromCodeRequest {
-  title: string
-  body_content?: string
-  importance?: 'low' | 'normal' | 'high'
-  code_context: CodeContext
-  workspace_id?: string
-}
-
-export interface TodoTask {
-  id: string
-  title: string
-  body?: {
-    content: string
-    content_type: string
-  }
-  importance: 'low' | 'normal' | 'high'
-  status: 'notStarted' | 'inProgress' | 'completed' | 'waitingOnOthers' | 'deferred'
-  created_date_time?: string
-  completed_date_time?: string
-  due_date_time?: string
-}
-
-
-export interface TaskList {
-  id: string
-  displayName: string
-  isOwner: boolean
-  isShared: boolean
-  wellknownListName?: string
-}
-
-class MicrosoftAuthService {
-  private client: AxiosInstance
-
-  constructor() {
-    this.client = axios.create({
-      baseURL: import.meta.env.VITE_API_BASE_URL || '',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-
-    // Request interceptor to add SSO token
-    this.client.interceptors.request.use((config) => {
-      const token = authStorage.getToken()
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`
-      }
-      return config
-    })
-  }
-
-  // Microsoft authentication endpoints
-  async getAuthStatus(): Promise<MicrosoftAuthStatus> {
-    const response: AxiosResponse<ApiResponse<MicrosoftAuthStatus>> = await this.client.get('/api/v1/microsoft/status')
-    return response.data.data
-  }
-
-  async startOAuthFlow(): Promise<AuthUrlResponse> {
-    const response: AxiosResponse<ApiResponse<AuthUrlResponse>> = await this.client.get('/api/v1/microsoft/connect')
-    return response.data.data
-  }
-
-  async handleOAuthCallback(code: string, state: string, error?: string, errorDescription?: string): Promise<void> {
-    await this.client.post('/api/v1/microsoft/callback', {
-      code,
-      state,
-      error,
-      error_description: errorDescription
-    })
-  }
-
-  async disconnect(): Promise<void> {
-    await this.client.delete('/api/v1/microsoft/disconnect')
-  }
-
-
-  // General list operations (workspace-independent)
-  async getAllTaskLists(): Promise<TaskList[]> {
-    const response: AxiosResponse<ApiResponse<TaskList[]>> = await this.client.get('/api/v1/microsoft/lists')
-    return response.data.data
-  }
-
-  async getDefaultTaskList(): Promise<TaskList | null> {
-    const response: AxiosResponse<ApiResponse<TaskList | null>> = await this.client.get('/api/v1/microsoft/lists/default')
-    return response.data.data
-  }
-
-  async getListTasks(listId: string, pagination?: PaginationParams): Promise<TodoTask[]> {
-    const params = new URLSearchParams()
-
-    if (pagination) {
-      if (pagination.page) params.append('page', pagination.page.toString())
-      if (pagination.page_size) params.append('page_size', pagination.page_size.toString())
-      if (pagination.offset) params.append('offset', pagination.offset.toString())
-      if (pagination.limit) params.append('limit', pagination.limit.toString())
-    }
-
-    const url = params.toString()
-      ? `/api/v1/microsoft/lists/${listId}/tasks?${params.toString()}`
-      : `/api/v1/microsoft/lists/${listId}/tasks`
-
-    const response: AxiosResponse<ApiResponse<PaginatedResponse<TodoTask>>> = await this.client.get(url)
-    return response.data.data.data
-  }
-
-  async getListTasksPaginated(listId: string, pagination?: PaginationParams): Promise<PaginatedResponse<TodoTask>> {
-    const params = new URLSearchParams()
-
-    if (pagination) {
-      if (pagination.page) params.append('page', pagination.page.toString())
-      if (pagination.page_size) params.append('page_size', pagination.page_size.toString())
-      if (pagination.offset) params.append('offset', pagination.offset.toString())
-      if (pagination.limit) params.append('limit', pagination.limit.toString())
-    }
-
-    const url = params.toString()
-      ? `/api/v1/microsoft/lists/${listId}/tasks?${params.toString()}`
-      : `/api/v1/microsoft/lists/${listId}/tasks`
-
-    const response: AxiosResponse<ApiResponse<PaginatedResponse<TodoTask>>> = await this.client.get(url)
-    return response.data.data
-  }
-
-  async createTaskInList(listId: string, request: CreateTaskRequest): Promise<TodoTask> {
-    const response: AxiosResponse<ApiResponse<TodoTask>> = await this.client.post(`/api/v1/microsoft/lists/${listId}/tasks`, request)
-    return response.data.data
-  }
-
-  async createTaskFromCode(request: CreateTaskFromCodeRequest): Promise<TodoTask> {
-    const response: AxiosResponse<ApiResponse<TodoTask>> = await this.client.post('/api/v1/microsoft/tasks/from-code', request)
-    return response.data.data
-  }
-
-
-  async getTask(listId: string, taskId: string): Promise<TodoTask> {
-    const response: AxiosResponse<ApiResponse<TodoTask>> = await this.client.get(`/api/v1/microsoft/lists/${listId}/tasks/${taskId}`)
-    return response.data.data
-  }
-
-  async updateTask(listId: string, taskId: string, request: Partial<CreateTaskRequest>): Promise<TodoTask> {
-    const response: AxiosResponse<ApiResponse<TodoTask>> = await this.client.put(`/api/v1/microsoft/lists/${listId}/tasks/${taskId}`, request)
-    return response.data.data
-  }
-
-  async deleteTask(listId: string, taskId: string): Promise<void> {
-    await this.client.delete(`/api/v1/microsoft/lists/${listId}/tasks/${taskId}`)
-  }
-
-  // Sync-related methods
-  async getSyncStatus(): Promise<TodoSyncStatus> {
-    const response: AxiosResponse<ApiResponse<TodoSyncStatus>> = await this.client.get('/api/v1/microsoft/sync/status')
-    return response.data.data
-  }
-
-  async syncWorkspace(workspaceId: string): Promise<void> {
-    await this.client.post(`/api/v1/microsoft/sync/workspace/${workspaceId}`)
-  }
-
-  async syncAllWorkspaces(): Promise<void> {
-    await this.client.post('/api/v1/microsoft/sync/all')
-  }
-
-  async refreshCache(): Promise<void> {
-    await this.client.post('/api/v1/microsoft/sync/cache/refresh')
-  }
-
-  async getWorkspaceList(workspaceId: string): Promise<TaskList | null> {
-    const response: AxiosResponse<ApiResponse<TaskList | null>> = await this.client.get(`/api/v1/microsoft/sync/workspace/${workspaceId}/list`)
-    return response.data.data
-  }
-
-  async createList(displayName: string): Promise<TaskList> {
-    const response: AxiosResponse<ApiResponse<TaskList>> = await this.client.post('/api/v1/microsoft/lists', {
-      displayName: displayName
-    })
-    return response.data.data
-  }
-
-  async healthCheck(): Promise<{ status: string; authenticated: boolean }> {
-    const response: AxiosResponse<ApiResponse<{ status: string; authenticated: boolean }>> = await this.client.get('/api/v1/microsoft/health')
-    return response.data.data
-  }
-
-}
-
-export const microsoftAuthService = new MicrosoftAuthService()
+// Export the appropriate service
+export const microsoftAuthService = useMocks ? mockMicrosoftAuthService : realMicrosoftAuthService
 export default microsoftAuthService
