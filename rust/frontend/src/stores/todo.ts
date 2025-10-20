@@ -5,7 +5,6 @@ import type {
   TodoTask,
   TaskList,
   TodoSyncStatus,
-  CreateTaskFromCodeRequest,
   CreateTaskRequest,
   CodeContext
 } from '@/services/microsoft-auth'
@@ -261,11 +260,10 @@ export const useTodoStore = defineStore('todo', () => {
       logger.log(`🔄 Loading tasks from list: ${selectedList.value.displayName} (page ${currentPage.value}, size ${pageSize.value})`)
       const paginatedResponse = await microsoftAuthService.getListTasksPaginated(selectedList.value.id, paginationParams)
 
-      // Handle both mock (nested) and real (flat) response structures
-      const responseData = paginatedResponse.data
-      tasks.value = responseData?.data || responseData || []
-      pagination.value = responseData?.pagination || paginatedResponse.pagination || {}
-      totalCount.value = pagination.value.total_count || 0
+      // Handle response structure
+      tasks.value = paginatedResponse.data || []
+      pagination.value = paginatedResponse.pagination || null
+      totalCount.value = pagination.value?.total_count || 0
 
       logger.log(`✅ Loaded ${tasks.value.length} tasks from list (total: ${totalCount.value})`)
     } catch (error) {
@@ -357,7 +355,7 @@ export const useTodoStore = defineStore('todo', () => {
   }
 
   // Create task from code (workspace-aware)
-  const createTaskFromCode = async (request: CreateTaskFromCodeRequest): Promise<TodoTask> => {
+  const createTaskFromCode = async (request: CreateTaskRequest): Promise<TodoTask> => {
     if (!hasValidAuth.value) {
       throw new Error('Microsoft authentication required')
     }
@@ -452,7 +450,7 @@ export const useTodoStore = defineStore('todo', () => {
 
     try {
       logger.log('🔄 Loading sync status...')
-      const status = await microsoftAuthService.getSyncStatus()
+      const status = await microsoftAuthService.getTodoSyncStatus()
       syncStatus.value = status
       logger.log(`✅ Sync status loaded: ${status.synced_workspaces}/${status.total_workspaces} workspaces synced`)
     } catch (error) {

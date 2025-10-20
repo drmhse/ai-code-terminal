@@ -53,6 +53,10 @@ export interface TodoSyncStatus {
   synced_tasks: number
   failed_tasks: number
   cache_status: 'fresh' | 'stale' | 'expired'
+  synced_workspaces?: number
+  total_workspaces?: number
+  workspace_statuses?: WorkspaceSyncStatus[]
+  cache_stats?: CacheStats
 }
 
 export interface TaskList {
@@ -69,12 +73,15 @@ export interface TodoTask {
   status: 'notStarted' | 'inProgress' | 'completed' | 'waitingOnOthers' | 'deferred'
   importance: 'low' | 'normal' | 'high'
   createdDateTime: string
+  created_date_time?: string // Alias for createdDateTime for component compatibility
   dueDateTime?: string
+  due_date_time?: string // Alias for dueDateTime for component compatibility
   body?: {
     content: string
     contentType: string
   }
   completedDateTime?: string
+  completed_date_time?: string // Alias for completedDateTime for component compatibility
   lastModifiedDateTime?: string
 }
 
@@ -147,11 +154,11 @@ class RealMicrosoftAuthService {
       ? `/api/v1/microsoft/lists/${listId}/tasks?${params.toString()}`
       : `/api/v1/microsoft/lists/${listId}/tasks`
 
-    const response: AxiosResponse<ApiResponse<TodoTask[]>> = await this.client.get(url)
+    const response: AxiosResponse<ApiResponse<PaginatedResponse<TodoTask>>> = await this.client.get(url)
 
     // Convert to paginated response
     // Real API returns nested structure: { data: { data: tasks[], pagination: {...} } }
-    const responseData = response.data.data
+    const responseData = response.data.data as PaginatedResponse<TodoTask>
     const tasks = responseData.data || []
     const pagination = responseData.pagination || {
       page: paginationParams?.page || 0,
@@ -161,7 +168,14 @@ class RealMicrosoftAuthService {
 
     return {
       data: tasks,
-      pagination: pagination
+      pagination: {
+        page: pagination.page,
+        page_size: pagination.page_size,
+        total_count: pagination.total_count,
+        total_pages: Math.ceil(pagination.total_count / pagination.page_size),
+        has_next: pagination.page < Math.ceil(pagination.total_count / pagination.page_size),
+        has_prev: pagination.page > 0
+      }
     }
   }
 

@@ -1,4 +1,5 @@
 // Microsoft Auth types (re-exported for consistency)
+/* eslint-disable @typescript-eslint/no-unused-vars */
 export type {
   MicrosoftAuthStatus,
   AuthUrlResponse,
@@ -12,6 +13,16 @@ export type {
 } from './realMicrosoftAuthService'
 
 import type { PaginationParams, PaginatedResponse } from '@/types'
+import type {
+  MicrosoftAuthStatus,
+  AuthUrlResponse,
+  CreateTaskRequest,
+  CacheStats,
+  WorkspaceSyncStatus,
+  TodoSyncStatus,
+  TaskList,
+  TodoTask
+} from './realMicrosoftAuthService'
 
 // Mock Microsoft Auth Service for development
 class MockMicrosoftAuthService {
@@ -98,7 +109,9 @@ class MockMicrosoftAuthService {
         status: 'notStarted',
         importance: 'normal',
         createdDateTime: '2024-01-20T09:00:00Z',
+        created_date_time: '2024-01-20T09:00:00Z',
         dueDateTime: '2024-01-25T17:00:00Z',
+        due_date_time: '2024-01-25T17:00:00Z',
         body: {
           content: 'Review and merge pending pull requests',
           contentType: 'text'
@@ -110,6 +123,7 @@ class MockMicrosoftAuthService {
         status: 'inProgress',
         importance: 'low',
         createdDateTime: '2024-01-19T14:30:00Z',
+        created_date_time: '2024-01-19T14:30:00Z',
         body: {
           content: 'Update API documentation with new endpoints',
           contentType: 'text'
@@ -121,7 +135,9 @@ class MockMicrosoftAuthService {
         status: 'completed',
         importance: 'high',
         createdDateTime: '2024-01-18T16:20:00Z',
+        created_date_time: '2024-01-18T16:20:00Z',
         completedDateTime: '2024-01-19T10:15:00Z',
+        completed_date_time: '2024-01-19T10:15:00Z',
         body: {
           content: 'Fix the SSO authentication flow issue in production',
           contentType: 'text'
@@ -138,21 +154,17 @@ class MockMicrosoftAuthService {
     const endIndex = startIndex + pageSize
     const paginatedTasks = mockTasks.slice(startIndex, endIndex)
 
-    // Return the same nested structure as the real API
+    // Return the same structure as the real API
     return {
-      success: true,
-      data: {
-        data: paginatedTasks,
-        pagination: {
-          page: pageNumber,  // Return the original page number (1-based)
-          page_size: pageSize,
-          total_count: mockTasks.length,
-          total_pages: Math.ceil(mockTasks.length / pageSize),
-          has_next: (pageNumber * pageSize) < mockTasks.length,
-          has_prev: pageNumber > 1
-        }
-      },
-      error: null
+      data: paginatedTasks,
+      pagination: {
+        page: pageNumber,  // Return the original page number (1-based)
+        page_size: pageSize,
+        total_count: mockTasks.length,
+        total_pages: Math.ceil(mockTasks.length / pageSize),
+        has_next: (pageNumber * pageSize) < mockTasks.length,
+        has_prev: pageNumber > 1
+      }
     }
   }
 
@@ -170,12 +182,14 @@ class MockMicrosoftAuthService {
   async createTaskInList(listId: string, request: CreateTaskRequest): Promise<TodoTask> {
     await new Promise(resolve => setTimeout(resolve, 400))
 
+    const createdTime = new Date().toISOString()
     return {
       id: 'task-' + Date.now(),
       title: request.title,
       status: request.status || 'notStarted',
       importance: request.importance || 'normal',
-      createdDateTime: new Date().toISOString(),
+      createdDateTime: createdTime,
+      created_date_time: createdTime,
       body: request.body_content ? {
         content: request.body_content,
         contentType: 'text'
@@ -186,12 +200,14 @@ class MockMicrosoftAuthService {
   async createTaskFromCode(request: CreateTaskRequest): Promise<TodoTask> {
     await new Promise(resolve => setTimeout(resolve, 400))
 
+    const createdTime = new Date().toISOString()
     return {
       id: 'code-task-' + Date.now(),
       title: request.title,
       status: 'notStarted',
       importance: 'high',
-      createdDateTime: new Date().toISOString(),
+      createdDateTime: createdTime,
+      created_date_time: createdTime,
       body: request.body_content ? {
         content: request.body_content,
         contentType: 'text'
@@ -205,9 +221,10 @@ class MockMicrosoftAuthService {
     return {
       id: taskId,
       title: updates.title || 'Updated Task',
-      status: (updates.status as any) || 'inProgress',
+      status: updates.status || 'inProgress',
       importance: updates.importance || 'normal',
       createdDateTime: '2024-01-20T09:00:00Z',
+      created_date_time: '2024-01-20T09:00:00Z',
       lastModifiedDateTime: new Date().toISOString(),
       body: updates.body_content ? {
         content: updates.body_content,
@@ -230,6 +247,7 @@ class MockMicrosoftAuthService {
       status: 'notStarted',
       importance: 'normal',
       createdDateTime: '2024-01-20T09:00:00Z',
+      created_date_time: '2024-01-20T09:00:00Z',
       body: {
         content: 'This is a mock task',
         contentType: 'text'
@@ -247,7 +265,9 @@ class MockMicrosoftAuthService {
         status: 'completed',
         importance: 'normal',
         createdDateTime: '2024-01-19T10:00:00Z',
+        created_date_time: '2024-01-19T10:00:00Z',
         completedDateTime: '2024-01-19T15:30:00Z',
+        completed_date_time: '2024-01-19T15:30:00Z',
         body: {
           content: 'First mock task in list',
           contentType: 'text'
@@ -259,6 +279,7 @@ class MockMicrosoftAuthService {
         status: 'inProgress',
         importance: 'high',
         createdDateTime: '2024-01-20T08:00:00Z',
+        created_date_time: '2024-01-20T08:00:00Z',
         body: {
           content: 'Second mock task in list',
           contentType: 'text'
@@ -317,12 +338,37 @@ class MockMicrosoftAuthService {
   async getTodoSyncStatus(): Promise<TodoSyncStatus> {
     await new Promise(resolve => setTimeout(resolve, 200))
 
+    const workspaceStatuses = [
+      {
+        workspace_id: 'mock-workspace-1',
+        workspace_name: 'AI Terminal',
+        has_list: true,
+        cached: true,
+        last_sync: Date.now()
+      },
+      {
+        workspace_id: 'mock-workspace-2',
+        workspace_name: 'Documentation Site',
+        has_list: false,
+        cached: false
+      }
+    ]
+
     return {
       last_sync: Date.now(),
       total_tasks: 25,
       synced_tasks: 20,
       failed_tasks: 5,
-      cache_status: 'fresh'
+      cache_status: 'fresh',
+      synced_workspaces: 1,
+      total_workspaces: 2,
+      workspace_statuses: workspaceStatuses,
+      cache_stats: {
+        total_entries: 25,
+        valid_entries: 20,
+        expired_entries: 5,
+        cache_hit_rate: 0.85
+      }
     }
   }
 

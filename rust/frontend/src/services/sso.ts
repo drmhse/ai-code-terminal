@@ -2,6 +2,8 @@ import { SsoClient } from '@drmhse/sso-sdk';
 import { authStorage } from '@/utils/auth-storage';
 import type { UserProfile, OAuthProvider } from '@drmhse/sso-sdk';
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 // Check if mocks are enabled via environment variable
 const useMocks = import.meta.env.VITE_USE_MOCKS === 'true'
 

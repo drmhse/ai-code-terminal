@@ -292,6 +292,7 @@ export const useAuthStore = defineStore('auth', () => {
         if (refreshToken.value) {
           try {
             logger.log('🔄 Attempting to refresh token...')
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const tokens = await (ssoClient.auth as any).refreshToken(refreshToken.value)
             await setToken(tokens.access_token, tokens.refresh_token)
             logger.log('✅ Token refreshed successfully')

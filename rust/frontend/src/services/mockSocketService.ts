@@ -1,4 +1,6 @@
 import { Subject, BehaviorSubject, type Subscription } from '@/utils/reactive'
+
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   ConnectionState,
   type TerminalOutputEvent,

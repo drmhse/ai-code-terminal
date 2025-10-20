@@ -1,4 +1,6 @@
 import type { Workspace, Session } from '@/types'
+
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import type { Repository } from '@/stores/workspace'
 import type { FileItem } from '@/stores/file'
 import type { ThemePreference } from '@/types/theme'
