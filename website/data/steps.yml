@@ -1,0 +1,29 @@
+title: "Your Development Environment Awaits"
+subtitle: "Deploy on a VPS, run locally with a tunnel, or choose from multiple hosting options. Full setup guide covers everything from GitHub OAuth to production deployment."
+
+steps:
+  - number: "01"
+    title: "Choose Your Deployment"
+    description: "Deploy on a VPS for always-on access, or run locally with Cloudflare Tunnel or ngrok for cost-free experimentation. Both paths are fully documented."
+    code: |
+      # VPS Option (Recommended)
+      # Requires: 1GB+ RAM, Docker, Domain (optional)
+      
+      # Local + Tunnel Option  
+      # Requires: Docker, Tunnel service (free)
+    
+  - number: "02"
+    title: "GitHub OAuth Setup"
+    description: "Create a GitHub OAuth app to secure your environment. Only you will have access to your sovereign development space."
+    code: |
+      # Visit GitHub Developer Settings
+      # Create OAuth App → Get Client ID/Secret
+      # Configure callback URL for your deployment
+    
+  - number: "03"
+    title: "One Command Deploy"
+    description: "Whether VPS or local, deployment is streamlined. Our comprehensive guide covers SSL, security hardening, and Claude integration."
+    code: |
+      git clone https://github.com/drmhse/ai-code-terminal.git
+      cd ai-code-terminal && cp env.example .env
+      # Configure .env → docker-compose up -d

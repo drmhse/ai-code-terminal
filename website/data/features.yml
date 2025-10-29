@@ -1,0 +1,19 @@
+title: "Welcome to the Post-IDE Era"
+subtitle: "The terminal is back, supercharged by AI. This is the workflow it enables."
+
+items:
+  - icon: "globe"
+    title: "Develop from Any Device"
+    description: "Your persistent shell is accessible from any browser. Turn an iPad, a Chromebook, or a backup laptop into a productive coding machine in seconds."
+  
+  - icon: "cpu"
+    title: "AI-Native Shell"
+    description: "Designed for modern CLI agents like Claude Code, Gemini CLI, and Qwen-Code. Let AI read your files, run tests, and build your projects in a secure, sovereign environment."
+  
+  - icon: "feather"
+    title: "Lightweight & Fast"
+    description: "Forget bloated, resource-hungry cloud IDEs. This is a single, lean shell process. It's instant-on, uses minimal memory, and feels incredibly responsive."
+  
+  - icon: "lock"
+    title: "Absolute Sovereignty"
+    description: "Your code, your AI interactions, and your environment are hosted on your infrastructure. No third-party access, no compromises on security or data privacy."

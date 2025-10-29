@@ -1,0 +1,86 @@
+# Footer Configuration
+# This file contains all footer content and structure
+
+branding:
+  name: "AI Code Terminal"
+  tagline: "Self-hosted, single-tenant development environment with god-mode shell access. Built for the AI-native development era."
+  badges:
+    - label: "Open Source"
+      color: "#00d4ff"
+    - label: "Self-Hosted"
+      color: "#4caf50"
+
+sections:
+  - title: "Documentation"
+    links:
+      - title: "Getting Started"
+        url: "/docs/getting-started/"
+        icon: "rocket"
+      - title: "Installation Guide"
+        url: "/docs/getting-started/installation/"
+        icon: "package"
+      - title: "API Reference"
+        url: "/docs/api/"
+        icon: "plug"
+      - title: "Core Features"
+        url: "/docs/core-features/"
+        icon: "zap"
+      - title: "Deployment"
+        url: "/docs/deployment/"
+        icon: "globe"
+      - title: "Development"
+        url: "/docs/development/"
+        icon: "tool"
+
+  - title: "Resources"
+    links:
+      - title: "GitHub Repository"
+        url: "https://github.com/drmhse/ai-code-terminal"
+        icon: "github"
+        external: true
+      - title: "Report Issues"
+        url: "https://github.com/drmhse/ai-code-terminal/issues"
+        icon: "bug"
+        external: true
+      - title: "Download Releases"
+        url: "https://github.com/drmhse/ai-code-terminal/releases"
+        icon: "download"
+        external: true
+      - title: "Claude Code"
+        url: "https://claude.ai/code"
+        icon: "code"
+        external: true
+
+  - title: "Community & Legal"
+    links:
+      - title: "AGPL-3.0 License"
+        url: "https://github.com/drmhse/ai-code-terminal/blob/main/LICENSE"
+        icon: "file-text"
+        external: true
+      - title: "Contributing Guide"
+        url: "https://github.com/drmhse/ai-code-terminal/blob/main/CONTRIBUTING.md"
+        icon: "users"
+        external: true
+      - title: "Security Policy"
+        url: "https://github.com/drmhse/ai-code-terminal/security"
+        icon: "shield"
+        external: true
+      - title: "Discussions"
+        url: "https://github.com/drmhse/ai-code-terminal/discussions"
+        icon: "message-square"
+        external: true
+    callout:
+      title: "Built for Developers"
+      text: "By developers, for the community. Your code, your rules."
+
+bottom:
+  copyright: "&copy; 2025 AI Code Terminal. A statement on developer sovereignty."
+  features:
+    - label: "Self-Hosted"
+      color: "#4caf50"
+    - label: "Open Source"
+      color: "#2196f3"
+    - label: "Privacy-First"
+      color: "#ff9800"
+  tagline: "Made with love for the dev community"
+  website_url: "https://act.drmhse.com"

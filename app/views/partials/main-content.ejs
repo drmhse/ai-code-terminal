@@ -1,0 +1,9 @@
+<!-- Main Content -->
+<div class="main-content">
+    <!-- Mobile Overlay -->
+    <div v-if="isMobile" class="mobile-overlay" :class="{ active: sidebarOpen }" @click="sidebarOpen = false"></div>
+
+    <%- include('sidebar') %>
+    <%- include('terminal-panel') %>
+    <%- include('mobile-input-overlay') %>
+</div>

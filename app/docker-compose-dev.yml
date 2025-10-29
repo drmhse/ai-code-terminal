@@ -1,0 +1,52 @@
+services:
+  act:
+    build:
+      context: ..
+      dockerfile: app/Dockerfile
+    ports:
+      - "${PORT:-3014}:3014"
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - JWT_SECRET=${JWT_SECRET}
+      - PORT=${PORT:-3014}
+      - DATABASE_URL=${DATABASE_URL:-file:/app/prisma/data/database.db}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
+      - GITHUB_CALLBACK_URL=${GITHUB_CALLBACK_URL}
+      - TENANT_GITHUB_USERNAME=${TENANT_GITHUB_USERNAME}
+      - FRONTEND_URL=${FRONTEND_URL}
+      - WORKSPACE_CLEANUP_DAYS=${WORKSPACE_CLEANUP_DAYS:-30}
+      - LOG_LEVEL=${LOG_LEVEL}
+      - LOG_MAX_SIZE=${LOG_MAX_SIZE}
+      - LOG_MAX_FILES=${LOG_MAX_FILES}
+      - LOG_COMPRESS=${LOG_COMPRESS}
+    volumes:
+      - act_home:/home/claude
+      - act_data:/app/prisma/data
+      - act_workspaces:/app/workspaces
+      - act_logs:/app/logs
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3014/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  act_home:
+    driver: local
+  act_data:
+    driver: local
+  act_workspaces:
+    driver: local
+  act_logs:
+    driver: local

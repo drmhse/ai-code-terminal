@@ -1,0 +1,274 @@
+<!-- Mobile Input Proxy Overlay -->
+<div v-if="isMobile" 
+     class="mobile-input-overlay" 
+     :class="{ 
+       active: mobileInputOpen, 
+       expanded: overlayExpanded,
+       'has-suggestions': suggestions.length > 0 
+     }"
+     @click.self="closeMobileInput"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="mobile-input-title">
+    
+    <!-- Contextual Suggestions (appears above main input) -->
+    <div v-if="suggestions.length > 0" class="contextual-suggestions" @click.stop>
+        <div class="suggestions-scroll">
+            <button v-for="suggestion in suggestions.slice(0, 6)"
+                    :key="suggestion.text"
+                    class="suggestion-chip"
+                    @click="applySuggestion(suggestion)">
+                <code>{{ suggestion.text }}</code>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Contextual Panel -->
+    <div v-if="contextualMode && hasActiveModifiers" class="contextual-panel" @click.stop>
+        <div class="compact-letter-grid">
+            <button v-for="letter in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')" 
+                    :key="letter"
+                    class="letter-key"
+                    @click="sendKeyCombo(letter)">
+                {{ letter }}
+            </button>
+        </div>
+    </div>
+
+    <!-- Smart Command Chips (when input is empty) -->
+    <div v-if="!mobileInputText.trim() && !hasActiveModifiers && contextualMode" 
+         class="command-chips" @click.stop>
+        <button v-for="cmd in topCommands"
+                :key="cmd.command"
+                class="command-chip"
+                @click="insertCommand(cmd.command)"
+                :title="cmd.description">
+            {{ cmd.command }}
+        </button>
+    </div>
+    
+    <div class="mobile-input-panel compact" @click.stop>
+        <!-- Compact Input Row -->
+        <div class="compact-input-row">
+            <div class="input-group-compact">
+                <input 
+                    ref="mobileInput"
+                    v-model="mobileInputText"
+                    type="text"
+                    class="mobile-command-input compact"
+                    placeholder="Enter command..."
+                    @keydown="handleInputKeydown"
+                    @input="handleInputChange"
+                    autocapitalize="none"
+                    autocorrect="off"
+                    spellcheck="false"
+                    aria-label="Terminal command input"
+                >
+                <button class="send-btn compact" 
+                        @click="sendCommand" 
+                        :disabled="!mobileInputText.trim()"
+                        aria-label="Send command to terminal">
+                    <i data-feather="send" class="icon-tiny" aria-hidden="true"></i>
+                </button>
+                <button class="expand-btn" 
+                        @click="toggleOverlayMode"
+                        @touchstart.passive="handleExpandTouch"
+                        :class="{ active: overlayExpanded }"
+                        aria-label="Toggle expanded mode">
+                    <i :data-feather="overlayExpanded ? 'chevron-down' : 'more-horizontal'" class="icon-tiny" aria-hidden="true"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Essential Keys Row -->
+        <div class="essential-keys-row">
+            <!-- Modifier Keys -->
+            <div class="modifier-keys-compact">
+                <button 
+                    v-for="mod in ['ctrl', 'alt', 'shift']"
+                    :key="mod"
+                    class="modifier-btn compact"
+                    :class="{ active: activeModifiers[mod] }"
+                    @click="toggleModifier(mod)"
+                    :aria-pressed="activeModifiers[mod]"
+                    :aria-label="`Toggle ${mod} modifier`"
+                >
+                    {{ mod }}
+                </button>
+            </div>
+
+            <!-- Quick Action Keys -->
+            <div class="quick-keys">
+                <button v-for="action in essentialActions" 
+                        :key="action.key"
+                        class="quick-key-btn"
+                        @click="sendQuickAction(action)"
+                        :title="action.description">
+                    {{ action.label }}
+                </button>
+                
+                <button class="history-toggle-btn"
+                        @click="toggleHistoryPanel"
+                        :class="{ active: historyPanelOpen }"
+                        aria-label="Toggle command history">
+                    <i data-feather="clock" class="icon-tiny" aria-hidden="true"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Command Preview (only when active) -->
+        <div v-if="commandPreview && mobileInputText.trim()" class="command-preview compact">
+            <code class="preview-command">{{ commandPreview }}</code>
+        </div>
+    </div>
+
+    <!-- Expanded Mode Panel (slides up from bottom) -->
+    <div v-if="overlayExpanded" class="expanded-panel" @click.stop>
+        
+        <!-- Input Section in Expanded Mode -->
+        <div class="expanded-input-section">
+            <div class="input-group-expanded">
+                <input 
+                    ref="mobileInputExpanded"
+                    v-model="mobileInputText"
+                    type="text"
+                    class="mobile-command-input expanded"
+                    placeholder="Enter command..."
+                    @keydown="handleInputKeydown"
+                    @input="handleInputChange"
+                    autocapitalize="none"
+                    autocorrect="off"
+                    spellcheck="false"
+                    aria-label="Terminal command input"
+                >
+                <button class="send-btn expanded" 
+                        @click="sendCommand" 
+                        :disabled="!mobileInputText.trim()"
+                        aria-label="Send command to terminal">
+                    <i data-feather="send" class="icon-small" aria-hidden="true"></i>
+                </button>
+                <button class="collapse-btn" 
+                        @click="toggleOverlayMode"
+                        aria-label="Collapse to compact mode">
+                    <i data-feather="chevron-down" class="icon-small" aria-hidden="true"></i>
+                </button>
+            </div>
+            
+            <!-- Essential Keys Row in Expanded Mode -->
+            <div class="essential-keys-row">
+                <div class="modifier-keys-compact">
+                    <button 
+                        v-for="mod in ['ctrl', 'alt', 'shift']"
+                        :key="mod"
+                        class="modifier-btn compact"
+                        :class="{ active: activeModifiers[mod] }"
+                        @click="toggleModifier(mod)"
+                        :aria-pressed="activeModifiers[mod]"
+                        :aria-label="`Toggle ${mod} modifier`">
+                        {{ mod }}
+                    </button>
+                </div>
+                <div class="quick-keys">
+                    <button v-for="action in essentialActions" 
+                            :key="action.key"
+                            class="quick-key-btn"
+                            @click="sendQuickAction(action)"
+                            :title="action.description">
+                        {{ action.label }}
+                    </button>
+                </div>
+            </div>
+
+            <!-- Command Preview in Expanded Mode -->
+            <div v-if="commandPreview && mobileInputText.trim()" class="command-preview expanded">
+                <code class="preview-command">{{ commandPreview }}</code>
+            </div>
+        </div>
+
+        <div class="tab-content">
+            <!-- Quick Actions Tab -->
+            <div v-if="activeTab === 'actions'" class="actions-tab">
+                <div class="action-grid-compact">
+                    <button v-for="action in quickActions" 
+                            :key="action.key"
+                            class="action-btn compact"
+                            @click="sendQuickAction(action)"
+                            :title="action.description">
+                        <span class="action-label">{{ action.label }}</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Commands Tab -->
+            <div v-if="activeTab === 'commands'" class="commands-tab">
+                <div class="command-grid-compact">
+                    <button v-for="cmd in commonCommands"
+                            :key="cmd.command"
+                            class="command-btn compact"
+                            @click="insertCommand(cmd.command)"
+                            :title="cmd.description">
+                        {{ cmd.command }}
+                    </button>
+                </div>
+            </div>
+
+            <!-- Key Combos Tab -->
+            <div v-if="activeTab === 'combos'" class="combos-tab">
+                <div class="letter-grid-compact">
+                    <button v-for="letter in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')"
+                            :key="letter"
+                            class="letter-btn compact"
+                            @click="sendKeyCombo(letter)"
+                            :disabled="!hasActiveModifiers"
+                            :aria-label="`Send ${letter} with active modifiers`">
+                        {{ letter }}
+                    </button>
+                </div>
+                <div class="combo-hint" v-if="!hasActiveModifiers">
+                    Select modifier keys above to enable letter combinations
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tab Navigation at Bottom -->
+        <div class="panel-tabs">
+            <button v-for="tab in ['actions', 'commands', 'combos']" 
+                    :key="tab"
+                    class="tab-btn"
+                    :class="{ active: activeTab === tab }"
+                    @click="setActiveTab(tab)">
+                {{ tab }}
+            </button>
+        </div>
+    </div>
+
+    <!-- Command History Panel (slides up from bottom) -->
+    <div v-if="historyPanelOpen && commandHistory.length > 0" 
+         class="history-panel" 
+         @click.stop
+         @touchstart.passive="handleHistorySwipe"
+         @touchmove.passive="handleHistorySwipe"
+         @touchend.passive="handleHistorySwipe">
+        
+        <div class="history-header">
+            <div class="history-title">Recent Commands</div>
+            <button class="close-history-btn" @click="toggleHistoryPanel">
+                <i data-feather="x" class="icon-tiny"></i>
+            </button>
+        </div>
+        
+        <div class="history-scroll">
+            <button v-for="(cmd, index) in recentCommands.slice(0, 12)"
+                    :key="index"
+                    class="history-btn compact"
+                    @click="insertCommand(cmd)">
+                <code>{{ cmd }}</code>
+                <span class="time-ago">{{ getTimeAgo(index) }}</span>
+            </button>
+        </div>
+        
+        <div class="history-swipe-hint">
+            <div class="swipe-indicator"></div>
+        </div>
+    </div>
+</div>

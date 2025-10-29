@@ -1,0 +1,160 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Single-user system: minimal global settings
+model Settings {
+  id                    String    @id @default("singleton")
+  githubToken           String?   // Encrypted GitHub OAuth access token
+  githubRefreshToken    String?   // Encrypted GitHub OAuth refresh token
+  githubTokenExpiresAt  DateTime? // The expiration date of the current access token
+  theme                 String?   // Theme preference JSON
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("settings")
+}
+
+model Workspace {
+  id            String   @id @default(cuid())
+  name          String
+  githubRepo    String   @unique // Format: "owner/repo" - unique across system
+  githubUrl     String   // Full GitHub repository URL
+  localPath     String   // Local filesystem path
+  isActive      Boolean  @default(true)
+  lastSyncAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  sessions      Session[]
+  processes     UserProcess[]
+  terminalLayouts TerminalLayout[]
+
+  @@map("workspaces")
+}
+
+model Session {
+  id               String    @id @default(cuid())
+  shellPid         Int?      // Process ID of the shell session
+  socketId         String?   // Current Socket.IO connection ID
+  status           String    @default("active") // active, paused, terminated
+  lastActivityAt   DateTime  @default(now())
+  createdAt        DateTime  @default(now())
+  endedAt          DateTime?
+  
+  // Session identification and multiplexing
+  sessionName      String    @default("Terminal") // Display name for the session/tab
+  sessionType      String    @default("terminal") // terminal, split, tmux
+  isDefaultSession Boolean   @default(false) // Whether this is the default session for the workspace
+  
+  // Session state persistence
+  currentWorkingDir String?   // Current working directory of the shell
+  environmentVars   String?   // JSON string of environment variables
+  shellHistory      String?   // JSON array of recent shell commands
+  terminalSize      String?   // JSON object with terminal dimensions {cols, rows}
+  lastCommand       String?   // Last executed command
+  sessionTimeout    Int?      // Timeout in minutes for idle sessions
+  recoveryToken     String?   // Unique token for session recovery
+  
+  // Recovery metadata
+  canRecover       Boolean   @default(true)  // Whether this session can be recovered
+  maxIdleTime      Int       @default(1440)  // Max idle time in minutes (24 hours)
+  autoCleanup      Boolean   @default(true)  // Whether to auto-cleanup on timeout
+
+  // Layout positioning
+  layoutId         String?   // Reference to terminal layout
+  layout           TerminalLayout? @relation(fields: [layoutId], references: [id], onDelete: SetNull)
+
+  // Foreign keys
+  workspaceId      String?
+  workspace        Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  
+  // Relations
+  processes        UserProcess[]
+
+  @@map("sessions")
+  @@index([recoveryToken])
+  @@index([status])
+  @@index([lastActivityAt])
+  @@index([workspaceId, isDefaultSession])
+}
+
+model TerminalLayout {
+  id            String   @id @default(cuid())
+  name          String   // Layout name (e.g., "Development", "Debugging")
+  layoutType    String   @default("tabs") // tabs, horizontal-split, vertical-split, grid
+  configuration String   // JSON configuration for layout structure
+  isDefault     Boolean  @default(false) // Whether this is the default layout
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Foreign keys
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  
+  // Relations
+  sessions      Session[]
+  
+  @@map("terminal_layouts")
+  @@index([workspaceId, isDefault])
+}
+
+model RateLimit {
+  id          String   @id @default(cuid())
+  clientIp    String   // Client IP address
+  keyPrefix   String   // Rate limit category (auth, github, workspace, general)
+  requestTime DateTime @default(now()) // When the request was made
+  expiresAt   DateTime // When this entry expires
+
+  @@map("rate_limits")
+  @@index([clientIp, keyPrefix])
+  @@index([expiresAt])
+}
+
+model CsrfToken {
+  id        String   @id @default(cuid())
+  token     String   @unique // The CSRF token
+  userId    String   // User ID this token belongs to
+  createdAt DateTime @default(now())
+  expiresAt DateTime // When this token expires
+
+  @@map("csrf_tokens")
+  @@index([token])
+  @@index([expiresAt])
+}
+
+model UserProcess {
+  id          String   @id @default(cuid())
+  pid         Int      // Process ID
+  command     String   // Command that was executed
+  args        String?  // Command arguments (JSON array)
+  cwd         String   // Working directory when process was started
+  status      String   @default("running") // running, stopped, crashed, killed
+  exitCode    Int?     // Exit code when process ends
+  startedAt   DateTime @default(now())
+  endedAt     DateTime?
+  lastSeen    DateTime @default(now()) // Last time process was verified alive
+  autoRestart Boolean  @default(false) // Whether to restart if process dies
+  restartCount Int     @default(0) // Number of times process has been restarted
+  
+  // Foreign keys
+  sessionId   String?
+  session     Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@map("user_processes")
+  @@index([pid])
+  @@index([status])
+  @@index([sessionId])
+  @@index([workspaceId])
+}

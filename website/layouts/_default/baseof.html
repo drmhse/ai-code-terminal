@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="{{ .Site.LanguageCode }}">
+<head>
+    {{ partial "head.html" . }}
+</head>
+<body class="{{ if eq .Section "docs" }}docs-site{{ else }}main-site{{ end }}">
+    {{ if ne .Section "docs" }}
+        {{ partial "starfield.html" . }}
+    {{ end }}
+
+    <main>
+        {{ block "main" . }}{{ end }}
+    </main>
+
+    {{ if ne .Section "docs" }}
+        {{ partial "footer.html" . }}
+    {{ end }}
+    {{ partial "scripts.html" . }}
+</body>
+</html>

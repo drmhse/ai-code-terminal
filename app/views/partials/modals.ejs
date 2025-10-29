@@ -1,0 +1,598 @@
+<!-- Repositories Modal -->
+<div v-if="showRepositoriesModal" class="modal-overlay" @click.self="showRepositoriesModal = false">
+    <div class="modal">
+        <!-- Modal header -->
+        <div class="modal-header">
+            <div class="modal-title">
+                <div class="title-icon">
+                    <i data-feather="git-branch"></i>
+                </div>
+                <h3>Clone Repository</h3>
+            </div>
+            <button @click="showRepositoriesModal = false" class="close-btn">
+                <i data-feather="x"></i>
+            </button>
+        </div>
+
+        <!-- Search section -->
+        <div class="modal-search-section">
+            <div class="search-container">
+                <div class="search-input-wrapper">
+                    <i data-feather="search" class="search-icon"></i>
+                    <input
+                        type="text"
+                        v-model="repositorySearchTerm"
+                        @input="handleRepositorySearch"
+                        placeholder="Search repositories..."
+                        class="search-input"
+                        :disabled="repositoriesLoading || cloningRepository"
+                    />
+                    <button 
+                        v-if="repositorySearchTerm"
+                        @click="clearRepositorySearch"
+                        class="clear-search-btn"
+                        type="button"
+                    >
+                        <i data-feather="x"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal body -->
+        <div class="modal-body">
+            <!-- Clone Progress Overlay -->
+            <div v-if="cloningRepository" class="clone-progress-overlay">
+                <div class="clone-progress-content">
+                    <div class="clone-progress-header">
+                        <div class="clone-progress-icon">
+                            <div class="loading-spinner"></div>
+                        </div>
+                        <h4>Cloning Repository</h4>
+                    </div>
+                    <div class="clone-progress-details">
+                        <div class="cloning-repo-info">
+                            <div class="repo-icon">
+                                <i data-feather="folder"></i>
+                            </div>
+                            <div class="repo-details">
+                                <div class="repo-name">{{ cloningRepository.name }}</div>
+                                <div class="repo-full-name">{{ cloningRepository.full_name }}</div>
+                            </div>
+                        </div>
+                        <div class="progress-message">
+                            {{ cloneProgress?.message || 'Preparing to clone repository...' }}
+                        </div>
+                        <div v-if="cloneError" class="clone-error">
+                            <div class="error-content">
+                                <i data-feather="alert-triangle"></i>
+                                <span>{{ cloneError }}</span>
+                            </div>
+                            <button @click="dismissCloneError" class="btn-secondary">
+                                Dismiss
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading state -->
+            <div v-if="repositoriesLoading" class="loading">
+                <div class="loading-spinner"></div>
+                <p>Loading repositories...</p>
+            </div>
+
+            <!-- Error state -->
+            <div v-else-if="repositoryError" class="error-message">
+                <i data-feather="alert-triangle"></i>
+                <span>{{ repositoryError }}</span>
+            </div>
+
+            <!-- Empty state -->
+            <div v-else-if="repositories.length === 0" class="empty-state">
+                <p>No repositories found</p>
+            </div>
+
+            <!-- Repository list -->
+            <div v-else class="repository-list" @scroll="handleRepositoryScroll" ref="repositoryList">
+                <div
+                    v-for="repo in repositories"
+                    :key="repo.id"
+                    class="repository-card"
+                    :class="{ 
+                        'disabled': cloningRepository,
+                        'cloning': cloningRepository && cloningRepository.id === repo.id 
+                    }"
+                    @click="!cloningRepository && cloneRepository(repo)"
+                >
+                    <div class="repository-card-inner">
+                        <div class="repo-main-content">
+                            <div class="repo-left">
+                                <div class="repo-icon">
+                                    <i data-feather="folder"></i>
+                                </div>
+                                <div class="repo-info">
+                                    <div class="repo-name-line">
+                                        <span class="repo-name">{{ repo.name }}</span>
+                                        <span class="repo-visibility">{{ repo.private ? 'Private' : 'Public' }}</span>
+                                    </div>
+                                    <div class="repo-description">
+                                        {{ repo.description || 'No description available' }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="repo-right">
+                                <div class="repo-stats">
+                                    <div v-if="repo.language" class="stat-item language">
+                                        <div class="language-dot" :style="{ backgroundColor: getLanguageColor(repo.language) }"></div>
+                                        <span>{{ repo.language }}</span>
+                                    </div>
+                                    <div v-if="repo.stargazers_count" class="stat-item stars">
+                                        <i data-feather="star"></i>
+                                        <span>{{ formatStars(repo.stargazers_count) }}</span>
+                                    </div>
+                                    <div v-if="repo.forks_count" class="stat-item forks">
+                                        <i data-feather="git-branch"></i>
+                                        <span>{{ formatStars(repo.forks_count) }}</span>
+                                    </div>
+                                </div>
+                                <div class="repo-updated">
+                                    <i data-feather="clock"></i>
+                                    <span>{{ formatDate(repo.updated_at) }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Load more indicator -->
+                <div v-if="repositoryLoadingMore" class="loading-more">
+                    <div class="loading-spinner"></div>
+                    <p>Loading more repositories...</p>
+                </div>
+                
+                <!-- End of results -->
+                <div v-else-if="!repositoryHasMore && repositories.length > 0" class="end-of-results">
+                    <p>You've reached the end of your repositories</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal footer -->
+        <div class="modal-footer">
+            <div class="repo-count" v-if="repositories.length > 0 && !cloningRepository">
+                {{ repositories.length }} repositories loaded
+                <span v-if="repositoryHasMore">(scroll for more)</span>
+            </div>
+            <div v-if="cloningRepository" class="cloning-status">
+                <div class="cloning-indicator">
+                    <div class="loading-spinner small"></div>
+                    <span>Cloning {{ cloningRepository.name }}...</span>
+                </div>
+            </div>
+            <div class="modal-footer-actions">
+                <button 
+                    @click="loadRepositories(true)" 
+                    class="btn-secondary" 
+                    :disabled="repositoriesLoading || cloningRepository"
+                >
+                    <i data-feather="refresh-cw"></i>
+                    Refresh
+                </button>
+                <button 
+                    @click="showRepositoriesModal = false" 
+                    class="btn-secondary"
+                    :disabled="cloningRepository"
+                >
+                    {{ cloningRepository ? 'Cloning...' : 'Cancel' }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Theme Modal -->
+<div v-if="showThemeModal" class="modal-overlay" @click.self="showThemeModal = false">
+    <div class="theme-modal">
+        <!-- Modal Header -->
+        <div class="modal-header">
+            <div class="modal-title">
+                <div class="title-icon">
+                    <i data-feather="sun"></i>
+                </div>
+                <h3>Choose Theme</h3>
+            </div>
+            <button @click="showThemeModal = false" class="close-btn">
+                <i data-feather="x"></i>
+            </button>
+        </div>
+
+        <!-- Current Theme Info -->
+        <div class="current-theme-info">
+            <div class="current-theme-preview">
+                <div class="theme-colors">
+                    <div class="color-bar" :style="{ backgroundColor: currentTheme.colors.primary }"></div>
+                    <div class="color-bar" :style="{ backgroundColor: currentTheme.colors.secondary }"></div>
+                    <div class="color-bar" :style="{ backgroundColor: currentTheme.colors.tertiary }"></div>
+                    <div class="color-bar accent" :style="{ backgroundColor: currentTheme.colors.accentBlue }"></div>
+                </div>
+                <div class="current-theme-details">
+                    <div class="current-theme-name">{{ currentTheme.name }}</div>
+                    <div class="current-theme-type">{{ currentTheme.type }}</div>
+                </div>
+            </div>
+            <div class="current-badge">Current</div>
+        </div>
+
+        <!-- Theme Grid -->
+        <div class="theme-grid">
+            <div
+                v-for="theme in availableThemes"
+                :key="theme.name"
+                class="theme-card"
+                :class="{ selected: currentTheme.name === theme.name }"
+                @click="selectTheme(theme)"
+            >
+                <div class="theme-card-inner">
+                    <!-- Theme preview window -->
+                    <div class="theme-preview-window">
+                        <!-- Title bar with window controls -->
+                        <div class="preview-titlebar" :style="{ backgroundColor: theme.colors.tertiary }">
+                            <div class="window-controls">
+                                <div class="window-control close" style="background-color: #ff5f56;"></div>
+                                <div class="window-control minimize" style="background-color: #ffbd2e;"></div>
+                                <div class="window-control maximize" style="background-color: #27ca3f;"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Content area -->
+                        <div class="preview-content">
+                            <!-- Sidebar -->
+                            <div class="preview-sidebar" :style="{ backgroundColor: theme.colors.sidebar }">
+                                <div class="sidebar-item" :style="{ backgroundColor: theme.colors.secondary }"></div>
+                                <div class="sidebar-item selected" :style="{ backgroundColor: theme.colors.accentBlue }"></div>
+                                <div class="sidebar-item" :style="{ backgroundColor: theme.colors.secondary }"></div>
+                            </div>
+                            
+                            <!-- Main area -->
+                            <div class="preview-main" :style="{ backgroundColor: theme.colors.primary }">
+                                <div class="code-line" :style="{ backgroundColor: theme.colors.accentBlue }"></div>
+                                <div class="code-line-small" :style="{ backgroundColor: theme.colors.accentBlue, opacity: 0.6 }"></div>
+                                <div class="accent-element" :style="{ backgroundColor: theme.colors.accentGreen }"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Theme info -->
+                    <div class="theme-info">
+                        <div class="theme-name">{{ theme.name }}</div>
+                    </div>
+                    
+                    <!-- Selection indicator -->
+                    <div v-if="currentTheme.name === theme.name" class="selected-indicator">
+                        <i data-feather="check"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer">
+            <div class="theme-count">{{ availableThemes.length }} themes available</div>
+            <button @click="showThemeModal = false" class="btn-secondary">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Workspace Confirmation Modal -->
+<div v-if="showDeleteModal" class="modal-overlay" @click.self="showDeleteModal = false">
+    <div class="delete-modal">
+        <!-- Modal Header -->
+        <div class="modal-header">
+            <div class="modal-title">
+                <div class="title-icon">
+                    <i data-feather="trash-2"></i>
+                </div>
+                <h3>Delete Workspace</h3>
+            </div>
+            <button @click="showDeleteModal = false" class="close-btn">
+                <i data-feather="x"></i>
+            </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="modal-body">
+            <div class="delete-warning">
+                <div class="warning-icon">
+                    <i data-feather="alert-triangle"></i>
+                </div>
+                <div class="warning-content">
+                    <p>Are you sure you want to delete the workspace <strong>"{{ workspaceToDelete?.name }}"</strong>?</p>
+                    <p class="warning-details">This will remove the local copy of the repository. The original repository on GitHub will not be affected.</p>
+                </div>
+            </div>
+            
+            <div class="delete-options">
+                <label class="checkbox-label">
+                    <input type="checkbox" v-model="deleteFiles" />
+                    <span class="checkmark"></span>
+                    Also delete all files in the workspace directory
+                </label>
+                <p class="option-help">If unchecked, only the workspace entry will be removed from the list.</p>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer">
+            <button @click="showDeleteModal = false" class="btn-secondary">
+                Cancel
+            </button>
+            <button @click="deleteWorkspace" class="btn-danger" :disabled="deletingWorkspace">
+                <i data-feather="trash-2"></i>
+                {{ deletingWorkspace ? 'Deleting...' : 'Delete Workspace' }}
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- File Preview Modal -->
+<div v-if="showFilePreviewModal" class="modal-overlay" @click.self="closeFilePreviewModal">
+    <div class="file-preview-modal" :class="{ 'edit-mode': editMode, 'has-unsaved-changes': editMode && hasUnsavedChanges }">
+        <!-- Modal Header -->
+        <div class="modal-header">
+            <!-- Desktop Header Layout -->
+            <div class="modal-title desktop-only">
+                <div class="title-icon">
+                    <i :data-feather="getFileIcon(previewFile || {})" ></i>
+                </div>
+                <div class="file-header-info">
+                    <h3>{{ previewFile?.name || 'File Preview' }}</h3>
+                    <div class="file-meta">
+                        <span v-if="previewData?.size">{{ formatFileSize(previewData.size) }}</span>
+                        <span v-if="previewData?.modified">Modified: {{ formatDate(previewData.modified) }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-header-actions desktop-only">
+                <!-- Preview/Edit Toggle -->
+                <button @click="toggleEditMode" 
+                        class="btn btn-small"
+                        :class="{ active: editMode }"
+                        title="Toggle Edit Mode"
+                        v-if="previewFile && !previewData?.binary && !previewData?.truncated && previewData?.content">
+                    <i :data-feather="editMode ? 'eye' : 'edit'"></i>
+                    {{ editMode ? 'View Only' : 'Edit' }}
+                </button>
+                
+                <!-- Save Button -->
+                <button @click="saveFile" 
+                        class="btn btn-small btn-primary"
+                        :disabled="saving || !hasUnsavedChanges"
+                        title="Save File"
+                        v-if="editMode && !previewData?.binary">
+                    <i :data-feather="saving ? 'loader' : 'save'" :class="{ spinning: saving }"></i>
+                    {{ saving ? 'Saving...' : 'Save' }}
+                </button>
+                
+                <button @click="runCatCommand(previewFile?.path)" 
+                        class="btn btn-small btn-icon" 
+                        title="Open in Terminal"
+                        v-if="previewFile && !previewData?.binary">
+                    <i data-feather="terminal"></i>
+                </button>
+                <button @click="closeFilePreviewModal" class="close-btn">
+                    <i data-feather="x"></i>
+                </button>
+            </div>
+
+            <!-- Mobile App-like Navigation Header -->
+            <div class="frameless-nav-header mobile-only">
+                <div class="nav-back-section">
+                    <button @click="closeFilePreviewModal" class="back-btn">
+                        <i data-feather="arrow-left"></i>
+                    </button>
+                    <div class="file-title-section">
+                        <div class="file-title-line">
+                            <h1>{{ previewFile?.name || 'File Preview' }}</h1>
+                            
+                            <!-- Edit Mode Indicator -->
+                            <div class="mode-indicators" v-if="editMode">
+                                <span class="edit-badge">EDITING</span>
+                                <span class="changes-indicator" v-if="hasUnsavedChanges" title="Unsaved changes">
+                                    <i data-feather="alert-circle"></i>
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="file-meta-inline" v-if="previewData">
+                            <span v-if="previewData?.size">{{ formatFileSize(previewData.size) }}</span>
+                            <span v-if="previewFile?.extension">{{ previewFile.extension.toUpperCase() }}</span>
+                            <span v-if="previewData?.modified">{{ formatDate(previewData.modified) }}</span>
+                            <!-- Edit mode specific meta -->
+                            <span v-if="editMode && hasUnsavedChanges" class="unsaved-meta">Unsaved changes</span>
+                        </div>
+                    </div>
+                </div>
+                <button @click="toggleMobileActionsMenu" class="overflow-menu-btn" title="More Actions">
+                    <i data-feather="more-vertical"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Enhanced Mobile Edit Actions -->
+        <div class="mobile-edit-actions mobile-only" v-if="previewFile && !previewData?.binary && !previewData?.truncated && previewData?.content">
+            
+            <!-- Edit Mode: Primary Actions Bar -->
+            <div class="edit-actions-bar" v-if="editMode">
+                <div class="primary-actions">
+                    <!-- Save Button (most prominent when changes exist) -->
+                    <button @click="saveFile" 
+                            class="action-btn primary save-btn"
+                            :class="{ 'has-changes': hasUnsavedChanges, 'saving': saving }"
+                            :disabled="saving || !hasUnsavedChanges"
+                            v-if="hasUnsavedChanges">
+                        <i :data-feather="saving ? 'loader' : 'save'" :class="{ spinning: saving }"></i>
+                        <span>{{ saving ? 'Saving' : 'Save' }}</span>
+                    </button>
+                    
+                    <!-- Cancel/Exit Edit Button -->
+                    <button @click="confirmDiscardChanges" 
+                            class="action-btn secondary cancel-btn"
+                            :class="{ 'has-changes': hasUnsavedChanges }">
+                        <i :data-feather="hasUnsavedChanges ? 'x-circle' : 'eye'"></i>
+                        <span>{{ hasUnsavedChanges ? 'Cancel' : 'View Only' }}</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- View Mode: Single Primary Action -->
+            <div class="view-actions" v-else>
+                <button @click="toggleEditMode" 
+                        class="action-btn primary edit-btn">
+                    <i data-feather="edit"></i>
+                    <span>Edit File</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="modal-body">
+            <!-- Loading state -->
+            <div v-if="previewLoading" class="loading">
+                <div class="loading-spinner"></div>
+                <p>Loading file...</p>
+            </div>
+
+            <!-- Error state -->
+            <div v-else-if="previewError" class="error-message">
+                <i data-feather="alert-triangle"></i>
+                <span>{{ previewError }}</span>
+                <button @click="refreshFilePreview" class="btn btn-small">Retry</button>
+            </div>
+
+            <!-- Binary file message -->
+            <div v-else-if="previewData?.binary" class="file-message binary-message">
+                <i data-feather="file"></i>
+                <div class="message-content">
+                    <h4>Binary File</h4>
+                    <p>This is a binary file and cannot be previewed.</p>
+                    <button @click="runCatCommand(previewFile?.path)" class="btn btn-small">
+                        View in Terminal
+                    </button>
+                </div>
+            </div>
+
+            <!-- Large file message -->
+            <div v-else-if="previewData?.truncated && !previewData?.content" class="file-message large-file-message">
+                <i data-feather="file-text"></i>
+                <div class="message-content">
+                    <h4>File Too Large</h4>
+                    <p>{{ previewData.message || 'This file is too large to preview in the browser.' }}</p>
+                    <button @click="runCatCommand(previewFile?.path)" class="btn btn-small">
+                        View in Terminal
+                    </button>
+                </div>
+            </div>
+
+            <!-- Unified CodeMirror Editor/Viewer -->
+            <div v-else-if="previewData?.content" class="file-content">
+                <div v-if="previewData.truncated" class="truncation-notice">
+                    <i data-feather="info"></i>
+                    <span>Showing first {{ previewData.content.split('\n').length }} lines of {{ previewData.totalLines }} total</span>
+                    <button @click="runCatCommand(previewFile?.path)" class="btn btn-small">
+                        View Full File
+                    </button>
+                </div>
+                
+                <!-- Unsaved changes indicator -->
+                <div v-if="editMode && hasUnsavedChanges" class="unsaved-changes-notice">
+                    <i data-feather="alert-circle"></i>
+                    <span>You have unsaved changes</span>
+                    <button @click="discardChanges" class="btn btn-small btn-secondary">
+                        Discard Changes
+                    </button>
+                </div>
+                
+                <!-- CodeMirror Editor Container -->
+                <div 
+                    ref="editorContainer" 
+                    class="unified-editor-container"
+                    :class="{ 
+                        'editor-readonly': !editMode,
+                        'editor-editable': editMode 
+                    }"
+                ></div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer">
+            <div class="file-path" v-if="previewFile">{{ previewFile.path }}</div>
+            <div class="modal-footer-actions">
+                <button @click="refreshFilePreview" 
+                        class="btn-secondary" 
+                        :disabled="previewLoading">
+                    <i data-feather="refresh-cw"></i>
+                    Refresh
+                </button>
+                <button @click="showFilePreviewModal = false" class="btn-secondary">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Discard Changes Confirmation Modal -->
+<div v-if="showDiscardModal" class="modal-overlay" @click.self="showDiscardModal = false">
+    <div class="discard-modal">
+        <!-- Modal Header -->
+        <div class="modal-header">
+            <div class="modal-title">
+                <div class="title-icon">
+                    <i data-feather="alert-triangle"></i>
+                </div>
+                <h3>Discard Changes</h3>
+            </div>
+            <button @click="showDiscardModal = false" class="close-btn">
+                <i data-feather="x"></i>
+            </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="modal-body">
+            <div class="discard-warning">
+                <div class="warning-icon">
+                    <i data-feather="file-text"></i>
+                </div>
+                <div class="warning-content">
+                    <p>You have <strong>unsaved changes</strong> to <strong>&quot;{{ previewFile?.name }}&quot;</strong></p>
+                    <p class="warning-details" v-if="changesSummary">{{ changesSummary }}</p>
+                    <p class="warning-details" v-else>All your edits will be lost if you continue.</p>
+                </div>
+            </div>
+            
+            <div class="discard-options">
+                <div class="option-info">
+                    <i data-feather="info"></i>
+                    <span>Consider saving your work before discarding changes.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer">
+            <button @click="showDiscardModal = false" class="btn-secondary">
+                <i data-feather="edit"></i>
+                Keep Editing
+            </button>
+            <button @click="performDiscardChanges" class="btn-danger">
+                <i data-feather="trash-2"></i>
+                Discard Changes
+            </button>
+        </div>
+    </div>
+</div>

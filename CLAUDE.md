@@ -1,0 +1,1 @@
+- NEVER force database migrations, NEVER do direct database updates, only rely on prisma

@@ -1,0 +1,101 @@
+<!-- Terminal Panel -->
+<div class="terminal-panel">
+    <div v-if="!selectedWorkspace" class="welcome-screen">
+        <h2>Welcome to <%= title %></h2>
+        <p>Select a workspace from the sidebar or clone a repository to get started.<br/>
+        Once connected, you'll have god-mode terminal access to your repositories.</p>
+        <button @click="showRepositoriesModal = true" class="btn btn-icon">
+            <i data-feather="git-branch"></i>
+            Clone Your First Repository
+        </button>
+    </div>
+
+    <template v-else>
+
+        <!-- Unified Layout Controls -->
+        <div class="layout-controls">
+            <div class="layout-info">
+                <i data-feather="terminal" class="icon"></i>
+                <span v-if="panes.length <= 1">Single Terminal</span>
+                <span v-else>{{ currentLayout.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()) }} Layout ({{ panes.length }} panes)</span>
+            </div>
+
+            <div class="layout-actions">
+                <button class="action-btn" @click="createNewTerminal" title="New terminal session">
+                    <i data-feather="plus" class="icon-small"></i>
+                </button>
+            </div>
+
+            <div class="layout-switcher">
+                <button class="layout-btn"
+                        :class="{ active: currentLayout === 'single' }"
+                        @click="convertLayout('single')"
+                        title="Single terminal">
+                    <i data-feather="square" class="icon"></i>
+                </button>
+                <button class="layout-btn"
+                        :class="{ active: currentLayout === 'horizontal-split' }"
+                        @click="convertLayout('horizontal-split')"
+                        title="Split horizontally">
+                    <i data-feather="columns" class="icon"></i>
+                </button>
+                <button class="layout-btn"
+                        :class="{ active: currentLayout === 'vertical-split' }"
+                        @click="convertLayout('vertical-split')"
+                        title="Split vertically">
+                    <i data-feather="minus" class="icon" style="transform: rotate(90deg)"></i>
+                </button>
+                <button class="layout-btn"
+                        :class="{ active: currentLayout === 'three-pane' }"
+                        @click="convertLayout('three-pane')"
+                        title="Three-pane layout">
+                    <i data-feather="sidebar" class="icon"></i>
+                </button>
+                <button class="layout-btn"
+                        :class="{ active: currentLayout === 'grid-2x2' }"
+                        @click="convertLayout('grid-2x2')"
+                        title="Grid layout">
+                    <i data-feather="grid" class="icon"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Unified Pane Container -->
+        <div class="pane-container"
+             :class="`layout-${currentLayout}`"
+             :style="{
+                display: 'grid',
+                gridTemplateColumns: gridTemplateColumns,
+                gridTemplateRows: gridTemplateRows,
+                gap: '4px',
+             }">
+
+            <!-- Individual Panes using new component architecture -->
+            <terminal-pane
+                v-for="pane in panes"
+                :key="`pane-${pane.id}`"
+                :pane="pane"
+                :sessions="terminalTabs"
+                :current-theme="currentTheme"
+                :socket="socket"
+                :active="activePaneId === pane.id"
+                :show-tabs="panes.length > 1 || (panes.length === 1 && pane.tabs && pane.tabs.length > 1)"
+                @focus="focusPane"
+                @switch-tab="switchToPaneTab"
+                @close-tab="closeTab"
+                @add-tab="addTabToPane"
+                @close-pane="closePane"
+            />
+
+            <!-- Empty Pane Placeholder (for layouts requiring more panes) -->
+            <div v-if="showEmptyPanePlaceholder"
+                 class="terminal-pane empty-pane"
+                 @click="createNewTerminal">
+                <div class="empty-pane-content">
+                    <i data-feather="plus-circle" class="icon large"></i>
+                    <span>Add Terminal</span>
+                </div>
+            </div>
+        </div>
+    </template>
+</div>

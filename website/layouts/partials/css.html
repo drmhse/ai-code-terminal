@@ -1,0 +1,9 @@
+{{- if eq .Section "docs" -}}
+  {{- with resources.Get "css/docs.css" | css.TailwindCSS | minify -}}
+    <link rel="stylesheet" href="{{ .RelPermalink }}" integrity="{{ .Data.Integrity }}" crossorigin="anonymous">
+  {{- end -}}
+{{- else -}}
+  {{- with resources.Get "css/main.css" | css.TailwindCSS | minify -}}
+    <link rel="stylesheet" href="{{ .RelPermalink }}" integrity="{{ .Data.Integrity }}" crossorigin="anonymous">
+  {{- end -}}
+{{- end -}}

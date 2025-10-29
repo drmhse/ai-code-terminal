@@ -1,0 +1,359 @@
+<script>
+// Terminal Management Service
+const TerminalManager = {
+    terminals: new Map(),
+    fitAddons: new Map(),
+    pendingOutput: new Map(),
+
+    create(sessionId, theme, socket) {
+        console.log('[TerminalManager] Creating terminal for session:', sessionId);
+        
+        if (this.terminals.has(sessionId)) {
+            console.warn('[TerminalManager] Terminal already exists for session:', sessionId);
+            return this.terminals.get(sessionId);
+        }
+
+        const terminal = new Terminal({
+            cursorBlink: true,
+            theme: theme,
+            fontFamily: '"Cascadia Code", "Fira Code", "Monaco", "Menlo", "Ubuntu Mono", monospace',
+            fontSize: 13,
+            lineHeight: 1.2
+        });
+
+        const fitAddon = new FitAddon.FitAddon();
+        terminal.loadAddon(fitAddon);
+
+        // Handle user input
+        terminal.onData(data => {
+            if (socket) {
+                socket.emit('terminal-input', {
+                    input: data,
+                    sessionId: sessionId
+                });
+            }
+        });
+
+        // Handle terminal resize
+        terminal.onResize(({ cols, rows }) => {
+            if (socket) {
+                socket.emit('terminal-resize', {
+                    cols,
+                    rows,
+                    sessionId: sessionId
+                });
+            }
+        });
+
+        this.terminals.set(sessionId, terminal);
+        this.fitAddons.set(sessionId, fitAddon);
+
+        return terminal;
+    },
+
+    write(sessionId, data) {
+        const terminal = this.terminals.get(sessionId);
+        if (terminal) {
+            terminal.write(data);
+        } else {
+            // Buffer output until terminal is ready
+            if (!this.pendingOutput.has(sessionId)) {
+                this.pendingOutput.set(sessionId, []);
+            }
+            this.pendingOutput.get(sessionId).push(data);
+        }
+    },
+
+    flushPending(sessionId) {
+        const terminal = this.terminals.get(sessionId);
+        const pending = this.pendingOutput.get(sessionId);
+        
+        if (terminal && pending && pending.length > 0) {
+            console.log(`[TerminalManager] Flushing ${pending.length} pending chunks for ${sessionId}`);
+            pending.forEach(data => terminal.write(data));
+            this.pendingOutput.delete(sessionId);
+        }
+    },
+
+    resize(sessionId) {
+        const fitAddon = this.fitAddons.get(sessionId);
+        if (fitAddon) {
+            try {
+                fitAddon.fit();
+            } catch (error) {
+                console.warn('[TerminalManager] Resize failed for session:', sessionId, error);
+            }
+        }
+    },
+
+    focus(sessionId) {
+        const terminal = this.terminals.get(sessionId);
+        if (terminal) {
+            try {
+                terminal.focus();
+            } catch (error) {
+                console.warn('[TerminalManager] Focus failed for session:', sessionId, error);
+            }
+        }
+    },
+
+    dispose(sessionId) {
+        const terminal = this.terminals.get(sessionId);
+        const fitAddon = this.fitAddons.get(sessionId);
+        
+        if (terminal) {
+            try {
+                terminal.dispose();
+            } catch (error) {
+                console.warn('[TerminalManager] Dispose failed for session:', sessionId, error);
+            }
+        }
+
+        this.terminals.delete(sessionId);
+        this.fitAddons.delete(sessionId);
+        this.pendingOutput.delete(sessionId);
+        
+        console.log('[TerminalManager] Disposed terminal for session:', sessionId);
+    },
+
+    disposeAll() {
+        console.log('[TerminalManager] Disposing all terminals');
+        for (const sessionId of this.terminals.keys()) {
+            this.dispose(sessionId);
+        }
+    }
+};
+
+// Terminal Instance Component
+const TerminalInstance = {
+    props: {
+        sessionId: {
+            type: String,
+            required: true
+        },
+        theme: {
+            type: Object,
+            required: true
+        },
+        socket: {
+            type: Object,
+            required: true
+        },
+        active: {
+            type: Boolean,
+            default: false
+        }
+    },
+
+    template: `
+        <div 
+            :id="containerId"
+            class="terminal-instance"
+            :class="{ active: active }"
+            ref="container"
+        ></div>
+    `,
+
+    computed: {
+        containerId() {
+            return `terminal-instance-${this.sessionId}`;
+        }
+    },
+
+    mounted() {
+        console.log('[TerminalInstance] Mounting for session:', this.sessionId);
+        this.initializeTerminal();
+    },
+
+    beforeUnmount() {
+        console.log('[TerminalInstance] Unmounting for session:', this.sessionId);
+        // Don't dispose terminals on unmount to preserve history across layout changes
+        // Terminals are only disposed when sessions are actually closed
+    },
+
+    watch: {
+        active: {
+            immediate: true,
+            handler(newValue) {
+                if (newValue) {
+                    this.$nextTick(() => {
+                        TerminalManager.resize(this.sessionId);
+                        TerminalManager.focus(this.sessionId);
+                    });
+                }
+            }
+        },
+
+        theme: {
+            deep: true,
+            handler(newTheme) {
+                // Recreate terminal with new theme
+                const terminal = TerminalManager.terminals.get(this.sessionId);
+                if (terminal) {
+                    terminal.options.theme = newTheme.terminal;
+                }
+            }
+        }
+    },
+
+    methods: {
+        initializeTerminal() {
+            // Check if terminal already exists to preserve history
+            let terminal = TerminalManager.terminals.get(this.sessionId);
+            
+            if (!terminal) {
+                terminal = TerminalManager.create(this.sessionId, this.theme.terminal, this.socket);
+            } else {
+                console.log('[TerminalInstance] Reusing existing terminal for session:', this.sessionId);
+            }
+            
+            // Mount to DOM (or remount if switching layouts)
+            terminal.open(this.$refs.container);
+            
+            // Fit terminal after a brief delay
+            this.$nextTick(() => {
+                setTimeout(() => {
+                    TerminalManager.resize(this.sessionId);
+                    TerminalManager.flushPending(this.sessionId);
+                }, 100);
+            });
+        },
+
+        writeData(data) {
+            TerminalManager.write(this.sessionId, data);
+        },
+
+        resizeTerminal() {
+            TerminalManager.resize(this.sessionId);
+        }
+    }
+};
+
+// Terminal Pane Component
+const TerminalPane = {
+    props: {
+        pane: {
+            type: Object,
+            required: true
+        },
+        sessions: {
+            type: Array,
+            required: true
+        },
+        currentTheme: {
+            type: Object,
+            required: true
+        },
+        socket: {
+            type: Object,
+            required: true
+        },
+        active: {
+            type: Boolean,
+            default: false
+        },
+        showTabs: {
+            type: Boolean,
+            default: false
+        }
+    },
+
+    components: {
+        TerminalInstance
+    },
+
+    template: `
+        <div 
+            class="terminal-pane"
+            :class="{ 'active-pane': active }"
+            :style="{ gridArea: pane.gridArea }"
+            @click="$emit('focus', pane.id)"
+        >
+            <!-- Pane Header with Tabs (if multiple tabs or panes) -->
+            <div v-if="showTabs && pane.tabs.length > 1" class="pane-tabs">
+                <button
+                    v-for="tabSessionId in pane.tabs"
+                    :key="tabSessionId"
+                    class="tab-button"
+                    :class="{ active: tabSessionId === pane.activeTabId }"
+                    @click.stop="$emit('switch-tab', pane.id, tabSessionId)"
+                >
+                    {{ getSessionName(tabSessionId) }}
+                    <button 
+                        v-if="pane.tabs.length > 1"
+                        class="tab-close"
+                        @click.stop="$emit('close-tab', tabSessionId)"
+                        title="Close tab"
+                    >
+                        <i data-feather="x" class="icon-tiny"></i>
+                    </button>
+                </button>
+                <button 
+                    class="tab-add"
+                    @click.stop="$emit('add-tab', pane.id)"
+                    title="New tab"
+                >
+                    <i data-feather="plus" class="icon-tiny"></i>
+                </button>
+            </div>
+
+            <!-- Pane Header (single tab mode) -->
+            <div v-else-if="showTabs" class="pane-header">
+                <div class="pane-title">
+                    <i data-feather="terminal" class="icon-small"></i>
+                    <span>{{ getSessionName(pane.activeTabId) }}</span>
+                </div>
+                <div class="pane-actions">
+                    <button
+                        class="pane-close"
+                        @click.stop="$emit('close-pane', pane.id)"
+                        title="Close terminal"
+                    >
+                        <i data-feather="x" class="icon-small"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Terminal Content -->
+            <div class="pane-content" :class="{ 'has-header': showTabs }">
+                <!-- Render all terminal instances for this pane, show only the active one -->
+                <TerminalInstance
+                    v-for="sessionId in (pane.tabs || [])"
+                    v-show="sessionId === pane.activeTabId"
+                    :key="sessionId"
+                    :session-id="sessionId"
+                    :theme="currentTheme"
+                    :socket="socket"
+                    :active="active && sessionId === pane.activeTabId"
+                    @resize="handleResize"
+                />
+                <div v-if="!pane.activeTabId && (!pane.tabs || pane.tabs.length === 0)" class="empty-terminal">
+                    <i data-feather="plus-circle" class="icon large"></i>
+                    <span>No active terminal</span>
+                </div>
+            </div>
+        </div>
+    `,
+
+    emits: ['focus', 'switch-tab', 'close-tab', 'add-tab', 'close-pane'],
+
+    methods: {
+        getSessionName(sessionId) {
+            if (!sessionId) return 'Terminal';
+            const session = this.sessions.find(s => s.sessionId === sessionId);
+            return session ? session.sessionName : `Terminal ${sessionId.split('-').pop()}`;
+        },
+
+        handleResize() {
+            // Delegate to terminal instance
+        }
+    }
+};
+
+// Export components for use in main app
+window.TerminalComponents = {
+    TerminalManager,
+    TerminalInstance,
+    TerminalPane
+};
+</script>

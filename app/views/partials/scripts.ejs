@@ -1,0 +1,3196 @@
+<script>
+        const { createApp } = Vue;
+
+        createApp({
+            components: {
+                'terminal-pane': window.TerminalComponents.TerminalPane
+            },
+
+            data() {
+                return {
+                    isAuthenticated: false,
+                    username: null,
+                    errorMessage: null,
+                    socket: null,
+                    // NOTE: Terminal management is now handled by TerminalManager service
+                    terminalTabs: [], // Array of tab objects { sessionId, sessionName, pid, isDefault }
+                    activeTabId: null,
+                    // Split pane layout properties
+                    currentLayout: 'single', // single, horizontal-split, vertical-split, grid-2x2, three-pane
+                    panes: [], // Array of panes, each with one terminal session
+                    activePaneId: null,
+                    // Tab drag and drop state
+                    draggedTab: null,
+                    dragOverPane: null,
+                    viewportWidth: window.innerWidth,
+                    layoutRecommendations: { supported: [], recommended: 'single' },
+                    workspaces: [],
+                    selectedWorkspace: null,
+                    repositories: [],
+                    repositoriesLoading: false,
+                    repositoryError: null,
+                    repositoryPage: 1,
+                    repositoryHasMore: true,
+                    repositoryLoadingMore: false,
+                    scrollTimeout: null,
+                    repositorySearchTerm: '',
+                    searchTimeout: null,
+                    showRepositoriesModal: false,
+                    cloningRepository: null,
+                    cloneProgress: null,
+                    cloneError: null,
+                    stats: {},
+                    statsInterval: null,
+                    isMobile: false,
+                    sidebarOpen: false,
+                    statsOpen: false,
+                    // Mobile Stats Interface
+                    statsExpanded: false,
+                    activeStatsTab: 'system',
+                    resourceAlerts: [],
+                    sessionUpdates: [],
+                    lastSessionCount: 0,
+                    showThemeModal: false,
+                    currentTheme: this.getDefaultTheme(),
+                    availableThemes: [],
+                    showDeleteModal: false,
+                    workspaceToDelete: null,
+                    deleteFiles: false,
+                    deletingWorkspace: false,
+                    connectionError: null,
+                    // File Explorer
+                    fileExplorerEnabled: true,
+                    fileExplorerCollapsed: false,
+                    currentFiles: [],
+                    currentPath: '.',
+                    selectedFile: null,
+                    loadingFiles: false,
+                    fileError: null,
+                    showHiddenFiles: false,
+                    directoryCache: new Map(),
+                    cacheTimeout: 5 * 60 * 1000, // 5 minutes
+                    fileSearchTerm: '',
+                    fileSearchTimeout: null,
+                    selectedFileIndex: -1,
+                    // Context Menu
+                    showContextMenu: false,
+                    contextMenuX: 0,
+                    contextMenuY: 0,
+                    contextMenuFile: null,
+                    // Unified File Editor Modal
+                    showFilePreviewModal: false,
+                    showDiscardModal: false,
+                    discardAction: 'exitEdit', // 'exitEdit' or 'closeModal'
+                    previewFile: null,
+                    previewData: null,
+                    previewLoading: false,
+                    previewError: null,
+                    changesSummary: '',
+                    // Mobile Actions Menu
+                    showMobileActionsMenu: false,
+                    showUtilityActions: false,
+                    // Floating Action Button System  
+                    showSecondaryFAB: false,
+                    // Editor state
+                    editMode: false,
+                    editorInstance: null,
+                    originalContent: '',
+                    hasUnsavedChanges: false,
+                    saving: false,
+                    saveError: null,
+                    editorKeyboardHandler: null,
+                    // Mobile Input Proxy
+                    mobileInputOpen: false,
+                    mobileInputText: '',
+                    activeModifiers: { ctrl: false, alt: false, shift: false },
+                    commandHistory: [],
+                    suggestions: [],
+                    // New Compact Interface Properties
+                    overlayExpanded: false,
+                    contextualMode: true,
+                    historyPanelOpen: false,
+                    activeTab: 'actions',
+                    essentialActions: [
+                        { key: 'Tab', label: 'Tab', description: 'Auto-complete' },
+                        { key: 'Escape', label: 'Esc', description: 'Cancel/Exit' },
+                        { key: 'ArrowUp', label: '↑', description: 'Previous command' },
+                        { key: 'ArrowDown', label: '↓', description: 'Next command' }
+                    ],
+                    topCommands: [
+                        { command: 'ls', description: 'List directory contents' },
+                        { command: 'git status', description: 'Check git status' },
+                        { command: 'npm install', description: 'Install dependencies' },
+                        { command: 'cd ..', description: 'Go to parent directory' }
+                    ],
+                    frequentLetters: ['C', 'Z', 'X', 'V', 'A', 'S', 'D', 'F', 'Q', 'W', 'E', 'R'],
+                    touchStartTime: 0,
+                    swipeStartY: 0,
+                    quickActions: [
+                        { key: 'Tab', label: 'Tab', description: 'Auto-complete' },
+                        { key: 'Escape', label: 'Esc', description: 'Cancel/Exit' },
+                        { key: 'ArrowUp', label: '↑', description: 'Previous command' },
+                        { key: 'ArrowDown', label: '↓', description: 'Next command' },
+                        { key: 'ArrowLeft', label: '←', description: 'Move left' },
+                        { key: 'ArrowRight', label: '→', description: 'Move right' },
+                        { key: 'Home', label: 'Home', description: 'Beginning of line' },
+                        { key: 'End', label: 'End', description: 'End of line' },
+                        { key: 'Delete', label: 'Del', description: 'Delete character' },
+                        { key: 'Backspace', label: '⌫', description: 'Backspace' }
+                    ],
+                    commonCommands: [
+                        { command: 'ls', description: 'List directory contents' },
+                        { command: 'ls -la', description: 'List all files with details' },
+                        { command: 'cd', description: 'Change directory' },
+                        { command: 'pwd', description: 'Print working directory' },
+                        { command: 'clear', description: 'Clear terminal' },
+                        { command: 'vim', description: 'Open vim editor' },
+                        { command: 'nano', description: 'Open nano editor' },
+                        { command: 'git status', description: 'Check git status' },
+                        { command: 'git add .', description: 'Stage all changes' },
+                        { command: 'git commit -m ""', description: 'Commit changes' },
+                        { command: 'npm install', description: 'Install npm packages' },
+                        { command: 'npm run', description: 'Run npm script' }
+                    ]
+                };
+            },
+
+            async mounted() {
+                // Check if mobile
+                this.checkMobile();
+                window.addEventListener('resize', this.checkMobile);
+
+                // Track viewport width changes for layout recommendations
+                window.addEventListener('resize', this.updateViewportWidth);
+
+                // Check for authentication token in URL
+                const urlParams = new URLSearchParams(window.location.search);
+                const token = urlParams.get('token');
+                const error = urlParams.get('error');
+
+                if (error) {
+                    this.errorMessage = decodeURIComponent(error);
+                    window.history.replaceState({}, document.title, '/');
+                    return;
+                }
+
+                if (token) {
+                    localStorage.setItem('authToken', token);
+                    window.history.replaceState({}, document.title, '/');
+                }
+
+                // Try to initialize app - let backend decide if token is valid
+                const existingToken = localStorage.getItem('authToken');
+                if (existingToken) {
+                    await this.tryInitializeApp();
+                }
+
+                // Initialize Feather Icons
+                this.$nextTick(() => {
+                    feather.replace();
+                });
+
+                // Handle escape key to close modals and file navigation
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        this.showThemeModal = false;
+                        this.showRepositoriesModal = false;
+                        this.showDeleteModal = false;
+                        this.closeFilePreviewModal();
+                        this.showContextMenu = false;
+                        this.mobileInputOpen = false;
+                    }
+
+                    // File explorer keyboard navigation
+                    if (this.selectedWorkspace && !this.fileExplorerCollapsed &&
+                        !this.showRepositoriesModal && !this.showThemeModal &&
+                        !this.showDeleteModal && !this.showFilePreviewModal &&
+                        !document.querySelector('input:focus') &&
+                        !this.isTerminalFocused()) {
+
+                        this.handleFileNavigationKeys(e);
+                    }
+                });
+            },
+
+            computed: {
+                filteredFiles() {
+                    if (!this.fileSearchTerm || this.fileSearchTerm.trim() === '') {
+                        return this.currentFiles.filter(file =>
+                            this.showHiddenFiles || !file.isHidden
+                        );
+                    }
+
+                    const searchTerm = this.fileSearchTerm.toLowerCase().trim();
+                    return this.currentFiles.filter(file => {
+                        const matchesSearch = file.name.toLowerCase().includes(searchTerm);
+                        const matchesHidden = this.showHiddenFiles || !file.isHidden;
+                        return matchesSearch && matchesHidden;
+                    });
+                },
+
+
+                pathSegments() {
+                    if (!this.currentPath || this.currentPath === '.') {
+                        return [];
+                    }
+                    return this.currentPath.split('/').filter(segment => segment.length > 0);
+                },
+
+                // Grid layout computed properties
+                gridTemplateColumns() {
+                    switch (this.currentLayout) {
+                        case 'single':
+                            return '1fr';
+                        case 'horizontal-split':
+                            return '1fr 1fr';
+                        case 'vertical-split':
+                            return '1fr';
+                        case 'three-pane':
+                            return '2fr 1fr';
+                        case 'grid-2x2':
+                            return '1fr 1fr';
+                        default:
+                            return '1fr';
+                    }
+                },
+
+                gridTemplateRows() {
+                    switch (this.currentLayout) {
+                        case 'single':
+                        case 'horizontal-split':
+                            return '1fr';
+                        case 'vertical-split':
+                            return '1fr 1fr';
+                        case 'three-pane':
+                        case 'grid-2x2':
+                            return '1fr 1fr';
+                        default:
+                            return '1fr';
+                    }
+                },
+
+                showEmptyPanePlaceholder() {
+                    // Show placeholder if we need more panes than we have active sessions
+                    const requiredPanes = this.getRequiredPanesCount(this.currentLayout);
+                    return this.panes.length < requiredPanes;
+                },
+
+                // Mobile Input computed properties
+                hasActiveModifiers() {
+                    return this.activeModifiers.ctrl || this.activeModifiers.alt || this.activeModifiers.shift;
+                },
+
+                commandPreview() {
+                    if (!this.mobileInputText.trim()) return '';
+                    
+                    let preview = this.mobileInputText;
+                    if (this.hasActiveModifiers) {
+                        const mods = [];
+                        if (this.activeModifiers.ctrl) mods.push('Ctrl');
+                        if (this.activeModifiers.alt) mods.push('Alt');
+                        if (this.activeModifiers.shift) mods.push('Shift');
+                        preview = `${mods.join('+')}+${preview}`;
+                    }
+                    return preview;
+                },
+
+                recentCommands() {
+                    return this.commandHistory.slice(-10).reverse();
+                },
+
+                // Mobile Stats Computed Properties
+                hasResourceAlerts() {
+                    return this.resourceAlerts.length > 0;
+                },
+
+                hasSessionUpdates() {
+                    return this.sessionUpdates.length > 0;
+                },
+
+                systemHealthClass() {
+                    const cpuUsage = this.stats.resources?.cpu?.percentage || 0;
+                    const memoryUsage = this.stats.resources?.memory?.percentage || 0;
+                    
+                    if (cpuUsage > 95 || memoryUsage > 95) return 'critical';
+                    if (cpuUsage > 80 || memoryUsage > 80) return 'warning';
+                    return 'healthy';
+                },
+
+                systemHealthText() {
+                    const health = this.systemHealthClass;
+                    if (health === 'critical') return 'System resources critically high';
+                    if (health === 'warning') return 'System resources elevated';
+                    return 'System running normally';
+                }
+            },
+
+            methods: {
+                getDefaultTheme() {
+                    return {
+                        name: 'VS Code Dark',
+                        type: 'dark',
+                        colors: {
+                            // Background colors
+                            bgPrimary: '#1e1e1e',
+                            bgSecondary: '#252526',
+                            bgTertiary: '#2d2d30',
+                            bgSidebar: '#181818',
+                            
+                            // Legacy compatibility
+                            primary: '#1e1e1e',
+                            secondary: '#252526',
+                            tertiary: '#2d2d30',
+                            sidebar: '#181818',
+                            
+                            // Text colors
+                            border: '#3c3c3c',
+                            textPrimary: '#cccccc',
+                            textSecondary: '#969696',
+                            textMuted: '#6a6a6a',
+                            
+                            // Action colors (semantic)
+                            actionPrimary: '#007acc',
+                            actionSuccess: '#16825d',
+                            actionError: '#f14c4c',
+                            
+                            terminalBg: '#1e1e1e'
+                        },
+                        terminal: {
+                            background: '#1e1e1e',
+                            foreground: '#cccccc',
+                            cursor: '#cccccc',
+                            selection: '#264f78',
+                            black: '#000000',
+                            red: '#f14c4c',
+                            green: '#16825d',
+                            yellow: '#ff8c00',
+                            blue: '#007acc',
+                            magenta: '#c678dd',
+                            cyan: '#56b6c2',
+                            white: '#cccccc',
+                            brightBlack: '#666666',
+                            brightRed: '#f14c4c',
+                            brightGreen: '#16825d',
+                            brightYellow: '#ff8c00',
+                            brightBlue: '#007acc',
+                            brightMagenta: '#c678dd',
+                            brightCyan: '#56b6c2',
+                            brightWhite: '#ffffff'
+                        }
+                    };
+                },
+
+                async tryInitializeApp() {
+                    try {
+                        // Let backend decide if we're authenticated by trying to load themes
+                        const token = localStorage.getItem('authToken');
+                        const response = await fetch('/api/themes', {
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            }
+                        });
+
+                        if (response.ok) {
+                            // Backend says we're authenticated - proceed with app init
+                            this.isAuthenticated = true;
+                            await this.loadAvailableThemes();
+                            this.initializeApp();
+                        } else if (response.status === 401 || response.status === 403) {
+                            // Backend says token is invalid - clear it and stay on login
+                            localStorage.removeItem('authToken');
+                            this.isAuthenticated = false;
+                            console.log('Token invalid, redirecting to login');
+                        } else {
+                            // Some other error - log but don't authenticate
+                            console.error('Error checking authentication:', response.status);
+                            this.isAuthenticated = false;
+                        }
+                    } catch (error) {
+                        // Network error - assume not authenticated
+                        console.error('Network error during auth check:', error);
+                        this.isAuthenticated = false;
+                    }
+                },
+
+                async loadAvailableThemes() {
+                    try {
+                        const response = await fetch('/api/themes', {
+                            headers: {
+                                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                            }
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.success && data.themes) {
+                                this.availableThemes = data.themes.map(theme => ({
+                                    ...theme,
+                                    terminal: {
+                                        background: theme.terminal.background,
+                                        foreground: theme.terminal.foreground,
+                                        cursor: theme.terminal.cursor,
+                                        selection: theme.terminal.selection,
+                                        black: theme.terminal.ansiBlack,
+                                        red: theme.terminal.ansiRed,
+                                        green: theme.terminal.ansiGreen,
+                                        yellow: theme.terminal.ansiYellow,
+                                        blue: theme.terminal.ansiBlue,
+                                        magenta: theme.terminal.ansiMagenta,
+                                        cyan: theme.terminal.ansiCyan,
+                                        white: theme.terminal.ansiWhite,
+                                        brightBlack: theme.terminal.ansiBrightBlack,
+                                        brightRed: theme.terminal.ansiBrightRed,
+                                        brightGreen: theme.terminal.ansiBrightGreen,
+                                        brightYellow: theme.terminal.ansiBrightYellow,
+                                        brightBlue: theme.terminal.ansiBrightBlue,
+                                        brightMagenta: theme.terminal.ansiBrightMagenta,
+                                        brightCyan: theme.terminal.ansiBrightCyan,
+                                        brightWhite: theme.terminal.ansiBrightWhite
+                                    }
+                                }));
+                            }
+                        } else {
+                            console.warn('Failed to load themes from server, using fallback');
+                            this.availableThemes = this.getFallbackThemes();
+                        }
+                    } catch (error) {
+                        console.error('Failed to load themes:', error);
+                        this.availableThemes = this.getFallbackThemes();
+                    }
+                },
+
+                getFallbackThemes() {
+                    return [this.getDefaultTheme()];
+                },
+
+                checkMobile() {
+                    this.isMobile = window.innerWidth <= 768;
+                    if (!this.isMobile) {
+                        this.sidebarOpen = false;
+                        this.statsOpen = false;
+                    }
+                },
+
+                toggleSidebar() {
+                    this.sidebarOpen = !this.sidebarOpen;
+                },
+
+                toggleStats() {
+                    this.statsOpen = !this.statsOpen;
+                    if (!this.statsOpen) {
+                        // Reset expanded state when closing
+                        this.statsExpanded = false;
+                    }
+                },
+
+                // Mobile Stats Methods
+                toggleStatsMode() {
+                    this.statsExpanded = !this.statsExpanded;
+                    if (this.statsExpanded) {
+                        // Close mobile input when expanding stats
+                        this.mobileInputOpen = false;
+                        // Start with system tab
+                        this.activeStatsTab = 'system';
+                    }
+                },
+
+                setActiveStatsTab(tab) {
+                    this.activeStatsTab = tab;
+                },
+
+                focusOnAlert(alert) {
+                    // Switch to resources tab for resource alerts
+                    if (alert.type === 'cpu' || alert.type === 'memory') {
+                        this.activeStatsTab = 'resources';
+                        this.statsExpanded = true;
+                    }
+                    // Remove the alert after clicking
+                    this.resourceAlerts = this.resourceAlerts.filter(a => a !== alert);
+                },
+
+                acknowledgeUpdate(id) {
+                    this.sessionUpdates = this.sessionUpdates.filter(update => update.id !== id);
+                },
+
+                handleStatsTouch(event) {
+                    // Handle long press for additional options
+                    this.touchStartTime = Date.now();
+                },
+
+                getTabIcon(tab) {
+                    const icons = {
+                        system: 'server',
+                        resources: 'activity',
+                        sessions: 'terminal'
+                    };
+                    return icons[tab] || 'info';
+                },
+
+                closeMobileStats() {
+                    this.statsOpen = false;
+                    this.statsExpanded = false;
+                },
+
+                // Enhanced stats monitoring with alerts
+                checkResourceAlerts() {
+                    const alerts = [];
+                    const cpu = this.stats.resources?.cpu?.percentage || 0;
+                    const memory = this.stats.resources?.memory?.percentage || 0;
+
+                    if (cpu > 90) {
+                        alerts.push({
+                            type: 'cpu',
+                            severity: cpu > 95 ? 'critical' : 'warning',
+                            icon: 'zap',
+                            message: `CPU usage at ${cpu}%`
+                        });
+                    }
+
+                    if (memory > 85) {
+                        alerts.push({
+                            type: 'memory',
+                            severity: memory > 95 ? 'critical' : 'warning',
+                            icon: 'cpu',
+                            message: `Memory usage at ${memory}%`
+                        });
+                    }
+
+                    this.resourceAlerts = alerts;
+                },
+
+                checkSessionUpdates() {
+                    const currentCount = this.stats.sessions?.active || 0;
+                    
+                    if (this.lastSessionCount !== currentCount) {
+                        if (currentCount > this.lastSessionCount) {
+                            this.sessionUpdates.unshift({
+                                id: Date.now(),
+                                type: 'session-created',
+                                icon: 'plus-circle',
+                                message: `New session started (${currentCount} total)`
+                            });
+                        } else if (currentCount < this.lastSessionCount) {
+                            this.sessionUpdates.unshift({
+                                id: Date.now(),
+                                type: 'session-ended',
+                                icon: 'minus-circle',
+                                message: `Session ended (${currentCount} active)`
+                            });
+                        }
+                        
+                        this.lastSessionCount = currentCount;
+                        
+                        // Auto-remove updates after 10 seconds
+                        if (this.sessionUpdates.length > 0) {
+                            setTimeout(() => {
+                                this.sessionUpdates.pop();
+                            }, 10000);
+                        }
+                    }
+                    
+                    // Keep only last 3 updates
+                    if (this.sessionUpdates.length > 3) {
+                        this.sessionUpdates = this.sessionUpdates.slice(0, 3);
+                    }
+                },
+
+                // Mobile Input Proxy Methods
+                toggleMobileInput() {
+                    this.mobileInputOpen = !this.mobileInputOpen;
+                    if (this.mobileInputOpen) {
+                        this.$nextTick(() => {
+                            if (this.$refs.mobileInput) {
+                                this.$refs.mobileInput.focus();
+                            }
+                        });
+                    }
+                    // Close stats if open
+                    if (this.mobileInputOpen && this.statsOpen) {
+                        this.statsOpen = false;
+                    }
+                },
+
+                closeMobileInput() {
+                    this.mobileInputOpen = false;
+                    this.clearModifiers();
+                },
+
+                toggleModifier(modifier) {
+                    this.activeModifiers[modifier] = !this.activeModifiers[modifier];
+                },
+
+                clearModifiers() {
+                    this.activeModifiers = { ctrl: false, alt: false, shift: false };
+                },
+
+                sendCommand() {
+                    if (!this.mobileInputText.trim() || !this.socket || !this.activeTabId) return;
+                    
+                    const command = this.mobileInputText.trim();
+                    
+                    // Add to command history
+                    if (command && !this.commandHistory.includes(command)) {
+                        this.commandHistory.push(command);
+                        // Keep only last 50 commands
+                        if (this.commandHistory.length > 50) {
+                            this.commandHistory.shift();
+                        }
+                    }
+                    
+                    // Send command to terminal
+                    this.socket.emit('terminal-input', {
+                        input: command + '\r',
+                        sessionId: this.activeTabId
+                    });
+                    
+                    // Clear input
+                    this.mobileInputText = '';
+                    this.clearModifiers();
+                    
+                    // Close mobile input modal after sending command
+                    this.closeMobileInput();
+                },
+
+                sendKeyCombo(letter) {
+                    if (!this.hasActiveModifiers || !this.socket || !this.activeTabId) return;
+                    
+                    let inputData = '';
+                    const lowerLetter = letter.toLowerCase();
+                    const upperLetter = letter.toUpperCase();
+                    
+                    // Handle modifier combinations properly - send data exactly like xterm.js would
+                    if (this.activeModifiers.ctrl && this.activeModifiers.alt) {
+                        // Ctrl+Alt combinations - send as Alt+Ctrl sequence
+                        const ctrlMap = {
+                            'a': '\x01', 'b': '\x02', 'c': '\x03', 'd': '\x04', 'e': '\x05',
+                            'f': '\x06', 'g': '\x07', 'h': '\x08', 'i': '\x09', 'j': '\x0a',
+                            'k': '\x0b', 'l': '\x0c', 'm': '\x0d', 'n': '\x0e', 'o': '\x0f',
+                            'p': '\x10', 'q': '\x11', 'r': '\x12', 's': '\x13', 't': '\x14',
+                            'u': '\x15', 'v': '\x16', 'w': '\x17', 'x': '\x18', 'y': '\x19',
+                            'z': '\x1a'
+                        };
+                        inputData = '\x1b' + (ctrlMap[lowerLetter] || '');
+                    } else if (this.activeModifiers.ctrl) {
+                        // Ctrl combinations - send exactly as xterm.js would
+                        const ctrlMap = {
+                            'a': '\x01', 'b': '\x02', 'c': '\x03', 'd': '\x04', 'e': '\x05',
+                            'f': '\x06', 'g': '\x07', 'h': '\x08', 'i': '\x09', 'j': '\x0a',
+                            'k': '\x0b', 'l': '\x0c', 'm': '\x0d', 'n': '\x0e', 'o': '\x0f',
+                            'p': '\x10', 'q': '\x11', 'r': '\x12', 's': '\x13', 't': '\x14',
+                            'u': '\x15', 'v': '\x16', 'w': '\x17', 'x': '\x18', 'y': '\x19',
+                            'z': '\x1a'
+                        };
+                        inputData = ctrlMap[lowerLetter] || '';
+                    } else if (this.activeModifiers.alt) {
+                        // Alt combinations (ESC + letter, with shift if needed)
+                        const targetLetter = this.activeModifiers.shift ? upperLetter : lowerLetter;
+                        inputData = '\x1b' + targetLetter;
+                    } else if (this.activeModifiers.shift) {
+                        // Just shift (uppercase letter)
+                        inputData = upperLetter;
+                    }
+                    
+                    // Send using the exact same format as TerminalManager
+                    if (inputData) {
+                        this.socket.emit('terminal-input', {
+                            input: inputData,
+                            sessionId: this.activeTabId
+                        });
+                    }
+                    
+                    // Clear modifiers after sending
+                    this.clearModifiers();
+                },
+
+                sendQuickAction(action) {
+                    if (!this.socket || !this.activeTabId) return;
+                    
+                    let keyCode = '';
+                    switch (action.key) {
+                        case 'Tab':
+                            keyCode = '\t';
+                            break;
+                        case 'Escape':
+                            keyCode = '\x1b';
+                            break;
+                        case 'ArrowUp':
+                            keyCode = '\x1b[A';
+                            break;
+                        case 'ArrowDown':
+                            keyCode = '\x1b[B';
+                            break;
+                        case 'ArrowRight':
+                            keyCode = '\x1b[C';
+                            break;
+                        case 'ArrowLeft':
+                            keyCode = '\x1b[D';
+                            break;
+                        case 'Home':
+                            keyCode = '\x1b[H';
+                            break;
+                        case 'End':
+                            keyCode = '\x1b[F';
+                            break;
+                        case 'Delete':
+                            keyCode = '\x1b[3~';
+                            break;
+                        case 'Backspace':
+                            keyCode = '\x08';
+                            break;
+                    }
+                    
+                    if (keyCode) {
+                        this.socket.emit('terminal-input', {
+                            input: keyCode,
+                            sessionId: this.activeTabId
+                        });
+                    }
+                },
+
+                insertCommand(command) {
+                    this.mobileInputText = command;
+                    this.$nextTick(() => {
+                        if (this.$refs.mobileInput) {
+                            this.$refs.mobileInput.focus();
+                            
+                            // Enhanced cursor positioning for template commands
+                            const input = this.$refs.mobileInput;
+                            let cursorPos = command.length; // Default to end
+                            
+                            // Handle various template patterns
+                            if (command.includes('""')) {
+                                // For commands like 'git commit -m ""'
+                                cursorPos = command.indexOf('""') + 1;
+                            } else if (command.includes(' ')) {
+                                // For commands that expect arguments, position after space
+                                const patterns = [
+                                    'cd ', 'vim ', 'nano ', 'cat ', 'rm ', 'mv ', 'cp ',
+                                    'git add ', 'git commit ', 'npm run '
+                                ];
+                                for (const pattern of patterns) {
+                                    if (command === pattern.trim()) {
+                                        cursorPos = command.length;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            input.setSelectionRange(cursorPos, cursorPos);
+                        }
+                    });
+                },
+
+                applySuggestion(suggestion) {
+                    this.mobileInputText = suggestion.text;
+                    this.suggestions = [];
+                    this.$nextTick(() => {
+                        if (this.$refs.mobileInput) {
+                            this.$refs.mobileInput.focus();
+                        }
+                    });
+                },
+
+                handleInputKeydown(event) {
+                    if (event.key === 'Enter') {
+                        event.preventDefault();
+                        this.sendCommand();
+                    } else if (event.key === 'Escape') {
+                        event.preventDefault();
+                        this.closeMobileInput();
+                    }
+                },
+
+                handleInputChange() {
+                    this.updateSuggestions();
+                },
+
+                updateSuggestions() {
+                    const input = this.mobileInputText.toLowerCase().trim();
+                    if (!input) {
+                        this.suggestions = [];
+                        return;
+                    }
+                    
+                    const suggestions = [];
+                    
+                    // Helper function for fuzzy matching score
+                    const getFuzzyScore = (text, query) => {
+                        text = text.toLowerCase();
+                        query = query.toLowerCase();
+                        
+                        if (text.startsWith(query)) return 100; // Exact prefix match
+                        if (text.includes(query)) return 80;    // Contains match
+                        
+                        // Fuzzy character matching
+                        let score = 0;
+                        let queryIndex = 0;
+                        for (let i = 0; i < text.length && queryIndex < query.length; i++) {
+                            if (text[i] === query[queryIndex]) {
+                                score += 10;
+                                queryIndex++;
+                            }
+                        }
+                        return queryIndex === query.length ? score : 0;
+                    };
+                    
+                    // Get command frequency from history
+                    const getCommandFrequency = (cmd) => {
+                        return this.commandHistory.filter(h => h === cmd).length;
+                    };
+                    
+                    // Common commands suggestions
+                    this.commonCommands.forEach(cmd => {
+                        const score = getFuzzyScore(cmd.command, input);
+                        if (score > 0) {
+                            suggestions.push({
+                                text: cmd.command,
+                                description: cmd.description,
+                                score: score,
+                                type: 'common'
+                            });
+                        }
+                    });
+                    
+                    // History suggestions with frequency boost
+                    const uniqueHistory = [...new Set(this.commandHistory)];
+                    uniqueHistory.forEach(cmd => {
+                        const score = getFuzzyScore(cmd, input);
+                        if (score > 0 && !suggestions.some(s => s.text === cmd)) {
+                            const frequency = getCommandFrequency(cmd);
+                            suggestions.push({
+                                text: cmd,
+                                description: frequency > 1 ? `Used ${frequency} times` : 'From history',
+                                score: score + (frequency * 5), // Frequency boost
+                                type: 'history'
+                            });
+                        }
+                    });
+                    
+                    // Smart command completion for partial commands
+                    if (input.includes(' ')) {
+                        const parts = input.split(' ');
+                        const baseCommand = parts[0];
+                        const lastArg = parts[parts.length - 1];
+                        
+                        // Git command completions
+                        if (baseCommand === 'git' && parts.length === 2) {
+                            const gitCommands = ['status', 'add', 'commit', 'push', 'pull', 'branch', 'checkout', 'merge', 'log', 'diff'];
+                            gitCommands.forEach(gitCmd => {
+                                if (gitCmd.startsWith(lastArg)) {
+                                    suggestions.push({
+                                        text: `git ${gitCmd}`,
+                                        description: `Git ${gitCmd} command`,
+                                        score: 90,
+                                        type: 'completion'
+                                    });
+                                }
+                            });
+                        }
+                        
+                        // NPM command completions
+                        if (baseCommand === 'npm' && parts.length === 2) {
+                            const npmCommands = ['install', 'start', 'build', 'test', 'run', 'init', 'update'];
+                            npmCommands.forEach(npmCmd => {
+                                if (npmCmd.startsWith(lastArg)) {
+                                    suggestions.push({
+                                        text: `npm ${npmCmd}`,
+                                        description: `NPM ${npmCmd} command`,
+                                        score: 90,
+                                        type: 'completion'
+                                    });
+                                }
+                            });
+                        }
+                    }
+                    
+                    // Sort by score (descending) and limit results
+                    this.suggestions = suggestions
+                        .sort((a, b) => b.score - a.score)
+                        .slice(0, 6)
+                        .map(s => ({
+                            text: s.text,
+                            description: s.description,
+                            type: s.type
+                        }));
+                },
+
+                // New Compact Interface Methods
+                toggleOverlayMode() {
+                    this.overlayExpanded = !this.overlayExpanded;
+                    if (this.overlayExpanded) {
+                        // Close other panels when expanding
+                        this.historyPanelOpen = false;
+                        this.contextualMode = false;
+                    } else {
+                        this.contextualMode = true;
+                    }
+                },
+
+                handleExpandTouch(event) {
+                    // Handle long press for additional options
+                    this.touchStartTime = Date.now();
+                },
+
+                setActiveTab(tab) {
+                    this.activeTab = tab;
+                },
+
+                toggleHistoryPanel() {
+                    this.historyPanelOpen = !this.historyPanelOpen;
+                    if (this.historyPanelOpen) {
+                        // Close other panels
+                        this.overlayExpanded = false;
+                        this.contextualMode = false;
+                    } else {
+                        this.contextualMode = true;
+                    }
+                },
+
+                getTimeAgo(index) {
+                    // Simple time ago calculation for history
+                    const minutes = index * 2; // Rough estimate
+                    if (minutes < 60) {
+                        return `${minutes}m`;
+                    } else {
+                        const hours = Math.floor(minutes / 60);
+                        return `${hours}h`;
+                    }
+                },
+
+                handleHistorySwipe(event) {
+                    // Handle swipe gestures for history panel
+                    if (event.type === 'touchstart') {
+                        this.swipeStartY = event.touches[0].clientY;
+                    } else if (event.type === 'touchend') {
+                        const deltaY = event.changedTouches[0].clientY - this.swipeStartY;
+                        if (deltaY > 100) { // Swipe down to close
+                            this.toggleHistoryPanel();
+                        }
+                    }
+                },
+
+                async selectTheme(theme) {
+                    this.currentTheme = theme;
+                    this.showThemeModal = false;
+                    this.applyTheme(theme);
+                    await this.saveTheme(theme);
+
+                    // Update terminal if active
+                    if (this.terminal && this.selectedWorkspace) {
+                        this.setupTerminal();
+                    }
+
+                    // Update CodeMirror editor theme if active
+                    if (this.editorInstance) {
+                        try {
+                            await this.editorInstance.setTheme({ type: theme.type, colors: theme.colors });
+                        } catch (error) {
+                            console.error('Failed to update editor theme:', error);
+                        }
+                    }
+                },
+
+                applyTheme(theme) {
+                    const root = document.documentElement;
+                    const colors = theme.colors;
+
+                    // Background Colors - Use new semantic names with fallbacks
+                    root.style.setProperty('--bg-primary', colors.bgPrimary || colors.primary);
+                    root.style.setProperty('--bg-secondary', colors.bgSecondary || colors.secondary);
+                    root.style.setProperty('--bg-tertiary', colors.bgTertiary || colors.tertiary);
+                    root.style.setProperty('--bg-sidebar', colors.bgSidebar || colors.sidebar);
+
+                    // Text Colors
+                    root.style.setProperty('--text-primary', colors.textPrimary);
+                    root.style.setProperty('--text-secondary', colors.textSecondary);
+                    root.style.setProperty('--text-muted', colors.textMuted);
+
+                    // Border & Divider Colors
+                    root.style.setProperty('--border-color', colors.border || colors.textMuted);
+
+                    // Semantic Action Colors - Use distinct action colors!
+                    root.style.setProperty('--primary', colors.actionPrimary || colors.primary);
+                    root.style.setProperty('--primary-hover', colors.actionPrimaryHover || colors.actionPrimary || colors.primary);
+                    root.style.setProperty('--success', colors.actionSuccess || colors.success);
+                    root.style.setProperty('--success-hover', colors.actionSuccessHover || colors.actionSuccess || colors.success);
+                    root.style.setProperty('--error', colors.actionError || colors.error);
+                    root.style.setProperty('--error-hover', colors.actionErrorHover || colors.actionError || colors.error);
+                    root.style.setProperty('--warning', colors.actionWarning || colors.warning || colors.actionPrimary || colors.primary);
+                    root.style.setProperty('--info', colors.actionInfo || colors.info || colors.actionPrimary || colors.primary);
+
+                    // Component-specific Variables
+                    root.style.setProperty('--button-bg', colors.actionPrimary || colors.primary);
+                    root.style.setProperty('--button-hover', colors.actionPrimaryHover || colors.actionPrimary || colors.primary);
+                    root.style.setProperty('--button-secondary-bg', colors.tertiary);
+                    root.style.setProperty('--button-secondary-hover', colors.secondary);
+                    root.style.setProperty('--input-bg', colors.tertiary);
+                    root.style.setProperty('--terminal-bg', colors.terminalBg || colors.primary);
+
+                    // Interactive States
+                    root.style.setProperty('--sidebar-item-hover-bg', colors.bgSecondary || colors.secondary);
+                    root.style.setProperty('--sidebar-item-selected-bg', colors.actionPrimary || colors.primary);
+                    root.style.setProperty('--sidebar-item-bg', colors.bgSecondary || colors.secondary);
+
+                    // Enhanced Variables for Comprehensive Theming
+                    root.style.setProperty('--scrollbar-slider', colors.textMuted + '66');
+                    root.style.setProperty('--scrollbar-slider-hover', colors.textSecondary + 'b3');
+                    root.style.setProperty('--modal-backdrop', 'rgba(0, 0, 0, 0.6)');
+                },
+
+                async loadTheme() {
+                    try {
+                        const response = await fetch('/api/theme', {
+                            headers: {
+                                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                            }
+                        });
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.success && data.theme) {
+                                this.currentTheme = data.theme;
+                                this.applyTheme(data.theme);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Failed to load theme:', error);
+                    }
+                },
+
+                async saveTheme(theme) {
+                    try {
+                        await fetch('/api/theme', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                            },
+                            body: JSON.stringify({ theme })
+                        });
+                    } catch (error) {
+                        console.error('Failed to save theme:', error);
+                    }
+                },
+
+                async initializeApp() {
+                    try {
+                        this.initializeSocket();
+                    } catch (error) {
+                        console.error('Failed to initialize app:', error);
+                        this.logout();
+                    }
+                },
+
+                initializeSocket() {
+                    // Socket connection options with retry configuration
+                    const socketOptions = {
+                        auth: { token: localStorage.getItem('authToken') },
+                        reconnection: true,
+                        reconnectionDelay: 1000,
+                        reconnectionDelayMax: 5000,
+                        reconnectionAttempts: Infinity,
+                        timeout: 20000
+                    };
+
+                    this.socket = io('/', socketOptions);
+
+                    this.socket.on('connect', () => {
+                        console.log('Socket connected');
+                        this.connectionError = null;
+
+                        // Re-initialize application state
+                        this.loadWorkspaces();
+                        this.loadStats();
+                        this.startStatsInterval();
+                        this.loadTheme();
+                        if (this.availableThemes.length === 0) {
+                            this.loadAvailableThemes();
+                        }
+
+                        // Re-select workspace if one was selected
+                        if (this.selectedWorkspace) {
+                            this.$nextTick(() => {
+                                this.setupTerminal();
+                            });
+                        }
+                    });
+
+                    this.socket.on('connect_error', (error) => {
+                        console.error('Socket connection error:', error);
+                        this.connectionError = 'Connection lost. Reconnecting...';
+
+                        if (error.message.includes('GitHub token not found') ||
+                            error.message.includes('Authentication failed')) {
+                            this.logout();
+                        }
+                    });
+
+                    this.socket.on('disconnect', (reason) => {
+                        console.log('Socket disconnected:', reason);
+                        this.connectionError = 'Connection lost. Reconnecting...';
+                        this.stopStatsInterval();
+
+                        if (reason === 'io server disconnect') {
+                            // Server disconnected us, try to reconnect
+                            this.socket.connect();
+                        }
+                    });
+
+                    this.socket.on('reconnect', (attemptNumber) => {
+                        console.log('Socket reconnected after', attemptNumber, 'attempts');
+                        this.connectionError = null;
+                    });
+
+                    this.socket.on('reconnect_attempt', (attemptNumber) => {
+                        console.log('Socket reconnection attempt:', attemptNumber);
+                        this.connectionError = `Reconnecting... (attempt ${attemptNumber})`;
+                    });
+
+                    this.socket.on('reconnect_error', (error) => {
+                        console.error('Socket reconnection error:', error);
+                        this.connectionError = 'Reconnection failed. Retrying...';
+                    });
+
+                    this.socket.on('reconnect_failed', () => {
+                        console.error('Socket reconnection failed permanently');
+                        this.connectionError = 'Connection failed. Please refresh the page.';
+                    });
+
+                    // Terminal event handlers - now handled by TerminalManager service
+                    this.socket.on('terminal-output', (data) => {
+                        // Handle session-specific output via TerminalManager
+                        if (data && typeof data === 'object' && data.sessionId) {
+                            window.TerminalComponents.TerminalManager.write(data.sessionId, data.data);
+                        } else {
+                            // Backward compatibility - write to active terminal
+                            if (this.activeTabId) {
+                                window.TerminalComponents.TerminalManager.write(this.activeTabId, data);
+                            }
+                        }
+                    });
+
+                    this.socket.on('terminal-error', (data) => {
+                        console.error('Terminal error:', data.error);
+                    });
+
+                    this.socket.on('terminal-resumed', (data) => {
+                        console.log('Session resumed:', data);
+                        // Update tab information if available
+                        if (data.sessionId && data.sessionName) {
+                            this.updateTabInfo(data.sessionId, data.sessionName);
+                        }
+                    });
+
+                    // Terminal multiplexing event handlers
+                    this.socket.on('terminal-sessions-updated', (data) => {
+                        if (data.workspaceId === this.selectedWorkspace?.id) {
+                            this.updateTerminalTabs(data.sessions);
+                        }
+                    });
+
+                    this.socket.on('workspace-sessions', (data) => {
+                        if (data.workspaceId === this.selectedWorkspace?.id) {
+                            this.updateTerminalTabs(data.sessions);
+                        }
+                    });
+
+                    this.socket.on('terminal-tab-created', (data) => {
+                        if (data.workspaceId === this.selectedWorkspace?.id) {
+                            this.updateTerminalTabs(data.sessions);
+                            // Switch to the new tab
+                            if (data.tab?.sessionId) {
+                                this.switchToTab(data.tab.sessionId);
+                            }
+                        }
+                    });
+
+                    this.socket.on('terminal-session-switched', (data) => {
+                        console.log('Terminal session switched:', data);
+                        if (data.success && data.sessionId) {
+                            this.activeTabId = data.sessionId;
+
+                            // Focus the terminal via TerminalManager
+                            setTimeout(() => {
+                                window.TerminalComponents.TerminalManager.focus(data.sessionId);
+                            }, 100);
+                        }
+                    });
+
+                    this.socket.on('terminal-killed', (data) => {
+                        if (data.sessionId) {
+                            this.closeTabLocally(data.sessionId);
+                        }
+                    });
+
+                    this.socket.on('terminal-created', (data) => {
+                        console.log('Terminal created:', data);
+                        if (data.sessionId && data.sessionName) {
+                            this.addTab(data.sessionId, data.sessionName, data.pid || 0, data.isDefault || false);
+                            this.activeTabId = data.sessionId;
+                            // Note: Terminal initialization is now handled by TerminalInstance component
+                        }
+                    });
+
+                    // Split Pane Layout Event Handlers
+                    this.socket.on('layout-converted', (data) => {
+                        this.handleLayoutConverted(data);
+                    });
+
+                    this.socket.on('layout-changed', (data) => {
+                        if (data.workspaceId === this.selectedWorkspace?.id) {
+                            this.currentLayout = data.layoutType;
+                            if (data.configuration) {
+                                if (data.layoutType === 'tabs') {
+                                    this.panes = [];
+                                    this.activePaneId = null;
+                                } else {
+                                    this.panes = this.generatePanesFromLayout(data.layoutType, this.terminalTabs);
+                                }
+                            }
+                        }
+                    });
+
+                    this.socket.on('pane-switched', (data) => {
+                        if (data.workspaceId === this.selectedWorkspace?.id) {
+                            this.activePaneId = data.paneId;
+                            console.log('Switched to pane:', data.paneId, 'with session:', data.sessionId);
+                        }
+                    });
+
+                    this.socket.on('layout-recommendations', (data) => {
+                        if (data.workspaceId === this.selectedWorkspace?.id) {
+                            this.layoutRecommendations = {
+                                supported: data.supported || [],
+                                recommended: data.recommended || 'single'
+                            };
+                            console.log('Layout recommendations updated:', this.layoutRecommendations);
+                        }
+                    });
+
+                    // IDE-Style Pane Event Handlers
+                    this.socket.on('tab-moved', (data) => {
+                        if (data.workspaceId === this.selectedWorkspace?.id) {
+                            console.log('Tab moved:', data);
+
+                            // Update local pane structure from server layout
+                            if (data.layout && data.layout.configuration) {
+                                const config = JSON.parse(data.layout.configuration);
+                                if (config.panes) {
+                                    this.panes = this.processPaneConfiguration(config.panes);
+                                }
+                            }
+
+                            // Layout has been updated by server and applied to panes
+                        }
+                    });
+
+                    this.socket.on('pane-tab-activated', (data) => {
+                        if (data.workspaceId === this.selectedWorkspace?.id) {
+                            console.log('Pane tab activated:', data);
+
+                            // Update local state
+                            const pane = this.panes.find(p => p.id === data.paneId);
+                            if (pane) {
+                                pane.activeTabId = data.sessionId;
+                            }
+                            this.activeTabId = data.sessionId;
+                            this.activePaneId = data.paneId;
+                        }
+                    });
+
+                    this.socket.on('tab-added-to-pane', (data) => {
+                        if (data.workspaceId === this.selectedWorkspace?.id) {
+                            console.log('Tab added to pane:', data);
+
+                            // Update terminal tabs list
+                            this.updateTerminalTabs(data.sessions);
+
+                            // Update pane structure from server layout
+                            if (data.layout && data.layout.configuration) {
+                                const config = JSON.parse(data.layout.configuration);
+                                if (config.panes) {
+                                    this.panes = this.processPaneConfiguration(config.panes);
+                                }
+                            }
+
+                            // Set the new tab as active in its pane
+                            if (data.paneId && data.tab && data.tab.sessionId) {
+                                const pane = this.panes.find(p => p.id === data.paneId);
+                                if (pane) {
+                                    pane.activeTabId = data.tab.sessionId;
+                                    this.activePaneId = data.paneId;
+                                    this.activeTabId = data.tab.sessionId;
+                                }
+                            }
+                        }
+                    });
+
+                    this.socket.on('tab-removed-from-pane', (data) => {
+                        if (data.workspaceId === this.selectedWorkspace?.id) {
+                            console.log('Tab removed from pane:', data);
+
+                            // Update terminal tabs list
+                            this.updateTerminalTabs(data.sessions);
+
+                            // Update pane structure
+                            if (data.layout && data.layout.configuration) {
+                                const config = JSON.parse(data.layout.configuration);
+                                if (config.panes) {
+                                    this.panes = this.processPaneConfiguration(config.panes);
+                                }
+                            }
+
+                            // Close the terminal locally
+                            this.closeTabLocally(data.sessionId);
+                        }
+                    });
+
+                    // Unified workspace state update handler
+                    this.socket.on('workspace-state-updated', (data) => {
+                        if (data.workspaceId === this.selectedWorkspace?.id) {
+                            console.log('Workspace state updated:', data);
+
+                            // Update all state atomically from server
+                            this.updateTerminalTabs(data.sessions);
+                            
+                            // Update layout and panes from server configuration
+                            if (data.layout && data.layout.configuration) {
+                                const config = JSON.parse(data.layout.configuration);
+                                this.currentLayout = data.layout.layoutType;
+                                if (config.panes) {
+                                    this.panes = this.processPaneConfiguration(config.panes);
+                                }
+                            }
+
+                            // Set active states if provided
+                            if (data.activeSessionId) {
+                                this.activeTabId = data.activeSessionId;
+                            }
+                            if (data.activePaneId) {
+                                this.activePaneId = data.activePaneId;
+                            }
+
+                            // Switch to the new session if needed
+                            if (data.activeSessionId && data.operation === 'session-created') {
+                                this.switchToTab(data.activeSessionId);
+                            }
+
+                            // Ensure UI is consistent
+                            this.$nextTick(() => {
+                                feather.replace();
+                            });
+                        }
+                    });
+
+                    this.socket.on('pane-layout-updated', (data) => {
+                        if (data.workspaceId === this.selectedWorkspace?.id) {
+                            console.log('Pane layout updated:', data);
+
+                            // Update sessions if provided
+                            if (data.sessions) {
+                                this.updateTerminalTabs(data.sessions);
+                            }
+
+                            // Update pane structure
+                            if (data.layout && data.layout.configuration) {
+                                const config = JSON.parse(data.layout.configuration);
+                                if (config.panes) {
+                                    this.panes = this.processPaneConfiguration(config.panes);
+                                }
+                            }
+                        }
+                    });
+
+                    // Workspace event handlers
+                    this.socket.on('workspaces-list', (data) => {
+                        this.workspaces = data.workspaces || [];
+                    });
+
+                    // Repository event handlers
+                    this.socket.on('repositories-list', (data) => {
+                        const newRepos = data.repositories || [];
+                        const pagination = data.pagination || {};
+
+                        if (pagination.page === 1 || pagination.search_applied) {
+                            // First page, refresh, or new search - replace all repositories
+                            this.repositories = newRepos;
+                        } else {
+                            // Subsequent pages - append to existing repositories
+                            this.repositories = [...this.repositories, ...newRepos];
+                        }
+
+                        // Trust the backend Link header pagination
+                        this.repositoryPage = pagination.page || 1;
+                        this.repositoryHasMore = pagination.has_more || false;
+                        this.repositoriesLoading = false;
+                        this.repositoryLoadingMore = false;
+                        this.repositoryError = null;
+                    });
+
+                    this.socket.on('repositories-error', (data) => {
+                        this.repositoryError = data.error;
+                        this.repositoriesLoading = false;
+                        this.repositoryLoadingMore = false;
+                    });
+
+                    // Handle authentication required - auto-redirect to GitHub OAuth
+                    this.socket.on('auth-required', (data) => {
+                        console.log('🔑 AUTH-REQUIRED EVENT RECEIVED:', data);
+                        console.log('📊 Event data:', JSON.stringify(data, null, 2));
+                        this.repositoriesLoading = false;
+                        this.repositoryLoadingMore = false;
+
+                        // Auto-redirect to GitHub OAuth for re-authentication
+                        if (data.action === 'redirect_to_auth') {
+                            console.log('🔄 Initiating auto-redirect to GitHub OAuth...');
+                            // Show brief message before redirect
+                            this.repositoryError = 'Redirecting to GitHub for re-authentication...';
+
+                            // Redirect to GitHub auth after short delay
+                            setTimeout(() => {
+                                console.log('🚀 Redirecting to /api/github/auth');
+                                window.location.href = '/api/github/auth';
+                            }, 1500);
+                        }
+                    });
+
+                    // Workspace operation event handlers
+                    this.socket.on('workspace-progress', (data) => {
+                        console.log('Received workspace-progress:', data);
+                        this.cloneProgress = data;
+                    });
+
+                    this.socket.on('workspace-created', (data) => {
+                        console.log('Received workspace-created:', data);
+                        this.cloneProgress = {
+                            status: 'created',
+                            message: 'Workspace created, starting clone...'
+                        };
+                    });
+
+                    this.socket.on('workspace-cloned', (data) => {
+                        console.log('Received workspace-cloned:', data);
+                        this.clearCloneState();
+                        this.loadWorkspaces();
+                        this.showRepositoriesModal = false;
+                    });
+
+                    this.socket.on('workspace-error', (data) => {
+                        console.log('Received workspace-error:', data);
+                        this.cloneError = data.error;
+                        this.cloneProgress = null;
+                        this.cloningRepository = null;
+                    });
+
+                    this.socket.on('workspace-deleted', (data) => {
+                        this.deletingWorkspace = false;
+                        this.showDeleteModal = false;
+                        this.workspaceToDelete = null;
+                        this.deleteFiles = false;
+
+                        // If deleted workspace was selected, clear selection
+                        if (this.selectedWorkspace?.id === data.workspaceId) {
+                            this.selectedWorkspace = null;
+                            // Clear terminal
+                            const terminalElement = document.getElementById('terminal');
+                            if (terminalElement) {
+                                terminalElement.innerHTML = '<div class="no-workspace">Select a workspace to start terminal session</div>';
+                            }
+                        }
+                    });
+                },
+
+                loadWorkspaces() {
+                    // Workspaces are loaded automatically on connect
+                },
+
+                async loadStats() {
+                    try {
+                        const response = await fetch('/api/stats', {
+                            headers: {
+                                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                            }
+                        });
+                        if (response.ok) {
+                            this.stats = await response.json();
+                            
+                            // Check for resource alerts and session updates (mobile stats)
+                            if (this.isMobile) {
+                                this.checkResourceAlerts();
+                                this.checkSessionUpdates();
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Failed to load stats:', error);
+                    }
+                },
+
+                startStatsInterval() {
+                    this.statsInterval = setInterval(() => {
+                        this.loadStats();
+                    }, 5000); // Update every 5 seconds
+                },
+
+                stopStatsInterval() {
+                    if (this.statsInterval) {
+                        clearInterval(this.statsInterval);
+                        this.statsInterval = null;
+                    }
+                },
+
+                selectWorkspace(workspace) {
+                    // Check if we're actually switching to a different workspace
+                    if (this.selectedWorkspace && this.selectedWorkspace.id === workspace.id) {
+                        return; // No change needed
+                    }
+
+                    this.selectedWorkspace = workspace;
+                    if (this.isMobile) {
+                        this.sidebarOpen = false;
+                    }
+
+                    // Reset layout state for new workspace
+                    this.currentLayout = 'single';
+                    this.panes = [];
+                    this.activePaneId = null;
+                    this.draggedTab = null;
+                    this.dragOverPane = null;
+
+                    // Request layout recommendations for new workspace
+                    if (this.socket) {
+                        this.socket.emit('get-layout-recommendations', {
+                            workspaceId: workspace.id,
+                            viewportWidth: this.viewportWidth,
+                            sessionCount: 1 // Default to 1 for new workspace
+                        });
+                    }
+
+                    // Reset file explorer state for new workspace
+                    this.currentPath = '.';
+                    this.currentFiles = [];
+                    this.selectedFile = null;
+                    this.fileError = null;
+                    this.directoryCache.clear(); // Clear cache for new workspace
+                    this.clearFileSearch(); // Clear any active search
+                    this.selectedFileIndex = -1; // Reset keyboard selection
+
+                    this.$nextTick(() => {
+                        this.setupTerminal();
+                        // Load files for the selected workspace
+                        this.refreshFiles();
+                    });
+                },
+
+                setupTerminal() {
+                    // Initialize terminal multiplexing for the selected workspace
+                    if (!this.selectedWorkspace) return;
+
+                    // Clear existing terminals via TerminalManager
+                    window.TerminalComponents.TerminalManager.disposeAll();
+
+                    // Initialize tabs array
+                    this.terminalTabs = [];
+                    this.activeTabId = null;
+
+                    // Request existing sessions for this workspace or create new one
+                    if (this.socket) {
+                        this.socket.emit('get-workspace-sessions', {
+                            workspaceId: this.selectedWorkspace.id
+                        });
+
+                        // If no existing sessions, create a default one
+                        setTimeout(() => {
+                            if (this.terminalTabs.length === 0) {
+                                this.socket.emit('create-terminal', {
+                                    workspaceId: this.selectedWorkspace.id
+                                });
+                            }
+                        }, 100);
+                    }
+
+                    // Global resize handling is now managed by individual terminal components
+                },
+
+                // Terminal tab management methods - simplified for component architecture
+                updateTerminalTabs(sessions) {
+                    console.log('Updating terminal tabs with sessions:', sessions);
+                    if (!sessions || !Array.isArray(sessions)) {
+                        console.warn('Sessions data is invalid:', sessions);
+                        return;
+                    }
+                    this.terminalTabs = sessions.map(session => ({
+                        sessionId: session.sessionId,
+                        sessionName: session.sessionName || 'Terminal',
+                        pid: session.pid,
+                        isDefault: session.isDefault || false,
+                        status: session.status || 'active'
+                    }));
+
+                    if (!this.activeTabId && this.terminalTabs.length > 0) {
+                        const defaultTab = this.terminalTabs.find(tab => tab.isDefault);
+                        this.activeTabId = defaultTab ? defaultTab.sessionId : this.terminalTabs[0].sessionId;
+                    }
+
+                    // Update panes data structure - Vue components will handle the rest
+                    if (this.currentLayout === 'single') {
+                        if (this.terminalTabs.length > 0) {
+                            const allSessionIds = this.terminalTabs.map(t => t.sessionId);
+                            this.panes = [{
+                                id: 'pane-main',
+                                position: 'main',
+                                gridArea: '1 / 1 / 2 / 2',
+                                tabs: allSessionIds, // Show ALL terminal tabs in single layout
+                                activeTabId: this.activeTabId || allSessionIds[0],
+                                sessionId: this.activeTabId || allSessionIds[0] // For backward compatibility
+                            }];
+                            this.activePaneId = 'pane-main';
+                        } else {
+                            this.panes = [];
+                        }
+                    }
+
+                    // Terminal lifecycle is now managed by TerminalInstance components
+                    // Clean up any terminals that are no longer needed
+                    const currentSessionIds = new Set(this.terminalTabs.map(tab => tab.sessionId));
+                    for (const sessionId of window.TerminalComponents.TerminalManager.terminals.keys()) {
+                        if (!currentSessionIds.has(sessionId)) {
+                            window.TerminalComponents.TerminalManager.dispose(sessionId);
+                        }
+                    }
+                },
+
+                addTab(sessionId, sessionName, pid = 0, isDefault = false) {
+                    // Check if tab already exists
+                    if (this.terminalTabs.find(tab => tab.sessionId === sessionId)) {
+                        return;
+                    }
+
+                    const newTab = {
+                        sessionId,
+                        sessionName,
+                        pid,
+                        isDefault,
+                        status: 'active'
+                    };
+
+                    this.terminalTabs.push(newTab);
+                    // Note: Terminal initialization is now handled by TerminalInstance components
+                },
+
+                switchToTab(sessionId) {
+                    console.log('Switching to tab:', sessionId, 'current active:', this.activeTabId);
+
+                    if (this.activeTabId === sessionId) return;
+
+                    this.activeTabId = sessionId;
+
+                    // Emit switch event to server (this is tab switching within workspace - no history replay)
+                    if (this.socket && this.selectedWorkspace) {
+                        this.socket.emit('switch-terminal-session', {
+                            workspaceId: this.selectedWorkspace.id,
+                            sessionId: sessionId
+                        });
+                    }
+
+                    // Focus handling is now done by TerminalInstance components via reactive props
+                    this.$nextTick(() => {
+                        feather.replace();
+                    });
+                },
+
+                closeTab(sessionId) {
+                    // Don't close if it's the last tab
+                    if (this.terminalTabs.length <= 1) {
+                        return;
+                    }
+
+                    // Emit close event to server
+                    if (this.socket && this.selectedWorkspace) {
+                        this.socket.emit('kill-terminal', {
+                            workspaceId: this.selectedWorkspace.id,
+                            sessionId: sessionId
+                        });
+                    }
+                },
+
+                closeTabLocally(sessionId) {
+                    // Remove from tabs array
+                    const tabIndex = this.terminalTabs.findIndex(tab => tab.sessionId === sessionId);
+                    if (tabIndex !== -1) {
+                        this.terminalTabs.splice(tabIndex, 1);
+                    }
+
+                    // Dispose of terminal via TerminalManager
+                    window.TerminalComponents.TerminalManager.dispose(sessionId);
+
+                    // Switch to another tab if this was active
+                    if (this.activeTabId === sessionId && this.terminalTabs.length > 0) {
+                        this.switchToTab(this.terminalTabs[0].sessionId);
+                    }
+                },
+
+                createNewTab() {
+                    if (!this.socket || !this.selectedWorkspace) return;
+
+                    const tabName = `Terminal ${this.terminalTabs.length + 1}`;
+                    this.socket.emit('create-terminal-tab', {
+                        workspaceId: this.selectedWorkspace.id,
+                        tabName: tabName
+                    });
+                },
+
+                updateTabInfo(sessionId, sessionName) {
+                    const tab = this.terminalTabs.find(tab => tab.sessionId === sessionId);
+                    if (tab) {
+                        tab.sessionName = sessionName;
+                    }
+                },
+
+                // Utility method to process pane configuration from server
+                processPaneConfiguration(panes) {
+                    return panes.map(pane => {
+                        const tabIds = pane.tabs || (pane.sessionId ? [pane.sessionId] : []);
+
+                        return {
+                            id: pane.id,
+                            position: pane.position,
+                            gridArea: pane.gridArea,
+                            tabs: tabIds,
+                            activeTabId: pane.activeTabId || tabIds[0] || null,
+                            sessionId: pane.sessionId || null // For backward compat
+                        };
+                    });
+                },
+
+                // Split Pane Layout Methods
+                async convertLayout(layoutType) {
+                    if (!this.socket || !this.selectedWorkspace) return;
+
+                    // Check if layout is supported for current viewport
+                    if (!this.layoutRecommendations.supported.includes(layoutType)) {
+                        console.warn(`Layout ${layoutType} not supported for current viewport`);
+                        return;
+                    }
+
+                    if (layoutType === 'single') {
+                        // Convert back to single pane
+                        this.socket.emit('convert-to-single', {
+                            workspaceId: this.selectedWorkspace.id
+                        });
+                    } else {
+                        // Convert to split layout
+                        this.socket.emit('convert-to-split', {
+                            workspaceId: this.selectedWorkspace.id,
+                            layoutType: layoutType,
+                            viewportWidth: this.viewportWidth
+                        });
+                    }
+                },
+
+                generatePanesFromLayout(layoutType, sessions = []) {
+                    console.log(`[generatePanesFromLayout] Layout: ${layoutType}, Sessions:`, sessions.map(s => s.sessionId));
+                    const panes = [];
+
+                    // Helper to distribute sessions across panes
+                    const distributeSessions = (paneCount) => {
+                        const sessionIds = sessions.map(s => s.sessionId);
+                        const distribution = [];
+
+                        console.log(`[distributeSessions] Distributing ${sessionIds.length} sessions across ${paneCount} panes`);
+
+                        // Initialize empty arrays for each pane
+                        for (let i = 0; i < paneCount; i++) {
+                            distribution.push([]);
+                        }
+
+                        if (sessionIds.length === 0) {
+                            // No sessions, ensure each pane has a placeholder for a new session
+                            distribution.forEach(paneSessionIds => {
+                                paneSessionIds.push(null);
+                            });
+                            console.log('[distributeSessions] No sessions, returning placeholders:', distribution);
+                            return distribution;
+                        }
+
+                        // Distribute sessions as evenly as possible
+                        // For example: 3 sessions, 2 panes -> [2, 1] sessions per pane
+                        const baseSessionsPerPane = Math.floor(sessionIds.length / paneCount);
+                        const extraSessions = sessionIds.length % paneCount;
+
+                        console.log(`[distributeSessions] Base: ${baseSessionsPerPane}, Extra: ${extraSessions}`);
+
+                        let sessionIndex = 0;
+                        for (let paneIndex = 0; paneIndex < paneCount; paneIndex++) {
+                            const sessionsForThisPane = baseSessionsPerPane + (paneIndex < extraSessions ? 1 : 0);
+                            console.log(`[distributeSessions] Pane ${paneIndex} gets ${sessionsForThisPane} sessions`);
+
+                            for (let j = 0; j < sessionsForThisPane; j++) {
+                                if (sessionIndex < sessionIds.length) {
+                                    distribution[paneIndex].push(sessionIds[sessionIndex++]);
+                                }
+                            }
+
+                            // Ensure each pane has at least one session (create placeholder if empty)
+                            if (distribution[paneIndex].length === 0) {
+                                distribution[paneIndex].push(null);
+                            }
+                        }
+
+                        console.log('[distributeSessions] Final distribution:', distribution);
+                        return distribution;
+                    };
+
+                    switch (layoutType) {
+                        case 'horizontal-split':
+                            const hDist = distributeSessions(2);
+                            panes.push(
+                                {
+                                    id: 'pane-left',
+                                    position: 'left',
+                                    gridArea: '1 / 1 / 2 / 2',
+                                    tabs: hDist[0],
+                                    activeTabId: hDist[0][0]
+                                },
+                                {
+                                    id: 'pane-right',
+                                    position: 'right',
+                                    gridArea: '1 / 2 / 2 / 3',
+                                    tabs: hDist[1],
+                                    activeTabId: hDist[1][0]
+                                }
+                            );
+                            break;
+                        case 'vertical-split':
+                            const vDist = distributeSessions(2);
+                            panes.push(
+                                {
+                                    id: 'pane-top',
+                                    position: 'top',
+                                    gridArea: '1 / 1 / 2 / 2',
+                                    tabs: vDist[0],
+                                    activeTabId: vDist[0][0]
+                                },
+                                {
+                                    id: 'pane-bottom',
+                                    position: 'bottom',
+                                    gridArea: '2 / 1 / 3 / 2',
+                                    tabs: vDist[1],
+                                    activeTabId: vDist[1][0]
+                                }
+                            );
+                            break;
+                        case 'grid-2x2':
+                            const gridDist = distributeSessions(4);
+                            panes.push(
+                                { id: 'pane-tl', position: 'top-left', gridArea: '1 / 1 / 2 / 2', tabs: gridDist[0], activeTabId: gridDist[0][0] },
+                                { id: 'pane-tr', position: 'top-right', gridArea: '1 / 2 / 2 / 3', tabs: gridDist[1], activeTabId: gridDist[1][0] },
+                                { id: 'pane-bl', position: 'bottom-left', gridArea: '2 / 1 / 3 / 2', tabs: gridDist[2], activeTabId: gridDist[2][0] },
+                                { id: 'pane-br', position: 'bottom-right', gridArea: '2 / 2 / 3 / 3', tabs: gridDist[3], activeTabId: gridDist[3][0] }
+                            );
+                            break;
+                        case 'three-pane':
+                            const threeDist = distributeSessions(3);
+                            panes.push(
+                                { id: 'pane-main', position: 'main', gridArea: '1 / 1 / 3 / 2', tabs: threeDist[0], activeTabId: threeDist[0][0] },
+                                { id: 'pane-top-right', position: 'top-right', gridArea: '1 / 2 / 2 / 3', tabs: threeDist[1], activeTabId: threeDist[1][0] },
+                                { id: 'pane-bottom-right', position: 'bottom-right', gridArea: '2 / 2 / 3 / 3', tabs: threeDist[2], activeTabId: threeDist[2][0] }
+                            );
+                            break;
+                    }
+
+                    return panes;
+                },
+
+                // IDE-Style Pane Management Methods
+
+                // focusPane method moved to unified pane methods section
+
+                switchToPaneTab(paneId, sessionId) {
+                    if (!this.socket || !this.selectedWorkspace) return;
+
+                    console.log('Switching to pane tab:', paneId, sessionId);
+
+                    // Update local state
+                    const pane = this.panes.find(p => p.id === paneId);
+                    if (pane) {
+                        pane.activeTabId = sessionId;
+                        this.activeTabId = sessionId;
+                        this.activePaneId = paneId;
+                    }
+
+                    // Switch to this session on the server
+                    this.socket.emit('set-active-pane-tab', {
+                        workspaceId: this.selectedWorkspace.id,
+                        paneId: paneId,
+                        sessionId: sessionId
+                    });
+
+                    // Focus the terminal via TerminalManager
+                    window.TerminalComponents.TerminalManager.focus(sessionId);
+
+                    // Update icons
+                    this.$nextTick(() => {
+                        if (typeof feather !== 'undefined') {
+                            feather.replace();
+                        }
+                    });
+                },
+
+                addTabToPane(paneId) {
+                    if (!this.socket || !this.selectedWorkspace) return;
+
+                    const pane = this.panes.find(p => p.id === paneId);
+                    if (!pane) return;
+
+                    // Focus this pane first when user clicks add tab
+                    this.focusPane(paneId);
+
+                    const tabName = `Terminal ${this.terminalTabs.length + 1}`;
+
+                    this.socket.emit('add-tab-to-pane', {
+                        workspaceId: this.selectedWorkspace.id,
+                        paneId: paneId,
+                        tabName: tabName
+                    });
+                },
+
+                removeTabFromPane(paneId, sessionId) {
+                    if (!this.socket || !this.selectedWorkspace) return;
+
+                    this.socket.emit('remove-tab-from-pane', {
+                        workspaceId: this.selectedWorkspace.id,
+                        paneId: paneId,
+                        sessionId: sessionId
+                    });
+                },
+
+                closePane(paneId) {
+                    if (!this.socket || !this.selectedWorkspace) return;
+                    
+                    // Find the pane and close all its tabs
+                    const pane = this.panes.find(p => p.id === paneId);
+                    if (pane && pane.tabs) {
+                        // Close all tabs in this pane
+                        pane.tabs.forEach(sessionId => {
+                            if (sessionId) {
+                                this.closeTab(sessionId);
+                            }
+                        });
+                    }
+                },
+
+                getTabName(sessionId) {
+                    const tab = this.terminalTabs.find(t => t.sessionId === sessionId);
+                    return tab ? tab.sessionName : 'Terminal';
+                },
+
+                // Drag and Drop Methods
+                startTabDrag(sessionId, sourcePaneId, event) {
+                    console.log('Starting drag:', sessionId, 'from pane:', sourcePaneId);
+
+                    this.draggedTab = {
+                        sessionId: sessionId,
+                        sourcePaneId: sourcePaneId
+                    };
+
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', sessionId);
+
+                    // Add dragging class
+                    event.target.classList.add('dragging');
+                },
+
+                endTabDrag(event) {
+                    console.log('Ending drag');
+
+                    // Remove dragging class
+                    event.target.classList.remove('dragging');
+
+                    // Clear drag state
+                    this.draggedTab = null;
+                    this.dragOverPane = null;
+                },
+
+                handleTabDrop(targetPaneId, event) {
+                    event.preventDefault();
+
+                    if (!this.draggedTab || !this.socket || !this.selectedWorkspace) {
+                        return;
+                    }
+
+                    const { sessionId, sourcePaneId } = this.draggedTab;
+
+                    console.log('Dropping tab:', sessionId, 'from:', sourcePaneId, 'to:', targetPaneId);
+
+                    // Don't move if dropping in same pane
+                    if (sourcePaneId === targetPaneId) {
+                        this.draggedTab = null;
+                        this.dragOverPane = null;
+                        return;
+                    }
+
+                    // Move tab via server
+                    this.socket.emit('move-tab-between-panes', {
+                        workspaceId: this.selectedWorkspace.id,
+                        sessionId: sessionId,
+                        sourcePaneId: sourcePaneId,
+                        targetPaneId: targetPaneId
+                    });
+
+                    // Clear drag state
+                    this.draggedTab = null;
+                    this.dragOverPane = null;
+                },
+
+                updateViewportWidth() {
+                    this.viewportWidth = window.innerWidth;
+
+                    // Request updated layout recommendations
+                    if (this.socket && this.selectedWorkspace) {
+                        this.socket.emit('get-layout-recommendations', {
+                            workspaceId: this.selectedWorkspace.id,
+                            viewportWidth: this.viewportWidth,
+                            sessionCount: this.terminalTabs.length
+                        });
+                    }
+
+                    // Force layout recalculation if in split mode
+                    if (this.currentLayout !== 'single') {
+                        this.$nextTick(() => {
+                            this.fitAllVisibleTerminals();
+                        });
+                    }
+                },
+
+                handleLayoutConverted(data) {
+                    console.log('Layout converted:', data);
+                    this.currentLayout = data.layoutType;
+                    this.updateTerminalTabs(data.sessions);
+
+                    if (data.layoutType === 'single') {
+                        // In single layout, all terminal tabs are shown in one pane
+                        const allSessionIds = this.terminalTabs.map(t => t.sessionId);
+                        this.panes = [{
+                            id: 'pane-main',
+                            position: 'main',
+                            gridArea: '1 / 1 / 2 / 2',
+                            tabs: allSessionIds, // Show ALL terminal tabs
+                            activeTabId: this.activeTabId || (allSessionIds[0] || null),
+                            sessionId: this.activeTabId || (allSessionIds[0] || null) // For backward compatibility
+                        }];
+                        this.activePaneId = 'pane-main';
+                    } else {
+                        if (data.configuration && data.configuration.panes) {
+                            console.log('Using server configuration for panes:', data.configuration.panes);
+                            this.panes = data.configuration.panes.map(pane => ({
+                                id: pane.id,
+                                position: pane.position,
+                                gridArea: pane.gridArea,
+                                sessionId: pane.sessionId || null,
+                                status: pane.status || (pane.sessionId ? 'active' : 'pending'),
+                                tabs: pane.tabs || (pane.sessionId ? [pane.sessionId] : []),
+                                activeTabId: pane.activeTabId || pane.sessionId || null
+                            }));
+
+                            // Verify all sessions are distributed
+                            const allSessionIds = this.terminalTabs.map(t => t.sessionId);
+                            const distributedSessions = new Set();
+                            this.panes.forEach(pane => {
+                                if (pane.tabs) {
+                                    pane.tabs.forEach(tabId => {
+                                        if (tabId) distributedSessions.add(tabId);
+                                    });
+                                }
+                            });
+
+                            const missingSessions = allSessionIds.filter(id => !distributedSessions.has(id));
+                            if (missingSessions.length > 0) {
+                                console.warn('Server config missing sessions, redistributing:', missingSessions);
+                                this.panes = this.generatePanesFromLayout(data.layoutType, this.terminalTabs);
+                            }
+
+                            if (this.panes.length > 0) {
+                                const firstValidPane = this.panes.find(p => p.activeTabId);
+                                if (firstValidPane) {
+                                    this.activePaneId = firstValidPane.id;
+                                    this.activeTabId = firstValidPane.activeTabId;
+                                }
+                            }
+                        } else {
+                            console.log('Using client-side pane generation for layout:', data.layoutType);
+                            this.panes = this.generatePanesFromLayout(data.layoutType, this.terminalTabs);
+                        }
+                    }
+                    // FIX: Removed the direct call to rearrangeTerminalsForLayoutChange.
+                    // The watcher on `panes` will now handle this reliably.
+                },
+
+                // Note: All terminal DOM manipulation methods removed - 
+                // now handled by Vue components reactively
+
+                async loadRepositories(reset = true) {
+                    if (reset) {
+                        this.repositoriesLoading = true;
+                        this.repositoryError = null;
+                        this.repositories = [];
+                        this.repositoryPage = 1;
+                        this.repositoryHasMore = true;
+                    } else {
+                        // Loading more
+                        if (this.repositoryLoadingMore || !this.repositoryHasMore) {
+                            return;
+                        }
+                        this.repositoryLoadingMore = true;
+                    }
+
+                    if (this.socket) {
+                        this.socket.emit('get-repositories', {
+                            page: reset ? 1 : this.repositoryPage + 1,
+                            per_page: 100,
+                            search: this.repositorySearchTerm || ''
+                        });
+                    }
+                },
+
+                loadMoreRepositories() {
+                    if (!this.repositoryHasMore || this.repositoryLoadingMore) {
+                        return;
+                    }
+                    this.loadRepositories(false);
+                },
+
+                handleRepositorySearch() {
+                    // Debounce search input to avoid too many requests
+                    if (this.searchTimeout) {
+                        clearTimeout(this.searchTimeout);
+                    }
+
+                    this.searchTimeout = setTimeout(() => {
+                        // Reset pagination for new search
+                        this.repositoryPage = 1;
+                        this.repositoryHasMore = true;
+                        this.loadRepositories(true);
+                    }, 300);
+                },
+
+                clearRepositorySearch() {
+                    this.repositorySearchTerm = '';
+                    if (this.searchTimeout) {
+                        clearTimeout(this.searchTimeout);
+                    }
+                    // Reset pagination and reload repositories
+                    this.repositoryPage = 1;
+                    this.repositoryHasMore = true;
+                    this.loadRepositories(true);
+                },
+
+                async cloneRepository(repo) {
+                    console.log('Starting clone for repo:', repo);
+                    if (this.socket) {
+                        // Set loading state
+                        this.cloningRepository = repo;
+                        this.cloneProgress = {
+                            status: 'starting',
+                            message: `Starting clone of ${repo.name}...`
+                        };
+                        this.cloneError = null;
+
+                        console.log('Emitting create-workspace event');
+                        this.socket.emit('create-workspace', {
+                            githubRepo: repo.full_name,
+                            githubUrl: repo.clone_url
+                        });
+                    }
+                },
+
+                clearCloneState() {
+                    console.log('Clearing clone state');
+                    this.cloningRepository = null;
+                    this.cloneProgress = null;
+                    this.cloneError = null;
+                },
+
+                dismissCloneError() {
+                    this.clearCloneState();
+                },
+
+                formatDate(dateString) {
+                    const date = new Date(dateString);
+                    const now = new Date();
+                    const diffInHours = Math.floor((now - date) / (1000 * 60 * 60));
+
+                    if (diffInHours < 24) {
+                        return `${diffInHours}h ago`;
+                    } else {
+                        const diffInDays = Math.floor(diffInHours / 24);
+                        return `${diffInDays}d ago`;
+                    }
+                },
+
+                getLanguageColor(language) {
+                    const colors = {
+                        JavaScript: '#f1e05a',
+                        TypeScript: '#3178c6',
+                        Python: '#3572A5',
+                        Java: '#b07219',
+                        'C++': '#f34b7d',
+                        C: '#555555',
+                        'C#': '#239120',
+                        PHP: '#4F5D95',
+                        Ruby: '#701516',
+                        Go: '#00ADD8',
+                        Rust: '#dea584',
+                        Swift: '#fa7343',
+                        Kotlin: '#A97BFF',
+                        Dart: '#00B4AB',
+                        HTML: '#e34c26',
+                        CSS: '#1572B6',
+                        Vue: '#4FC08D',
+                        React: '#61DAFB',
+                        Angular: '#DD0031',
+                        Shell: '#89e051',
+                        PowerShell: '#012456',
+                        Dockerfile: '#384d54',
+                        YAML: '#cb171e'
+                    };
+                    return colors[language] || '#8b949e';
+                },
+
+                formatStars(count) {
+                    if (count >= 1000) {
+                        return (count / 1000).toFixed(1) + 'k';
+                    }
+                    return count.toString();
+                },
+
+                confirmDeleteWorkspace(workspace) {
+                    this.workspaceToDelete = workspace;
+                    this.deleteFiles = false;
+                    this.showDeleteModal = true;
+                },
+
+                deleteWorkspace() {
+                    if (!this.workspaceToDelete) return;
+
+                    this.deletingWorkspace = true;
+
+                    if (this.socket) {
+                        this.socket.emit('delete-workspace', {
+                            workspaceId: this.workspaceToDelete.id,
+                            deleteFiles: this.deleteFiles
+                        });
+                    }
+                },
+
+                // File Explorer Methods
+                async refreshFiles(forceRefresh = false) {
+                    if (!this.selectedWorkspace) return;
+
+                    const cacheKey = `${this.selectedWorkspace.id}:${this.currentPath}:${this.showHiddenFiles}`;
+
+                    // Check cache first (unless forced refresh)
+                    if (!forceRefresh && this.directoryCache.has(cacheKey)) {
+                        const cached = this.directoryCache.get(cacheKey);
+                        const now = Date.now();
+
+                        if (now - cached.timestamp < this.cacheTimeout) {
+                            this.currentFiles = cached.contents;
+                            this.currentPath = cached.path;
+                            return;
+                        } else {
+                            // Remove expired cache entry
+                            this.directoryCache.delete(cacheKey);
+                        }
+                    }
+
+                    this.loadingFiles = true;
+                    this.fileError = null;
+
+                    try {
+                        const token = localStorage.getItem('authToken');
+                        const response = await fetch(`/api/workspaces/${this.selectedWorkspace.id}/files?path=${encodeURIComponent(this.currentPath)}`, {
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            }
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.currentFiles = data.contents || [];
+                            this.currentPath = data.path || '.';
+
+                            // Cache the results
+                            this.directoryCache.set(cacheKey, {
+                                contents: data.contents || [],
+                                path: data.path || '.',
+                                timestamp: Date.now()
+                            });
+                        } else {
+                            const errorData = await response.json();
+                            this.fileError = errorData.error || 'Failed to load files';
+                        }
+                    } catch (error) {
+                        this.fileError = 'Failed to connect to server';
+                        console.error('Error loading files:', error);
+                    } finally {
+                        this.loadingFiles = false;
+                    }
+                },
+
+                toggleFileExplorer() {
+                    this.fileExplorerCollapsed = !this.fileExplorerCollapsed;
+                },
+
+                handleFileClick(file, index = -1) {
+                    this.selectedFile = file;
+                    this.selectedFileIndex = index;
+                },
+
+                handleFileDoubleClick(file) {
+                    if (file.type === 'directory') {
+                        // Navigate to directory
+                        this.currentPath = file.path === '.' ? file.name : file.path;
+                        this.selectedFileIndex = -1; // Reset keyboard selection
+                        this.refreshFiles();
+                    } else {
+                        // For files, show preview or run cat command
+                        this.showFilePreview(file);
+                    }
+                },
+
+                navigateToParent() {
+                    if (this.currentPath === '.') return;
+
+                    const pathParts = this.currentPath.split('/');
+                    pathParts.pop();
+                    this.currentPath = pathParts.length > 0 ? pathParts.join('/') : '.';
+                    this.selectedFileIndex = -1; // Reset keyboard selection
+                    this.refreshFiles();
+                },
+
+                navigateToRoot() {
+                    this.currentPath = '.';
+                    this.selectedFileIndex = -1; // Reset keyboard selection
+                    this.refreshFiles();
+                },
+
+                navigateToSegment(index) {
+                    const segments = this.pathSegments.slice(0, index + 1);
+                    this.currentPath = segments.length > 0 ? segments.join('/') : '.';
+                    this.selectedFileIndex = -1; // Reset keyboard selection
+                    this.refreshFiles();
+                },
+
+                async showFilePreview(file) {
+                    if (!this.selectedWorkspace) return;
+
+                    // Reset editor state and clean up resources
+                    this.editMode = false;
+                    this.hasUnsavedChanges = false;
+                    this.saveError = null;
+                    if (this.editorInstance) {
+                        this.editorInstance.destroy();
+                        this.editorInstance = null;
+                    }
+                    
+                    // Clean up previous keyboard handler
+                    if (this.editorKeyboardHandler) {
+                        document.removeEventListener('keydown', this.editorKeyboardHandler);
+                        this.editorKeyboardHandler = null;
+                    }
+
+                    // Set modal state
+                    this.previewFile = file;
+                    this.previewData = null;
+                    this.previewError = null;
+                    this.previewLoading = true;
+                    this.showFilePreviewModal = true;
+
+                    try {
+                        const token = localStorage.getItem('authToken');
+                        const response = await fetch(`/api/workspaces/${this.selectedWorkspace.id}/file-content?path=${encodeURIComponent(file.path)}`, {
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            }
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.previewData = data;
+                            this.originalContent = data.content || '';
+
+                            // Initialize CodeMirror editor after modal is rendered
+                            this.$nextTick(() => {
+                                this.initializeEditor();
+                            });
+                        } else {
+                            const errorData = await response.json();
+                            this.previewError = errorData.error || 'Failed to load file content';
+                        }
+                    } catch (error) {
+                        console.error('Error previewing file:', error);
+                        this.previewError = 'Failed to connect to server';
+                    } finally {
+                        this.previewLoading = false;
+                    }
+                },
+
+                runCatCommand(filePath) {
+                    if (this.socket && this.terminal) {
+                        const command = `cat "${filePath}"\r`;
+                        this.socket.emit('shell-input', { data: command });
+
+                        // Focus on terminal
+                        this.terminal.focus();
+                    }
+                },
+
+                async refreshFilePreview() {
+                    if (!this.previewFile) return;
+                    await this.showFilePreview(this.previewFile);
+                },
+
+                async initializeEditor() {
+                    if (!window.CodeMirrorSetup || !this.$refs.editorContainer || !this.previewData?.content) {
+                        if (!window.CodeMirrorSetup) {
+                            console.error('CodeMirrorSetup not loaded');
+                            this.previewError = 'Editor failed to load. Please refresh the page.';
+                        }
+                        return;
+                    }
+
+                    try {
+                        const container = this.$refs.editorContainer;
+                        
+                        // Clear container
+                        container.innerHTML = '';
+                        
+                        console.log('Initializing editor for file:', this.previewFile?.name, 'with extension:', this.previewFile?.extension);
+
+                        const options = {
+                            content: this.originalContent,
+                            readonly: !this.editMode,
+                            theme: { type: this.currentTheme.type, colors: this.currentTheme.colors },
+                            fileExtension: this.previewFile?.extension,
+                            onChange: (content) => {
+                                this.hasUnsavedChanges = content !== this.originalContent;
+                            }
+                        };
+
+                        // CodeMirror setup is now async, so await it
+                        this.editorInstance = await window.CodeMirrorSetup.createUnifiedEditor(container, options);
+                        
+                        // Add keyboard shortcuts
+                        this.addEditorKeyboardShortcuts();
+                        
+                        console.log('Editor initialized successfully with syntax highlighting');
+
+                    } catch (error) {
+                        console.error('Failed to initialize CodeMirror editor:', error);
+                        this.previewError = 'Failed to initialize editor: ' + error.message;
+                    }
+                },
+
+                addEditorKeyboardShortcuts() {
+                    if (!this.editorInstance) return;
+
+                    // Add global keyboard event listener for save shortcut
+                    const handleKeyDown = (e) => {
+                        // Ctrl+S or Cmd+S to save
+                        if ((e.ctrlKey || e.metaKey) && e.key === 's' && this.editMode) {
+                            e.preventDefault();
+                            this.saveFile();
+                        }
+                        // Escape to cancel edit mode
+                        else if (e.key === 'Escape' && this.editMode && this.hasUnsavedChanges) {
+                            e.preventDefault();
+                            this.confirmDiscardChanges();
+                        }
+                    };
+
+                    document.addEventListener('keydown', handleKeyDown);
+
+                    // Store reference to remove listener later
+                    this.editorKeyboardHandler = handleKeyDown;
+                },
+
+                async toggleEditMode() {
+                    if (!this.editorInstance || !this.previewData?.content) return;
+
+                    // If switching from edit to preview with unsaved changes, confirm first
+                    if (this.editMode && this.hasUnsavedChanges) {
+                        this.confirmDiscardChanges();
+                        return;
+                    }
+
+                    this.editMode = !this.editMode;
+                    
+                    try {
+                        await this.editorInstance.setReadonly(!this.editMode);
+
+                        // Focus editor if entering edit mode
+                        if (this.editMode) {
+                            this.$nextTick(() => {
+                                this.editorInstance.focus();
+                            });
+                        }
+                    } catch (error) {
+                        console.error('Failed to toggle edit mode:', error);
+                    }
+                },
+
+                async saveFile() {
+                    if (!this.editorInstance || !this.previewFile || !this.hasUnsavedChanges) return;
+
+                    this.saving = true;
+                    this.saveError = null;
+
+                    try {
+                        const content = this.editorInstance.getContent();
+                        const token = localStorage.getItem('authToken');
+                        
+                        const response = await fetch(`/api/workspaces/${this.selectedWorkspace.id}/file-content`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                path: this.previewFile.path,
+                                content: content
+                            })
+                        });
+
+                        if (response.ok) {
+                            const result = await response.json();
+                            
+                            // Update original content and metadata
+                            this.originalContent = content;
+                            this.hasUnsavedChanges = false;
+                            
+                            if (this.previewData) {
+                                this.previewData.size = result.size;
+                                this.previewData.modified = result.modified;
+                            }
+
+                            // Show success feedback
+                            this.showNotification('File saved successfully', 'success');
+
+                            // Refresh file list to update size/date
+                            this.refreshFiles();
+                            
+                        } else {
+                            const errorData = await response.json();
+                            this.saveError = errorData.error || 'Failed to save file';
+                            this.showNotification(this.saveError, 'error');
+                        }
+                    } catch (error) {
+                        console.error('Error saving file:', error);
+                        this.saveError = 'Failed to connect to server';
+                        this.showNotification(this.saveError, 'error');
+                    } finally {
+                        this.saving = false;
+                    }
+                },
+
+                async discardChanges() {
+                    if (!this.editorInstance || !this.hasUnsavedChanges) return;
+
+                    try {
+                        // Reset content to original
+                        this.editorInstance.setContent(this.originalContent);
+                        this.hasUnsavedChanges = false;
+                        
+                        // Exit edit mode
+                        this.editMode = false;
+                        await this.editorInstance.setReadonly(true);
+                    } catch (error) {
+                        console.error('Failed to discard changes:', error);
+                    }
+                },
+
+                async confirmDiscardChanges() {
+                    if (!this.hasUnsavedChanges) {
+                        this.editMode = false;
+                        try {
+                            await this.editorInstance.setReadonly(true);
+                        } catch (error) {
+                            console.error('Failed to set editor readonly:', error);
+                        }
+                        return;
+                    }
+
+                    // Calculate contextual information about changes
+                    this.calculateChangesSummary();
+                    
+                    // Set action type and show custom discard modal
+                    this.discardAction = 'exitEdit';
+                    this.showDiscardModal = true;
+                },
+
+                async performDiscardChanges() {
+                    // This is called when user confirms discard in the modal
+                    this.showDiscardModal = false;
+                    
+                    if (this.discardAction === 'closeModal') {
+                        // Discard changes and close the entire modal
+                        await this.discardChanges();
+                        this.forceCloseModal();
+                    } else {
+                        // Just discard changes and exit edit mode
+                        await this.discardChanges();
+                    }
+                },
+
+                forceCloseModal() {
+                    // Clean up editor instance
+                    if (this.editorInstance) {
+                        this.editorInstance.destroy();
+                        this.editorInstance = null;
+                    }
+
+                    // Remove keyboard event listener
+                    if (this.editorKeyboardHandler) {
+                        document.removeEventListener('keydown', this.editorKeyboardHandler);
+                        this.editorKeyboardHandler = null;
+                    }
+
+                    // Reset all modal state
+                    this.resetFilePreviewState();
+                },
+
+                calculateChangesSummary() {
+                    if (!this.editorInstance || !this.originalContent) {
+                        this.changesSummary = '';
+                        return;
+                    }
+
+                    try {
+                        const currentContent = this.editorInstance.getContent();
+                        const originalLines = this.originalContent.split('\n');
+                        const currentLines = currentContent.split('\n');
+                        
+                        // Calculate rough diff statistics
+                        const lineDiff = Math.abs(currentLines.length - originalLines.length);
+                        const hasChanges = currentContent !== this.originalContent;
+                        
+                        if (hasChanges) {
+                            if (lineDiff > 0) {
+                                this.changesSummary = `You will lose changes across approximately ${lineDiff} line${lineDiff !== 1 ? 's' : ''}.`;
+                            } else {
+                                this.changesSummary = 'You will lose your modifications to this file.';
+                            }
+                        } else {
+                            this.changesSummary = '';
+                        }
+                    } catch (error) {
+                        console.error('Failed to calculate changes summary:', error);
+                        this.changesSummary = 'You have unsaved modifications.';
+                    }
+                },
+
+                showNotification(message, type = 'info') {
+                    // Simple notification system - could be enhanced
+                    const notification = document.createElement('div');
+                    notification.className = `notification notification-${type}`;
+                    notification.textContent = message;
+                    notification.style.cssText = `
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        padding: 12px 24px;
+                        border-radius: 6px;
+                        color: white;
+                        font-weight: 500;
+                        z-index: 10000;
+                        transition: all 0.3s ease;
+                        ${type === 'success' ? 'background: #10b981;' : ''}
+                        ${type === 'error' ? 'background: #ef4444;' : ''}
+                        ${type === 'info' ? 'background: #3b82f6;' : ''}
+                    `;
+                    
+                    document.body.appendChild(notification);
+                    
+                    setTimeout(() => {
+                        notification.style.opacity = '0';
+                        notification.style.transform = 'translateX(100px)';
+                        setTimeout(() => {
+                            document.body.removeChild(notification);
+                        }, 300);
+                    }, 3000);
+                },
+
+                closeFilePreviewModal() {
+                    // Check for unsaved changes before closing
+                    if (this.editMode && this.hasUnsavedChanges) {
+                        // Show discard modal instead of browser confirm
+                        this.calculateChangesSummary();
+                        this.discardAction = 'closeModal';
+                        this.showDiscardModal = true;
+                        return;
+                    }
+
+                    // Clean up editor instance
+                    if (this.editorInstance) {
+                        this.editorInstance.destroy();
+                        this.editorInstance = null;
+                    }
+
+                    // Remove keyboard event listener
+                    if (this.editorKeyboardHandler) {
+                        document.removeEventListener('keydown', this.editorKeyboardHandler);
+                        this.editorKeyboardHandler = null;
+                    }
+
+                    // Reset state
+                    this.showFilePreviewModal = false;
+                    this.showMobileActionsMenu = false;
+                    this.showSecondaryFAB = false;
+                    this.editMode = false;
+                    this.hasUnsavedChanges = false;
+                    this.saving = false;
+                    this.saveError = null;
+                    this.previewFile = null;
+                    this.previewData = null;
+                    this.previewError = null;
+                    this.originalContent = '';
+                },
+
+                toggleMobileActionsMenu() {
+                    this.showMobileActionsMenu = !this.showMobileActionsMenu;
+                },
+
+                toggleUtilityActions() {
+                    this.showUtilityActions = !this.showUtilityActions;
+                },
+
+                toggleSecondaryFAB() {
+                    this.showSecondaryFAB = !this.showSecondaryFAB;
+                },
+
+                handleFABClick() {
+                    // Simple click toggles edit mode
+                    // Long press (handled by CSS animation) shows secondary actions
+                    this.toggleEditMode();
+                    
+                    // Auto-show secondary FAB when entering edit mode
+                    if (this.editMode) {
+                        setTimeout(() => {
+                            this.showSecondaryFAB = true;
+                            // Auto-hide after 3 seconds
+                            setTimeout(() => {
+                                this.showSecondaryFAB = false;
+                            }, 3000);
+                        }, 300);
+                    }
+                },
+
+                getFileIcon(file) {
+                    if (file.type === 'directory') {
+                        return 'folder';
+                    }
+
+                    // Basic file type icons
+                    const ext = file.extension?.toLowerCase();
+                    switch (ext) {
+                        case 'js': case 'jsx': case 'ts': case 'tsx':
+                            return 'file-text';
+                        case 'json':
+                            return 'code';
+                        case 'md': case 'txt':
+                            return 'file-text';
+                        case 'html': case 'css': case 'scss': case 'sass':
+                            return 'code';
+                        case 'py':
+                            return 'file-text';
+                        case 'jpg': case 'jpeg': case 'png': case 'gif': case 'svg':
+                            return 'image';
+                        case 'pdf':
+                            return 'file-text';
+                        case 'zip': case 'tar': case 'gz':
+                            return 'archive';
+                        default:
+                            return 'file';
+                    }
+                },
+
+                formatFileSize(bytes) {
+                    if (bytes === 0) return '0 B';
+                    const k = 1024;
+                    const sizes = ['B', 'KB', 'MB', 'GB'];
+                    const i = Math.floor(Math.log(bytes) / Math.log(k));
+                    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+                },
+
+
+                handleFileContextMenu(event, file) {
+                    event.preventDefault();
+                    this.contextMenuFile = file;
+                    this.contextMenuX = event.clientX;
+                    this.contextMenuY = event.clientY;
+                    this.showContextMenu = true;
+
+                    // Close context menu when clicking elsewhere
+                    const closeContextMenu = (e) => {
+                        if (!e.target.closest('.context-menu')) {
+                            this.showContextMenu = false;
+                            document.removeEventListener('click', closeContextMenu);
+                        }
+
+                        // Also close mobile actions menu if clicking outside
+                        if (this.showMobileActionsMenu && !e.target.closest('.mobile-actions-menu') && !e.target.closest('[title="More Actions"]')) {
+                            this.showMobileActionsMenu = false;
+                        }
+                    };
+
+                    this.$nextTick(() => {
+                        document.addEventListener('click', closeContextMenu);
+                    });
+                },
+
+                copyFilePath() {
+                    if (!this.contextMenuFile) return;
+
+                    const fullPath = this.contextMenuFile.path;
+                    this.copyToClipboard(fullPath);
+                    this.showContextMenu = false;
+                },
+
+                copyFileName() {
+                    if (!this.contextMenuFile) return;
+
+                    this.copyToClipboard(this.contextMenuFile.name);
+                    this.showContextMenu = false;
+                },
+
+                previewContextFile() {
+                    if (!this.contextMenuFile) return;
+
+                    this.showFilePreview(this.contextMenuFile);
+                    this.showContextMenu = false;
+                },
+
+                openInTerminal() {
+                    if (!this.contextMenuFile) return;
+
+                    this.runCatCommand(this.contextMenuFile.path);
+                    this.showContextMenu = false;
+                },
+
+                openDirectory() {
+                    if (!this.contextMenuFile) return;
+
+                    this.handleFileDoubleClick(this.contextMenuFile);
+                    this.showContextMenu = false;
+                },
+
+                copyToClipboard(text) {
+                    if (navigator.clipboard && window.isSecureContext) {
+                        navigator.clipboard.writeText(text).then(() => {
+                            this.showNotification('Copied to clipboard', 'success');
+                        }).catch(() => {
+                            this.fallbackCopyToClipboard(text);
+                        });
+                    } else {
+                        this.fallbackCopyToClipboard(text);
+                    }
+                },
+
+                fallbackCopyToClipboard(text) {
+                    const textArea = document.createElement('textarea');
+                    textArea.value = text;
+                    textArea.style.position = 'fixed';
+                    textArea.style.left = '-999999px';
+                    textArea.style.top = '-999999px';
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+
+                    try {
+                        document.execCommand('copy');
+                        this.showNotification('Copied to clipboard', 'success');
+                    } catch (err) {
+                        console.error('Failed to copy text: ', err);
+                        this.showNotification('Failed to copy to clipboard', 'error');
+                    } finally {
+                        document.body.removeChild(textArea);
+                    }
+                },
+
+                showNotification(message, type = 'info') {
+                    // Simple notification - could be enhanced with a proper toast system
+                    console.log(`[${type.toUpperCase()}] ${message}`);
+
+                    // Create a simple toast notification
+                    const toast = document.createElement('div');
+                    toast.className = `toast toast-${type}`;
+                    toast.textContent = message;
+                    toast.style.cssText = `
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        background: var(--success);
+                        color: white;
+                        padding: 12px 16px;
+                        border-radius: 6px;
+                        z-index: 10000;
+                        font-size: 13px;
+                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                        animation: slideInRight 0.3s ease-out;
+                    `;
+
+                    if (type === 'error') {
+                        toast.style.background = 'var(--error)';
+                    } else if (type === 'warning') {
+                        toast.style.background = 'var(--warning)';
+                    }
+
+                    document.body.appendChild(toast);
+
+                    setTimeout(() => {
+                        toast.style.animation = 'slideOutRight 0.3s ease-in';
+                        setTimeout(() => {
+                            if (document.body.contains(toast)) {
+                                document.body.removeChild(toast);
+                            }
+                        }, 300);
+                    }, 3000);
+                },
+
+                isTerminalFocused() {
+                    // Check if the terminal has focus
+                    const activeElement = document.activeElement;
+
+                    // Check if the active element is the terminal or within the terminal container
+                    if (activeElement && (
+                        activeElement.classList?.contains('xterm-helper-textarea') ||
+                        activeElement.closest('.terminal-container') ||
+                        activeElement.closest('.xterm') ||
+                        activeElement.closest('.xterm-screen')
+                    )) {
+                        return true;
+                    }
+
+                    // Also check if the terminal object exists and has focus
+                    if (this.terminal && this.terminal.textarea) {
+                        return document.activeElement === this.terminal.textarea;
+                    }
+
+                    return false;
+                },
+
+                handleFileSearch() {
+                    // Debounce search input
+                    if (this.fileSearchTimeout) {
+                        clearTimeout(this.fileSearchTimeout);
+                    }
+
+                    this.fileSearchTimeout = setTimeout(() => {
+                        // Search is handled by computed property filteredFiles
+                        // This timeout just prevents excessive reactivity updates
+                    }, 150);
+                },
+
+                clearFileSearch() {
+                    this.fileSearchTerm = '';
+                    this.selectedFileIndex = -1; // Reset keyboard selection
+                    if (this.fileSearchTimeout) {
+                        clearTimeout(this.fileSearchTimeout);
+                        this.fileSearchTimeout = null;
+                    }
+                },
+
+                handleFileNavigationKeys(e) {
+                    const files = this.filteredFiles;
+                    if (files.length === 0) return;
+
+                    switch (e.key) {
+                        case 'ArrowDown':
+                            e.preventDefault();
+                            this.selectedFileIndex = Math.min(this.selectedFileIndex + 1, files.length - 1);
+                            this.scrollToSelectedFile();
+                            break;
+                        case 'ArrowUp':
+                            e.preventDefault();
+                            this.selectedFileIndex = Math.max(this.selectedFileIndex - 1, -1);
+                            this.scrollToSelectedFile();
+                            break;
+                        case 'Enter':
+                            e.preventDefault();
+                            if (this.selectedFileIndex >= 0 && this.selectedFileIndex < files.length) {
+                                const selectedFile = files[this.selectedFileIndex];
+                                this.handleFileDoubleClick(selectedFile);
+                            }
+                            break;
+                        case ' ': // Space
+                            e.preventDefault();
+                            if (this.selectedFileIndex >= 0 && this.selectedFileIndex < files.length) {
+                                const selectedFile = files[this.selectedFileIndex];
+                                this.handleFileClick(selectedFile, this.selectedFileIndex);
+                            }
+                            break;
+                        case '/':
+                            e.preventDefault();
+                            // Focus on search input
+                            this.$nextTick(() => {
+                                const searchInput = document.querySelector('.file-search-input');
+                                if (searchInput) {
+                                    searchInput.focus();
+                                }
+                            });
+                            break;
+                    }
+                },
+
+                scrollToSelectedFile() {
+                    if (this.selectedFileIndex < 0) return;
+
+                    this.$nextTick(() => {
+                        const fileItems = document.querySelectorAll('.file-item');
+                        const selectedElement = fileItems[this.selectedFileIndex + (this.currentPath !== '.' ? 1 : 0)]; // +1 for parent nav
+
+                        if (selectedElement) {
+                            selectedElement.scrollIntoView({
+                                behavior: 'smooth',
+                                block: 'nearest'
+                            });
+                        }
+                    });
+                },
+
+                handleRepositoryScroll(event) {
+                    const element = event.target;
+                    const threshold = 100; // px from bottom
+
+                    if (element.scrollTop + element.clientHeight >= element.scrollHeight - threshold) {
+                        // Debounce scroll events to prevent rapid-fire requests
+                        if (this.scrollTimeout) {
+                            clearTimeout(this.scrollTimeout);
+                        }
+                        this.scrollTimeout = setTimeout(() => {
+                            this.loadMoreRepositories();
+                        }, 100);
+                    }
+                },
+
+                async logout() {
+                    // Add confirmation dialog for safety
+                    if (!confirm('Are you sure you want to logout?')) {
+                        return;
+                    }
+
+                    console.log('Logging out...');
+                    try {
+                        // Step 1: Tell the server to revoke tokens (best-effort)
+                        await fetch('/api/auth/logout', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                            }
+                        });
+                    } catch (error) {
+                        console.error('Server logout call failed, proceeding with client-side logout:', error);
+                    } finally {
+                        // Step 2: Always clear client-side state and reload
+                        this.stopStatsInterval();
+                        localStorage.removeItem('authToken');
+                        if (this.socket) {
+                            this.socket.disconnect();
+                        }
+                        if (this.terminal) {
+                            this.terminal.dispose();
+                            this.terminal = null;
+                        }
+                        if (this.cleanupResize) {
+                            this.cleanupResize();
+                            this.cleanupResize = null;
+                        }
+                        this.isAuthenticated = false;
+                        window.location.reload();
+                    }
+                },
+
+                // New unified pane methods
+                getTerminalName(sessionId) {
+                    if (!sessionId) return 'Terminal'; // FIX: Add null check
+                    const session = this.terminalTabs.find(tab => tab.sessionId === sessionId);
+                    return session ? session.sessionName : `Terminal ${sessionId.split('-').pop()}`;
+                },
+
+                focusPane(paneId) {
+                    this.activePaneId = paneId;
+                    const pane = this.panes.find(p => p.id === paneId);
+                    if (pane && pane.activeTabId) {
+                        this.switchToTab(pane.activeTabId);
+                    }
+                },
+
+                closePane(paneId) {
+                    const pane = this.panes.find(p => p.id === paneId);
+                    if (pane && pane.activeTabId) {
+                        this.closeTab(pane.activeTabId);
+                    }
+                },
+
+                createNewTerminal() {
+                    if (!this.socket || !this.selectedWorkspace) return;
+                    if (this.currentLayout === 'single') {
+                        // For single layout, create a new tab
+                        this.createNewTab();
+                    } else {
+                        // For split layouts, add to the active pane or first available
+                        const targetPaneId = this.activePaneId || (this.panes.length > 0 ? this.panes[0].id : null);
+                        if (targetPaneId) {
+                            this.addTabToPane(targetPaneId);
+                        } else {
+                            console.warn("No active pane to add a new terminal to.");
+                        }
+                    }
+                },
+
+                getRequiredPanesCount(layoutType) {
+                    switch (layoutType) {
+                        case 'horizontal-split':
+                        case 'vertical-split':
+                            return 2;
+                        case 'three-pane':
+                            return 3;
+                        case 'grid-2x2':
+                            return 4;
+                        case 'single':
+                        default:
+                            return 1;
+                    }
+                }
+            },
+
+            updated() {
+                this.$nextTick(() => {
+                    feather.replace();
+                });
+            },
+
+            watch: {
+                showRepositoriesModal(newVal) {
+                    if (newVal) {
+                        // Reset search when modal opens
+                        this.repositorySearchTerm = '';
+                        if (this.searchTimeout) {
+                            clearTimeout(this.searchTimeout);
+                        }
+                        this.loadRepositories();
+                    }
+                }
+            },
+
+            beforeUnmount() {
+                this.stopStatsInterval();
+                if (this.scrollTimeout) {
+                    clearTimeout(this.scrollTimeout);
+                }
+                if (this.searchTimeout) {
+                    clearTimeout(this.searchTimeout);
+                }
+                window.removeEventListener('resize', this.checkMobile);
+            }
+        }).mount('#app');
+    </script>

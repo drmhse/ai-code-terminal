@@ -1,0 +1,15 @@
+{
+  "name": "ai-code-terminal-website",
+  "version": "1.0.0",
+  "description": "Hugo website for AI Code Terminal with TailwindCSS",
+  "scripts": {
+    "dev": "hugo server -D --disableFastRender",
+    "build": "hugo --minify",
+    "clean": "rm -rf public resources"
+  },
+  "devDependencies": {
+    "tailwindcss": "^4.0.0",
+    "@tailwindcss/cli": "^4.0.0",
+    "@tailwindcss/typography": "^0.5.10"
+  }
+}

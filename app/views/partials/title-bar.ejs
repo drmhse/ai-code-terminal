@@ -1,0 +1,17 @@
+<!-- Title Bar -->
+<div class="title-bar">
+    <button v-if="isMobile" @click="toggleSidebar" class="mobile-toggle">
+        <i data-feather="menu"></i>
+    </button>
+    <h1><%= title %></h1>
+    <div class="controls">
+        <button @click="showThemeModal = true" class="theme-button">
+            <i data-feather="sun" class="icon"></i>
+            <span v-if="!isMobile">{{ currentTheme.name }}</span>
+        </button>
+        <div class="user-info">{{ username || 'Developer' }}</div>
+        <button @click="logout" class="logout-button" title="Logout">
+            <i data-feather="log-out"></i>
+        </button>
+    </div>
+</div>

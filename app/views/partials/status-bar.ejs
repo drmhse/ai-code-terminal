@@ -1,0 +1,35 @@
+<!-- Status Bar -->
+<div class="status-bar" v-show="!isMobile || !statsOpen">
+    <div class="status-left">
+        <div class="status-item">
+            <i data-feather="activity" class="icon"></i>
+            <span>{{ stats.sessions?.active || 0 }} sessions</span>
+        </div>
+        <div class="status-item">
+            <i data-feather="folder" class="icon"></i>
+            <span>{{ stats.workspaces?.active || 0 }} workspaces</span>
+        </div>
+    </div>
+    <div class="status-right">
+        <div class="status-item memory-usage" :title="`Memory: ${stats.resources?.memory?.formatted?.used || '0 B'} / ${stats.resources?.memory?.formatted?.limit || '0 B'} (${stats.resources?.memory?.percentage || 0}%)`">
+            <i data-feather="cpu" class="icon"></i>
+            <span>{{ stats.resources?.memory?.formatted?.used || '0 B' }}</span>
+        </div>
+        <div class="status-item" :title="`CPU: ${stats.resources?.cpu?.percentage || 0}% (${stats.resources?.cpu?.formatted?.limit || 'unknown'})`">
+            <i data-feather="zap" class="icon"></i>
+            <span>{{ stats.resources?.cpu?.percentage || 0 }}%</span>
+        </div>
+        <div class="status-item" :title="`Workspace Storage: ${stats.resources?.disk?.workspaces?.formatted || '0 B'}`">
+            <i data-feather="hard-drive" class="icon"></i>
+            <span>{{ stats.resources?.disk?.workspaces?.formatted || '0 B' }}</span>
+        </div>
+        <div class="status-item">
+            <i data-feather="clock" class="icon"></i>
+            <span>{{ stats.system?.uptimeFormatted || '0m' }}</span>
+        </div>
+        <div class="status-item" :title="`${stats.system?.platform || 'unknown'} • Node.js ${stats.system?.nodeVersion || 'unknown'} • Containerized`">
+            <i data-feather="box" class="icon"></i>
+            <span>{{ stats.system?.containerized ? 'Docker' : stats.system?.platform || 'System' }}</span>
+        </div>
+    </div>
+</div>
