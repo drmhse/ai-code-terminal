@@ -1,0 +1,11 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ACT mark">
+  <g fill="#101820">
+    <rect x="72" y="149" width="154" height="32" rx="16"/>
+    <rect x="44" y="240" width="166" height="32" rx="16"/>
+    <rect x="92" y="331" width="108" height="32" rx="16"/>
+  </g>
+  <path
+    d="M360 38L252 222H351L270 474L466 190H361L408 38H360Z"
+    fill="#22C55E"
+  />
+</svg>

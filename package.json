@@ -1,0 +1,14 @@
+{
+  "name": "act",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node tools/dev.mjs web",
+    "dev:ios": "node tools/dev.mjs ios",
+    "dev:simulator:ipad": "node tools/dev.mjs simulator:ipad",
+    "dev:simulator:ios": "node tools/dev.mjs simulator:ios",
+    "dev:desktop": "node tools/dev.mjs desktop",
+    "dev:android": "node tools/dev.mjs android",
+    "check:loc": "bash scripts/check-loc.sh"
+  }
+}

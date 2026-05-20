@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="/">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="A new Flutter project.">
+  <meta http-equiv="Cache-Control" content="no-store">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="act_frontend">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>act_frontend</title>
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+  <script>
+    (function captureAuthCallbackUrl() {
+      var href = window.location.href;
+      var isCallback =
+        window.location.pathname === '/auth/callback' ||
+        window.location.hash.indexOf('access_token=') !== -1 ||
+        window.location.hash.indexOf('error=') !== -1;
+
+      if (isCallback) {
+        sessionStorage.setItem('act.authCallbackUrl', href);
+      }
+    })();
+
+    (function clearOldFlutterPwaCache() {
+      var reloadKey = 'act-pwa-cache-cleared';
+      var tasks = [];
+
+      if ('serviceWorker' in navigator) {
+        tasks.push(
+          navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            return Promise.all(registrations.map(function(registration) {
+              return registration.unregister();
+            }));
+          })
+        );
+      }
+
+      if ('caches' in window) {
+        tasks.push(
+          caches.keys().then(function(keys) {
+            return Promise.all(keys.map(function(key) {
+              return caches.delete(key);
+            }));
+          })
+        );
+      }
+
+      Promise.all(tasks).then(function() {
+        if (!sessionStorage.getItem(reloadKey)) {
+          sessionStorage.setItem(reloadKey, '1');
+          window.location.reload();
+        }
+      }).catch(function() {
+        sessionStorage.setItem(reloadKey, '1');
+      });
+    })();
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

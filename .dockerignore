@@ -1,0 +1,56 @@
+app/node_modules
+frontend/node_modules
+app/npm-debug.log
+frontend/npm-debug.log
+.git
+.gitignore
+README.md
+app/.env
+app/.env.local
+app/.env.development
+app/.env.production
+app/.nyc_output
+app/coverage
+app/.coverage
+app/*.log
+app/logs
+app/data/database.db
+app/data/*.db
+.DS_Store
+
+# .dockerignore
+
+# Git and version control
+.git
+.gitignore
+
+# Node dependencies - these should be installed inside the container
+node_modules
+app/node_modules
+frontend/node_modules
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment files - should be passed in at runtime, not built into the image
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build outputs (if any are generated locally)
+dist
+build
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Editor and IDE directories
+.vscode
+.idea
