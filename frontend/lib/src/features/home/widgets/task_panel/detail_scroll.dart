@@ -167,6 +167,11 @@ extension _TaskDetailScroll on _TaskDetailViewState {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      // Keep lower detail controls built for compact widget tests and fast
+      // task actions. Newer Flutter SDKs rename this to scrollCacheExtent, but
+      // older stable SDKs do not expose that parameter yet.
+      // ignore: deprecated_member_use
+      cacheExtent: 360,
       itemCount: builders.length,
       itemBuilder: (context, index) {
         final child = builders[index](context);
