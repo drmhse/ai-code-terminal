@@ -53,7 +53,6 @@ class _FileListState extends State<_FileList> {
     }
     return ListView.builder(
       key: widget.listKey,
-      cacheExtent: 520,
       addAutomaticKeepAlives: false,
       itemCount: rows.length,
       itemBuilder: (context, index) {

@@ -71,7 +71,6 @@ class _WorkspaceList extends StatelessWidget {
           ),
         Expanded(
           child: ListView.builder(
-            cacheExtent: 360,
             addAutomaticKeepAlives: false,
             itemCount: rows.length,
             itemBuilder: (context, index) => _buildRow(context, rows[index]),

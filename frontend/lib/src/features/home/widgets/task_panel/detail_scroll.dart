@@ -167,7 +167,6 @@ extension _TaskDetailScroll on _TaskDetailViewState {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      cacheExtent: 360,
       itemCount: builders.length,
       itemBuilder: (context, index) {
         final child = builders[index](context);

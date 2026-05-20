@@ -30,7 +30,6 @@ class _CodexEventStream extends StatelessWidget {
         ListView.separated(
           controller: controller,
           padding: const EdgeInsets.all(10),
-          cacheExtent: 420,
           addAutomaticKeepAlives: false,
           addRepaintBoundaries: true,
           addSemanticIndexes: false,

@@ -240,7 +240,6 @@ class _GitHubCloneScreenState extends State<_GitHubCloneScreen> {
                           ? const Center(child: Text('No repositories found'))
                           : ListView.separated(
                               padding: EdgeInsets.zero,
-                              cacheExtent: 520,
                               addAutomaticKeepAlives: false,
                               addRepaintBoundaries: true,
                               itemCount:
