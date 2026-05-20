@@ -123,7 +123,7 @@ ACT in demo mode without connecting to a backend:
 
 ```bash
 cd frontend
-flutter build web --release --dart-define=ACT_MOCK_MODE=true
+sh scripts/build_web.sh --release --dart-define=ACT_MOCK_MODE=true
 ```
 
 That build writes static files to `frontend/build/web`. The public

@@ -1,11 +1,11 @@
 {
-    "name": "act_frontend",
-    "short_name": "act_frontend",
+    "name": "AI Code Terminal",
+    "short_name": "ACT",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#061213",
+    "theme_color": "#5EE7F4",
+    "description": "Mobile-first AI code terminal for creating tasks, running Codex/Pi, reviewing diffs, and pushing pull requests from any device.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
