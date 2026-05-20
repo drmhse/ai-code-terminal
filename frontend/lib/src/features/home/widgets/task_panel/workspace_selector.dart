@@ -269,22 +269,25 @@ class _WorkspaceChoiceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CheckboxListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      value: selected,
-      onChanged: onChanged == null
-          ? null
-          : (value) => onChanged!(value ?? false),
-      title: Text(
-        choice.name,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontWeight: FontWeight.w700),
-      ),
-      subtitle: Text(
-        choice.subtitle,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 12),
+    return Material(
+      color: Colors.transparent,
+      child: CheckboxListTile(
+        dense: true,
+        contentPadding: EdgeInsets.zero,
+        value: selected,
+        onChanged: onChanged == null
+            ? null
+            : (value) => onChanged!(value ?? false),
+        title: Text(
+          choice.name,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        subtitle: Text(
+          choice.subtitle,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 12),
+        ),
       ),
     );
   }
