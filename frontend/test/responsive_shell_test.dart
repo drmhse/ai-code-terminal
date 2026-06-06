@@ -1,4 +1,5 @@
 import 'package:act_frontend/src/app/act_app.dart';
+import 'package:act_frontend/src/app/app_colors.dart';
 import 'package:act_frontend/src/features/home/widgets/codex_session_panel.dart';
 import 'package:act_frontend/src/features/home/widgets/app_top_bar.dart';
 import 'package:act_frontend/src/features/home/widgets/editor_preview.dart';
@@ -528,6 +529,50 @@ void main() {
     expect(border.bottom.style, BorderStyle.solid);
     expect(terminalView.terminal.reflowEnabled, isTrue);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('terminal view uses selected app palette in light and dark', (
+    tester,
+  ) async {
+    for (final brightness in Brightness.values) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: const ActApp().themeForTesting(brightness, 'stanford'),
+          home: Scaffold(
+            body: TerminalWorkspace(
+              workspace: _workspace(),
+              sessions: const [
+                TerminalSession(
+                  id: 'session-1',
+                  sessionName: 'Shell',
+                  status: 'active',
+                  workspaceId: 'workspace-1',
+                ),
+              ],
+              buffers: const {'session-1': 'ready'},
+              controlsExpanded: false,
+              onControlsExpandedChanged: (_) {},
+              onCreateSession: () {},
+              onTerminateSession: (_) {},
+              onSessionUnavailable: (_) {},
+              onSaveLayout: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.byType(TerminalWorkspace));
+      final terminalView = tester.widget<TerminalView>(
+        find.byKey(const ValueKey('terminal-view-session-1')),
+      );
+
+      expect(terminalView.theme.background, AppColors.field(context));
+      expect(terminalView.theme.foreground, AppColors.primaryText(context));
+      expect(terminalView.theme.cursor, AppColors.accent(context));
+      expect(terminalView.textStyle.fontFamily, 'ACTMono');
+      expect(tester.takeException(), isNull);
+    }
   });
 
   testWidgets('closing a pane preserves the surviving terminal attachment', (
@@ -1512,6 +1557,46 @@ void main() {
     await tester.pump();
 
     expect(openedThemePicker, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('top bar search drives file search state', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1024, 720));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    var query = '';
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: const ActApp().themeForTesting(),
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            return Scaffold(
+              body: AppTopBar(
+                workspace: _workspace(),
+                user: const UserProfile(email: 'dev@example.com', plan: 'pro'),
+                onRefresh: () {},
+                onLogout: () {},
+                onChooseTheme: () {},
+                searchQuery: query,
+                onSearchChanged: (value) => setState(() => query = value),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+
+    final search = find.widgetWithText(TextField, 'Search files');
+    expect(search, findsOneWidget);
+    await tester.enterText(search, 'cargo');
+    await tester.pump();
+    expect(query, 'cargo');
+
+    final clear = find.byTooltip('Clear search');
+    expect(clear, findsOneWidget);
+    await tester.tap(clear);
+    await tester.pump();
+    expect(query, isEmpty);
     expect(tester.takeException(), isNull);
   });
 

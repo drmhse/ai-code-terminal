@@ -48,14 +48,14 @@ extension _ActHomeWorkspaceBuilder on _ActHomePageState {
       onSessionUnavailable: _discardStaleSession,
       onSaveLayout: _saveCurrentTerminalLayout,
     );
-    final editor = EditorPreview(
-      file: _selectedFile,
-      content: _selectedFileContent,
-      isLoading: _isLoadingFileContent,
-      isSaving: _isSavingFileContent,
-      hasUnsavedDraft: _selectedFileHasLocalDraft,
-      onChanged: _cacheSelectedFileDraft,
-      onSave: _saveSelectedFile,
+    final workbench = _WorkbenchPane(
+      terminal: terminal,
+      editorTabs: _editorTabsForWorkspace(_selectedWorkspace),
+      activeTabKey: _activeWorkbenchTabKey,
+      onTabSelected: _activateWorkbenchTab,
+      onEditorClosed: _closeEditorTab,
+      onEditorChanged: _cacheEditorTabDraft,
+      onEditorSaved: (tab, content) => unawaited(_saveEditorTab(tab, content)),
     );
     final mobileEditor = EditorPreview(
       file: _selectedFile,
@@ -156,7 +156,7 @@ extension _ActHomeWorkspaceBuilder on _ActHomePageState {
       return Row(
         children: [
           SizedBox(width: 300, child: sidebar),
-          Expanded(child: terminal),
+          Expanded(child: workbench),
         ],
       );
     }
@@ -164,20 +164,16 @@ extension _ActHomeWorkspaceBuilder on _ActHomePageState {
     return Row(
       children: [
         SizedBox(width: 310, child: sidebar),
-        Expanded(flex: 7, child: terminal),
+        Expanded(flex: 7, child: workbench),
         SizedBox(
           width: 380,
           child: DefaultTabController(
-            key: ValueKey('desktop-side-panel-$_desktopSidePanelIndex'),
-            length: 3,
-            initialIndex: _desktopSidePanelIndex,
+            length: 2,
             child: Column(
               children: [
                 Material(
                   color: AppColors.chrome(context),
                   child: TabBar(
-                    onTap: (index) =>
-                        setState(() => _desktopSidePanelIndex = index),
                     labelColor: AppColors.primaryText(context),
                     unselectedLabelColor: AppColors.mutedText(context),
                     indicatorColor: AppColors.accent(context),
@@ -189,16 +185,254 @@ extension _ActHomeWorkspaceBuilder on _ActHomePageState {
                         ),
                         text: 'Agent',
                       ),
-                      const Tab(icon: Icon(Icons.edit_note), text: 'Editor'),
                     ],
                   ),
                 ),
-                Expanded(child: TabBarView(children: [tasks, codex, editor])),
+                Expanded(child: TabBarView(children: [tasks, codex])),
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _WorkbenchPane extends StatelessWidget {
+  const _WorkbenchPane({
+    required this.terminal,
+    required this.editorTabs,
+    required this.activeTabKey,
+    required this.onTabSelected,
+    required this.onEditorClosed,
+    required this.onEditorChanged,
+    required this.onEditorSaved,
+  });
+
+  final Widget terminal;
+  final List<_OpenEditorTab> editorTabs;
+  final String activeTabKey;
+  final ValueChanged<String> onTabSelected;
+  final ValueChanged<_OpenEditorTab> onEditorClosed;
+  final void Function(_OpenEditorTab tab, String content) onEditorChanged;
+  final void Function(_OpenEditorTab tab, String content) onEditorSaved;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalizedActiveKey =
+        activeTabKey == 'terminal' ||
+            editorTabs.any((tab) => tab.key == activeTabKey)
+        ? activeTabKey
+        : 'terminal';
+    return Container(
+      color: AppColors.field(context),
+      child: Column(
+        children: [
+          _WorkbenchTabStrip(
+            editorTabs: editorTabs,
+            activeTabKey: normalizedActiveKey,
+            onTabSelected: onTabSelected,
+            onEditorClosed: onEditorClosed,
+          ),
+          Expanded(
+            child: normalizedActiveKey == 'terminal'
+                ? terminal
+                : _EditorTabDeck(
+                    editorTabs: editorTabs,
+                    activeTabKey: normalizedActiveKey,
+                    onEditorChanged: onEditorChanged,
+                    onEditorSaved: onEditorSaved,
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkbenchTabStrip extends StatelessWidget {
+  const _WorkbenchTabStrip({
+    required this.editorTabs,
+    required this.activeTabKey,
+    required this.onTabSelected,
+    required this.onEditorClosed,
+  });
+
+  final List<_OpenEditorTab> editorTabs;
+  final String activeTabKey;
+  final ValueChanged<String> onTabSelected;
+  final ValueChanged<_OpenEditorTab> onEditorClosed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 38,
+      decoration: BoxDecoration(
+        color: AppColors.chrome(context),
+        border: Border(bottom: BorderSide(color: AppColors.line(context))),
+      ),
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          _WorkbenchTabButton(
+            icon: Icons.terminal,
+            label: 'Terminal',
+            active: activeTabKey == 'terminal',
+            onPressed: () => onTabSelected('terminal'),
+          ),
+          for (final tab in editorTabs)
+            _WorkbenchTabButton(
+              icon: tab.hasUnsavedDraft
+                  ? Icons.edit_outlined
+                  : Icons.description_outlined,
+              label: tab.file.name,
+              active: activeTabKey == tab.key,
+              busy: tab.isLoading || tab.isSaving,
+              onPressed: () => onTabSelected(tab.key),
+              onClose: () => onEditorClosed(tab),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkbenchTabButton extends StatelessWidget {
+  const _WorkbenchTabButton({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.onPressed,
+    this.busy = false,
+    this.onClose,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool active;
+  final bool busy;
+  final VoidCallback onPressed;
+  final VoidCallback? onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: active ? AppColors.field(context) : Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        child: Container(
+          constraints: const BoxConstraints(minWidth: 118, maxWidth: 220),
+          padding: const EdgeInsets.only(left: 10, right: 5),
+          decoration: BoxDecoration(
+            border: Border(
+              right: BorderSide(color: AppColors.line(context)),
+              top: BorderSide(
+                color: active ? AppColors.accent(context) : Colors.transparent,
+                width: 2,
+              ),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (busy)
+                const SizedBox.square(
+                  dimension: 13,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Icon(
+                  icon,
+                  size: 16,
+                  color: active
+                      ? AppColors.accent(context)
+                      : AppColors.mutedText(context),
+                ),
+              const SizedBox(width: 7),
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: active
+                        ? AppColors.primaryText(context)
+                        : AppColors.secondaryText(context),
+                    fontSize: 12,
+                    fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+              if (onClose != null) ...[
+                const SizedBox(width: 4),
+                IconButton(
+                  tooltip: 'Close file',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 24,
+                    height: 24,
+                  ),
+                  onPressed: onClose,
+                  icon: const Icon(Icons.close, size: 14),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EditorTabDeck extends StatelessWidget {
+  const _EditorTabDeck({
+    required this.editorTabs,
+    required this.activeTabKey,
+    required this.onEditorChanged,
+    required this.onEditorSaved,
+  });
+
+  final List<_OpenEditorTab> editorTabs;
+  final String activeTabKey;
+  final void Function(_OpenEditorTab tab, String content) onEditorChanged;
+  final void Function(_OpenEditorTab tab, String content) onEditorSaved;
+
+  @override
+  Widget build(BuildContext context) {
+    final activeTab = editorTabs.firstWhere(
+      (tab) => tab.key == activeTabKey,
+      orElse: () => editorTabs.first,
+    );
+    final width = MediaQuery.sizeOf(context).width;
+    final splitTabs = width >= 1400
+        ? [
+            activeTab,
+            ...editorTabs.where((tab) => tab.key != activeTab.key).take(2),
+          ]
+        : [activeTab];
+
+    return Row(
+      children: [
+        for (var index = 0; index < splitTabs.length; index++) ...[
+          if (index > 0)
+            VerticalDivider(width: 1, color: AppColors.line(context)),
+          Expanded(child: _buildEditor(splitTabs[index])),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildEditor(_OpenEditorTab tab) {
+    return EditorPreview(
+      key: ValueKey('editor-preview-${tab.key}'),
+      file: tab.file,
+      content: tab.visibleContent,
+      isLoading: tab.isLoading,
+      isSaving: tab.isSaving,
+      hasUnsavedDraft: tab.hasUnsavedDraft,
+      onChanged: (content) => onEditorChanged(tab, content),
+      onSave: (content) => onEditorSaved(tab, content),
     );
   }
 }

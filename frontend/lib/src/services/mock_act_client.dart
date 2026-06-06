@@ -11,10 +11,10 @@ class MockActClient extends http.BaseClient {
     {
       'id': 'act',
       'name': 'ACT',
-      'local_path': '/workspaces/ACT',
+      'local_path': '/workspaces/ai-code-terminal',
       'is_active': true,
-      'github_repo': 'drmhse/ACT',
-      'github_url': 'https://github.com/drmhse/ACT',
+      'github_repo': 'drmhse/ai-code-terminal',
+      'github_url': 'https://github.com/drmhse/ai-code-terminal',
       'source_kind': 'github',
       'source_provider': 'github',
       'source_ref': 'main',

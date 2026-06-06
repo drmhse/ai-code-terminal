@@ -51,16 +51,16 @@ class _CodeEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = AppColors.isDark(context);
     final codeStyle = TextStyle(
       color: AppColors.primaryText(context),
       fontFamily: 'monospace',
       fontSize: 13,
       height: 1.45,
+      letterSpacing: 0,
     );
     return Container(
       key: const ValueKey('code-editor-surface'),
-      color: isDark ? const Color(0xFF090D10) : const Color(0xFFFBFDFC),
+      color: AppColors.field(context),
       child: TextField(
         key: const ValueKey('code-editor-field'),
         controller: controller,

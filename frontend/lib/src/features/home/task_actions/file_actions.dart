@@ -3,7 +3,6 @@ part of '../act_home_page.dart';
 
 extension _ActHomeFileActions on _ActHomePageState {
   Future<void> _selectFile(FileItem file) async {
-    _fileDraftSaveTimer?.cancel();
     if (file.isDirectory) {
       await _toggleDirectory(file);
       return;
@@ -14,33 +13,58 @@ extension _ActHomeFileActions on _ActHomePageState {
       return;
     }
     final relativePath = _relativePath(file.path, workspace.localPath);
+    final tabKey = _editorTabKey(workspace.id, relativePath);
+    final existingTab = _editorTabByKey(tabKey);
+    final tab =
+        existingTab ??
+        _OpenEditorTab(
+          key: tabKey,
+          workspaceId: workspace.id,
+          relativePath: relativePath,
+          file: file,
+        );
+    final loadGeneration =
+        _fileIndexGeneration + DateTime.now().microsecondsSinceEpoch;
     setState(() {
-      _selectedFile = file;
-      _selectedFileContent = null;
-      _selectedFileHasLocalDraft = false;
-      _showMobileEditor = MediaQuery.sizeOf(context).width < 760;
-      if (MediaQuery.sizeOf(context).width >= 1100) {
-        _desktopSidePanelIndex = 2;
+      if (existingTab == null) {
+        _openEditorTabs.add(tab);
       }
-      _isLoadingFileContent = true;
+      _activeEditorTabKey = tab.key;
+      _activeWorkbenchTabKey = tab.key;
+      tab.isLoading = existingTab?.content == null;
+      tab.loadGeneration = loadGeneration;
+      _syncSelectedFileFromEditorTab(tab);
+      _showMobileEditor = MediaQuery.sizeOf(context).width < 760;
       _mobileIndex = MediaQuery.sizeOf(context).width < 760 ? 0 : _mobileIndex;
-      _statusMessage = 'Opening ${file.name}...';
+      _statusMessage = existingTab?.content == null
+          ? 'Opening ${file.name}...'
+          : 'Opened ${file.name}';
       _cacheCurrentFileBrowserStateIfSelected(workspace);
     });
+    if (existingTab != null && existingTab.content != null) {
+      return;
+    }
+
     final cached = await _readCachedFileContent(
       workspaceId: workspace.id,
       path: relativePath,
     );
+    final cachedTab = _editorTabByKey(tabKey);
     if (mounted &&
+        cachedTab != null &&
+        cachedTab.loadGeneration == loadGeneration &&
         _selectedWorkspace?.id == workspace.id &&
-        _selectedFile?.path == file.path &&
         cached != null) {
       setState(() {
-        _selectedFileContent = cached.content;
-        _selectedFileHasLocalDraft = cached.dirty;
+        cachedTab.content = cached.content;
+        cachedTab.draftText = cached.dirty ? cached.content.content : null;
+        cachedTab.hasUnsavedDraft = cached.dirty;
         _statusMessage = cached.dirty
             ? 'Showing local draft for ${file.name}'
             : 'Showing cached ${file.name}';
+        if (_activeEditorTabKey == cachedTab.key) {
+          _syncSelectedFileFromEditorTab(cachedTab);
+        }
         _cacheCurrentFileBrowserStateIfSelected(workspace);
       });
     }
@@ -50,15 +74,21 @@ extension _ActHomeFileActions on _ActHomePageState {
         workspace.id,
         path: relativePath,
       );
+      final loadedTab = _editorTabByKey(tabKey);
       if (!mounted ||
+          loadedTab == null ||
+          loadedTab.loadGeneration != loadGeneration ||
           _selectedWorkspace?.id != workspace.id ||
-          _selectedFile?.path != file.path) {
+          loadedTab.file.path != file.path) {
         return;
       }
-      if (_selectedFileHasLocalDraft) {
+      if (loadedTab.hasUnsavedDraft) {
         setState(() {
-          _isLoadingFileContent = false;
+          loadedTab.isLoading = false;
           _statusMessage = 'Local draft kept for ${file.name}';
+          if (_activeEditorTabKey == loadedTab.key) {
+            _syncSelectedFileFromEditorTab(loadedTab);
+          }
           _cacheCurrentFileBrowserStateIfSelected(workspace);
         });
         return;
@@ -69,23 +99,33 @@ extension _ActHomeFileActions on _ActHomePageState {
         dirty: false,
       );
       setState(() {
-        _selectedFileContent = content;
-        _selectedFileHasLocalDraft = false;
-        _isLoadingFileContent = false;
+        loadedTab.content = content;
+        loadedTab.draftText = null;
+        loadedTab.hasUnsavedDraft = false;
+        loadedTab.isLoading = false;
         _statusMessage = 'Opened ${file.name}';
+        if (_activeEditorTabKey == loadedTab.key) {
+          _syncSelectedFileFromEditorTab(loadedTab);
+        }
         _cacheCurrentFileBrowserStateIfSelected(workspace);
       });
     } catch (error) {
+      final failedTab = _editorTabByKey(tabKey);
       if (!mounted ||
+          failedTab == null ||
+          failedTab.loadGeneration != loadGeneration ||
           _selectedWorkspace?.id != workspace.id ||
-          _selectedFile?.path != file.path) {
+          failedTab.file.path != file.path) {
         return;
       }
       setState(() {
-        _isLoadingFileContent = false;
-        _statusMessage = _selectedFileContent == null
+        failedTab.isLoading = false;
+        _statusMessage = failedTab.content == null
             ? 'File open failed: $error'
             : 'Using cached ${file.name}; refresh failed.';
+        if (_activeEditorTabKey == failedTab.key) {
+          _syncSelectedFileFromEditorTab(failedTab);
+        }
         _cacheCurrentFileBrowserStateIfSelected(workspace);
       });
     }
@@ -176,83 +216,112 @@ extension _ActHomeFileActions on _ActHomePageState {
   }
 
   void _cacheSelectedFileDraft(String content) {
-    final workspace = _selectedWorkspace;
-    final file = _selectedFile;
-    final currentContent = _selectedFileContent;
-    if (workspace == null || file == null || currentContent == null) {
+    final tab = _activeEditorTab;
+    if (tab == null) {
       return;
     }
-    final relativePath = _relativePath(file.path, workspace.localPath);
+    _cacheEditorTabDraft(tab, content);
+  }
+
+  void _cacheEditorTabDraft(_OpenEditorTab tab, String content) {
+    final currentContent = tab.content;
+    if (currentContent == null) {
+      return;
+    }
     final draftContent = FileContent(
-      path: relativePath,
+      path: tab.relativePath,
       content: content,
       encoding: currentContent.encoding,
       size: content.length,
       isBinary: false,
     );
-    setState(() {
-      _selectedFileHasLocalDraft = true;
-      _cacheCurrentFileBrowserStateIfSelected(workspace);
-    });
-    _fileDraftSaveTimer?.cancel();
-    _fileDraftSaveTimer = Timer(const Duration(milliseconds: 350), () {
-      unawaited(
-        _writeCachedFileContent(
-          workspaceId: workspace.id,
-          content: draftContent,
-          dirty: true,
-        ),
-      );
-    });
+    final wasDirty = tab.hasUnsavedDraft;
+    if (!wasDirty && mounted) {
+      setState(() {
+        tab.hasUnsavedDraft = true;
+        if (_activeEditorTabKey == tab.key) {
+          _selectedFileHasLocalDraft = true;
+        }
+      });
+    } else {
+      tab.hasUnsavedDraft = true;
+      if (_activeEditorTabKey == tab.key) {
+        _selectedFileHasLocalDraft = true;
+      }
+    }
+    tab.draftText = content;
+    _fileDraftSaveTimers[tab.key]?.cancel();
+    _fileDraftSaveTimers[tab.key] = Timer(
+      const Duration(milliseconds: 350),
+      () {
+        unawaited(
+          _writeCachedFileContent(
+            workspaceId: tab.workspaceId,
+            content: draftContent,
+            dirty: true,
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _saveSelectedFile(String content) async {
-    final workspace = _selectedWorkspace;
-    final file = _selectedFile;
-    if (workspace == null || file == null) {
+    final tab = _activeEditorTab;
+    if (tab == null) {
       return;
     }
-    final relativePath = _relativePath(file.path, workspace.localPath);
+    await _saveEditorTab(tab, content);
+  }
+
+  Future<void> _saveEditorTab(_OpenEditorTab tab, String content) async {
     final nextContent = FileContent(
-      path: relativePath,
+      path: tab.relativePath,
       content: content,
-      encoding: _selectedFileContent?.encoding ?? 'utf-8',
+      encoding: tab.content?.encoding ?? 'utf-8',
       size: content.length,
       isBinary: false,
     );
-    _fileDraftSaveTimer?.cancel();
+    _fileDraftSaveTimers[tab.key]?.cancel();
     await _writeCachedFileContent(
-      workspaceId: workspace.id,
+      workspaceId: tab.workspaceId,
       content: nextContent,
       dirty: true,
     );
     setState(() {
-      _selectedFileContent = nextContent;
-      _selectedFileHasLocalDraft = true;
-      _isSavingFileContent = true;
-      _statusMessage = 'Saving ${file.name}...';
-      _cacheCurrentFileBrowserStateIfSelected(workspace);
+      tab.content = nextContent;
+      tab.draftText = content;
+      tab.hasUnsavedDraft = true;
+      tab.isSaving = true;
+      _statusMessage = 'Saving ${tab.file.name}...';
+      if (_activeEditorTabKey == tab.key) {
+        _syncSelectedFileFromEditorTab(tab);
+      }
+      _cacheFileBrowserStateForCurrentWorkspace();
     });
     try {
+      final workspaceId = tab.workspaceId;
       await _api.saveWorkspaceFileContent(
-        workspace.id,
-        path: relativePath,
+        workspaceId,
+        path: tab.relativePath,
         content: content,
       );
-      if (!mounted ||
-          _selectedWorkspace?.id != workspace.id ||
-          _selectedFile?.path != file.path) {
+      final savedTab = _editorTabByKey(tab.key);
+      if (!mounted || savedTab == null) {
         return;
       }
       setState(() {
-        _selectedFileContent = nextContent;
-        _selectedFileHasLocalDraft = false;
-        _isSavingFileContent = false;
-        _statusMessage = 'Saved ${file.name}';
-        _cacheCurrentFileBrowserStateIfSelected(workspace);
+        savedTab.content = nextContent;
+        savedTab.draftText = null;
+        savedTab.hasUnsavedDraft = false;
+        savedTab.isSaving = false;
+        _statusMessage = 'Saved ${savedTab.file.name}';
+        if (_activeEditorTabKey == savedTab.key) {
+          _syncSelectedFileFromEditorTab(savedTab);
+        }
+        _cacheFileBrowserStateForCurrentWorkspace();
       });
       await _writeCachedFileContent(
-        workspaceId: workspace.id,
+        workspaceId: workspaceId,
         content: nextContent,
         dirty: false,
       );
@@ -261,12 +330,93 @@ extension _ActHomeFileActions on _ActHomePageState {
         return;
       }
       setState(() {
-        _isSavingFileContent = false;
-        _selectedFileHasLocalDraft = true;
+        tab.isSaving = false;
+        tab.hasUnsavedDraft = true;
         _statusMessage = 'Save failed; local draft kept. $error';
-        _cacheCurrentFileBrowserStateIfSelected(workspace);
+        if (_activeEditorTabKey == tab.key) {
+          _syncSelectedFileFromEditorTab(tab);
+        }
+        _cacheFileBrowserStateForCurrentWorkspace();
       });
     }
+  }
+
+  String _editorTabKey(String workspaceId, String relativePath) {
+    return '$workspaceId::$relativePath';
+  }
+
+  _OpenEditorTab? get _activeEditorTab => _editorTabByKey(_activeEditorTabKey);
+
+  _OpenEditorTab? _editorTabByKey(String? key) {
+    if (key == null) {
+      return null;
+    }
+    for (final tab in _openEditorTabs) {
+      if (tab.key == key) {
+        return tab;
+      }
+    }
+    return null;
+  }
+
+  List<_OpenEditorTab> _editorTabsForWorkspace(Workspace? workspace) {
+    if (workspace == null) {
+      return const [];
+    }
+    return _openEditorTabs
+        .where((tab) => tab.workspaceId == workspace.id)
+        .toList(growable: false);
+  }
+
+  void _activateWorkbenchTab(String key) {
+    setState(() {
+      _activeWorkbenchTabKey = key;
+      if (key == 'terminal') {
+        return;
+      }
+      final tab = _editorTabByKey(key);
+      if (tab == null) {
+        _activeWorkbenchTabKey = 'terminal';
+        return;
+      }
+      _activeEditorTabKey = tab.key;
+      _syncSelectedFileFromEditorTab(tab);
+      _cacheFileBrowserStateForCurrentWorkspace();
+    });
+  }
+
+  void _closeEditorTab(_OpenEditorTab tab) {
+    _fileDraftSaveTimers.remove(tab.key)?.cancel();
+    setState(() {
+      final index = _openEditorTabs.indexWhere((item) => item.key == tab.key);
+      _openEditorTabs.removeWhere((item) => item.key == tab.key);
+      if (_activeEditorTabKey == tab.key) {
+        final workspaceTabs = _editorTabsForWorkspace(_selectedWorkspace);
+        final nextIndex = workspaceTabs.isEmpty
+            ? -1
+            : index.clamp(0, workspaceTabs.length - 1).toInt();
+        final nextTab = nextIndex == -1 ? null : workspaceTabs[nextIndex];
+        _activeEditorTabKey = nextTab?.key;
+        if (nextTab != null) {
+          _activeWorkbenchTabKey = nextTab.key;
+          _syncSelectedFileFromEditorTab(nextTab);
+        } else {
+          _activeWorkbenchTabKey = 'terminal';
+          _syncSelectedFileFromEditorTab(null);
+        }
+      } else if (_activeWorkbenchTabKey == tab.key) {
+        _activeWorkbenchTabKey = 'terminal';
+      }
+      _cacheFileBrowserStateForCurrentWorkspace();
+    });
+  }
+
+  void _syncSelectedFileFromEditorTab(_OpenEditorTab? tab) {
+    _selectedFile = tab?.file;
+    _selectedFileContent = tab?.visibleContent;
+    _selectedFileHasLocalDraft = tab?.hasUnsavedDraft ?? false;
+    _isLoadingFileContent = tab?.isLoading ?? false;
+    _isSavingFileContent = tab?.isSaving ?? false;
   }
 
   Future<CachedFileContent?> _readCachedFileContent({

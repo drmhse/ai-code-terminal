@@ -102,9 +102,18 @@ extension _ActHomeFileIndex on _ActHomePageState {
       _directoryChildren = const {};
       _expandedDirectories = const <String>{};
       _directoryLoadErrors = const {};
-      _selectedFile = null;
-      _selectedFileContent = null;
-      _selectedFileHasLocalDraft = false;
+      final workspaceTabs = _editorTabsForWorkspace(workspace);
+      final activeTab =
+          workspaceTabs.any((tab) => tab.key == _activeEditorTabKey)
+          ? _activeEditorTab
+          : workspaceTabs.isEmpty
+          ? null
+          : workspaceTabs.first;
+      _activeEditorTabKey = activeTab?.key;
+      if (activeTab == null && _activeWorkbenchTabKey != 'terminal') {
+        _activeWorkbenchTabKey = 'terminal';
+      }
+      _syncSelectedFileFromEditorTab(activeTab);
       return;
     }
 
@@ -122,6 +131,19 @@ extension _ActHomeFileIndex on _ActHomePageState {
     _selectedFile = snapshot.selectedFile;
     _selectedFileContent = snapshot.selectedFileContent;
     _selectedFileHasLocalDraft = snapshot.selectedFileHasLocalDraft;
+    final workspaceTabs = _editorTabsForWorkspace(workspace);
+    if (!workspaceTabs.any((tab) => tab.key == _activeEditorTabKey)) {
+      _activeEditorTabKey = workspaceTabs.isEmpty
+          ? null
+          : workspaceTabs.first.key;
+      if (_activeWorkbenchTabKey != 'terminal') {
+        _activeWorkbenchTabKey = _activeEditorTabKey ?? 'terminal';
+      }
+    }
+    final activeTab = _activeEditorTab;
+    if (activeTab != null && activeTab.workspaceId == workspace?.id) {
+      _syncSelectedFileFromEditorTab(activeTab);
+    }
   }
 
   void _cacheCurrentFileBrowserStateIfSelected(Workspace workspace) {

@@ -31,6 +31,8 @@ class AppTopBar extends StatelessWidget {
     this.onToggleTerminalControls,
     this.onCreateTerminal,
     this.onSaveTerminalLayout,
+    this.searchQuery = '',
+    this.onSearchChanged,
     this.mobileTitle,
     this.mobileIcon,
     this.mobileActions = const [],
@@ -60,6 +62,8 @@ class AppTopBar extends StatelessWidget {
   final VoidCallback? onToggleTerminalControls;
   final VoidCallback? onCreateTerminal;
   final VoidCallback? onSaveTerminalLayout;
+  final String searchQuery;
+  final ValueChanged<String>? onSearchChanged;
   final String? mobileTitle;
   final IconData? mobileIcon;
   final List<AppTopBarAction> mobileActions;
@@ -132,7 +136,11 @@ class AppTopBar extends StatelessWidget {
                   child: _WorkspaceCrumb(workspace: workspace),
                 ),
                 const SizedBox(width: 12),
-                _SearchHint(compact: width < 860),
+                _TopSearchField(
+                  compact: width < 860,
+                  query: searchQuery,
+                  onChanged: onSearchChanged,
+                ),
               ],
               if (!compact) const Spacer(),
               if (compact && isTerminalMode) ...[

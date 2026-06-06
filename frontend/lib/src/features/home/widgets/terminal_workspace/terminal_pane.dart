@@ -468,7 +468,7 @@ class _TerminalPaneState extends State<_TerminalPane> {
         fontFamily: _terminalFontFamily,
         fontFamilyFallback: _terminalFontFallback,
       ),
-      theme: TerminalThemes.defaultTheme,
+      theme: _terminalTheme(context),
     );
     if (!mobile) {
       return terminalView;
@@ -480,4 +480,39 @@ class _TerminalPaneState extends State<_TerminalPane> {
       child: ExcludeFocus(child: terminalView),
     );
   }
+}
+
+TerminalTheme _terminalTheme(BuildContext context) {
+  final palette = AppColors.palette(context);
+  final dark = AppColors.isDark(context);
+  final background = palette.field;
+  final foreground = palette.primaryText;
+  final muted = palette.mutedText;
+  final accent = palette.accent;
+  final link = palette.link;
+  return TerminalTheme(
+    cursor: accent,
+    selection: accent.withValues(alpha: dark ? 0.32 : 0.24),
+    foreground: foreground,
+    background: background,
+    black: dark ? const Color(0xFF111827) : const Color(0xFF0F172A),
+    red: palette.error,
+    green: palette.success,
+    yellow: palette.warning,
+    blue: link,
+    magenta: dark ? const Color(0xFFC4B5FD) : const Color(0xFF7C3AED),
+    cyan: dark ? const Color(0xFF67E8F9) : const Color(0xFF0E7490),
+    white: dark ? const Color(0xFFE5E7EB) : const Color(0xFFF8FAFC),
+    brightBlack: muted,
+    brightRed: dark ? const Color(0xFFFF8A80) : const Color(0xFFDC2626),
+    brightGreen: dark ? const Color(0xFF86EFAC) : const Color(0xFF15803D),
+    brightYellow: dark ? const Color(0xFFFDE68A) : const Color(0xFFA16207),
+    brightBlue: dark ? const Color(0xFF93C5FD) : const Color(0xFF2563EB),
+    brightMagenta: dark ? const Color(0xFFDDD6FE) : const Color(0xFF9333EA),
+    brightCyan: dark ? const Color(0xFFA5F3FC) : const Color(0xFF0891B2),
+    brightWhite: dark ? const Color(0xFFFFFFFF) : const Color(0xFFFFFFFF),
+    searchHitBackground: palette.warning.withValues(alpha: 0.42),
+    searchHitBackgroundCurrent: accent.withValues(alpha: 0.56),
+    searchHitForeground: foreground,
+  );
 }

@@ -124,8 +124,8 @@ extension _MockActData on MockActClient {
   Map<String, dynamic> _taskWorkspace() => {
     'workspace_id': 'act',
     'name': 'ACT',
-    'path': '/workspaces/ACT',
-    'remote': 'drmhse/ACT',
+    'path': '/workspaces/ai-code-terminal',
+    'remote': 'drmhse/ai-code-terminal',
     'working_strategy': 'worktree',
     'dirty_state': 'clean',
   };
@@ -205,7 +205,7 @@ extension _MockActData on MockActClient {
   }) => {
     'id': id,
     'title': title ?? 'Prepare ACT public demo',
-    'cwd': '/workspaces/ACT',
+    'cwd': '/workspaces/ai-code-terminal',
     'rollout_path': '/mock/rollout.jsonl',
     'source': 'mock',
     'model': 'gpt-5.5',
@@ -217,7 +217,11 @@ extension _MockActData on MockActClient {
     'scope_type': 'workspace',
     'scope_id': 'act',
     'workspace_tags': [
-      {'workspace_id': 'act', 'name': 'ACT', 'repository': 'drmhse/ACT'},
+      {
+        'workspace_id': 'act',
+        'name': 'ACT',
+        'repository': 'drmhse/ai-code-terminal',
+      },
     ],
     'usage': {
       'total': {
@@ -256,8 +260,8 @@ extension _MockActData on MockActClient {
 
   Map<String, dynamic> _changes(String id) => {
     'session_id': id,
-    'workspace_path': '/workspaces/ACT',
-    'git_root': '/workspaces/ACT',
+    'workspace_path': '/workspaces/ai-code-terminal',
+    'git_root': '/workspaces/ai-code-terminal',
     'branch': 'main',
     'summary': {'changed_files': 4, 'unstaged_files': 4},
     'files': [
@@ -284,9 +288,9 @@ extension _MockActData on MockActClient {
     {
       'id': 1,
       'name': 'ACT',
-      'full_name': 'drmhse/ACT',
+      'full_name': 'drmhse/ai-code-terminal',
       'description': 'AI Code Terminal app',
-      'clone_url': 'https://github.com/drmhse/ACT.git',
+      'clone_url': 'https://github.com/drmhse/ai-code-terminal.git',
       'default_branch': 'main',
       'private': true,
       'permissions': {'pull': true, 'push': true, 'admin': true},
@@ -309,7 +313,7 @@ extension _MockActData on MockActClient {
       'name': 'ACT server',
       'pid': 4242,
       'command': 'act-server',
-      'working_directory': '/workspaces/ACT/server',
+      'working_directory': '/workspaces/ai-code-terminal/server',
       'workspace_id': 'act',
       'status': 'running',
       'updated_at': DateTime.now().toIso8601String(),

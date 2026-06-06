@@ -148,39 +148,97 @@ class _WorkspaceCrumb extends StatelessWidget {
   }
 }
 
-class _SearchHint extends StatelessWidget {
-  const _SearchHint({required this.compact});
+class _TopSearchField extends StatefulWidget {
+  const _TopSearchField({
+    required this.compact,
+    required this.query,
+    required this.onChanged,
+  });
 
   final bool compact;
+  final String query;
+  final ValueChanged<String>? onChanged;
+
+  @override
+  State<_TopSearchField> createState() => _TopSearchFieldState();
+}
+
+class _TopSearchFieldState extends State<_TopSearchField> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.query);
+  }
+
+  @override
+  void didUpdateWidget(covariant _TopSearchField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.query != _controller.text) {
+      _controller.value = TextEditingValue(
+        text: widget.query,
+        selection: TextSelection.collapsed(offset: widget.query.length),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (compact) {
+    if (widget.compact) {
       return const SizedBox.shrink();
     }
 
-    return Container(
-      width: 280,
+    return SizedBox(
+      width: 300,
       height: 34,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: AppColors.field(context),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: AppColors.line(context)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.search, size: 17, color: AppColors.mutedText(context)),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Search files, commands...',
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: AppColors.mutedText(context)),
-            ),
+      child: TextField(
+        controller: _controller,
+        enabled: widget.onChanged != null,
+        onChanged: (value) {
+          setState(() {});
+          widget.onChanged?.call(value);
+        },
+        textInputAction: TextInputAction.search,
+        style: TextStyle(
+          color: AppColors.primaryText(context),
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0,
+        ),
+        decoration: InputDecoration(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+          prefixIcon: const Icon(Icons.search, size: 17),
+          prefixIconConstraints: const BoxConstraints(
+            minWidth: 32,
+            minHeight: 32,
           ),
-          Text('⌘K', style: TextStyle(color: AppColors.mutedText(context))),
-        ],
+          suffixIcon: _controller.text.isEmpty
+              ? null
+              : IconButton(
+                  tooltip: 'Clear search',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  onPressed: () {
+                    _controller.clear();
+                    widget.onChanged?.call('');
+                    setState(() {});
+                  },
+                  icon: const Icon(Icons.close, size: 16),
+                ),
+          suffixIconConstraints: const BoxConstraints(
+            minWidth: 32,
+            minHeight: 32,
+          ),
+          hintText: 'Search files',
+          isDense: true,
+        ),
       ),
     );
   }

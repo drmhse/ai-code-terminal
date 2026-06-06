@@ -120,6 +120,41 @@ class _WorkspaceFileBrowserSnapshot {
   final bool selectedFileHasLocalDraft;
 }
 
+class _OpenEditorTab {
+  _OpenEditorTab({
+    required this.key,
+    required this.workspaceId,
+    required this.relativePath,
+    required this.file,
+  });
+
+  final String key;
+  final String workspaceId;
+  final String relativePath;
+  final FileItem file;
+  FileContent? content;
+  String? draftText;
+  bool hasUnsavedDraft = false;
+  bool isLoading = false;
+  bool isSaving = false;
+  int loadGeneration = 0;
+
+  FileContent? get visibleContent {
+    final draft = draftText;
+    final current = content;
+    if (draft == null || current == null) {
+      return current;
+    }
+    return FileContent(
+      path: current.path,
+      content: draft,
+      encoding: current.encoding,
+      size: draft.length,
+      isBinary: current.isBinary,
+    );
+  }
+}
+
 Future<_LoadResult<T>> _captureLoad<T>(Future<T> future) async {
   try {
     return _LoadResult.success(await future);
@@ -221,8 +256,10 @@ class _ActHomePageState extends State<ActHomePage> {
   bool _selectedFileHasLocalDraft = false;
   bool _isLoadingFileContent = false;
   bool _isSavingFileContent = false;
-  int _desktopSidePanelIndex = 0;
-  Timer? _fileDraftSaveTimer;
+  final Map<String, Timer> _fileDraftSaveTimers = {};
+  final List<_OpenEditorTab> _openEditorTabs = [];
+  String? _activeEditorTabKey;
+  String _activeWorkbenchTabKey = 'terminal';
   Map<String, String> _sessionBuffers = const {};
   String? _selectedCodexSessionId;
   final Set<String> _piReloadNextPromptSessionIds = <String>{};
@@ -269,7 +306,9 @@ class _ActHomePageState extends State<ActHomePage> {
     _linkSubscription?.cancel();
     _workspaceNameController.dispose();
     _workspacePathController.dispose();
-    _fileDraftSaveTimer?.cancel();
+    for (final timer in _fileDraftSaveTimers.values) {
+      timer.cancel();
+    }
     _codexRefreshTimer?.cancel();
     _taskRefreshTimer?.cancel();
     _executionStartedSub?.cancel();
@@ -383,6 +422,10 @@ class _ActHomePageState extends State<ActHomePage> {
                     onSaveTerminalLayout: selectedWorkspacePaneCount == 0
                         ? null
                         : _saveCurrentTerminalLayout,
+                    searchQuery: _fileSearchQuery,
+                    onSearchChanged: _selectedWorkspace == null
+                        ? null
+                        : _handleFileSearchChanged,
                     mobileTitle: isMobile && !terminalMode
                         ? _mobileTopBarTitle
                         : null,

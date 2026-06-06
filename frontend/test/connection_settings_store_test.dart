@@ -44,15 +44,15 @@ void main() {
         name: 'ACT',
         localPath: '/workspaces/act',
         isActive: true,
-        githubRepo: 'drmhse/ACT',
-        githubUrl: 'https://github.com/drmhse/ACT',
+        githubRepo: 'drmhse/ai-code-terminal',
+        githubUrl: 'https://github.com/drmhse/ai-code-terminal',
       ),
     ]);
 
     final cached = await store.loadCachedWorkspaces();
     expect(cached, hasLength(1));
     expect(cached.single.name, 'ACT');
-    expect(cached.single.githubRepo, 'drmhse/ACT');
+    expect(cached.single.githubRepo, 'drmhse/ai-code-terminal');
   });
 
   test('clears cached workspaces without touching endpoints', () async {
