@@ -1,5 +1,11 @@
 # AI Code Terminal (ACT)
 
+[![Latest ACT release](https://img.shields.io/github/v/release/drmhse/ai-code-terminal?label=latest%20ACT%20release)](https://github.com/drmhse/ai-code-terminal/releases/latest)
+[![Latest release downloads](https://img.shields.io/github/downloads/drmhse/ai-code-terminal/latest/total?label=latest%20downloads)](https://github.com/drmhse/ai-code-terminal/releases/latest)
+[![Total downloads](https://img.shields.io/github/downloads/drmhse/ai-code-terminal/total?label=total%20downloads)](https://github.com/drmhse/ai-code-terminal/releases)
+[![Android APK](https://img.shields.io/badge/Android%20APK-download-3DDC84)](https://github.com/drmhse/ai-code-terminal/releases/latest)
+[![Linux backend](https://img.shields.io/badge/Linux%20backend-download-2E7D32)](https://github.com/drmhse/ai-code-terminal/releases/latest)
+
 ACT is a mobile-first AI code terminal for running real development work from a
 phone, tablet, desktop, or browser. This public repository contains the Flutter
 client, a static web demo, screenshots, and public docs.
@@ -8,6 +14,20 @@ The ACT backend is distributed as release binaries. Backend source is not part
 of this public repository.
 
 Try the static no-backend demo at [act.drmhse.com](https://act.drmhse.com/).
+
+## Downloads
+
+Use the [latest ACT release](https://github.com/drmhse/ai-code-terminal/releases/latest)
+for matching mobile clients and backend binaries. A complete release includes:
+
+- Android APK: `act-android-<version>.apk`
+- Linux x86_64 backend: `act-server-<version>-linux-x86_64.tar.gz`
+- Linux ARM64 backend: `act-server-<version>-linux-aarch64.tar.gz`
+- `SHA256SUMS.txt` and `BACKEND_BINARY_LICENSE`
+
+All platform assets for a version are published on the same GitHub Release. If
+an expected platform asset is missing for a tag, treat that release as
+incomplete.
 
 ## Product Tour
 

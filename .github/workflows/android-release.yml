@@ -96,6 +96,58 @@ jobs:
             git log --pretty='- `%h` %s (%an)' "$range"
           } > ../release-assets/release-notes.md
 
+      - name: Require existing unified GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          release_api_url="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}"
+
+          if ! curl -fsSL \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -o ../release-assets/existing-release.json \
+            "$release_api_url"; then
+            echo "::error::No GitHub Release exists for ${RELEASE_TAG}. Publish the unified ACT release with backend assets first, then rerun this Android workflow."
+            exit 1
+          fi
+
+          node <<'NODE'
+          const fs = require('fs');
+
+          const tag = process.env.RELEASE_TAG;
+          const releasePath = '../release-assets/existing-release.json';
+          const notesPath = '../release-assets/release-notes.md';
+          const bodyPath = '../release-assets/release-body.md';
+          const release = JSON.parse(fs.readFileSync(releasePath, 'utf8'));
+          const assetNames = new Set((release.assets || []).map((asset) => asset.name));
+          const requiredAssets = [
+            `act-server-${tag}-linux-x86_64.tar.gz`,
+            `act-server-${tag}-linux-aarch64.tar.gz`,
+            'BACKEND_BINARY_LICENSE',
+            'SHA256SUMS.txt',
+          ];
+          const missing = requiredAssets.filter((name) => !assetNames.has(name));
+
+          if (missing.length > 0) {
+            console.error(
+              `Release ${tag} is missing backend release assets: ${missing.join(', ')}`
+            );
+            process.exit(1);
+          }
+
+          const notes = fs.readFileSync(notesPath, 'utf8').trimEnd();
+          const start = `<!-- act-release-changelog:${tag}:start -->`;
+          const end = `<!-- act-release-changelog:${tag}:end -->`;
+          const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const existingBlock = new RegExp(
+            `${escapeRegExp(start)}[\\s\\S]*?${escapeRegExp(end)}\\n*`,
+            'm'
+          );
+          const baseBody = (release.body || '').replace(existingBlock, '').trimEnd();
+
+          fs.writeFileSync(bodyPath, `${baseBody}\n\n${start}\n${notes}\n${end}\n`);
+          NODE
+
       - uses: actions/upload-artifact@v4
         with:
           name: act-android-apk
@@ -107,4 +159,4 @@ jobs:
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           files: release-assets/*.apk
-          body_path: release-assets/release-notes.md
+          body_path: release-assets/release-body.md
