@@ -266,15 +266,11 @@ extension _ActHomeSettingsProfiles on _ActHomePageState {
       final scopes = discovery.requiredGitHubScopes.isEmpty
           ? _ActHomePageState._defaultRequiredGitHubScopes
           : discovery.requiredGitHubScopes;
-      final profile = ConnectionProfile(
-        id: _profileIdForUrl(actUrl),
-        label: _profileLabelForUrl(actUrl),
-        apiBaseUrl: actUrl,
-        authOsBaseUrl: authOsUrl,
-        authOsOrgSlug: discovery.authOsOrgSlug,
-        authOsServiceSlug: discovery.authOsServiceSlug,
-        authOsClientId: discovery.authOsClientId,
-        requiredGitHubScopes: scopes,
+      final profile = _profileFromDeploymentConfig(
+        actUrl: actUrl,
+        authOsUrl: authOsUrl,
+        discovery: discovery,
+        scopes: scopes,
       );
       await _settingsStore.switchProfile(profile);
       await _applyConnectionProfile(profile);
@@ -349,6 +345,91 @@ extension _ActHomeSettingsProfiles on _ActHomePageState {
       _mobileIndex = 0;
       _statusMessage = '${profile.label} selected';
     });
+  }
+
+  Future<ConnectionProfile?> _profileForActUrl(String rawUrl) async {
+    final normalizedUrl = _normalizeProfileUrl(rawUrl);
+    if (normalizedUrl == null) {
+      return null;
+    }
+    final profiles = await _settingsStore.loadProfiles(
+      fallbackProfile: _hostedProfile(),
+    );
+    for (final profile in profiles) {
+      if (_sameProfileUrl(profile.apiBaseUrl, normalizedUrl)) {
+        return profile;
+      }
+    }
+
+    try {
+      final discovery = await ActApi(
+        client: _client,
+        baseUrl: normalizedUrl,
+        token: '',
+      ).deploymentConfig();
+      final actUrl =
+          _normalizeProfileUrl(
+            discovery.actPublicUrl.isEmpty
+                ? normalizedUrl
+                : discovery.actPublicUrl,
+          ) ??
+          normalizedUrl;
+      final authOsUrl =
+          _normalizeProfileUrl(discovery.authOsBaseUrl) ??
+          _normalizedAuthOsBaseUrl;
+      final scopes = discovery.requiredGitHubScopes.isEmpty
+          ? _requiredGitHubScopes
+          : discovery.requiredGitHubScopes;
+      return _profileFromDeploymentConfig(
+        actUrl: actUrl,
+        authOsUrl: authOsUrl,
+        discovery: discovery,
+        scopes: scopes,
+      );
+    } catch (_) {
+      return ConnectionProfile(
+        id: _profileIdForUrl(normalizedUrl),
+        label: _profileLabelForUrl(normalizedUrl),
+        apiBaseUrl: normalizedUrl,
+        authOsBaseUrl: _normalizedAuthOsBaseUrl,
+        authOsOrgSlug: _authOsOrgSlug,
+        authOsServiceSlug: _authOsServiceSlug,
+        authOsClientId: _authOsClientId,
+        requiredGitHubScopes: _requiredGitHubScopes,
+      );
+    }
+  }
+
+  ConnectionProfile _profileFromDeploymentConfig({
+    required String actUrl,
+    required String authOsUrl,
+    required DeploymentConfig discovery,
+    required List<String> scopes,
+  }) {
+    return ConnectionProfile(
+      id: _profileIdForUrl(actUrl),
+      label: _profileLabelForUrl(actUrl),
+      apiBaseUrl: actUrl,
+      authOsBaseUrl: authOsUrl,
+      authOsOrgSlug: discovery.authOsOrgSlug.isEmpty
+          ? _authOsOrgSlug
+          : discovery.authOsOrgSlug,
+      authOsServiceSlug: discovery.authOsServiceSlug.isEmpty
+          ? _authOsServiceSlug
+          : discovery.authOsServiceSlug,
+      authOsClientId: discovery.authOsClientId.isEmpty
+          ? _authOsClientId
+          : discovery.authOsClientId,
+      requiredGitHubScopes: scopes,
+    );
+  }
+
+  bool _sameProfileUrl(String left, String right) {
+    final normalizedLeft = _normalizeProfileUrl(left);
+    final normalizedRight = _normalizeProfileUrl(right);
+    return normalizedLeft != null &&
+        normalizedRight != null &&
+        normalizedLeft == normalizedRight;
   }
 
   String? _normalizeProfileUrl(String rawUrl) {

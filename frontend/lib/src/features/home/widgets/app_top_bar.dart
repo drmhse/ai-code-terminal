@@ -303,6 +303,14 @@ class AppTopBar extends StatelessWidget {
                   ),
                 ),
               ],
+              if (compact && !isTerminalMode && onSwitchProfile != null) ...[
+                const SizedBox(width: 2),
+                IconButton(
+                  tooltip: 'Switch ACT profile: $activeProfileLabel',
+                  onPressed: onSwitchProfile,
+                  icon: const Icon(Icons.swap_horiz),
+                ),
+              ],
               if (!(compact && isTerminalMode)) ...[
                 const SizedBox(width: 4),
                 PopupMenuButton<_TopBarMenuAction>(

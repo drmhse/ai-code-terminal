@@ -1,0 +1,110 @@
+name: Android Release APK
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    name: Build APK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      ACT_API_BASE_URL: ${{ vars.ACT_API_BASE_URL }}
+      AUTHOS_BASE_URL: ${{ vars.AUTHOS_BASE_URL }}
+      AUTHOS_ORG_SLUG: ${{ vars.AUTHOS_ORG_SLUG }}
+      AUTHOS_SERVICE_SLUG: ${{ vars.AUTHOS_SERVICE_SLUG }}
+      AUTHOS_CLIENT_ID: ${{ vars.AUTHOS_CLIENT_ID }}
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Analyze Flutter frontend
+        run: flutter analyze
+
+      - name: Test Flutter frontend
+        run: flutter test
+
+      - name: Build Android APK
+        run: |
+          defines=()
+          if [ -n "$ACT_API_BASE_URL" ]; then
+            defines+=(--dart-define=ACT_API_BASE_URL="$ACT_API_BASE_URL")
+          fi
+          if [ -n "$AUTHOS_BASE_URL" ]; then
+            defines+=(--dart-define=AUTHOS_BASE_URL="$AUTHOS_BASE_URL")
+          fi
+          if [ -n "$AUTHOS_ORG_SLUG" ]; then
+            defines+=(--dart-define=AUTHOS_ORG_SLUG="$AUTHOS_ORG_SLUG")
+          fi
+          if [ -n "$AUTHOS_SERVICE_SLUG" ]; then
+            defines+=(--dart-define=AUTHOS_SERVICE_SLUG="$AUTHOS_SERVICE_SLUG")
+          fi
+          if [ -n "$AUTHOS_CLIENT_ID" ]; then
+            defines+=(--dart-define=AUTHOS_CLIENT_ID="$AUTHOS_CLIENT_ID")
+          fi
+          flutter build apk --release "${defines[@]}"
+
+      - name: Prepare APK asset
+        run: |
+          mkdir -p ../release-assets
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            "../release-assets/act-android-${RELEASE_TAG}.apk"
+
+      - name: Generate release notes
+        run: |
+          previous_tag="$(
+            git tag --list 'v*' --sort=-v:refname |
+              grep -v "^${RELEASE_TAG}$" |
+              head -n 1 || true
+          )"
+
+          if [ -n "$previous_tag" ]; then
+            range="${previous_tag}..${RELEASE_TAG}"
+            heading="Changes since \`${previous_tag}\`."
+          else
+            range="${RELEASE_TAG}"
+            heading="Initial tagged release \`${RELEASE_TAG}\`."
+          fi
+
+          {
+            echo "## Changelog"
+            echo
+            echo "$heading"
+            echo
+            git log --pretty='- `%h` %s (%an)' "$range"
+          } > ../release-assets/release-notes.md
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: act-android-apk
+          path: release-assets/*.apk
+          if-no-files-found: error
+
+      - name: Attach APK to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          files: release-assets/*.apk
+          body_path: release-assets/release-notes.md

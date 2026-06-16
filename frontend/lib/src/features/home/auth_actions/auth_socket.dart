@@ -121,6 +121,7 @@ extension _ActHomeAuthSocket on _ActHomePageState {
     }
 
     debugPrint('AuthOS callback included an access token');
+    await _applyTokenAudienceProfile(tokens);
     await _persistTokens(tokens);
     clearAuthCallbackFromAddressBar(uri);
     setState(() => _statusMessage = 'Signed in with AuthOS');
@@ -196,6 +197,21 @@ extension _ActHomeAuthSocket on _ActHomePageState {
       refreshToken: _refreshToken,
     );
     _ensureSocketClient();
+  }
+
+  Future<void> _applyTokenAudienceProfile(AuthOsTokens tokens) async {
+    final resourceAudience = tokens.resourceAudience;
+    if (resourceAudience == null ||
+        _sameProfileUrl(resourceAudience, _normalizedBaseUrl)) {
+      return;
+    }
+
+    final profile = await _profileForActUrl(resourceAudience);
+    if (profile == null) {
+      return;
+    }
+    await _settingsStore.switchProfile(profile);
+    await _applyConnectionProfile(profile);
   }
 
   Future<AuthOsLinkedAccounts?> _loadLinkedAccounts({

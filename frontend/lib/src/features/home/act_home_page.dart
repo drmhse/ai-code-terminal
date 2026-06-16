@@ -25,6 +25,7 @@ import 'package:act_frontend/src/models/file_item.dart';
 import 'package:act_frontend/src/models/health_status.dart';
 import 'package:act_frontend/src/models/codex_session.dart';
 import 'package:act_frontend/src/models/coding_agent.dart';
+import 'package:act_frontend/src/models/deployment_config.dart';
 import 'package:act_frontend/src/models/native_task.dart';
 import 'package:act_frontend/src/models/system_stats.dart';
 import 'package:act_frontend/src/models/terminal_session.dart';

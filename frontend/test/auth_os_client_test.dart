@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:act_frontend/src/services/auth_os_client.dart';
 import 'package:act_frontend/src/services/auth_os_config.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -296,6 +298,26 @@ void main() {
     expect(success?.provider, 'github');
   });
 
+  test('extracts URL audience from access token', () {
+    final token = _unsignedJwt({
+      'sub': 'user-1',
+      'aud': ['service:example-org/act', 'https://agent.servos.dev/'],
+    });
+    final tokens = AuthOsTokens(accessToken: token);
+
+    expect(tokens.resourceAudience, 'https://agent.servos.dev');
+  });
+
+  test('ignores non-URL access token audiences', () {
+    final token = _unsignedJwt({
+      'sub': 'user-1',
+      'aud': 'service:example-org/act',
+    });
+    final tokens = AuthOsTokens(accessToken: token);
+
+    expect(tokens.resourceAudience, isNull);
+  });
+
   test('parses provider grant callbacks without provider metadata', () {
     final client = AuthOsClient(
       client: MockClient((_) async {
@@ -314,4 +336,17 @@ void main() {
     expect(success?.provider, isNull);
     expect(success?.error, isNull);
   });
+}
+
+String _unsignedJwt(Map<String, Object?> payload) {
+  String encode(Object value) {
+    final json = jsonEncode(value);
+    return base64Url.encode(utf8.encode(json)).replaceAll('=', '');
+  }
+
+  return [
+    encode({'alg': 'none', 'typ': 'JWT'}),
+    encode(payload),
+    '',
+  ].join('.');
 }

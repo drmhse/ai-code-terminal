@@ -1698,6 +1698,7 @@ void main() {
     var cloned = false;
     var managedCollections = false;
     var createdWorkspace = false;
+    var switchedProfile = false;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -1709,6 +1710,8 @@ void main() {
             onRefresh: () {},
             onLogout: () {},
             onChooseTheme: () {},
+            activeProfileLabel: 'Self-hosted ACT (agent.servos.dev)',
+            onSwitchProfile: () => switchedProfile = true,
             mobileTitle: 'Workspace',
             mobileIcon: Icons.folder_open,
             mobileActions: [
@@ -1734,14 +1737,22 @@ void main() {
     );
 
     expect(find.text('Workspace'), findsOneWidget);
+    expect(
+      find.byTooltip('Switch ACT profile: Self-hosted ACT (agent.servos.dev)'),
+      findsOneWidget,
+    );
     expect(find.byTooltip('Refresh'), findsNothing);
     expect(find.byTooltip('Sign out'), findsNothing);
 
+    await tester.tap(
+      find.byTooltip('Switch ACT profile: Self-hosted ACT (agent.servos.dev)'),
+    );
     await tester.tap(find.byTooltip('Clone from GitHub'));
     await tester.tap(find.byTooltip('Manage collections'));
     await tester.tap(find.byTooltip('Create workspace'));
     await tester.pump();
 
+    expect(switchedProfile, isTrue);
     expect(cloned, isTrue);
     expect(managedCollections, isTrue);
     expect(createdWorkspace, isTrue);

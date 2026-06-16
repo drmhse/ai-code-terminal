@@ -13,6 +13,8 @@ class AuthOsTokens {
 
   final String accessToken;
   final String? refreshToken;
+
+  String? get resourceAudience => _jwtHttpAudience(accessToken);
 }
 
 class AuthOsLinkResult {
@@ -172,4 +174,52 @@ class AuthOsLinkedAccounts {
         .where((account) => account.active && account.provider == provider.slug)
         .toList(growable: false);
   }
+}
+
+String? _jwtHttpAudience(String token) {
+  final parts = token.split('.');
+  if (parts.length < 2) {
+    return null;
+  }
+  try {
+    final payload = utf8.decode(
+      base64Url.decode(base64Url.normalize(parts[1])),
+    );
+    final decoded = jsonDecode(payload);
+    if (decoded is! Map<String, dynamic>) {
+      return null;
+    }
+    final audience = decoded['aud'];
+    if (audience is String) {
+      return _normalizeHttpAudience(audience);
+    }
+    if (audience is List) {
+      for (final item in audience) {
+        final normalized = _normalizeHttpAudience(item?.toString());
+        if (normalized != null) {
+          return normalized;
+        }
+      }
+    }
+  } catch (_) {
+    return null;
+  }
+  return null;
+}
+
+String? _normalizeHttpAudience(String? value) {
+  final trimmed = value?.trim();
+  if (trimmed == null || trimmed.isEmpty) {
+    return null;
+  }
+  final uri = Uri.tryParse(trimmed);
+  if (uri == null ||
+      uri.host.isEmpty ||
+      (uri.scheme != 'https' && uri.scheme != 'http')) {
+    return null;
+  }
+  final normalized = uri.replace(query: null, fragment: null).toString();
+  return normalized.endsWith('/')
+      ? normalized.substring(0, normalized.length - 1)
+      : normalized;
 }
